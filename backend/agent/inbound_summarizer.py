@@ -1,37 +1,53 @@
-import json
 import os
-import anthropic
+import json
+from openai import OpenAI
 
-_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-MODEL = "claude-haiku-4-5-20251001"
-
-_PROMPT = """You are a Canadian family physician's AI assistant reviewing an inbound specialist report.
-
-SPECIALIST REPORT:
-{report_text}
-
-Summarize this for the primary care physician. Return ONLY valid JSON — no markdown, no explanation:
-{{
-  "summary": "One concise paragraph (3-5 sentences) for a busy GP: specialist's overall impression, key clinical findings, any medication or management changes made, and the single most important next step.",
-  "key_changes": ["each specific clinical change the specialist made — medication added/stopped/changed, new diagnosis confirmed, procedure performed, further referral placed"],
-  "followup_actions": ["each concrete action the GP must take — lab orders, follow-up appointment timing, patient instructions, prescriptions to action"],
-  "missing_info": ["each piece of information typically expected in this type of specialist report that is absent, ambiguous, or unclear"]
-}}"""
-
+_base_url = os.getenv("LOCAL_AI_URL", "http://localhost:11434/v1")
+_client = OpenAI(base_url=_base_url, api_key="local")
+MODEL = "gemma2:2b"
 
 def summarize_inbound_note(text: str) -> dict:
-    prompt = _PROMPT.format(report_text=text[:8000])
-    msg = _client.messages.create(
-        model=MODEL,
-        max_tokens=1024,
-        temperature=0.05,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw = msg.content[0].text.strip()
-    if "```json" in raw:
-        raw = raw.split("```json")[1].split("```")[0].strip()
-    elif "```" in raw:
-        raw = raw.split("```")[1].split("```")[0].strip()
-    start = raw.find("{")
-    end   = raw.rfind("}") + 1
-    return json.loads(raw[start:end])
+    prompt = f"""You are a clinical assistant. Summarize the following inbound specialist report.
+Return ONLY valid JSON in this format:
+{{
+  "patient_name": "Extracted Patient Name",
+  "summary": "High-level summary of what happened.",
+  "key_changes": ["Change 1", "Change 2"],
+  "followup_actions": ["Follow up 1", "Follow up 2"],
+  "missing_info": ["Missing info 1"],
+  "suggested_questions": ["Question 1 about the report", "Question 2 about the report"],
+  "recommended_appointment": {{
+      "needed": true,
+      "timeframe": "e.g., 30 days, 6 months, 2 weeks",
+      "type": "e.g., Neurological re-evaluation"
+  }}
+}}
+
+REPORT:
+{text[:10000]}
+"""
+    try:
+        response = _client.chat.completions.create(
+            model=MODEL,
+            response_format={ "type": "json_object" },
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1
+        )
+        content = response.choices[0].message.content
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].strip()
+        
+        return json.loads(content)
+    except Exception as e:
+        print(f"Error summarizing inbound note: {e}")
+        return {
+            "patient_name": "Unknown Patient",
+            "summary": "Error generating summary.",
+            "key_changes": [],
+            "followup_actions": [],
+            "missing_info": [],
+            "suggested_questions": ["What is the main diagnosis?"],
+            "recommended_appointment": { "needed": False, "timeframe": "", "type": "" }
+        }

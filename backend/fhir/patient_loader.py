@@ -13,7 +13,7 @@ _patients: Optional[list[dict]] = None
 def _load() -> list[dict]:
     global _patients
     if _patients is None:
-        with open(_DATA_PATH) as f:
+        with open(_DATA_PATH, encoding="utf-8") as f:
             _patients = json.load(f)["patients"]
     return _patients
 

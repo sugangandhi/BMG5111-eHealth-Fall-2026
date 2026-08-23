@@ -35,7 +35,7 @@ def render_pdf_pages(pdf_bytes: bytes, dpi: int = 150) -> list[str]:
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     out = []
     for page in doc:
-        pix = page.get_pixmap(dpi=dpi)
+        pix = page.get_pixmap(dpi=72)
         out.append(base64.b64encode(pix.tobytes("png")).decode())
     doc.close()
     return out
@@ -52,9 +52,9 @@ def overlay_fields(pdf_bytes: bytes, filled_fields: list[dict]) -> tuple[bytes, 
     for field in filled_fields:
         value = (field.get("value") or "").strip()
         conf  = field.get("confidence", "LOW")
-        label = (field.get("label") or "").strip()
+        label = (field.get("label") or field.get("key") or "").strip()
 
-        if not value or conf == "MISSING" or not label:
+        if not value or not label or value.lower() in ("missing", "null", "none", "n/a"):
             continue
 
         bg     = _BG.get(conf, _BG["LOW"])
@@ -68,6 +68,21 @@ def overlay_fields(pdf_bytes: bytes, filled_fields: list[dict]) -> tuple[bytes, 
                 rects = page.search_for(" ".join(label.split()[:4]))
             if not rects:
                 rects = page.search_for(" ".join(label.split()[:2]))
+            if not rects and field.get("key"):
+                rects = page.search_for(field.get("key").replace("_", " "))
+            
+            # Heuristic fallback for common medical abbreviations hallucinated by AI
+            if not rects:
+                lbl = label.lower()
+                if "dob" in lbl or "birth" in lbl:
+                    rects = page.search_for("DOB")
+                elif "name" in lbl:
+                    rects = page.search_for("Name")
+                elif "reason" in lbl or "why" in lbl:
+                    rects = page.search_for("Reason")
+                elif "sign" in lbl:
+                    rects = page.search_for("Signature")
+
             if not rects:
                 continue
 
@@ -107,7 +122,7 @@ def overlay_fields(pdf_bytes: bytes, filled_fields: list[dict]) -> tuple[bytes, 
     doc2 = fitz.open(stream=filled_bytes, filetype="pdf")
     pages_b64 = []
     for page in doc2:
-        pix = page.get_pixmap(dpi=150)
+        pix = page.get_pixmap(dpi=72)
         pages_b64.append(base64.b64encode(pix.tobytes("png")).decode())
     doc2.close()
 
@@ -144,7 +159,7 @@ def overlay_fields_on_image(img_bytes: bytes, filled_fields: list[dict]) -> tupl
         conf  = field.get("confidence", "LOW")
         label = (field.get("label") or "").strip()
 
-        if not value or conf == "MISSING" or not label:
+        if not value or not label or value.lower() in ("missing", "null", "none", "n/a"):
             continue
 
         bg = _PIL_BG.get(conf, _PIL_BG["LOW"])

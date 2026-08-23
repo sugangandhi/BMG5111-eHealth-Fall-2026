@@ -5,11 +5,12 @@ with a value, confidence level, and source citation.
 """
 import json
 import os
-import anthropic
+from openai import OpenAI
 from dataclasses import dataclass
 
-_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-MODEL = "claude-haiku-4-5-20251001"
+_base_url = os.getenv("LOCAL_AI_URL", "http://localhost:11434/v1")
+_client = OpenAI(base_url=_base_url, api_key="local")
+MODEL = "gemma2:2b"
 
 CONFIDENCE_HIGH = "HIGH"
 CONFIDENCE_MEDIUM = "MEDIUM"
@@ -74,7 +75,7 @@ def map_fields(
     patient_context: str,
 ) -> list[FilledField]:
     """
-    Calls Llama 3.1 70B to map patient data onto form fields.
+    Calls local Gemma2 to map patient data onto form fields.
     Returns a list of FilledField with confidence scores.
     """
     fields_json = json.dumps(
@@ -89,14 +90,12 @@ def map_fields(
         fields_json=fields_json,
     )
 
-    message = _client.messages.create(
+    response = _client.chat.completions.create(
         model=MODEL,
-        max_tokens=3000,
-        temperature=0.05,
         messages=[{"role": "user", "content": prompt}],
     )
 
-    generated = message.content[0].text
+    generated = response.choices[0].message.content
     return _parse_filled_fields(generated, fields)
 
 
