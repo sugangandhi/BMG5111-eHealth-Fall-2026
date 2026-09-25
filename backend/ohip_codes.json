@@ -1,0 +1,52 @@
+[
+    {
+        "code": "A001",
+        "description": "Minor assessment",
+        "fee": 23.5
+    },
+    {
+        "code": "A007",
+        "description": "Intermediate assessment",
+        "fee": 37.95
+    },
+    {
+        "code": "A003",
+        "description": "General assessment",
+        "fee": 77.2
+    },
+    {
+        "code": "A004",
+        "description": "General reassessment",
+        "fee": 38.6
+    },
+    {
+        "code": "A008",
+        "description": "Mini assessment",
+        "fee": 17.55
+    },
+    {
+        "code": "K013",
+        "description": "Counselling - individual",
+        "fee": 62.75
+    },
+    {
+        "code": "K030",
+        "description": "Diabetic management assessment",
+        "fee": 39.2
+    },
+    {
+        "code": "K005",
+        "description": "Primary mental health care",
+        "fee": 62.75
+    },
+    {
+        "code": "K039",
+        "description": "Smoking cessation counselling",
+        "fee": 15.0
+    },
+    {
+        "code": "E080",
+        "description": "Initial prenatal assessment",
+        "fee": 45.0
+    }
+]

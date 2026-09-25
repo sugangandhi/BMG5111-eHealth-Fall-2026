@@ -300,37 +300,41 @@ function SmartCalendar() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)' }}>
+      <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', overflowY: 'auto' }}>
+        <div className="desktop-only" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)' }}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div key={day} style={{ padding: '12px', textAlign: 'center', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>{day}</div>
           ))}
         </div>
         
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: 'repeat(6, 1fr)', flex: 1 }}>
+        <div className="calendar-grid-mobile" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: 'repeat(6, 1fr)', flex: 1 }}>
           {getCalendarDays().map((d, i) => (
-            <div key={i} style={{ 
-              borderRight: '1px solid rgba(255,255,255,0.05)', 
-              borderBottom: '1px solid rgba(255,255,255,0.05)', 
-              padding: '8px', 
-              background: d.isCurrentMonth ? 'transparent' : 'rgba(0,0,0,0.15)',
-              opacity: d.isCurrentMonth ? 1 : 0.4,
-              display: 'flex', flexDirection: 'column', gap: '4px',
-              overflow: 'hidden'
+            <div key={i} className={!d.isCurrentMonth || getEventsForDay(d.date).length === 0 ? "mobile-hide" : ""} style={{ 
+              borderRight: '1px solid var(--border)', 
+              borderBottom: '1px solid var(--border)', 
+              padding: '12px', 
+              background: d.isCurrentMonth ? 'transparent' : 'var(--bg-tertiary)',
+              opacity: d.isCurrentMonth ? 1 : 0.6,
+              display: 'flex', flexDirection: 'column', gap: '8px',
+              overflow: 'hidden', minHeight: '100px'
             }}>
-              <div style={{ 
-                display: 'flex', justifyContent: 'center', alignItems: 'center',
-                width: '24px', height: '24px', borderRadius: '50%',
-                background: d.isToday ? '#3b82f6' : 'transparent',
-                color: d.isToday ? 'white' : 'var(--text-primary)',
-                fontWeight: d.isToday ? 'bold' : 'normal',
-                fontSize: '13px',
-                marginBottom: '4px'
-              }}>
-                {d.day}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ 
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  width: '28px', height: '28px', borderRadius: '50%',
+                  background: d.isToday ? 'var(--primary)' : 'transparent',
+                  color: d.isToday ? 'white' : 'var(--text-primary)',
+                  fontWeight: d.isToday ? 'bold' : '600',
+                  fontSize: '14px'
+                }}>
+                  {d.day}
+                </div>
+                <div className="mobile-only" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.date.getDay()]}
+                </div>
               </div>
               
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {getEventsForDay(d.date).map(ev => {
                   const time = ev.start.dateTime ? new Date(ev.start.dateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'All Day';
                   return (
@@ -338,17 +342,18 @@ function SmartCalendar() {
                       key={ev.id} 
                       onClick={() => setSelectedEvent(ev)}
                       style={{ 
-                        fontSize: '10px', 
+                        fontSize: '12px', 
                         background: 'rgba(59, 130, 246, 0.15)', 
-                        borderLeft: '2px solid #3b82f6', 
-                        padding: '4px 6px', 
-                        borderRadius: '4px',
+                        borderLeft: '3px solid var(--primary)', 
+                        padding: '6px 8px', 
+                        borderRadius: '6px',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        color: '#93c5fd',
+                        color: 'var(--text-primary)',
                         cursor: 'pointer',
-                        transition: 'background 0.2s'
+                        transition: 'background 0.2s',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                       }}
                       onMouseOver={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.25)'}
                       onMouseOut={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'}

@@ -256,20 +256,21 @@ def get_chart_data() -> Dict[str, Any]:
 
     return {"labels": labels, "forms": forms_data, "patients": patients_data}
 
-# ── Claims ──────────────────────────────────────────────────────────────────
+# ── Claims (OHIP) ────────────────────────────────────────────────────────────
 
 def get_claims() -> List[Dict]:
     db = SessionLocal()
+    from db.models import Claim
     claims = db.query(Claim).order_by(Claim.created_at.desc()).all()
     res = []
     import json
     for c in claims:
         d = {col.name: getattr(c, col.name) for col in c.__table__.columns}
-        d["icd10"] = json.loads(d["icd10"])
-        d["cpt"] = json.loads(d["cpt"])
+        d["ohip_diagnostic_codes"] = json.loads(d["ohip_diagnostic_codes"])
+        d["ohip_fee_codes"] = json.loads(d["ohip_fee_codes"])
         d["warnings"] = json.loads(d["warnings"])
         d["created_at"] = str(d["created_at"])
-        # Format for frontend (rename some keys)
+        # Format for frontend
         d["id"] = d["claim_id"] 
         d["patient"] = d["patient_name"]
         d["date"] = d["date_of_service"]
@@ -278,15 +279,20 @@ def get_claims() -> List[Dict]:
     return res
 
 def create_claim(claim_id: str, patient_name: str, date_of_service: str, 
-                 icd10: List[str], cpt: List[str], revenue: int, warnings: List[str]) -> Dict:
+                 health_card_number: str, version_code: str,
+                 ohip_diagnostic_codes: List[str], ohip_fee_codes: List[str], 
+                 revenue: int, warnings: List[str]) -> Dict:
     import json
     db = SessionLocal()
+    from db.models import Claim
     c = Claim(
         claim_id=claim_id,
         patient_name=patient_name,
+        health_card_number=health_card_number,
+        version_code=version_code,
         date_of_service=date_of_service,
-        icd10=json.dumps(icd10),
-        cpt=json.dumps(cpt),
+        ohip_diagnostic_codes=json.dumps(ohip_diagnostic_codes),
+        ohip_fee_codes=json.dumps(ohip_fee_codes),
         revenue=revenue,
         status="Pending Review",
         warnings=json.dumps(warnings)
@@ -296,8 +302,8 @@ def create_claim(claim_id: str, patient_name: str, date_of_service: str,
     db.refresh(c)
     
     d = {col.name: getattr(c, col.name) for col in c.__table__.columns}
-    d["icd10"] = icd10
-    d["cpt"] = cpt
+    d["ohip_diagnostic_codes"] = ohip_diagnostic_codes
+    d["ohip_fee_codes"] = ohip_fee_codes
     d["warnings"] = warnings
     d["created_at"] = str(d["created_at"])
     d["id"] = d["claim_id"]
@@ -310,14 +316,15 @@ def create_claim(claim_id: str, patient_name: str, date_of_service: str,
 def update_claim_status(claim_id: str, status: str) -> Optional[Dict]:
     import json
     db = SessionLocal()
+    from db.models import Claim
     c = db.query(Claim).filter(Claim.claim_id == claim_id).first()
     if c:
         c.status = status
         db.commit()
         db.refresh(c)
         d = {col.name: getattr(c, col.name) for col in c.__table__.columns}
-        d["icd10"] = json.loads(d["icd10"])
-        d["cpt"] = json.loads(d["cpt"])
+        d["ohip_diagnostic_codes"] = json.loads(d["ohip_diagnostic_codes"])
+        d["ohip_fee_codes"] = json.loads(d["ohip_fee_codes"])
         d["warnings"] = json.loads(d["warnings"])
         d["created_at"] = str(d["created_at"])
         d["id"] = d["claim_id"]
@@ -327,3 +334,62 @@ def update_claim_status(claim_id: str, status: str) -> Optional[Dict]:
         return d
     db.close()
     return None
+
+def get_claim_templates() -> List[Dict]:
+    db = SessionLocal()
+    from db.models import ClaimTemplate
+    templates = db.query(ClaimTemplate).order_by(ClaimTemplate.created_at.desc()).all()
+    res = []
+    import json
+    for t in templates:
+        d = {col.name: getattr(t, col.name) for col in t.__table__.columns}
+        d["ohip_diagnostic_codes"] = json.loads(d["ohip_diagnostic_codes"])
+        d["ohip_fee_codes"] = json.loads(d["ohip_fee_codes"])
+        d["created_at"] = str(d["created_at"])
+        res.append(d)
+    db.close()
+    return res
+
+def create_claim_template(name: str, ohip_diagnostic_codes: List[str], ohip_fee_codes: List[str], revenue: int) -> Dict:
+    import json
+    db = SessionLocal()
+    from db.models import ClaimTemplate
+    t = ClaimTemplate(
+        name=name,
+        ohip_diagnostic_codes=json.dumps(ohip_diagnostic_codes),
+        ohip_fee_codes=json.dumps(ohip_fee_codes),
+        revenue=revenue
+    )
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    d = {col.name: getattr(t, col.name) for col in t.__table__.columns}
+    d["ohip_diagnostic_codes"] = ohip_diagnostic_codes
+    d["ohip_fee_codes"] = ohip_fee_codes
+    d["created_at"] = str(d["created_at"])
+    db.close()
+    return d
+
+def get_billing_analytics() -> Dict[str, Any]:
+    db = SessionLocal()
+    from db.models import Claim
+    from sqlalchemy import func
+    
+    # Revenue tracking
+    paid = db.query(func.sum(Claim.revenue)).filter(Claim.status == "Paid").scalar() or 0
+    pending = db.query(func.sum(Claim.revenue)).filter(Claim.status.in_(["Pending Review", "Submitted to MCEDT"])).scalar() or 0
+    rejected = db.query(func.sum(Claim.revenue)).filter(Claim.status == "Rejected").scalar() or 0
+    
+    # Count tracking
+    total_claims = db.query(Claim).count()
+    rejected_claims = db.query(Claim).filter(Claim.status == "Rejected").count()
+    rejection_rate = (rejected_claims / total_claims * 100) if total_claims > 0 else 0
+    
+    db.close()
+    return {
+        "revenue_paid": paid,
+        "revenue_pending": pending,
+        "revenue_rejected": rejected,
+        "rejection_rate": round(rejection_rate, 1),
+        "total_claims": total_claims
+    }

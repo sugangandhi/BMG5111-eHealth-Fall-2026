@@ -103,9 +103,9 @@ export default function Dashboard() {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [statsRes, actRes, apptsRes] = await Promise.all([
-        axios.get('http://localhost:8000/api/dashboard/stats', { headers }),
-        axios.get('http://localhost:8000/api/activity', { headers }),
-        axios.get('http://localhost:8000/api/appointments', { headers })
+        axios.get('/api/dashboard/stats', { headers }),
+        axios.get('/api/activity', { headers }),
+        axios.get('/api/appointments', { headers })
       ]);
       setStats(statsRes.data);
       setActivities(actRes.data.items);
@@ -134,7 +134,7 @@ export default function Dashboard() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to cancel this appointment?")) return;
     try {
-      await axios.delete(`http://localhost:8000/api/appointments/${id}`, {
+      await axios.delete(`/api/appointments/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchDashboardData();
@@ -146,7 +146,7 @@ export default function Dashboard() {
   const handleUpdate = async () => {
     if (!editingAppt) return;
     try {
-      await axios.put(`http://localhost:8000/api/appointments/${editingAppt.id}`, {
+      await axios.put(`/api/appointments/${editingAppt.id}`, {
         appointment_date: editingAppt.appointment_date,
         time: editingAppt.time,
         type: editingAppt.type

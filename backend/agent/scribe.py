@@ -23,8 +23,8 @@ class ScribeResult(BaseModel):
         "assessment": "",
         "plan": ""
     }
-    icd_10: List[str] = []
-    cpt_codes: List[str] = []
+    ohip_diagnostic_codes: List[str] = []
+    ohip_fee_codes: List[str] = []
     warnings: List[str] = []
 
 def get_heuristic_scribe(text: str) -> ScribeResult:
@@ -45,9 +45,9 @@ def get_heuristic_scribe(text: str) -> ScribeResult:
                 "assessment": "Acute myocardial dysfunction / atypical anginal syndrome (r/o coronary ischemia).",
                 "plan": "Stat ECG, cardiac enzyme panel, low-dose beta-blocker initiation if non-acute."
             },
-            icd_10=["I20.9 - Angina pectoris, unspecified", "R07.4 - Chest pain, unspecified", "I21.9 - Acute myocardial infarction"],
-            cpt_codes=["99222 - Initial hospital care", "93000 - Electrocardiogram, routine ECG"],
-            warnings=["Modifier -25 may be required if E&M service is distinct from ECG procedure."]
+            ohip_diagnostic_codes=["411 - Ischemic heart disease"],
+            ohip_fee_codes=["A007 - Intermediate assessment", "G310 - Electrocardiogram"],
+            warnings=["Check if G310 ECG fee is payable with A007 on the same day without special diagnosis."]
         )
     elif any(k in text_lower for k in ["sugar", "diabetes", "metformin", "hba1c", "glucose"]):
         return ScribeResult(
@@ -63,9 +63,9 @@ def get_heuristic_scribe(text: str) -> ScribeResult:
                 "assessment": "Type 2 Diabetes Mellitus with sub-optimal glycemic tolerance.",
                 "plan": "Adjust Metformin dosage to 1000mg twice daily and initiate daily fasting glucose log."
             },
-            icd_10=["E11.9 - Type 2 diabetes mellitus without complications", "R73.09 - Other abnormal glucose"],
-            cpt_codes=["99213 - Level 3 Office Visit", "83036 - Hemoglobin A1C"],
-            warnings=["Check medical necessity rules for routine HbA1c; frequently requires specific modifiers."]
+            ohip_diagnostic_codes=["250 - Diabetes mellitus"],
+            ohip_fee_codes=["K030 - Diabetic management assessment"],
+            warnings=["K030 requires specific documentation of time spent and cannot be billed with A007."]
         )
     elif any(k in text_lower for k in ["headache", "concussion", "dizzy", "migraine", "neurology"]):
         return ScribeResult(
@@ -81,9 +81,9 @@ def get_heuristic_scribe(text: str) -> ScribeResult:
                 "assessment": "Cephalalgia / Migraine without aura (rule out structural pathology).",
                 "plan": "Initiate symptomatic supportive care and outpatient neuroimaging scan."
             },
-            icd_10=["G43.90 - Migraine, unspecified, not intractable", "R51.9 - Headache, unspecified"],
-            cpt_codes=["99244 - Office consultation", "70551 - MRI Brain w/o dye"],
-            warnings=["MRI Brain without dye may require prior authorization depending on payer rules."]
+            ohip_diagnostic_codes=["346 - Migraine"],
+            ohip_fee_codes=["A003 - General assessment"],
+            warnings=["Ensure general assessment criteria are fully met in the objective exam."]
         )
     else:
         # Generic professional clinical medical breakdown
@@ -102,13 +102,13 @@ def get_heuristic_scribe(text: str) -> ScribeResult:
                 "assessment": "General clinical presentation / ambulatory outpatient evaluation.",
                 "plan": "Complete documented medical orders and reconcile active home medication list."
             },
-            icd_10=["Z00.00 - Encounter for general adult medical examination without abnormal findings"],
-            cpt_codes=["99214 - Level 4 Office Visit"],
+            ohip_diagnostic_codes=["000 - General medical examination"],
+            ohip_fee_codes=["A001 - Minor assessment"],
             warnings=[]
         )
 
 def parse_dictation(text: str) -> ScribeResult:
-    prompt = f"""You are an expert clinical medical scribe. Parse the following physician dictation into a comprehensive structured EHR record.
+    prompt = f"""You are an expert clinical medical scribe practicing in Ontario, Canada. Parse the following physician dictation into a comprehensive structured EHR record.
 Return ONLY valid JSON matching exactly this schema:
 {{
   "summary": "Professional concise executive summary of the consultation",
@@ -119,13 +119,13 @@ Return ONLY valid JSON matching exactly this schema:
     "assessment": "Primary diagnosis or rule-out considerations",
     "plan": "Therapeutic plan, medications, and follow-up timeline"
   }},
-  "icd_10": ["ICD-10 Code and Description 1", "ICD-10 Code and Description 2"],
-  "cpt_codes": ["CPT Code and Description 1"],
-  "warnings": ["Missing modifier -25 for distinct procedure", "Diagnosis X does not support Procedure Y"]
+  "ohip_diagnostic_codes": ["3-digit OHIP diagnostic code and description"],
+  "ohip_fee_codes": ["OHIP fee schedule code (e.g. A007) and description"],
+  "warnings": ["Warning about MCEDT billing rules, mutually exclusive codes, or missing documentation requirements"]
 }}
 
-Make sure to extract both ICD-10 (diagnoses) and CPT (procedures/visits) codes accurately based on the clinical dictation. 
-Add validation warnings if there are missing modifiers or invalid code combinations based on standard medical coding guidelines.
+Make sure to extract both OHIP diagnostic codes and OHIP fee schedule codes accurately based on the clinical dictation. 
+Add validation warnings if there are missing requirements based on Ontario Ministry of Health OHIP Schedule of Benefits.
 
 DICTATION:
 {text[:10000]}
@@ -149,8 +149,8 @@ DICTATION:
             summary=data.get("summary", "No summary generated."),
             action_items=data.get("action_items", []),
             soap=data.get("soap", {"subjective": "", "objective": "", "assessment": "", "plan": ""}),
-            icd_10=data.get("icd_10", []),
-            cpt_codes=data.get("cpt_codes", []),
+            ohip_diagnostic_codes=data.get("ohip_diagnostic_codes", []),
+            ohip_fee_codes=data.get("ohip_fee_codes", []),
             warnings=data.get("warnings", [])
         )
     except Exception as e:

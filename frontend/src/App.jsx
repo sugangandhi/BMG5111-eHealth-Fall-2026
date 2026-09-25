@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign } from 'lucide-react';
+import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
 
@@ -14,7 +14,9 @@ import Scribe from './components/Scribe';
 import SettingsModal from './components/SettingsModal';
 import SmartCalendar from './components/SmartCalendar';
 import BillingDashboard from './components/BillingDashboard';
-
+import UniversalScanner from './components/UniversalScanner';
+import KioskMode from './components/KioskMode';
+import DigitalTwin from './components/DigitalTwin';
 window.utterances = [];
 window.isSpeaking = false;
 const speakAction = (text) => {
@@ -67,9 +69,11 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isVoiceNavActive, setIsVoiceNavActive] = useState(false);
   const [voiceNavStatus, setVoiceNavStatus] = useState('');
+  const [isKioskMode, setIsKioskMode] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
   const [activePatient, setActivePatient] = useState(null);
   const searchInputRef = useRef(null);
@@ -353,46 +357,49 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
+  if (isKioskMode) {
+    return <KioskMode onExit={() => setIsKioskMode(false)} />;
+  }
+
   return (
     <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'relative' }}>
       <header className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px', margin: '16px', borderBottom: 'none', borderRadius: '16px', alignItems: 'center', position: 'relative', zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {user?.picture ? (
-            <img src={user.picture} alt={user?.name || 'User'} style={{ width: '42px', height: '42px', borderRadius: '50%', border: '2px solid #3b82f6', boxShadow: '0 0 10px rgba(59, 130, 246, 0.3)' }} />
+            <img src={user.picture} alt={user?.name || 'User'} style={{ width: '42px', height: '42px', borderRadius: '50%', border: '1px solid var(--border)' }} />
           ) : (
-            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '18px', color: 'white' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '18px', color: 'white' }}>
               {user?.initials || 'MD'}
             </div>
           )}
           <div>
-            <h2 style={{ margin: 0, fontSize: '19px', fontWeight: '700', background: 'linear-gradient(to right, #60a5fa, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Prime Care App <span style={{ fontSize: '11px', background: 'rgba(59, 130, 246, 0.2)', color: 'var(--primary)', padding: '3px 8px', borderRadius: '12px', marginLeft: '8px', verticalAlign: 'middle', WebkitTextFillColor: '#60a5fa', fontWeight: '600' }}>PRO</span></h2>
-            <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>{user?.clinic || 'Prime Care Medical Group'} · <strong style={{ color: '#e2e8f0' }}>{user?.name}</strong> {user?.email && `(${user.email})`}</p>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' }}>Prime Care App <span style={{ fontSize: '11px', background: 'rgba(47, 129, 247, 0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', verticalAlign: 'middle', border: '1px solid rgba(47, 129, 247, 0.2)', fontWeight: '600' }}>PRO</span></h2>
+            <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.clinic || 'Prime Care Medical Group'} · <strong style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{user?.name}</strong> {user?.email && `(${user.email})`}</p>
           </div>
         </div>
 
         {/* Header Right Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
           
           {/* Spotlight Search Trigger */}
           <button 
             onClick={() => setIsSearchOpen(true)}
             style={{ 
-              background: 'rgba(15, 23, 42, 0.4)', 
-              border: '1px solid rgba(59, 130, 246, 0.3)', 
-              borderRadius: '20px', 
-              padding: '8px 16px', 
+              background: 'var(--bg-secondary)', 
+              border: '1px solid var(--border)', 
+              borderRadius: '6px', 
+              padding: '6px 12px', 
               display: 'flex', 
               alignItems: 'center', 
               gap: '8px',
               color: 'var(--text-secondary)', 
-              cursor: 'pointer', 
-              transition: 'all 0.3s',
-              boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.2)'
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}
           >
             <Search size={16} />
             <span style={{ fontSize: '13px', marginRight: '32px' }}>Search Prime Care...</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: '4px', fontSize: '10px', fontWeight: '500', color: 'var(--text-secondary)' }}>
               <span>⌘</span><span>K</span>
             </div>
           </button>
@@ -401,41 +408,54 @@ function App() {
           <button 
             onClick={() => setIsVoiceNavActive(!isVoiceNavActive)}
             style={{ 
-              background: isVoiceNavActive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(30, 41, 59, 0.65)', 
-              border: isVoiceNavActive ? '1px solid #10b981' : '1px solid rgba(59, 130, 246, 0.35)', 
-              borderRadius: '24px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px',
-              color: isVoiceNavActive ? '#34d399' : 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.3s',
-              boxShadow: isVoiceNavActive ? '0 0 15px rgba(16, 185, 129, 0.4)' : '0 4px 15px rgba(0,0,0,0.15)',
-              fontWeight: '600', fontSize: '14px'
+              background: isVoiceNavActive ? 'rgba(35, 134, 54, 0.1)' : 'var(--bg-secondary)', 
+              border: isVoiceNavActive ? '1px solid var(--accent)' : '1px solid var(--border)', 
+              borderRadius: '6px', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px',
+              color: isVoiceNavActive ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer',
+              fontWeight: '500', fontSize: '13px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}
           >
-            {isVoiceNavActive ? <Mic size={18} className="animate-pulse" /> : <Mic size={18} />}
+            <Mic size={16} />
             {isVoiceNavActive ? 'Listening...' : 'Hands-Free Nav'}
           </button>
 
           <button 
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             style={{ 
-              background: 'rgba(30, 41, 59, 0.65)', border: '1px solid rgba(59, 130, 246, 0.35)', 
-              borderRadius: '50%', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--text-primary)', cursor: 'pointer', position: 'relative', transition: 'all 0.2s',
-              boxShadow: '0 4px 15px rgba(0,0,0,0.15)'
+              background: 'var(--bg-secondary)', border: '1px solid var(--border)', 
+              borderRadius: '6px', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-secondary)', cursor: 'pointer', position: 'relative',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}
           >
-            <Bell size={20} />
-            <div style={{ position: 'absolute', top: '-2px', right: '-2px', background: '#ef4444', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid var(--glass-bg)' }} />
+            <Bell size={18} />
+            <div style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'var(--error)', width: '10px', height: '10px', borderRadius: '50%', border: '2px solid var(--bg-primary)' }} />
+          </button>
+
+          <button 
+            onClick={() => setIsScannerOpen(true)}
+            style={{ 
+              background: 'var(--bg-secondary)', 
+              border: '1px solid var(--border)', 
+              borderRadius: '6px', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--primary)', cursor: 'pointer', position: 'relative',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+            }}
+            title="Universal AI Document Scanner"
+          >
+            <Scan size={18} />
           </button>
 
           {/* Executive Profile & Settings Menu Trigger */}
           <div style={{ position: 'relative' }}>
           <button 
-            className="btn btn-secondary"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             style={{
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 16px',
-              borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.35)',
-              background: 'rgba(30, 41, 59, 0.65)', fontWeight: '600', color: 'var(--text-primary)',
-              boxShadow: '0 4px 15px rgba(0,0,0,0.15)', transition: 'all 0.2s'
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px',
+              borderRadius: '6px', border: '1px solid var(--border)',
+              background: 'var(--bg-secondary)', fontWeight: '500', fontSize: '13px', color: 'var(--text-primary)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}
           >
             <Settings size={17} color="#60a5fa" />
@@ -488,6 +508,8 @@ function App() {
                   {theme === 'dark' ? 'Night' : 'Day'}
                 </span>
               </button>
+
+
 
               {/* Open Complete Settings Suite */}
               <button
@@ -565,18 +587,31 @@ function App() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }} onClick={() => { if (isMenuOpen) setIsMenuOpen(false); if (isNotificationsOpen) setIsNotificationsOpen(false); }}>
         {/* Sidebar Nav */}
-        <aside className="glass-panel" style={{ width: '250px', margin: '0 0 16px 16px', padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: 'none', backdropFilter: 'blur(30px)' }}>
+        <aside className="glass-panel desktop-only" style={{ width: '250px', margin: '0 0 16px 16px', padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: 'none', backdropFilter: 'blur(30px)' }}>
           <NavButton icon={<LayoutDashboard size={18} />} label="Dashboard" badge={badges.dashboard} active={activeTab === 'dashboard'} onClick={() => handleTabClick('dashboard')} />
+          <NavButton icon={<Activity size={18} />} label="Digital Twin" active={activeTab === 'twin'} onClick={() => handleTabClick('twin')} />
           <NavButton icon={<Calendar size={18} />} label="Smart Calendar" active={activeTab === 'calendar'} onClick={() => handleTabClick('calendar')} />
           <NavButton icon={<FileText size={18} />} label="Intake OCR Engine" badge={badges.formFiller} active={activeTab === 'formFiller'} onClick={() => handleTabClick('formFiller')} />
           <NavButton icon={<Send size={18} />} label="Referral AI Triage" badge={badges.referral} active={activeTab === 'referral'} onClick={() => handleTabClick('referral')} />
           <NavButton icon={<MessageSquare size={18} />} label="Inbound Summary & Chat" badge={badges.inbound} active={activeTab === 'inbound'} onClick={() => handleTabClick('inbound')} />
           <NavButton icon={<Inbox size={18} />} label="Secure Inbox" badge={badges.inbox} active={activeTab === 'inbox'} onClick={() => handleTabClick('inbox')} />
-          <NavButton icon={<DollarSign size={18} />} label="AI Revenue & Billing" badge={badges.billing} active={activeTab === 'billing'} onClick={() => handleTabClick('billing')} />
+          <NavButton icon={<DollarSign size={18} />} label="Billing" badge={badges.billing} active={activeTab === 'billing'} onClick={() => handleTabClick('billing')} />
+          <div style={{ marginTop: 'auto' }}>
+            <NavButton 
+              icon={<MessageCircle size={18} />} 
+              label="WhatsApp Patient Chat" 
+              onClick={() => {
+                const phoneNumber = '1234567890';
+                const defaultMessage = 'Hello, I am a patient reaching out to update my records. My name is [Your Name] and my DOB is [YYYY-MM-DD].';
+                window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(defaultMessage)}`, '_blank');
+              }} 
+            />
+            <NavButton icon={<ScanFace size={18} />} label="iPad Kiosk Mode" onClick={() => setIsKioskMode(true)} />
+          </div>
         </aside>
 
         {/* Main Content Area */}
-        <main id="main-scroll-area" className="glass-panel" style={{ flex: 1, margin: '0 16px 16px 16px', overflowY: 'hidden', border: 'none', borderRadius: '16px', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        <main id="main-scroll-area" className="glass-panel main-content-mobile" style={{ flex: 1, margin: '0 16px 16px 16px', overflowY: 'hidden', border: 'none', borderRadius: '16px', position: 'relative', display: 'flex', flexDirection: 'column' }}>
           
           {/* GLOBAL PATIENT BANNER */}
           <AnimatePresence>
@@ -651,6 +686,7 @@ function App() {
               {activeTab === 'inbound' && <InboundSummary setActiveTab={handleTabClick} triggerNotification={triggerNotification} />}
               {activeTab === 'inbox' && <SecureInbox triggerNotification={triggerNotification} />}
               {activeTab === 'billing' && <BillingDashboard />}
+              {activeTab === 'twin' && <DigitalTwin />}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -761,6 +797,34 @@ function App() {
         toggleTheme={toggleTheme} 
         user={user} 
       />
+      <UniversalScanner isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
+
+      {/* Mobile Bottom Navigation */}
+      <div className="bottom-nav mobile-only">
+        <div className={`bottom-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleTabClick('dashboard')}>
+          <LayoutDashboard size={24} />
+          <span>Home</span>
+        </div>
+        <div className={`bottom-nav-item ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => handleTabClick('calendar')}>
+          <Calendar size={24} />
+          <span>Calendar</span>
+        </div>
+        <div className={`bottom-nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => handleTabClick('inbox')}>
+          <div style={{ position: 'relative' }}>
+            <Inbox size={24} />
+            {badges.inbox > 0 && (
+              <span style={{ position: 'absolute', top: -5, right: -5, background: 'var(--error)', color: 'white', fontSize: '10px', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                {badges.inbox}
+              </span>
+            )}
+          </div>
+          <span>Inbox</span>
+        </div>
+        <div className={`bottom-nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => handleTabClick('billing')}>
+          <DollarSign size={24} />
+          <span>Billing</span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -752,7 +752,7 @@ async def referral_check_endpoint(body: ReferralCheckRequest):
     except Exception as e:
         raise HTTPException(500, f"Referral check failed: {e}")
 
-# ── Claims / Billing ────────────────────────────────────────────────────────────
+# ── Claims / Billing (OHIP) ──────────────────────────────────────────────────
 
 @app.get("/api/claims")
 async def get_claims_endpoint():
@@ -762,9 +762,11 @@ async def get_claims_endpoint():
 class ClaimCreateRequest(BaseModel):
     claim_id: str
     patient_name: str
+    health_card_number: str = ""
+    version_code: str = ""
     date_of_service: str
-    icd10: list[str]
-    cpt: list[str]
+    ohip_diagnostic_codes: list[str]
+    ohip_fee_codes: list[str]
     revenue: int
     warnings: list[str] = []
 
@@ -774,26 +776,95 @@ async def create_claim_endpoint(body: ClaimCreateRequest):
     claim = create_claim(
         claim_id=body.claim_id,
         patient_name=body.patient_name,
+        health_card_number=body.health_card_number,
+        version_code=body.version_code,
         date_of_service=body.date_of_service,
-        icd10=body.icd10,
-        cpt=body.cpt,
+        ohip_diagnostic_codes=body.ohip_diagnostic_codes,
+        ohip_fee_codes=body.ohip_fee_codes,
         revenue=body.revenue,
         warnings=body.warnings
     )
     log_activity("claim_created", "Claim sent to Billing", body.patient_name, body.claim_id, f"Revenue: ${body.revenue}", "blue")
     return claim
 
-class ClaimStatusUpdate(BaseModel):
-    status: str
-
-@app.patch("/api/claims/{claim_id}")
-async def update_claim_status_endpoint(claim_id: str, body: ClaimStatusUpdate):
+@app.get("/api/mcedt/submit/{claim_id}")
+async def submit_to_mcedt_endpoint(claim_id: str):
+    import random
+    import time
     from db.database import update_claim_status
-    claim = update_claim_status(claim_id, body.status)
+    # Mock network delay to MCEDT
+    time.sleep(1)
+    status = random.choices(["Paid", "Rejected", "Pending Review"], weights=[70, 20, 10])[0]
+    claim = update_claim_status(claim_id, status)
     if not claim:
         raise HTTPException(404, "Claim not found")
-    log_activity("claim_submitted", "Claim submitted to payer", claim["patient"], claim["id"], f"Status: {body.status}", "green")
+    color = "green" if status == "Paid" else "red" if status == "Rejected" else "yellow"
+    log_activity("mcedt_submit", "MCEDT Submission", claim["patient"], claim["id"], f"Result: {status}", color)
+    return {"status": status, "claim": claim}
+
+@app.patch("/api/claims/{claim_id}")
+async def update_claim_status_endpoint(claim_id: str, body: dict):
+    from db.database import update_claim_status
+    status = body.get("status")
+    claim = update_claim_status(claim_id, status)
+    if not claim:
+        raise HTTPException(404, "Claim not found")
     return claim
 
-# ── Serve frontend — must be last so API routes take precedence ───────────────
+@app.get("/api/ohip/search")
+async def search_ohip_codes(q: str):
+    import json
+    try:
+        with open("ohip_codes.json", "r") as f:
+            codes = json.load(f)
+        q = q.lower()
+        results = [c for c in codes if q in c['code'].lower() or q in c['description'].lower()]
+        return {"results": results}
+    except Exception as e:
+        return {"results": []}
+
+@app.post("/api/ocr/health-card")
+async def scan_health_card():
+    # Mock OCR endpoint (in reality, would take a file upload)
+    from ocr.health_card import analyze_health_card
+    res = analyze_health_card(b"")
+    return res
+
+from fastapi import UploadFile, File
+
+@app.post("/api/scanner/triage")
+async def triage_document_endpoint(file: UploadFile = File(...)):
+    from api.scanner import triage_document
+    # Use the filename to drive the mock classification
+    result = triage_document(file.filename)
+    # Log it
+    log_activity("document_scanned", f"AI Scanned: {result['title']}", result['data'].get('patient_name', 'Unknown'), "DOC", f"Confidence: {result['confidence']*100}%", "emerald")
+    return result
+
+class TemplateCreateRequest(BaseModel):
+    name: str
+    ohip_diagnostic_codes: list[str]
+    ohip_fee_codes: list[str]
+    revenue: int
+
+@app.get("/api/claims/templates")
+async def get_templates_endpoint():
+    from db.database import get_claim_templates
+    return {"templates": get_claim_templates()}
+
+@app.post("/api/claims/templates")
+async def create_template_endpoint(body: TemplateCreateRequest):
+    from db.database import create_claim_template
+    t = create_claim_template(body.name, body.ohip_diagnostic_codes, body.ohip_fee_codes, body.revenue)
+    return t
+
+@app.get("/api/analytics/billing")
+async def get_billing_analytics_endpoint():
+    from db.database import get_billing_analytics
+    return get_billing_analytics()
+
+from api import whatsapp
+app.include_router(whatsapp.router)
+
+# Serve frontend - must be last
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

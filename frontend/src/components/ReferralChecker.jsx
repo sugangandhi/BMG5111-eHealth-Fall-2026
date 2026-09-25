@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { CheckCircle, AlertCircle, Loader2, Printer, Sparkles, Calendar, UploadCloud, Layers, FileDigit, Stethoscope, User, Clock, FileText, Droplet, History, Mail, HeartPulse } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader2, Printer, Sparkles, Calendar, UploadCloud, Layers, FileDigit, Stethoscope, User, Clock, FileText, Droplet, History, Mail, HeartPulse, ArrowRight, Database } from 'lucide-react';
 
 const MOCK_PATIENT_DB = {
   "1234-567-890": {
@@ -81,14 +81,14 @@ export default function ReferralChecker({ triggerNotification }) {
     setScheduled(false);
 
     try {
-      const res = await axios.post('http://localhost:8000/api/referral/check', {
+      const res = await axios.post('/api/referral/check', {
         text: selectedReferral.text,
         specialty: selectedReferral.specialty
       });
       setResult(res.data);
       
       const token = localStorage.getItem('medoffice_token') || 'demo-token';
-      await axios.post('http://localhost:8000/api/activity/log', {
+      await axios.post('/api/activity/log', {
         action: "referral_evaluated",
         description: `Deep Data Extraction on ${selectedReferral.specialty} referral`,
         patient_name: selectedReferral.patientName,
@@ -118,7 +118,7 @@ export default function ReferralChecker({ triggerNotification }) {
     setTimeout(() => {
       setFaxStatus('sent');
       const token = localStorage.getItem('medoffice_token') || 'demo-token';
-      axios.post('http://localhost:8000/api/activity/log', {
+      axios.post('/api/activity/log', {
         action: "fax_transmitted",
         description: `Automated Fax transmitted for missing ${selectedReferral.specialty} criteria`,
         patient_name: selectedReferral.patientName,
@@ -150,7 +150,7 @@ export default function ReferralChecker({ triggerNotification }) {
   const handleScheduleConsult = () => {
     setScheduled(true);
     const token = localStorage.getItem('medoffice_token') || 'demo-token';
-    axios.post('http://localhost:8000/api/activity/log', {
+    axios.post('/api/activity/log', {
       action: "consult_scheduled",
       description: `Scheduled priority consult for ${selectedReferral.specialty}`,
       patient_name: selectedReferral.patientName,
@@ -214,9 +214,40 @@ export default function ReferralChecker({ triggerNotification }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {!selectedReferral ? (
-            <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-              <FileText size={48} color="rgba(255,255,255,0.1)" style={{ marginBottom: '16px' }} />
-              <p style={{ fontSize: '16px', fontWeight: '600' }}>Select a referral from the queue to begin triage.</p>
+            <div className="glass-panel" style={{ flex: 1, padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%)', borderRadius: '50%' }} />
+              
+              <div style={{ marginBottom: '32px' }}>
+                <div style={{ width: '64px', height: '64px', background: 'var(--bg-tertiary)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', marginBottom: '24px' }}>
+                  <FileDigit size={32} color="#8b5cf6" />
+                </div>
+                <h2 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '12px' }}>Intelligent Referral Triage</h2>
+                <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6', maxWidth: '600px' }}>
+                  Prime Care AI instantly analyzes unstructured clinical referrals to extract vital information, detect missing documentation (like MRIs or lab results), and automatically draft follow-up requests to referring providers.
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
+                {[
+                  { icon: <Database size={18} color="#3b82f6" />, title: "Automated EMR Matching", desc: "Cross-references OHIP numbers with existing patient records." },
+                  { icon: <AlertCircle size={18} color="#f97316" />, title: "Missing Data Detection", desc: "Flags referrals that are missing required clinical criteria." },
+                  { icon: <Mail size={18} color="#10b981" />, title: "Automated Provider Comms", desc: "Drafts secure faxes/emails requesting missing scans." },
+                  { icon: <Calendar size={18} color="#a855f7" />, title: "1-Click Scheduling", desc: "Approves and queues complete referrals for booking." }
+                ].map((feat, i) => (
+                  <div key={i} style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      {feat.icon}
+                      <h4 style={{ margin: 0, fontSize: '14px', color: 'var(--text-primary)', fontWeight: '600' }}>{feat.title}</h4>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>{feat.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(139, 92, 246, 0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                <ArrowRight size={20} color="#8b5cf6" className="animate-pulse" />
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>Select an inbound referral from the queue on the left to see the AI in action.</span>
+              </div>
             </div>
           ) : (
             <>

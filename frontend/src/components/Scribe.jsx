@@ -260,7 +260,7 @@ export default function Scribe() {
     
     try {
       const token = localStorage.getItem('medoffice_token') || 'demo-token';
-      const res = await axios.post('http://localhost:8000/api/scribe', 
+      const res = await axios.post('/api/scribe', 
         { text: dictation },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -268,24 +268,25 @@ export default function Scribe() {
     } catch (err) {
       console.error("Scribe error:", err);
       // Fallback display if network hits an issue
-      let cptCodes = ["99214 - Level 4 Office Visit"];
-      let icd10Codes = ["Z00.00 - General medical examination"];
+      let cptCodes = ["A001 - Minor assessment"];
+      let icd10Codes = ["000 - General medical examination"];
       
       if (dictation.toLowerCase().includes("cardiac") || dictation.toLowerCase().includes("chest")) {
-        cptCodes = ["99222 - Initial hospital care", "93000 - Electrocardiogram, routine ECG"];
-        icd10Codes = ["I20.0 - Unstable angina", "R07.9 - Chest pain, unspecified"];
+        cptCodes = ["A007 - Intermediate assessment", "G310 - Electrocardiogram"];
+        icd10Codes = ["411 - Ischemic heart disease"];
       } else if (dictation.toLowerCase().includes("diabetes")) {
-        cptCodes = ["99213 - Level 3 Office Visit", "83036 - Hemoglobin A1C"];
-        icd10Codes = ["E11.9 - Type 2 diabetes mellitus without complications"];
+        cptCodes = ["K030 - Diabetic management assessment"];
+        icd10Codes = ["250 - Diabetes mellitus"];
       } else if (dictation.toLowerCase().includes("neuro") || dictation.toLowerCase().includes("headache")) {
-        cptCodes = ["99244 - Office consultation", "70551 - MRI Brain w/o dye"];
-        icd10Codes = ["G43.909 - Migraine, unspecified", "R51.9 - Headache, unspecified"];
+        cptCodes = ["A003 - General assessment"];
+        icd10Codes = ["346 - Migraine"];
       }
 
       setParsedData({
         summary: "Clinical consultation record processed via offline protocol.",
-        icd_10: icd10Codes,
-        cpt: cptCodes,
+        ohip_diagnostic_codes: icd10Codes,
+        ohip_fee_codes: cptCodes,
+        warnings: [],
         soap: {
           subjective: dictation.slice(0, 150) + "...",
           objective: "Vitals stable, general physical examination within normal physiological bounds.",
@@ -301,7 +302,7 @@ export default function Scribe() {
 
   const handleCopy = () => {
     if (!parsedData) return;
-    const formatted = `[PRIME CARE AI SCRIBE - SOAP NOTE]\nSummary: ${parsedData.summary}\n\n[SOAP STRUCTURE]\nSubjective: ${parsedData.soap?.subjective || ''}\nObjective: ${parsedData.soap?.objective || ''}\nAssessment: ${parsedData.soap?.assessment || ''}\nPlan: ${parsedData.soap?.plan || ''}\n\n[ICD-10 CODES]\n${(parsedData.icd_10 || []).join('\n')}\n\n[ACTION ITEMS]\n${(parsedData.action_items || []).join('\n')}`;
+    const formatted = `[PRIME CARE AI SCRIBE - SOAP NOTE]\nSummary: ${parsedData.summary}\n\n[SOAP STRUCTURE]\nSubjective: ${parsedData.soap?.subjective || ''}\nObjective: ${parsedData.soap?.objective || ''}\nAssessment: ${parsedData.soap?.assessment || ''}\nPlan: ${parsedData.soap?.plan || ''}\n\n[OHIP CODES]\n${(parsedData.ohip_diagnostic_codes || []).join('\n')}\n${(parsedData.ohip_fee_codes || []).join('\n')}\n\n[ACTION ITEMS]\n${(parsedData.action_items || []).join('\n')}`;
     navigator.clipboard.writeText(formatted);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
@@ -313,10 +314,10 @@ export default function Scribe() {
     // Log to activity feed
     try {
       const token = localStorage.getItem('medoffice_token') || 'demo-token';
-      axios.post('http://localhost:8000/api/activity/log', {
+      axios.post('/api/activity/log', {
         action: "scribe_soap_saved",
         description: "AI-generated SOAP note electronically signed and pushed to patient EHR.",
-        patient_name: "Outpatient Clinic Visit",
+        patient_name: "Current Patient",
         detail: `Summary: ${parsedData.summary}`,
         color: "emerald"
       }, { headers: { Authorization: `Bearer ${token}` } });
@@ -337,14 +338,16 @@ export default function Scribe() {
       const claim = {
         claim_id: `CLM-${Math.floor(Math.random() * 10000)}`,
         patient_name: "Current Patient", 
+        health_card_number: "",
+        version_code: "",
         date_of_service: new Date().toLocaleDateString(),
-        icd10: parsedData.icd_10 || [],
-        cpt: parsedData.cpt_codes || [],
-        revenue: (parsedData.cpt_codes || []).length * 150, // Mock revenue calc
+        ohip_diagnostic_codes: parsedData.ohip_diagnostic_codes || [],
+        ohip_fee_codes: parsedData.ohip_fee_codes || [],
+        revenue: (parsedData.ohip_fee_codes || []).length * 65, // Mock revenue calc
         warnings: parsedData.warnings || []
       };
       
-      await axios.post('http://localhost:8000/api/claims', claim, {
+      await axios.post('/api/claims', claim, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -398,7 +401,7 @@ export default function Scribe() {
         onClick={() => setIsOpen(true)}
         title="Open Ambient Clinical AI Voice Scribe"
       >
-        <Mic size={34} className="animate-pulse" />
+        <Mic size={34} color="white" className="animate-pulse" />
       </button>
     );
   }

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
-import { MessageSquare, FileText, Send, Loader2, Sparkles, Activity, AlertTriangle, Pill, Calendar, Download, CheckCircle, Clock } from 'lucide-react';
+import { MessageSquare, FileText, Send, Loader2, Sparkles, Activity, AlertTriangle, Pill, Calendar, Download, CheckCircle, Clock, ArrowRight } from 'lucide-react';
 
 const DEMO_SCENARIOS = {
   Oncology: `HOSPITAL DISCHARGE SUMMARY - PRINCESS MARGARET CANCER CENTRE
@@ -133,7 +133,7 @@ export default function InboundSummary({ setActiveTab, triggerNotification }) {
       const token = localStorage.getItem('medoffice_token') || 'demo-token';
       
       // 1. Post to appointments so it shows up in Upcoming Appointments
-      await axios.post('http://localhost:8000/api/appointments', {
+      await axios.post('/api/appointments', {
         patient_id: "P-456", 
         patient_name: summary?.patient || "Demo Patient",
         time: "10:00 AM",
@@ -143,7 +143,7 @@ export default function InboundSummary({ setActiveTab, triggerNotification }) {
       });
 
       // 2. Post to Activity Log
-      await axios.post('http://localhost:8000/api/activity/log', {
+      await axios.post('/api/activity/log', {
         action: "consult_scheduled",
         description: `Scheduled 7-Day Follow-Up from Chart Review`,
         patient_name: summary?.patient || "Demo Patient",
@@ -242,14 +242,24 @@ export default function InboundSummary({ setActiveTab, triggerNotification }) {
             </div>
           </div>
           
-          <div style={{ flex: 1, padding: '24px', overflowY: 'auto', background: 'var(--bg-tertiary)' }}>
+          <div style={{ flex: 1, padding: '24px', overflowY: 'auto', background: 'var(--bg-tertiary)', position: 'relative' }}>
             {docText ? (
-              <div style={{ background: 'var(--bg-secondary)', padding: '32px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', minHeight: '100%', color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: '14.5px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}>
+              <div style={{ background: 'var(--bg-secondary)', padding: '32px', border: '1px solid var(--border)', borderRadius: '8px', minHeight: '100%', color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: '14.5px', lineHeight: '1.8', whiteSpace: 'pre-wrap' }}>
                 {docText}
               </div>
             ) : (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: '15px' }}>
-                Paste a document or select a demo scenario above.
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px' }}>
+                <div style={{ width: '80px', height: '80px', background: 'rgba(168, 85, 247, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                  <Sparkles size={40} color="#a855f7" />
+                </div>
+                <h3 style={{ fontSize: '20px', color: 'var(--text-primary)', marginBottom: '12px', fontWeight: '700' }}>Chart Review Assistant</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6', maxWidth: '400px', marginBottom: '32px' }}>
+                  The AI Assistant can extract medication changes, detect critical alerts, and answer questions about 100+ page clinical documents in seconds.
+                </p>
+                <div style={{ display: 'flex', gap: '12px', background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', textAlign: 'left', width: '100%', maxWidth: '400px' }}>
+                  <ArrowRight size={20} color="#a855f7" style={{ flexShrink: 0, marginTop: '2px' }} className="animate-pulse" />
+                  <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '500' }}>To get started, click on one of the Demo Scenarios above (e.g., Complex Oncology Discharge) to load a chart.</span>
+                </div>
               </div>
             )}
           </div>

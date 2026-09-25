@@ -128,7 +128,7 @@ export default function SecureInbox({ triggerNotification }) {
     if (triggerDashUpdate) {
       try {
         const token = localStorage.getItem('medoffice_token') || 'demo-token';
-        await axios.post('http://localhost:8000/api/activity/log', {
+        await axios.post('/api/activity/log', {
           action: "secure_inbox_resolved",
           description: `Executed AI Copilot Workflow: ${actionName}`,
           patient_name: selectedMsg?.sender || "Unknown",

@@ -10,14 +10,16 @@ The application consists of a **FastAPI backend** (which also serves the fronten
 Open your terminal (Command Prompt or PowerShell) and run the following commands:
 ```bash
 cd path\to\Hackers-Healers-1\backend
-python -m uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
-*Keep this terminal window open. This runs the main brain of the app.*
+*Note: Using `--host 0.0.0.0` allows access from other devices (like your smartphone) on your local Wi-Fi.*
 
 ### Step 2: Access the App
-Once the backend is running, open your web browser and go to:
-**http://localhost:8000**
-This will serve the fully built production version of the frontend.
+* **On your PC**: Open your web browser and go to: **http://localhost:8000**
+* **On your Smartphone / Mobile Device**: 
+  1. Make sure your phone is on the **same Wi-Fi network** as your PC.
+  2. Open Safari or Chrome on your phone and go to: **http://192.168.2.29:8000** (or your PC's current Wi-Fi IP from `ipconfig`).
+  3. *(Optional)* Tap **Share > Add to Home Screen** on iPhone or **Install App / Add to Home screen** on Android to use it like a native mobile app!
 
 ---
 

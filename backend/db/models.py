@@ -61,10 +61,21 @@ class Claim(Base):
     id = Column(Integer, primary_key=True, index=True)
     claim_id = Column(String(50), unique=True, index=True, nullable=False)
     patient_name = Column(String(100), nullable=False)
+    health_card_number = Column(String(20), default="")
+    version_code = Column(String(5), default="")
     date_of_service = Column(String(20), nullable=False)
-    icd10 = Column(Text, default="[]") # JSON list of strings
-    cpt = Column(Text, default="[]") # JSON list of strings
+    ohip_diagnostic_codes = Column(Text, default="[]") # JSON list of strings
+    ohip_fee_codes = Column(Text, default="[]") # JSON list of strings
     revenue = Column(Integer, default=0)
-    status = Column(String(50), default="Pending Review")
+    status = Column(String(50), default="Pending Review") # Pending Review, Submitted to MCEDT, Paid, Rejected
     warnings = Column(Text, default="[]") # JSON list of strings
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class ClaimTemplate(Base):
+    __tablename__ = "claim_templates"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True)
+    ohip_diagnostic_codes = Column(Text, default="[]")
+    ohip_fee_codes = Column(Text, default="[]")
+    revenue = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
