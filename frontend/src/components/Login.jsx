@@ -110,7 +110,7 @@ export default function Login({ onLogin }) {
   const currentItem = LIVE_TELEMETRY_FEED[activeFeedIndex];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#090d16', position: 'relative', overflow: 'hidden' }}>
+    <div className="login-page-container" style={{ display: 'flex', minHeight: '100vh', background: '#090d16', position: 'relative', overflowX: 'hidden', overflowY: 'auto' }}>
       
       {/* Background glowing architectural ambient spheres */}
       <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '550px', height: '550px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none' }} />
@@ -118,7 +118,7 @@ export default function Login({ onLogin }) {
       <div style={{ position: 'absolute', top: '20%', right: '-10%', width: '600px', height: '600px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
 
       {/* LEFT COLUMN: Enterprise Clinical Intelligence Showcase */}
-      <div style={{ flex: 1.3, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '60px 80px', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(5px)' }}>
+      <div className="desktop-only" style={{ flex: 1.3, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '60px 80px', zIndex: 2, borderRight: '1px solid rgba(255,255,255,0.07)', backdropFilter: 'blur(5px)' }}>
         
         {/* Brand Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -212,10 +212,25 @@ export default function Login({ onLogin }) {
       </div>
 
       {/* RIGHT COLUMN: Executive Sign-in Console */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', zIndex: 2 }}>
+      <div className="login-right-col" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', zIndex: 2 }}>
         
-        <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '460px', padding: '44px 40px', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(59, 130, 246, 0.35)', boxShadow: '0 25px 80px rgba(0, 0, 0, 0.75), 0 0 40px rgba(59, 130, 246, 0.1)', position: 'relative' }}>
+        <div className="glass-panel animate-fade-in login-card" style={{ width: '100%', maxWidth: '460px', padding: '44px 36px', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(59, 130, 246, 0.35)', boxShadow: '0 25px 80px rgba(0, 0, 0, 0.75), 0 0 40px rgba(59, 130, 246, 0.1)', position: 'relative' }}>
           
+          {/* Mobile-Only Brand Header */}
+          <div className="mobile-only" style={{ alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '24px' }}>
+            <div style={{ width: '42px', height: '42px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 25px rgba(59, 130, 246, 0.4)' }}>
+              <Stethoscope size={22} color="white" />
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '800', letterSpacing: '-0.5px', color: '#ffffff' }}>
+                Prime Care App
+              </h1>
+              <span style={{ fontSize: '10px', color: '#60a5fa', letterSpacing: '1.5px', fontWeight: '700', textTransform: 'uppercase' }}>
+                Hospital AI Workstation
+              </span>
+            </div>
+          </div>
+
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '18px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.4)', color: '#3b82f6', marginBottom: '16px', boxShadow: '0 0 20px rgba(59, 130, 246, 0.25)' }}>
               <LockKeyhole size={28} />

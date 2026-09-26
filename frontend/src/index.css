@@ -235,8 +235,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 
-/* ── Mobile Responsiveness ───────────────────────── */
+/* ── Mobile Responsiveness & Native App Styling ───────────────────────── */
 @media (max-width: 768px) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   .desktop-only {
     display: none !important;
   }
@@ -249,27 +254,107 @@ h1, h2, h3, h4, h5, h6 {
     display: none !important;
   }
 
+  /* Mobile Login Screen Responsiveness */
+  .login-page-container {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    min-height: 100vh !important;
+    height: auto !important;
+  }
+
+  .login-right-col {
+    padding: 24px 16px !important;
+    min-height: 100vh !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .login-card {
+    padding: 28px 18px !important;
+    max-width: 100% !important;
+    border-radius: 16px !important;
+  }
+
+  /* Compact Header on Mobile */
+  header.glass-panel {
+    margin: 8px 8px 6px 8px !important;
+    padding: 10px 14px !important;
+    border-radius: 14px !important;
+  }
+
   /* Make Main Content Area span full width on mobile, and leave room for bottom nav */
   .main-content-mobile {
     margin: 0 !important;
     border-radius: 0 !important;
-    padding-bottom: 70px !important; /* Space for bottom nav */
+    padding: 12px 10px 85px 10px !important; /* Space for bottom nav */
+    overflow-x: hidden !important;
   }
 
-  /* Bottom Navigation Bar */
+  /* Auto-stack all grid layouts to single-column or 2-column on mobile */
+  .dashboard-metrics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .dashboard-split-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .dashboard-roi-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  /* Digital Twin Mobile layout */
+  .digital-twin-container {
+    flex-direction: column !important;
+    padding: 12px !important;
+    gap: 14px !important;
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+
+  .digital-twin-sidebar {
+    width: 100% !important;
+    max-height: none !important;
+    padding: 16px !important;
+    border-radius: 16px !important;
+  }
+
+  .digital-twin-viewport {
+    width: 100% !important;
+    min-height: 460px !important;
+    height: 60vh !important;
+    border-radius: 16px !important;
+  }
+
+  /* Bottom Navigation Bar (Native App Style) */
   .bottom-nav {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 70px;
-    background: var(--bg-secondary);
+    height: 65px;
+    background: rgba(22, 27, 34, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: space-around;
     align-items: center;
     z-index: 9999;
+    padding: 0 8px;
     padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  [data-theme="light"] .bottom-nav {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
   }
 
   .bottom-nav-item {
@@ -278,21 +363,59 @@ h1, h2, h3, h4, h5, h6 {
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    gap: 4px;
+    gap: 3px;
     font-size: 10px;
     font-weight: 600;
     flex: 1;
     height: 100%;
     cursor: pointer;
+    transition: color 0.15s ease, transform 0.1s ease;
+  }
+
+  .bottom-nav-item:active {
+    transform: scale(0.92);
   }
 
   .bottom-nav-item.active {
     color: var(--primary);
   }
 
-  /* Smart Calendar Mobile Tweaks */
-  .calendar-grid-mobile {
-    grid-template-columns: 1fr !important;
+  /* Center Prominent Scribe Action Button in Bottom Nav */
+  .bottom-nav-center-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: -22px;
+    cursor: pointer;
+    flex: 1;
+  }
+
+  .bottom-nav-center-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    border: 3px solid var(--bg-primary);
+    transition: transform 0.15s ease;
+  }
+
+  .bottom-nav-center-btn:active {
+    transform: scale(0.9);
+  }
+
+  /* Modal responsiveness on mobile */
+  .modal-responsive {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 90vh !important;
+    border-radius: 16px !important;
+    margin: auto !important;
   }
 }
 

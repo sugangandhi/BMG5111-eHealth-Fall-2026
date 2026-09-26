@@ -231,7 +231,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+      <div className="dashboard-metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
         <MetricCard title="Patients Seen" value={stats.patients_today} icon={<Users size={20} />} color="blue" />
         <MetricCard title="Forms Filled" value={stats.forms_today} icon={<FileText size={20} />} color="emerald" />
         <MetricCard title="Pending Referrals" value={stats.pending_referrals} icon={<Activity size={20} />} color="orange" />
@@ -306,7 +306,7 @@ export default function Dashboard() {
         </div>
 
         {/* Two Column Layout: Narrative Stats vs Horizontal Comparison Bars */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr', gap: '40px', alignItems: 'flex-start' }}>
+        <div className="dashboard-roi-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr', gap: '40px', alignItems: 'flex-start' }}>
           
           {/* Left Column: Bold Narrative & Stat Grid */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -384,7 +384,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '24px' }}>
+      <div className="dashboard-split-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '24px' }}>
         <div className="glass-panel" style={{ padding: '24px' }}>
           <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>Today's Clinical Appointments</h3>
           {appointments.length === 0 ? (

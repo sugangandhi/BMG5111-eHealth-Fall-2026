@@ -1,0 +1,18 @@
+{
+  "short_name": "e-Hospital",
+  "name": "e-Hospital AI Twin & Clinical Suite",
+  "description": "AI-Driven Healthcare Digital Twin and Clinical Reasoning Platform",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "display": "standalone",
+  "orientation": "portrait"
+}

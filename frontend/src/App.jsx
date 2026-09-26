@@ -381,8 +381,9 @@ function App() {
         {/* Header Right Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
           
-          {/* Spotlight Search Trigger */}
+          {/* Spotlight Search Trigger (Desktop) */}
           <button 
+            className="desktop-only"
             onClick={() => setIsSearchOpen(true)}
             style={{ 
               background: 'var(--bg-secondary)', 
@@ -398,14 +399,30 @@ function App() {
             }}
           >
             <Search size={16} />
-            <span style={{ fontSize: '13px', marginRight: '32px' }}>Search Prime Care...</span>
+            <span style={{ fontSize: '13px', marginRight: '32px' }}>Search e-Hospital...</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: '4px', fontSize: '10px', fontWeight: '500', color: 'var(--text-secondary)' }}>
               <span>⌘</span><span>K</span>
             </div>
           </button>
 
-          {/* Hands-Free Navigation Toggle */}
+          {/* Search Icon Trigger (Mobile Only) */}
+          <button
+            className="mobile-only"
+            onClick={() => setIsSearchOpen(true)}
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px', width: '34px', height: '34px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-secondary)', cursor: 'pointer'
+            }}
+          >
+            <Search size={18} />
+          </button>
+
+          {/* Hands-Free Navigation Toggle (Desktop Only) */}
           <button 
+            className="desktop-only"
             onClick={() => setIsVoiceNavActive(!isVoiceNavActive)}
             style={{ 
               background: isVoiceNavActive ? 'rgba(35, 134, 54, 0.1)' : 'var(--bg-secondary)', 
@@ -434,6 +451,7 @@ function App() {
           </button>
 
           <button 
+            className="desktop-only"
             onClick={() => setIsScannerOpen(true)}
             style={{ 
               background: 'var(--bg-secondary)', 
@@ -459,7 +477,7 @@ function App() {
             }}
           >
             <Settings size={17} color="#60a5fa" />
-            <span>Menu & Settings</span>
+            <span className="desktop-only">Menu & Settings</span>
             <ChevronDown size={15} style={{ transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
           </button>
 
@@ -799,21 +817,30 @@ function App() {
       />
       <UniversalScanner isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
 
-      {/* Mobile Bottom Navigation */}
+      {/* Native-Grade Mobile Bottom Navigation */}
       <div className="bottom-nav mobile-only">
         <div className={`bottom-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleTabClick('dashboard')}>
-          <LayoutDashboard size={24} />
+          <LayoutDashboard size={20} />
           <span>Home</span>
         </div>
-        <div className={`bottom-nav-item ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => handleTabClick('calendar')}>
-          <Calendar size={24} />
-          <span>Calendar</span>
+        <div className={`bottom-nav-item ${activeTab === 'twin' ? 'active' : ''}`} onClick={() => handleTabClick('twin')}>
+          <Activity size={20} />
+          <span>3D Twin</span>
         </div>
+        
+        {/* Prominent Center Scribe Floating Mic */}
+        <div className="bottom-nav-center-action" onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}>
+          <div className="bottom-nav-center-btn" title="Open Ambient Voice Scribe">
+            <Mic size={24} />
+          </div>
+          <span style={{ fontSize: '10px', fontWeight: '700', color: '#10b981', marginTop: '2px' }}>AI Scribe</span>
+        </div>
+
         <div className={`bottom-nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => handleTabClick('inbox')}>
           <div style={{ position: 'relative' }}>
-            <Inbox size={24} />
+            <Inbox size={20} />
             {badges.inbox > 0 && (
-              <span style={{ position: 'absolute', top: -5, right: -5, background: 'var(--error)', color: 'white', fontSize: '10px', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+              <span style={{ position: 'absolute', top: -5, right: -5, background: 'var(--error)', color: 'white', fontSize: '9px', borderRadius: '50%', width: '15px', height: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
                 {badges.inbox}
               </span>
             )}
@@ -821,7 +848,7 @@ function App() {
           <span>Inbox</span>
         </div>
         <div className={`bottom-nav-item ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => handleTabClick('billing')}>
-          <DollarSign size={24} />
+          <DollarSign size={20} />
           <span>Billing</span>
         </div>
       </div>

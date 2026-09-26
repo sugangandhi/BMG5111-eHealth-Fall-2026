@@ -196,10 +196,10 @@ export default function DigitalTwin() {
   };
 
   return (
-    <div style={{ padding: '24px', height: '100%', display: 'flex', gap: '24px', overflow: 'hidden' }}>
+    <div className="digital-twin-container" style={{ padding: '24px', height: '100%', display: 'flex', gap: '24px', overflow: 'hidden' }}>
       
       {/* Sidebar Controls */}
-      <div className="glass-panel" style={{ width: '320px', display: 'flex', flexDirection: 'column', borderRadius: '24px', padding: '24px', border: '1px solid rgba(6, 182, 212, 0.3)', overflowY: 'auto' }}>
+      <div className="glass-panel digital-twin-sidebar" style={{ width: '320px', display: 'flex', flexDirection: 'column', borderRadius: '24px', padding: '24px', border: '1px solid rgba(6, 182, 212, 0.3)', overflowY: 'auto' }}>
         <h2 style={{ fontSize: '20px', fontWeight: '800', margin: '0 0 24px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Activity color={HOLO_CYAN} />
           Digital Twin
@@ -328,8 +328,9 @@ export default function DigitalTwin() {
           <>
             {/* Hologram Container */}
             <motion.div 
-          layout
-          initial={{ borderRadius: '24px' }}
+              className="digital-twin-viewport"
+              layout
+              initial={{ borderRadius: '24px' }}
           animate={{ width: selectedPart ? '45%' : '100%' }}
           transition={{ type: 'spring', bounce: 0, duration: 0.5 }}
           style={{ 
