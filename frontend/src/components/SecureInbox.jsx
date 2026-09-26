@@ -157,28 +157,28 @@ export default function SecureInbox({ triggerNotification }) {
 
   if (selectedMsg) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', borderRadius: '16px', overflow: 'hidden' }}>
+      <div className="inbox-detail-view" style={{ display: 'flex', flexDirection: 'column', height: '100%', borderRadius: '16px', overflow: 'hidden', background: 'var(--bg-secondary)' }}>
         {/* Detail View Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
           <button onClick={() => setSelectedMsg(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', padding: '8px', borderRadius: '50%' }} onMouseOver={e=>e.currentTarget.style.background='rgba(0,0,0,0.05)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
             <ChevronLeft size={20} />
           </button>
-          <div style={{ width: '16px' }} />
-          <div style={{ display: 'flex', gap: '16px', color: 'var(--text-secondary)' }}>
+          <div style={{ width: '12px' }} />
+          <div style={{ display: 'flex', gap: '14px', color: 'var(--text-secondary)' }}>
             <Archive size={18} style={{ cursor: 'pointer' }} />
             <AlertOctagon size={18} style={{ cursor: 'pointer' }} />
             <Mail size={18} style={{ cursor: 'pointer' }} />
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', gap: '8px', color: 'var(--text-secondary)' }}>
-            <span style={{ fontSize: '13px', alignSelf: 'center' }}>1 of 286</span>
+            <span style={{ fontSize: '12px', alignSelf: 'center' }}>1 of 286</span>
             <ChevronLeft size={18} style={{ cursor: 'pointer' }} />
             <ChevronRight size={18} style={{ cursor: 'pointer' }} />
           </div>
         </div>
 
         {/* Email Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '32px 48px', position: 'relative' }}>
+        <div className="inbox-detail-body" style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', position: 'relative' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '22px', fontWeight: '400', color: 'var(--text-primary)', margin: 0 }}>
@@ -291,10 +291,10 @@ export default function SecureInbox({ triggerNotification }) {
 
   // Full-width List View
   return (
-    <div style={{ display: 'flex', height: '100%', background: 'var(--bg-secondary)', borderRadius: '16px', overflow: 'hidden' }}>
+    <div className="inbox-main-container" style={{ display: 'flex', height: '100%', background: 'var(--bg-secondary)', borderRadius: '16px', overflow: 'hidden' }}>
       
-      {/* Sidebar Folders */}
-      <div style={{ width: '220px', borderRight: '1px solid rgba(0,0,0,0.05)', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* Sidebar Folders (Desktop) */}
+      <div className="desktop-only inbox-folder-sidebar" style={{ width: '220px', borderRight: '1px solid var(--border)', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
          <button onClick={() => setActiveFolder('inbox')} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: activeFolder === 'inbox' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', color: activeFolder === 'inbox' ? '#2563eb' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: activeFolder === 'inbox' ? '600' : '500', fontSize: '14px', textAlign: 'left' }}> 
            <Inbox size={18} /> Inbox
          </button>
@@ -309,25 +309,41 @@ export default function SecureInbox({ triggerNotification }) {
          </button>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-      {/* Top Search Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 24px', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-        <div style={{ flex: 1, maxWidth: '700px', display: 'flex', alignItems: 'center', background: 'var(--bg-tertiary)', borderRadius: '24px', padding: '8px 16px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.05)' }}>
-          <Search size={20} color="#9ca3af" />
-          <input 
-            type="text" 
-            placeholder="Search all clinical emails" 
-            style={{ border: 'none', background: 'transparent', width: '100%', outline: 'none', padding: '0 12px', fontSize: '15px', color: 'var(--text-primary)' }}
-            defaultValue="in:inbox"
-          />
-          <SlidersHorizontal size={20} color="#9ca3af" style={{ cursor: 'pointer' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        {/* Mobile Horizontal Folder Pills */}
+        <div className="mobile-only inbox-mobile-folder-tabs" style={{ display: 'flex', gap: '8px', padding: '12px 14px', borderBottom: '1px solid var(--border)', overflowX: 'auto', background: 'var(--bg-secondary)', flexShrink: 0 }}>
+          <button onClick={() => setActiveFolder('inbox')} style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', background: activeFolder === 'inbox' ? 'var(--primary)' : 'var(--bg-tertiary)', color: activeFolder === 'inbox' ? '#fff' : 'var(--text-secondary)', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Inbox size={14} /> Inbox
+          </button>
+          <button onClick={() => setActiveFolder('unread')} style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', background: activeFolder === 'unread' ? 'var(--primary)' : 'var(--bg-tertiary)', color: activeFolder === 'unread' ? '#fff' : 'var(--text-secondary)', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <AlertOctagon size={14} /> Unread
+          </button>
+          <button onClick={() => setActiveFolder('starred')} style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', background: activeFolder === 'starred' ? '#d97706' : 'var(--bg-tertiary)', color: activeFolder === 'starred' ? '#fff' : 'var(--text-secondary)', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Star size={14} /> Starred
+          </button>
+          <button onClick={() => setActiveFolder('resolved')} style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', background: activeFolder === 'resolved' ? '#059669' : 'var(--bg-tertiary)', color: activeFolder === 'resolved' ? '#fff' : 'var(--text-secondary)', fontSize: '12px', fontWeight: '700', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <CheckCircle size={14} /> Resolved
+          </button>
         </div>
-        <div style={{ flex: 1 }} />
-        <Settings size={20} color="#6b7280" style={{ cursor: 'pointer' }} />
-      </div>
 
-      {/* Filter Chips */}
-      <div style={{ position: 'relative', zIndex: 50, padding: '12px 24px', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+        {/* Top Search Bar */}
+        <div className="inbox-search-bar" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ flex: 1, maxWidth: '700px', display: 'flex', alignItems: 'center', background: 'var(--bg-tertiary)', borderRadius: '24px', padding: '8px 14px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', border: '1px solid var(--border)' }}>
+            <Search size={18} color="#9ca3af" />
+            <input 
+              type="text" 
+              placeholder="Search clinical emails..." 
+              style={{ border: 'none', background: 'transparent', width: '100%', outline: 'none', padding: '0 10px', fontSize: '14px', color: 'var(--text-primary)' }}
+              defaultValue="in:inbox"
+            />
+            <SlidersHorizontal size={18} color="#9ca3af" style={{ cursor: 'pointer' }} />
+          </div>
+          <div style={{ flex: 1 }} className="desktop-only" />
+          <Settings size={18} color="#6b7280" style={{ cursor: 'pointer' }} />
+        </div>
+
+        {/* Filter Chips */}
+        <div className="inbox-chips-bar" style={{ position: 'relative', zIndex: 50, padding: '10px 16px', borderBottom: '1px solid var(--border)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div style={{ display: 'flex', gap: '10px' }}>
           {["Any time", "Has attachment", "To", "Advanced search"].map(chip => (
             <button 
@@ -426,42 +442,75 @@ export default function SecureInbox({ triggerNotification }) {
           return (
             <div 
               key={msg.id}
+              className="inbox-msg-row"
               style={{ 
-                display: 'flex', alignItems: 'center', padding: '10px 24px', 
+                padding: '12px 16px', 
                 background: isSelected ? 'rgba(191, 219, 254, 0.4)' : msg.isUnread ? 'var(--bg-tertiary)' : 'transparent',
-                borderBottom: '1px solid rgba(0,0,0,0.03)',
+                borderBottom: '1px solid var(--border)',
                 cursor: 'pointer',
-                transition: 'box-shadow 0.1s',
+                transition: 'background 0.15s ease',
                 fontWeight: msg.isUnread ? '700' : '400',
                 color: msg.isUnread ? 'var(--text-primary)' : 'var(--text-secondary)'
               }}
-              onMouseOver={e => e.currentTarget.style.boxShadow = 'inset 1px 0 0 #d1d5db, inset -1px 0 0 #d1d5db, 0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15)'}
-              onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}
               onClick={() => handleSelectMessage(msg)}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginRight: '16px', minWidth: '60px' }}>
-                <span onClick={(e) => toggleSelect(e, msg.id)}>
-                  {isSelected ? <CheckSquare size={18} color="#1d4ed8" /> : <Square size={18} color="#9ca3af" />}
-                </span>
-                <Star size={18} fill={msg.starred ? "#f59e0b" : "transparent"} color={msg.starred ? "#f59e0b" : "#9ca3af"} onClick={(e) => toggleStar(e, msg.id)} />
-              </div>
-              
-              <div style={{ minWidth: '220px', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {msg.status !== 'pending' && <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '10px' }}>Resolved</span>}
-                {msg.sender}
+              {/* Desktop layout row */}
+              <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginRight: '16px', minWidth: '60px' }}>
+                  <span onClick={(e) => toggleSelect(e, msg.id)}>
+                    {isSelected ? <CheckSquare size={18} color="#1d4ed8" /> : <Square size={18} color="#9ca3af" />}
+                  </span>
+                  <Star size={18} fill={msg.starred ? "#f59e0b" : "transparent"} color={msg.starred ? "#f59e0b" : "#9ca3af"} onClick={(e) => toggleStar(e, msg.id)} />
+                </div>
+                
+                <div style={{ minWidth: '200px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {msg.status !== 'pending' && <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '10px' }}>Resolved</span>}
+                  {msg.sender}
+                </div>
+
+                <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '16px' }}>
+                  <span>{msg.subject}</span>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: '400', marginLeft: '8px' }}>
+                    {msg.snippet}
+                  </span>
+                </div>
+
+                {msg.hasAttachment && <Paperclip size={16} color="#9ca3af" style={{ marginRight: '16px' }} />}
+                
+                <div style={{ minWidth: '60px', textAlign: 'right', fontSize: '12px', fontWeight: msg.isUnread ? '700' : '500' }}>
+                  {msg.timestamp}
+                </div>
               </div>
 
-              <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '16px' }}>
-                <span>{msg.subject}</span>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: '400', marginLeft: '8px' }}>
-                  {msg.snippet}
-                </span>
-              </div>
+              {/* Mobile Native Card Layout */}
+              <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '5px', width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: msg.isUnread ? 'var(--primary)' : 'transparent', flexShrink: 0 }} />
+                    <span style={{ fontWeight: msg.isUnread ? '700' : '600', fontSize: '14px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {msg.sender}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    {msg.hasAttachment && <Paperclip size={14} color="#9ca3af" />}
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{msg.timestamp}</span>
+                    <Star size={16} fill={msg.starred ? "#f59e0b" : "transparent"} color={msg.starred ? "#f59e0b" : "#9ca3af"} onClick={(e) => toggleStar(e, msg.id)} />
+                  </div>
+                </div>
 
-              {msg.hasAttachment && <Paperclip size={16} color="#9ca3af" style={{ marginRight: '16px' }} />}
-              
-              <div style={{ minWidth: '60px', textAlign: 'right', fontSize: '12px', fontWeight: msg.isUnread ? '700' : '500' }}>
-                {msg.timestamp}
+                <div style={{ fontSize: '13px', fontWeight: msg.isUnread ? '700' : '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {msg.subject}
+                </div>
+
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {msg.snippet.replace(/^- /, '')}
+                </div>
+
+                {msg.status !== 'pending' && (
+                  <div style={{ marginTop: '2px' }}>
+                    <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '10px', fontWeight: '600' }}>Resolved</span>
+                  </div>
+                )}
               </div>
             </div>
           );

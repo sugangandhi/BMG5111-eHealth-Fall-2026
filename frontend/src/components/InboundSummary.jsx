@@ -205,7 +205,7 @@ export default function InboundSummary({ setActiveTab, triggerNotification }) {
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%', maxWidth: '1600px', margin: '0 auto' }}>
       
       {/* Header */}
-      <div style={{ marginBottom: '24px', padding: '0 16px' }}>
+      <div style={{ marginBottom: '20px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px', margin: '0 0 8px 0' }}>
           <Sparkles size={32} color="#a855f7" /> AI Clinical Chart Review & Chat
         </h1>
@@ -214,7 +214,7 @@ export default function InboundSummary({ setActiveTab, triggerNotification }) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', flex: 1, minHeight: 0, padding: '0 16px 16px 16px' }}>
+      <div className="inbound-summary-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', flex: 1, minHeight: 0 }}>
         
         {/* Left Column: Document Viewer */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', borderTop: '4px solid #64748b', overflow: 'hidden' }}>

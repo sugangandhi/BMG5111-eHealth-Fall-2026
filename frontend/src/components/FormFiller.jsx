@@ -196,7 +196,7 @@ export default function FormFiller({ triggerNotification }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Main Product Overview Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+          <div className="form-filler-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             
             {/* Left Col: Features & Value Prop */}
             <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -292,7 +292,7 @@ export default function FormFiller({ triggerNotification }) {
           </div>
 
           {/* Bottom Bar: Developer / Testing Action */}
-          <div className="glass-panel" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="glass-panel form-filler-bottom-bar" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
             <div>
               <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', margin: '0 0 4px 0' }}>Developer Demo Mode</h3>
               <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>Bypass the Universal Scanner and inject a mock parsed document directly into the intake workflow.</p>
@@ -350,7 +350,7 @@ export default function FormFiller({ triggerNotification }) {
 
       {/* --- Existing Structured Data Verification UI --- */}
       {success && extractedData && (
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '24px', minHeight: 0 }}>
+        <div className="form-filler-grid" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '24px', minHeight: 0 }}>
           
           {/* Left Column: Raw Document Viewer */}
           <div className="glass-panel" style={{ padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

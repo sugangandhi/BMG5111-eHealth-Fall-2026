@@ -176,7 +176,7 @@ export default function ReferralChecker({ triggerNotification }) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '32px', flex: 1, minHeight: '600px' }}>
+      <div className="referral-checker-grid" style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '32px', flex: 1, minHeight: '600px' }}>
         
         {/* Left Sidebar: Inbox Queue */}
         <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', borderTop: '4px solid #8b5cf6' }}>
@@ -227,7 +227,7 @@ export default function ReferralChecker({ triggerNotification }) {
                 </p>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
+              <div className="referral-checker-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
                 {[
                   { icon: <Database size={18} color="#3b82f6" />, title: "Automated EMR Matching", desc: "Cross-references OHIP numbers with existing patient records." },
                   { icon: <AlertCircle size={18} color="#f97316" />, title: "Missing Data Detection", desc: "Flags referrals that are missing required clinical criteria." },
@@ -252,7 +252,7 @@ export default function ReferralChecker({ triggerNotification }) {
           ) : (
             <>
               {/* Top Row: Demographics & History Match */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <div className="referral-checker-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                 
                 {/* Clinical Detail Panel */}
                 <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
@@ -301,7 +301,7 @@ export default function ReferralChecker({ triggerNotification }) {
 
               {/* Referral Text & Attached Scans */}
               <div className="glass-panel animate-fade-in" style={{ padding: '24px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px' }}>
+                <div className="referral-checker-2col" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px' }}>
                   
                   <div>
                     <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Raw Referral Text</h3>

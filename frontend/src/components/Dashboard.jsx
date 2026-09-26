@@ -392,7 +392,7 @@ export default function Dashboard() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {appointments.map(a => (
-                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+                <div key={a.id} className="appt-item-row" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: `var(--glass-bg)`, border: `1px solid var(--glass-border)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>
                     {a.initials}
                   </div>

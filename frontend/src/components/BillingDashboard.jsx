@@ -122,8 +122,8 @@ export default function BillingDashboard() {
         </div>
         
         {/* Top KPIs */}
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <div className="glass-panel" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '16px', borderTop: '3px solid #f59e0b', background: 'rgba(245, 158, 11, 0.05)' }}>
+        <div className="billing-kpi-row" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', borderTop: '3px solid #f59e0b', background: 'rgba(245, 158, 11, 0.05)', flex: 1 }}>
             <div style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '12px', borderRadius: '12px' }}>
               <Clock size={24} color="#f59e0b" />
             </div>
@@ -132,7 +132,7 @@ export default function BillingDashboard() {
               <div style={{ fontSize: '24px', fontWeight: '800', color: '#fcd34d' }}>{pendingClaims.length}</div>
             </div>
           </div>
-          <div className="glass-panel" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '16px', borderTop: '3px solid #10b981', background: 'rgba(16, 185, 129, 0.05)' }}>
+          <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', borderTop: '3px solid #10b981', background: 'rgba(16, 185, 129, 0.05)', flex: 1 }}>
             <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: '12px', borderRadius: '12px' }}>
               <TrendingUp size={24} color="#10b981" />
             </div>
@@ -145,22 +145,22 @@ export default function BillingDashboard() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
-        <button onClick={() => setActiveTab('queue')} style={{ padding: '8px 16px', background: activeTab === 'queue' ? 'rgba(59, 130, 246, 0.2)' : 'transparent', color: activeTab === 'queue' ? '#60a5fa' : 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="billing-tabs-bar" style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <button onClick={() => setActiveTab('queue')} style={{ padding: '8px 16px', background: activeTab === 'queue' ? 'rgba(59, 130, 246, 0.2)' : 'transparent', color: activeTab === 'queue' ? '#60a5fa' : 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
           <FileText size={16} /> Claims Queue
         </button>
-        <button onClick={() => setActiveTab('search')} style={{ padding: '8px 16px', background: activeTab === 'search' ? 'rgba(59, 130, 246, 0.2)' : 'transparent', color: activeTab === 'search' ? '#60a5fa' : 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button onClick={() => setActiveTab('search')} style={{ padding: '8px 16px', background: activeTab === 'search' ? 'rgba(59, 130, 246, 0.2)' : 'transparent', color: activeTab === 'search' ? '#60a5fa' : 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
           <Search size={16} /> OHIP Code Lookup
         </button>
-        <button onClick={() => setActiveTab('templates')} style={{ padding: '8px 16px', background: activeTab === 'templates' ? 'rgba(59, 130, 246, 0.2)' : 'transparent', color: activeTab === 'templates' ? '#60a5fa' : 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button onClick={() => setActiveTab('templates')} style={{ padding: '8px 16px', background: activeTab === 'templates' ? 'rgba(59, 130, 246, 0.2)' : 'transparent', color: activeTab === 'templates' ? '#60a5fa' : 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
           <Save size={16} /> Claim Templates
         </button>
-        <button onClick={() => setActiveTab('analytics')} style={{ padding: '8px 16px', background: activeTab === 'analytics' ? 'rgba(59, 130, 246, 0.2)' : 'transparent', color: activeTab === 'analytics' ? '#60a5fa' : 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button onClick={() => setActiveTab('analytics')} style={{ padding: '8px 16px', background: activeTab === 'analytics' ? 'rgba(59, 130, 246, 0.2)' : 'transparent', color: activeTab === 'analytics' ? '#60a5fa' : 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
           <BarChart2 size={16} /> Analytics & Reporting
         </button>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: '24px' }}>
+      <div className="billing-split-view" style={{ flex: 1, minHeight: 0, display: 'flex', gap: '24px' }}>
         {activeTab === 'queue' && (
           <>
             {/* Left Column: The Queue */}

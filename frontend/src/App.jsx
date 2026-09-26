@@ -374,7 +374,11 @@ function App() {
           )}
           <div>
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' }}>Prime Care App <span style={{ fontSize: '11px', background: 'rgba(47, 129, 247, 0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', verticalAlign: 'middle', border: '1px solid rgba(47, 129, 247, 0.2)', fontWeight: '600' }}>PRO</span></h2>
-            <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.clinic || 'Prime Care Medical Group'} · <strong style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{user?.name}</strong> {user?.email && `(${user.email})`}</p>
+            <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <span className="desktop-only">{user?.clinic || 'Prime Care Medical Group'} · </span>
+              <strong style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{user?.name}</strong>
+              <span className="desktop-only">{user?.email && ` (${user.email})`}</span>
+            </p>
           </div>
         </div>
 
@@ -695,7 +699,8 @@ function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              style={{ width: '100%', height: '100%', overflowY: 'auto', padding: '24px', flex: 1 }}
+              className="tab-viewport-container"
+              style={{ width: '100%', height: '100%', overflowY: 'auto', flex: 1 }}
             >
               {activeTab === 'dashboard' && <Dashboard />}
               {activeTab === 'calendar' && <SmartCalendar />}

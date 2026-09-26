@@ -247,10 +247,10 @@ function SmartCalendar() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   return (
-    <div style={{ padding: '30px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="calendar-main-view" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div className="calendar-header-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Calendar color="#3b82f6" />
