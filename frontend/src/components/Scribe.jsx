@@ -387,6 +387,7 @@ export default function Scribe() {
   if (!isOpen) {
     return (
       <button 
+        className="desktop-only"
         style={{
           position: 'fixed', bottom: '32px', right: '32px',
           width: '72px', height: '72px', borderRadius: '50%',

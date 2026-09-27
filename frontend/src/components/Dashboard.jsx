@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, FileText, Activity, Clock, Paperclip, X, Download, Printer, ShieldCheck, ExternalLink, TrendingUp, Sparkles, Award } from 'lucide-react';
+import { Users, FileText, Activity, Clock, Paperclip, X, Download, Printer, ShieldCheck, ExternalLink, TrendingUp, Sparkles, Award, Mic, Scan, Zap, MessageSquare, ChevronRight, Stethoscope, CheckCircle2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const WEEKLY_TREND = [
@@ -179,38 +179,16 @@ export default function Dashboard() {
     window.dispatchEvent(new CustomEvent('open-scribe'));
   };
 
+  const user = JSON.parse(localStorage.getItem('medoffice_user')) || { name: 'Dr. Patel' };
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const upNextAppt = appointments.find(a => a.status !== 'completed') || appointments[0];
+
   if (!stats && !isOffline) return <div style={{ color: 'var(--text-secondary)' }}>Loading dashboard...</div>;
 
   return (
     <div style={{ transition: 'all 0.5s', filter: isOffline ? 'sepia(0.2) hue-rotate(-20deg)' : 'none' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span>Hospital Workspace Overview</span>
-          <span style={{ fontSize: '13px', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', padding: '4px 12px', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 'normal' }}>
-            🏥 Prime Care Clinical Edition
-          </span>
-        </h2>
-        
-        {/* THE KILL SWITCH */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.2)', padding: '8px 16px', borderRadius: '20px', border: isOffline ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontSize: '12px', color: isOffline ? '#ef4444' : 'var(--text-secondary)', fontWeight: '600', transition: '0.3s' }}>
-            {isOffline ? 'CLOUD DISCONNECTED' : 'CLOUD CONNECTED'}
-          </div>
-          <div 
-            onClick={() => setIsOffline(!isOffline)}
-            style={{ 
-              width: '40px', height: '22px', background: isOffline ? '#ef4444' : '#10b981', 
-              borderRadius: '20px', position: 'relative', cursor: 'pointer', transition: '0.3s'
-            }}
-          >
-            <div style={{
-              width: '18px', height: '18px', background: 'white', borderRadius: '50%',
-              position: 'absolute', top: '2px', left: isOffline ? '2px' : '20px', transition: '0.3s',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
-            }} />
-          </div>
-        </div>
-      </div>
       
       {/* OFFLINE BANNER */}
       {isOffline && (
@@ -231,7 +209,35 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="dashboard-metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+      {/* ── DESKTOP VIEW (Desktop-Only) ─────────────────────────────────── */}
+      <div className="desktop-only">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)' }}>Hospital Workspace</h2>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Clinical metrics, EHR automation & appointments</p>
+          </div>
+          
+          {/* THE KILL SWITCH */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.2)', padding: '8px 16px', borderRadius: '20px', border: isOffline ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: '12px', color: isOffline ? '#ef4444' : 'var(--text-secondary)', fontWeight: '600', transition: '0.3s' }}>
+              {isOffline ? 'CLOUD DISCONNECTED' : 'CLOUD CONNECTED'}
+            </div>
+            <div 
+              onClick={() => setIsOffline(!isOffline)}
+              style={{ 
+                width: '40px', height: '22px', background: isOffline ? '#ef4444' : '#10b981', 
+                borderRadius: '20px', position: 'relative', cursor: 'pointer', transition: '0.3s'
+              }}
+            >
+              <div style={{
+                width: '18px', height: '18px', background: 'white', borderRadius: '50%',
+                position: 'absolute', top: '2px', left: isOffline ? '2px' : '20px', transition: '0.3s',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+              }} />
+            </div>
+          </div>
+        </div>
+        <div className="dashboard-metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
         <MetricCard title="Patients Seen" value={stats.patients_today} icon={<Users size={20} />} color="blue" />
         <MetricCard title="Forms Filled" value={stats.forms_today} icon={<FileText size={20} />} color="emerald" />
         <MetricCard title="Pending Referrals" value={stats.pending_referrals} icon={<Activity size={20} />} color="orange" />
@@ -464,6 +470,281 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </div>
+      {/* ── END DESKTOP VIEW ────────────────────────────────────────────── */}
+
+      {/* ── MOBILE VIEW (Mobile-Only Native Clinical Experience) ─────────── */}
+      <div className="mobile-only mobile-home-container">
+        {/* Mobile Clinical Top Bar */}
+        <div className="mobile-greeting-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div className="mobile-greeting-label">{greeting}</div>
+              <h2 className="mobile-greeting-title">
+                {user?.name ? (user.name.startsWith('Dr.') ? user.name : `Dr. ${user.name}`) : 'Dr. Patel'}
+              </h2>
+              <div className="mobile-greeting-meta">
+                <span className="mobile-shift-badge">🟢 On Duty</span>
+                <span>{todayDateStr}</span>
+              </div>
+            </div>
+            
+            {/* Quick Cloud Connection Toggle Pill */}
+            <button 
+              type="button"
+              onClick={() => setIsOffline(!isOffline)}
+              className="mobile-status-pill"
+              style={{
+                background: isOffline ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                borderColor: isOffline ? '#ef4444' : '#10b981',
+                color: isOffline ? '#fca5a5' : '#34d399'
+              }}
+              title="Toggle Cloud Connection"
+            >
+              <span className={`mobile-pulse-dot ${isOffline ? 'offline' : 'online'}`} />
+              {isOffline ? 'Offline' : 'Cloud Sync'}
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Quick Clinical Thumb Actions Dock */}
+        <div className="mobile-quick-actions">
+          <button 
+            type="button"
+            className="mobile-action-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}
+          >
+            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.4)' }}>
+              <Mic size={22} />
+            </div>
+            <span className="mobile-action-label">AI Scribe</span>
+          </button>
+
+          <button 
+            type="button"
+            className="mobile-action-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-scanner'))}
+          >
+            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.4)' }}>
+              <Scan size={22} />
+            </div>
+            <span className="mobile-action-label">Scan OCR</span>
+          </button>
+
+          <button 
+            type="button"
+            className="mobile-action-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'referrals' }))}
+          >
+            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))', color: '#fbbf24', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
+              <Zap size={22} />
+            </div>
+            <span className="mobile-action-label">AI Triage</span>
+          </button>
+
+          <button 
+            type="button"
+            className="mobile-action-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'inbox' }))}
+          >
+            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(147, 51, 234, 0.15))', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.4)' }}>
+              <MessageSquare size={22} />
+            </div>
+            <span className="mobile-action-label">AI Inbox</span>
+          </button>
+        </div>
+
+        {/* Up Next Patient Hero Card */}
+        {upNextAppt ? (
+          <div className="mobile-hero-patient-card">
+            <div className="mobile-hero-header">
+              <div className="mobile-hero-badge">
+                <span className="mobile-pulse-dot online" />
+                UP NEXT • IN CLINIC
+              </div>
+              <span className="mobile-hero-time">{upNextAppt.time}</span>
+            </div>
+
+            <div className="mobile-hero-body">
+              <div className="mobile-hero-avatar">
+                {upNextAppt.initials || upNextAppt.patient_name?.substring(0, 2).toUpperCase() || 'PT'}
+              </div>
+              <div className="mobile-hero-info">
+                <h3 className="mobile-hero-name">{upNextAppt.patient_name}</h3>
+                <p className="mobile-hero-detail">
+                  <Stethoscope size={13} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+                  {upNextAppt.type || 'General Consultation'}
+                </p>
+              </div>
+            </div>
+
+            <div className="mobile-hero-actions">
+              <button 
+                type="button"
+                className="mobile-hero-start-btn"
+                onClick={() => startEncounter(upNextAppt)}
+              >
+                <Mic size={18} />
+                <span>Start Ambient AI Scribe</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mobile-hero-patient-card" style={{ textAlign: 'center', padding: '24px' }}>
+            <CheckCircle2 size={32} color="#10b981" style={{ margin: '0 auto 8px' }} />
+            <h3 style={{ margin: '0 0 4px', fontSize: '16px' }}>All Clear</h3>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>No pending appointments for today.</p>
+          </div>
+        )}
+
+        {/* 2x2 Metric Summary Grid */}
+        <div className="mobile-metric-grid">
+          <div className="mobile-metric-tile">
+            <div className="mobile-metric-tile-header">
+              <span className="mobile-metric-tile-title">Patients Seen</span>
+              <div className="mobile-metric-tile-icon" style={{ color: '#60a5fa', background: 'rgba(59, 130, 246, 0.12)' }}>
+                <Users size={16} />
+              </div>
+            </div>
+            <div className="mobile-metric-tile-value">{stats?.patients_today ?? 0}</div>
+            <span className="mobile-metric-tile-sub">Today's Total</span>
+          </div>
+
+          <div className="mobile-metric-tile">
+            <div className="mobile-metric-tile-header">
+              <span className="mobile-metric-tile-title">Forms Automated</span>
+              <div className="mobile-metric-tile-icon" style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.12)' }}>
+                <FileText size={16} />
+              </div>
+            </div>
+            <div className="mobile-metric-tile-value">{stats?.forms_today ?? 0}</div>
+            <span className="mobile-metric-tile-sub">100% Zero-Click</span>
+          </div>
+
+          <div className="mobile-metric-tile">
+            <div className="mobile-metric-tile-header">
+              <span className="mobile-metric-tile-title">Pending Referrals</span>
+              <div className="mobile-metric-tile-icon" style={{ color: '#fbbf24', background: 'rgba(245, 158, 11, 0.12)' }}>
+                <Activity size={16} />
+              </div>
+            </div>
+            <div className="mobile-metric-tile-value">{stats?.pending_referrals ?? 0}</div>
+            <span className="mobile-metric-tile-sub">Awaiting Triage</span>
+          </div>
+
+          <div className="mobile-metric-tile">
+            <div className="mobile-metric-tile-header">
+              <span className="mobile-metric-tile-title">Time Saved</span>
+              <div className="mobile-metric-tile-icon" style={{ color: '#c084fc', background: 'rgba(168, 85, 247, 0.12)' }}>
+                <Clock size={16} />
+              </div>
+            </div>
+            <div className="mobile-metric-tile-value">{stats?.time_saved_min ?? 0}<span style={{ fontSize: '14px', fontWeight: '500', marginLeft: '2px' }}>m</span></div>
+            <span className="mobile-metric-tile-sub">Prime Care AI Boost</span>
+          </div>
+        </div>
+
+        {/* Today's Schedule Section */}
+        <div className="mobile-section">
+          <div className="mobile-section-header">
+            <div className="mobile-section-title-wrap">
+              <h3 className="mobile-section-title">Today's Schedule</h3>
+              <span className="mobile-count-badge">{appointments.length}</span>
+            </div>
+            <button 
+              type="button" 
+              className="mobile-see-all-btn"
+              onClick={() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'calendar' }))}
+            >
+              Calendar <ChevronRight size={14} />
+            </button>
+          </div>
+
+          {appointments.length === 0 ? (
+            <div className="mobile-empty-state">No appointments scheduled for today.</div>
+          ) : (
+            <div className="mobile-schedule-list">
+              {appointments.map((a) => (
+                <div key={a.id} className="mobile-appt-card">
+                  <div className="mobile-appt-time-col">
+                    <span className="mobile-appt-time">{a.time}</span>
+                    <span className={`mobile-appt-status-tag ${a.status === 'completed' ? 'completed' : 'pending'}`}>
+                      {a.status === 'completed' ? 'Done' : 'Pending'}
+                    </span>
+                  </div>
+
+                  <div className="mobile-appt-info-col">
+                    <h4 className="mobile-appt-name">{a.patient_name}</h4>
+                    <p className="mobile-appt-desc">{a.type}</p>
+                    
+                    <div className="mobile-appt-actions">
+                      {a.status !== 'completed' && (
+                        <button 
+                          type="button"
+                          className="mobile-appt-encounter-btn"
+                          onClick={() => startEncounter(a)}
+                        >
+                          ▶ Encounter
+                        </button>
+                      )}
+                      <button 
+                        type="button"
+                        className="mobile-appt-subtle-btn"
+                        onClick={() => setEditingAppt({ ...a })}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        type="button"
+                        className="mobile-appt-subtle-btn danger"
+                        onClick={() => handleDelete(a.id)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Live Clinical Activity Stream */}
+        <div className="mobile-section">
+          <div className="mobile-section-header">
+            <div className="mobile-section-title-wrap">
+              <h3 className="mobile-section-title">Clinical Activity Feed</h3>
+              <span className="mobile-live-indicator">LIVE</span>
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tap to view</span>
+          </div>
+
+          <div className="mobile-activity-list">
+            {activities.slice(0, 6).map((act) => (
+              <div 
+                key={act.id} 
+                className="mobile-activity-card"
+                onClick={() => setSelectedActivity(act)}
+              >
+                <div 
+                  className="mobile-activity-dot" 
+                  style={{ background: act.color === 'teal' ? '#10b981' : act.color === 'blue' ? '#3b82f6' : act.color === 'orange' ? '#f59e0b' : '#a855f7' }} 
+                />
+                <div className="mobile-activity-content">
+                  <p className="mobile-activity-desc">{act.description}</p>
+                  <p className="mobile-activity-sub">
+                    {act.patient_name || "General Clinic"} • {Math.floor(act.secs_ago / 60)}m ago
+                  </p>
+                </div>
+                <div className="mobile-activity-view-pill">
+                  <Paperclip size={12} /> View
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* ── END MOBILE VIEW ──────────────────────────────────────────────── */}
       
       {/* Appointment Edit Modal */}
       {editingAppt && (

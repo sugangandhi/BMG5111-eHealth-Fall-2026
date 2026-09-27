@@ -115,13 +115,25 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Handle active patient setting from other components
+  // Handle global events from other components
   useEffect(() => {
     const handleSetActivePatient = (e) => {
       setActivePatient(e.detail);
     };
+    const handleSwitchTab = (e) => {
+      if (e.detail) handleTabClick(e.detail);
+    };
+    const handleOpenScanner = () => {
+      setIsScannerOpen(true);
+    };
     window.addEventListener('set-active-patient', handleSetActivePatient);
-    return () => window.removeEventListener('set-active-patient', handleSetActivePatient);
+    window.addEventListener('switch-tab', handleSwitchTab);
+    window.addEventListener('open-scanner', handleOpenScanner);
+    return () => {
+      window.removeEventListener('set-active-patient', handleSetActivePatient);
+      window.removeEventListener('switch-tab', handleSwitchTab);
+      window.removeEventListener('open-scanner', handleOpenScanner);
+    };
   }, []);
 
   const toggleTheme = () => {
