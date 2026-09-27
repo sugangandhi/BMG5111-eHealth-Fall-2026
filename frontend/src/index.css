@@ -438,8 +438,8 @@ h1, h2, h3, h4, h5, h6 {
   /* Digital Twin Mobile layout */
   .digital-twin-container {
     flex-direction: column !important;
-    padding: 12px !important;
-    gap: 14px !important;
+    padding: 0 !important;
+    gap: 8px !important;
     height: auto !important;
     overflow-y: auto !important;
   }

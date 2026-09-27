@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { 
   Play, Pause, RotateCcw, Eye, EyeOff, Layers, Sliders, 
   Activity, Maximize2, Zap, Compass, Info, ChevronRight,
-  Heart, Shield, Crosshair, Sparkles
+  Heart, Shield, Crosshair, Sparkles, Menu, User, Users, X, Check, ChevronDown
 } from 'lucide-react';
 
 // ============================================================================
@@ -768,12 +768,37 @@ function CTScanViewport({
 // ============================================================================
 // MAIN SYNCHRONIZED CT VIEWER COMPONENT
 // ============================================================================
-export default function SynchronizedCTViewer({ activePatient }) {
+export default function SynchronizedCTViewer({ activePatient, patients = {}, onSelectPatient }) {
   // Navigation & Slicing State
   const [plane, setPlane] = useState('axial'); // 'axial' | 'coronal' | 'sagittal'
   const [sliceIndex, setSliceIndex] = useState(60); // 0 to 120
   const maxSlices = 120;
   const slicePos = useMemo(() => (sliceIndex / maxSlices) * 2 - 1, [sliceIndex, maxSlices]); // -1.0 to 1.0
+
+  // Mobile Responsiveness & View Selection
+  const [mobileTab, setMobileTab] = useState('3d'); // '3d' | '2d'
+  const [isPatientDrawerOpen, setIsPatientDrawerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const patientList = useMemo(() => {
+    if (patients && Object.keys(patients).length > 0) {
+      return Object.values(patients);
+    }
+    if (activePatient) {
+      return [activePatient];
+    }
+    return [
+      { id: 'P001', name: 'David Murphy', mrn: 'PACS-2024-X89', reason: 'Asthma Follow-up', dob: '1984-06-12' },
+      { id: 'P002', name: 'Elena Rostova', mrn: 'PACS-2024-K41', reason: 'Right Knee ACL', dob: '1992-11-03' },
+      { id: 'P003', name: 'Marcus Vance', mrn: 'PACS-2024-N12', reason: 'Migraine Assessment', dob: '1978-04-25' }
+    ];
+  }, [patients, activePatient]);
 
   // Radiology Contrast State
   const [windowPresetKey, setWindowPresetKey] = useState('softTissue');
@@ -813,185 +838,418 @@ export default function SynchronizedCTViewer({ activePatient }) {
       display: 'flex', 
       flexDirection: 'column', 
       height: '100%', 
-      gap: '16px', 
+      gap: isMobile ? '10px' : '16px', 
       background: '#090d16',
-      borderRadius: '24px',
-      padding: '20px',
+      borderRadius: isMobile ? '16px' : '24px', 
+      padding: isMobile ? '12px' : '20px', 
       color: '#f8fafc',
       fontFamily: 'Inter, system-ui, sans-serif',
-      boxShadow: 'inset 0 0 50px rgba(0,0,0,0.8)'
+      boxShadow: 'inset 0 0 50px rgba(0,0,0,0.8)',
+      position: 'relative'
     }}>
       
       {/* ─── TOP METADATA & PACS HEADER ───────────────────────────────────── */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        padding: '12px 20px', 
-        background: 'rgba(15, 23, 42, 0.75)', 
-        border: '1px solid rgba(56, 189, 248, 0.25)', 
-        borderRadius: '16px',
-        backdropFilter: 'blur(12px)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ 
-            background: 'linear-gradient(135deg, #0284c7, #06b6d4)', 
-            padding: '8px 12px', 
-            borderRadius: '10px', 
-            fontWeight: '800', 
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <Sparkles size={16} /> SYNC 3D • CT MPR
-          </div>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
-              {activePatient?.name || 'Diagnostic CT Torso Volume'}
-            </div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-              MRN: {activePatient?.mrn || 'PACS-2024-X89'} • Slice: {sliceIndex}/{maxSlices} ({mmDepth} mm) • FOV: 350mm
-            </div>
-          </div>
-        </div>
-
-        {/* Orthogonal Plane Switcher */}
-        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.5)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-          {[
-            { id: 'axial', label: 'Axial (Transverse)' },
-            { id: 'coronal', label: 'Coronal (Front)' },
-            { id: 'sagittal', label: 'Sagittal (Side)' }
-          ].map(p => (
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Row 1: Patient Menu Selector & 3D Cut Toggle */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
             <button
-              key={p.id}
-              onClick={() => setPlane(p.id)}
+              onClick={() => setIsPatientDrawerOpen(true)}
               style={{
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(15, 23, 42, 0.95)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                padding: '8px 12px',
+                borderRadius: '12px',
+                color: '#ffffff',
+                fontSize: '13px',
                 fontWeight: '700',
                 cursor: 'pointer',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.4)',
+                flex: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Menu size={16} color="#38bdf8" style={{ flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
+                {activePatient?.name || 'Select Patient'}
+              </span>
+              <span style={{ fontSize: '10px', color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
+                MRN: {activePatient?.mrn || 'PACS'}
+              </span>
+              <ChevronDown size={14} color="#94a3b8" style={{ flexShrink: 0 }} />
+            </button>
+
+            {/* 3D Cut Toggle */}
+            <button
+              onClick={() => setEnableClipping(!enableClipping)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '8px 12px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                border: `1px solid ${enableClipping ? '#38bdf8' : 'rgba(255,255,255,0.15)'}`,
+                background: enableClipping ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.8)',
+                color: enableClipping ? '#38bdf8' : '#94a3b8',
+                flexShrink: 0
+              }}
+            >
+              <Zap size={13} /> {enableClipping ? 'Cut: ON' : 'Cut: OFF'}
+            </button>
+          </div>
+
+          {/* Row 2: View Switcher (Segmented Control between 3D Twin & 2D CT) */}
+          <div style={{
+            display: 'flex',
+            background: 'rgba(0, 0, 0, 0.65)',
+            padding: '3px',
+            borderRadius: '12px',
+            border: '1px solid rgba(56, 189, 248, 0.2)'
+          }}>
+            <button
+              onClick={() => setMobileTab('3d')}
+              style={{
+                flex: 1,
+                padding: '7px 10px',
+                borderRadius: '9px',
+                fontSize: '12px',
+                fontWeight: '700',
                 border: 'none',
-                background: plane === p.id ? '#0284c7' : 'transparent',
-                color: plane === p.id ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                background: mobileTab === '3d' ? 'linear-gradient(135deg, #0284c7, #06b6d4)' : 'transparent',
+                color: mobileTab === '3d' ? '#ffffff' : '#94a3b8',
+                boxShadow: mobileTab === '3d' ? '0 2px 8px rgba(6, 182, 212, 0.3)' : 'none',
                 transition: 'all 0.2s'
               }}
             >
-              {p.label}
+              <Sparkles size={14} /> 3D Digital Twin
             </button>
-          ))}
-        </div>
+            <button
+              onClick={() => setMobileTab('2d')}
+              style={{
+                flex: 1,
+                padding: '7px 10px',
+                borderRadius: '9px',
+                fontSize: '12px',
+                fontWeight: '700',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                background: mobileTab === '2d' ? 'linear-gradient(135deg, #0284c7, #06b6d4)' : 'transparent',
+                color: mobileTab === '2d' ? '#ffffff' : '#94a3b8',
+                boxShadow: mobileTab === '2d' ? '0 2px 8px rgba(6, 182, 212, 0.3)' : 'none',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Crosshair size={14} /> 2D CT MPR Scan
+            </button>
+          </div>
 
-        {/* 3D Model Slicing Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            onClick={() => setEnableClipping(!enableClipping)}
-            style={{
+          {/* Row 3: Orthogonal Plane Switcher */}
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {[
+              { id: 'axial', label: 'Axial' },
+              { id: 'coronal', label: 'Coronal' },
+              { id: 'sagittal', label: 'Sagittal' }
+            ].map(p => (
+              <button
+                key={p.id}
+                onClick={() => setPlane(p.id)}
+                style={{
+                  flex: 1,
+                  padding: '5px 8px',
+                  borderRadius: '8px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  border: `1px solid ${plane === p.id ? '#0284c7' : 'rgba(255,255,255,0.08)'}`,
+                  background: plane === p.id ? 'rgba(2, 132, 199, 0.3)' : 'rgba(255,255,255,0.03)',
+                  color: plane === p.id ? '#38bdf8' : '#94a3b8',
+                  transition: 'all 0.15s'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          padding: '12px 20px', 
+          background: 'rgba(15, 23, 42, 0.75)', 
+          border: '1px solid rgba(56, 189, 248, 0.25)', 
+          borderRadius: '16px',
+          backdropFilter: 'blur(12px)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ 
+              background: 'linear-gradient(135deg, #0284c7, #06b6d4)', 
+              padding: '8px 12px', 
+              borderRadius: '10px', 
+              fontWeight: '800', 
+              fontSize: '13px',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              border: `1px solid ${enableClipping ? '#38bdf8' : 'rgba(255,255,255,0.15)'}`,
-              background: enableClipping ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.05)',
-              color: enableClipping ? '#38bdf8' : '#cbd5e1'
-            }}
-          >
-            <Zap size={14} /> {enableClipping ? '3D Cut: ACTIVE' : '3D Cut: MASKED'}
-          </button>
-        </div>
-      </div>
-
-      {/* ─── DUAL VIEWPORT WORKSPACE ───────────────────────────────────────── */}
-      <div style={{ display: 'flex', flex: 1, gap: '16px', minHeight: 0 }}>
-        
-        {/* VIEWPORT 1: Three.js 3D Interactive Anatomy */}
-        <div style={{ 
-          flex: 1.1, 
-          position: 'relative', 
-          background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)', 
-          borderRadius: '20px', 
-          border: '1px solid rgba(56, 189, 248, 0.2)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          {/* Viewport Header */}
-          <div style={{ position: 'absolute', top: 12, left: 16, zIndex: 10, display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
-            <Compass size={16} color="#38bdf8" />
-            <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '1px', color: '#38bdf8', textTransform: 'uppercase' }}>
-              3D Holographic Anatomy (Three.js WebGL)
-            </span>
+              gap: '8px'
+            }}>
+              <Sparkles size={16} /> SYNC 3D • CT MPR
+            </div>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
+                {activePatient?.name || 'Diagnostic CT Torso Volume'}
+              </div>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                MRN: {activePatient?.mrn || 'PACS-2024-X89'} • Slice: {sliceIndex}/{maxSlices} ({mmDepth} mm) • FOV: 350mm
+              </div>
+            </div>
           </div>
 
-          <div style={{ position: 'absolute', bottom: 12, left: 16, zIndex: 10, fontSize: '11px', color: '#64748b', pointerEvents: 'none' }}>
-            Left Click: Rotate • Right Click: Pan • Scroll: Zoom
+          {/* Orthogonal Plane Switcher */}
+          <div style={{ display: 'flex', background: 'rgba(0,0,0,0.5)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            {[
+              { id: 'axial', label: 'Axial (Transverse)' },
+              { id: 'coronal', label: 'Coronal (Front)' },
+              { id: 'sagittal', label: 'Sagittal (Side)' }
+            ].map(p => (
+              <button
+                key={p.id}
+                onClick={() => setPlane(p.id)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: plane === p.id ? '#0284c7' : 'transparent',
+                  color: plane === p.id ? '#ffffff' : '#94a3b8',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
 
-          {/* Canvas Render */}
-          <Canvas camera={{ position: [0, 1.5, 11], fov: 42 }}>
-            <AnatomicalScene 
-              plane={plane} 
-              slicePos={slicePos} 
-              selectedOrgan={selectedOrgan}
-              onSelectOrgan={setSelectedOrgan}
-              enableClipping={enableClipping}
-              showContours={showContours}
-            />
-          </Canvas>
+          {/* 3D Model Slicing Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setEnableClipping(!enableClipping)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                border: `1px solid ${enableClipping ? '#38bdf8' : 'rgba(255,255,255,0.15)'}`,
+                background: enableClipping ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.05)',
+                color: enableClipping ? '#38bdf8' : '#cbd5e1'
+              }}
+            >
+              <Zap size={14} /> {enableClipping ? '3D Cut: ACTIVE' : '3D Cut: MASKED'}
+            </button>
+          </div>
         </div>
+      )}
 
-        {/* VIEWPORT 2: Synchronized 2D CT Cross-Section */}
+      {/* ─── WORKSPACE (MOBILE: SINGLE CENTERED VIEWPORT | DESKTOP: DUAL VIEWPORT) ── */}
+      {isMobile ? (
         <div style={{ 
-          flex: 1, 
+          width: '100%', 
+          height: '400px', 
+          minHeight: '380px',
           position: 'relative', 
-          background: '#05070d', 
           borderRadius: '20px', 
-          border: '1px solid rgba(56, 189, 248, 0.2)',
           overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
           justifyContent: 'center',
-          padding: '16px'
+          alignItems: 'center'
         }}>
-          {/* Viewport Header */}
-          <div style={{ position: 'absolute', top: 12, left: 16, right: 16, zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pointerEvents: 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Crosshair size={16} color="#38bdf8" />
+          {mobileTab === '3d' ? (
+            <div style={{ 
+              width: '100%', 
+              height: '100%', 
+              position: 'relative', 
+              background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)', 
+              borderRadius: '20px', 
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              {/* Mobile Viewport Badges */}
+              <div style={{ position: 'absolute', top: 10, left: 12, zIndex: 10, display: 'flex', alignItems: 'center', gap: '6px', pointerEvents: 'none' }}>
+                <Compass size={14} color="#38bdf8" />
+                <span style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', color: '#38bdf8', textTransform: 'uppercase' }}>
+                  3D Holographic Twin
+                </span>
+              </div>
+              <div style={{ position: 'absolute', top: 10, right: 12, zIndex: 10, fontSize: '10px', fontWeight: '700', color: '#94a3b8', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '6px', pointerEvents: 'none' }}>
+                Z: {mmDepth} mm
+              </div>
+
+              <div style={{ position: 'absolute', bottom: 8, left: 12, right: 12, zIndex: 10, fontSize: '10px', color: '#64748b', textAlign: 'center', pointerEvents: 'none' }}>
+                Drag to Rotate • Pinch to Zoom
+              </div>
+
+              {/* Canvas Render */}
+              <Canvas camera={{ position: [0, 1.5, 11], fov: 42 }} style={{ touchAction: 'none' }}>
+                <AnatomicalScene 
+                  plane={plane} 
+                  slicePos={slicePos} 
+                  selectedOrgan={selectedOrgan}
+                  onSelectOrgan={setSelectedOrgan}
+                  enableClipping={enableClipping}
+                  showContours={showContours}
+                />
+              </Canvas>
+            </div>
+          ) : (
+            <div style={{ 
+              width: '100%', 
+              height: '100%', 
+              position: 'relative', 
+              background: '#05070d', 
+              borderRadius: '20px', 
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '12px'
+            }}>
+              <div style={{ position: 'absolute', top: 10, left: 12, right: 12, zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pointerEvents: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Crosshair size={14} color="#38bdf8" />
+                  <span style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', color: '#38bdf8', textTransform: 'uppercase' }}>
+                    2D CT MPR Cross-Section
+                  </span>
+                </div>
+                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '6px' }}>
+                  W:{currentWidth} L:{currentLevel}
+                </div>
+              </div>
+
+              <CTScanViewport 
+                plane={plane}
+                slicePos={slicePos}
+                windowPreset={activePreset}
+                customWidth={customWidth}
+                customLevel={customLevel}
+                showContours={showContours}
+                selectedOrgan={selectedOrgan}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flex: 1, gap: '16px', minHeight: 0 }}>
+          {/* VIEWPORT 1: Three.js 3D Interactive Anatomy */}
+          <div style={{ 
+            flex: 1.1, 
+            position: 'relative', 
+            background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)', 
+            borderRadius: '20px', 
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Viewport Header */}
+            <div style={{ position: 'absolute', top: 12, left: 16, zIndex: 10, display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
+              <Compass size={16} color="#38bdf8" />
               <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '1px', color: '#38bdf8', textTransform: 'uppercase' }}>
-                Synchronized 2D CT Cross-Section
+                3D Holographic Anatomy (Three.js WebGL)
               </span>
             </div>
-            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8' }}>
-              W: {currentWidth} L: {currentLevel} HU
+
+            <div style={{ position: 'absolute', bottom: 12, left: 16, zIndex: 10, fontSize: '11px', color: '#64748b', pointerEvents: 'none' }}>
+              Left Click: Rotate • Right Click: Pan • Scroll: Zoom
             </div>
+
+            {/* Canvas Render */}
+            <Canvas camera={{ position: [0, 1.5, 11], fov: 42 }}>
+              <AnatomicalScene 
+                plane={plane} 
+                slicePos={slicePos} 
+                selectedOrgan={selectedOrgan}
+                onSelectOrgan={setSelectedOrgan}
+                enableClipping={enableClipping}
+                showContours={showContours}
+              />
+            </Canvas>
           </div>
 
-          {/* Canvas Component */}
-          <CTScanViewport 
-            plane={plane}
-            slicePos={slicePos}
-            windowPreset={activePreset}
-            customWidth={customWidth}
-            customLevel={customLevel}
-            showContours={showContours}
-            selectedOrgan={selectedOrgan}
-          />
-        </div>
+          {/* VIEWPORT 2: Synchronized 2D CT Cross-Section */}
+          <div style={{ 
+            flex: 1, 
+            position: 'relative', 
+            background: '#05070d', 
+            borderRadius: '20px', 
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}>
+            {/* Viewport Header */}
+            <div style={{ position: 'absolute', top: 12, left: 16, right: 16, zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pointerEvents: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Crosshair size={16} color="#38bdf8" />
+                <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '1px', color: '#38bdf8', textTransform: 'uppercase' }}>
+                  Synchronized 2D CT Cross-Section
+                </span>
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8' }}>
+                W: {currentWidth} L: {currentLevel} HU
+              </div>
+            </div>
 
-      </div>
+            {/* Canvas Component */}
+            <CTScanViewport 
+              plane={plane}
+              slicePos={slicePos}
+              windowPreset={activePreset}
+              customWidth={customWidth}
+              customLevel={customLevel}
+              showContours={showContours}
+              selectedOrgan={selectedOrgan}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ─── BOTTOM CONTROL DECK: SLICE SCRUBBER & RADIOLOGY TOOLS ───────── */}
       <div style={{ 
         display: 'flex', 
         flexDirection: 'column', 
-        gap: '12px', 
-        padding: '16px 20px', 
+        gap: isMobile ? '8px' : '12px', 
+        padding: isMobile ? '12px 14px' : '16px 20px', 
         background: 'rgba(15, 23, 42, 0.85)', 
         border: '1px solid rgba(56, 189, 248, 0.25)', 
         borderRadius: '16px',
@@ -999,13 +1257,13 @@ export default function SynchronizedCTViewer({ activePatient }) {
       }}>
         
         {/* Slice Scrubber & Cine Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
           {/* Play / Pause Cine Loop */}
           <button
             onClick={() => setIsPlaying(!isPlaying)}
             style={{
-              width: '42px',
-              height: '42px',
+              width: isMobile ? '36px' : '42px',
+              height: isMobile ? '36px' : '42px',
               borderRadius: '50%',
               background: isPlaying ? '#ef4444' : '#0284c7',
               border: 'none',
@@ -1014,27 +1272,28 @@ export default function SynchronizedCTViewer({ activePatient }) {
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              boxShadow: isPlaying ? '0 0 15px #ef4444' : '0 0 15px #0284c7',
+              boxShadow: isPlaying ? '0 0 12px #ef4444' : '0 0 12px #0284c7',
               transition: 'all 0.2s',
               flexShrink: 0
             }}
             title={isPlaying ? 'Pause Cine Loop' : 'Play Cine Loop'}
           >
-            {isPlaying ? <Pause size={18} /> : <Play size={18} style={{ marginLeft: 2 }} />}
+            {isPlaying ? <Pause size={isMobile ? 15 : 18} /> : <Play size={isMobile ? 15 : 18} style={{ marginLeft: 2 }} />}
           </button>
 
           {/* FPS Speed Toggle */}
           <button
             onClick={() => setCineFps(prev => prev === 10 ? 20 : (prev === 20 ? 30 : 10))}
             style={{
-              padding: '6px 10px',
+              padding: isMobile ? '4px 8px' : '6px 10px',
               borderRadius: '8px',
               background: 'rgba(255,255,255,0.08)',
               border: '1px solid rgba(255,255,255,0.15)',
               color: '#38bdf8',
               fontSize: '11px',
               fontWeight: 'bold',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              flexShrink: 0
             }}
             title="Cine Speed"
           >
@@ -1042,11 +1301,11 @@ export default function SynchronizedCTViewer({ activePatient }) {
           </button>
 
           {/* Slider */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>
-              <span>SUPERIOR / APEX</span>
-              <span style={{ color: '#38bdf8' }}>Z: {mmDepth} mm (Slice {sliceIndex} of {maxSlices})</span>
-              <span>INFERIOR / BASE</span>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: isMobile ? '10px' : '11px', color: '#94a3b8', fontWeight: 'bold' }}>
+              <span className="mobile-hide">SUPERIOR</span>
+              <span style={{ color: '#38bdf8', margin: isMobile ? '0 auto' : '0' }}>Z: {mmDepth} mm ({sliceIndex}/{maxSlices})</span>
+              <span className="mobile-hide">INFERIOR</span>
             </div>
             <input 
               type="range"
@@ -1072,7 +1331,8 @@ export default function SynchronizedCTViewer({ activePatient }) {
               border: 'none',
               color: '#94a3b8',
               cursor: 'pointer',
-              padding: '4px'
+              padding: '4px',
+              flexShrink: 0
             }}
             title="Reset to Mid-slice"
           >
@@ -1081,11 +1341,26 @@ export default function SynchronizedCTViewer({ activePatient }) {
         </div>
 
         {/* Presets & Organ Toggles */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between', 
+          alignItems: isMobile ? 'stretch' : 'center', 
+          gap: isMobile ? '8px' : '12px',
+          paddingTop: '8px', 
+          borderTop: '1px solid rgba(255,255,255,0.08)' 
+        }}>
           
           {/* WW/WL Windowing Presets */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Window:</span>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            overflowX: 'auto',
+            paddingBottom: isMobile ? '2px' : '0',
+            scrollbarWidth: 'none'
+          }}>
+            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', flexShrink: 0 }}>Window:</span>
             {Object.entries(WINDOW_PRESETS).map(([key, val]) => (
               <button
                 key={key}
@@ -1095,11 +1370,13 @@ export default function SynchronizedCTViewer({ activePatient }) {
                   setCustomLevel(null);
                 }}
                 style={{
-                  padding: '5px 10px',
+                  padding: '4px 9px',
                   borderRadius: '6px',
                   fontSize: '11px',
                   fontWeight: '700',
                   cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                   border: `1px solid ${windowPresetKey === key ? '#38bdf8' : 'rgba(255,255,255,0.1)'}`,
                   background: windowPresetKey === key ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.04)',
                   color: windowPresetKey === key ? '#38bdf8' : '#cbd5e1'
@@ -1110,9 +1387,16 @@ export default function SynchronizedCTViewer({ activePatient }) {
             ))}
           </div>
 
-          {/* Organ Segmentation Spotlight Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Highlight:</span>
+          {/* Organ Segmentation Spotlight Buttons & Contours */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            overflowX: 'auto',
+            paddingBottom: isMobile ? '2px' : '0',
+            scrollbarWidth: 'none'
+          }}>
+            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', flexShrink: 0 }}>Highlight:</span>
             {ORGANS.map((organ) => {
               const active = selectedOrgan === organ.id;
               return (
@@ -1120,7 +1404,7 @@ export default function SynchronizedCTViewer({ activePatient }) {
                   key={organ.id}
                   onClick={() => setSelectedOrgan(active ? null : organ.id)}
                   style={{
-                    padding: '4px 10px',
+                    padding: '3px 8px',
                     borderRadius: '20px',
                     fontSize: '11px',
                     fontWeight: '700',
@@ -1128,6 +1412,8 @@ export default function SynchronizedCTViewer({ activePatient }) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                     border: `1px solid ${active ? organ.color : 'rgba(255,255,255,0.1)'}`,
                     background: active ? `${organ.color}25` : 'transparent',
                     color: active ? organ.color : '#94a3b8'
@@ -1138,31 +1424,173 @@ export default function SynchronizedCTViewer({ activePatient }) {
                 </button>
               );
             })}
-          </div>
 
-          {/* Contour Overlay Toggle */}
-          <button
-            onClick={() => setShowContours(!showContours)}
-            style={{
-              padding: '5px 12px',
-              borderRadius: '8px',
-              fontSize: '11px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              border: `1px solid ${showContours ? '#10b981' : 'rgba(255,255,255,0.1)'}`,
-              background: showContours ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
-              color: showContours ? '#10b981' : '#64748b',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            {showContours ? <Eye size={13} /> : <EyeOff size={13} />}
-            Contours
-          </button>
+            {/* Contour Overlay Toggle */}
+            <button
+              onClick={() => setShowContours(!showContours)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                border: `1px solid ${showContours ? '#10b981' : 'rgba(255,255,255,0.1)'}`,
+                background: showContours ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                color: showContours ? '#10b981' : '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              {showContours ? <Eye size={12} /> : <EyeOff size={12} />}
+              Contours
+            </button>
+          </div>
         </div>
 
       </div>
+
+      {/* ─── PATIENT SELECTION DRAWER MODAL ─────────────────────────────── */}
+      {isPatientDrawerOpen && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+          onClick={() => setIsPatientDrawerOpen(false)}
+        >
+          <div 
+            style={{
+              background: '#0f172a',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              borderTopLeftRadius: '24px',
+              borderTopRightRadius: '24px',
+              width: '100%',
+              maxWidth: '520px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              padding: '20px 18px 36px 18px',
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.8)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Drag Bar */}
+            <div style={{ width: '40px', height: '4px', background: '#334155', borderRadius: '2px', alignSelf: 'center', marginBottom: '4px' }} />
+
+            {/* Drawer Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '17px', fontWeight: '800', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Users size={18} color="#38bdf8" /> Select Patient Twin
+                </div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  Choose a patient to load their 3D digital twin
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsPatientDrawerOpen(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#cbd5e1',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Patient Cards List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {patientList.map((p) => {
+                const isSelected = activePatient?.id === p.id || activePatient?.name === p.name;
+                return (
+                  <div 
+                    key={p.id || p.name}
+                    onClick={() => {
+                      if (onSelectPatient) onSelectPatient(p.id);
+                      setIsPatientDrawerOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderRadius: '14px',
+                      background: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(30, 41, 59, 0.6)',
+                      border: isSelected ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '50%',
+                        background: isSelected ? '#0284c7' : '#334155',
+                        color: '#ffffff',
+                        fontWeight: '800',
+                        fontSize: '15px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {p.name ? p.name.charAt(0) : 'P'}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '700', color: '#ffffff' }}>
+                          {p.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                          MRN: {p.mrn || p.id} {p.reason ? `• ${p.reason}` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <div style={{
+                        background: '#0284c7',
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <Check size={14} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

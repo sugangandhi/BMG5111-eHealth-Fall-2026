@@ -199,7 +199,7 @@ export default function DigitalTwin() {
     <div className="digital-twin-container" style={{ padding: '24px', height: '100%', display: 'flex', gap: '24px', overflow: 'hidden' }}>
       
       {/* Sidebar Controls */}
-      <div className="glass-panel digital-twin-sidebar" style={{ width: '320px', display: 'flex', flexDirection: 'column', borderRadius: '24px', padding: '24px', border: '1px solid rgba(6, 182, 212, 0.3)', overflowY: 'auto' }}>
+      <div className="glass-panel digital-twin-sidebar desktop-only" style={{ width: '320px', display: 'flex', flexDirection: 'column', borderRadius: '24px', padding: '24px', border: '1px solid rgba(6, 182, 212, 0.3)', overflowY: 'auto' }}>
         <h2 style={{ fontSize: '20px', fontWeight: '800', margin: '0 0 24px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Activity color={HOLO_CYAN} />
           Digital Twin
@@ -323,7 +323,11 @@ export default function DigitalTwin() {
       <div style={{ flex: 1, display: 'flex', gap: '24px', position: 'relative', flexDirection: 'column', minHeight: 0 }}>
         
         {viewMode === 'ct-sync' ? (
-          <SynchronizedCTViewer activePatient={activePatient} />
+          <SynchronizedCTViewer 
+            activePatient={activePatient} 
+            patients={patients} 
+            onSelectPatient={setSelectedPatientId} 
+          />
         ) : (
           <>
             {/* Hologram Container */}
