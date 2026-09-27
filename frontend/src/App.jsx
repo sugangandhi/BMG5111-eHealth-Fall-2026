@@ -401,8 +401,12 @@ function App() {
                 <strong style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{user?.name || 'Dr. Patel'}</strong>
                 <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#16a34a', padding: '1px 6px', borderRadius: '6px', fontWeight: '700' }}>🟢 On Duty</span>
               </div>
-              <p style={{ margin: '1px 0 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                Prime Care · {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              <p style={{ margin: '1px 0 0 0', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                <span>·</span>
+                <span style={{ color: '#16a34a', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} /> Live Sync
+                </span>
               </p>
             </div>
           </div>
