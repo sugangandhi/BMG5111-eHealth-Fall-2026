@@ -188,11 +188,11 @@ export default function Dashboard() {
   if (!stats && !isOffline) return <div style={{ color: 'var(--text-secondary)' }}>Loading dashboard...</div>;
 
   return (
-    <div style={{ transition: 'all 0.5s', filter: isOffline ? 'sepia(0.2) hue-rotate(-20deg)' : 'none' }}>
+    <div style={{ transition: 'all 0.3s' }}>
       
-      {/* OFFLINE BANNER */}
+      {/* OFFLINE BANNER (Desktop Only) */}
       {isOffline && (
-        <div className="animate-fade-in" style={{ marginBottom: '24px', padding: '16px 20px', background: 'rgba(239, 68, 68, 0.15)', border: '2px solid #ef4444', color: '#fca5a5', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px', fontWeight: '500', boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)' }}>
+        <div className="desktop-only animate-fade-in" style={{ marginBottom: '24px', padding: '16px 20px', background: 'rgba(239, 68, 68, 0.15)', border: '2px solid #ef4444', color: '#fca5a5', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px', fontWeight: '500', boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)' }}>
           <div style={{ background: '#ef4444', color: 'white', padding: '8px', borderRadius: '50%' }}>
             <ShieldCheck size={24} />
           </div>
@@ -200,6 +200,23 @@ export default function Dashboard() {
             <div style={{ fontWeight: '800', fontSize: '16px', color: '#ef4444', marginBottom: '4px' }}>⚠️ CLOUD CONNECTION SEVERED</div>
             <div style={{ fontSize: '14px' }}>External API sync failed. Local Prime Care AI Voice Agent is continuing autonomously on-device. HIPAA compliance intact.</div>
           </div>
+        </div>
+      )}
+
+      {/* COMPACT OFFLINE BAR (Mobile Only - Sleek 1-line) */}
+      {isOffline && (
+        <div className="mobile-only mobile-offline-bar animate-fade-in">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="mobile-pulse-dot offline" />
+            <span style={{ fontSize: '12px', fontWeight: '600' }}>Cloud Offline · Autonomous Voice Mode</span>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setIsOffline(false)}
+            className="mobile-offline-reconnect-btn"
+          >
+            Reconnect
+          </button>
         </div>
       )}
       
@@ -489,20 +506,27 @@ export default function Dashboard() {
               </div>
             </div>
             
-            {/* Quick Cloud Connection Toggle Pill */}
+            {/* Quick Cloud Connection Status Pill */}
             <button 
               type="button"
-              onClick={() => setIsOffline(!isOffline)}
+              onClick={() => {
+                if (isOffline) {
+                  setIsOffline(false);
+                } else {
+                  setActionMessage("Cloud synchronized & operational.");
+                  setTimeout(() => setActionMessage(null), 2000);
+                }
+              }}
               className="mobile-status-pill"
               style={{
-                background: isOffline ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                borderColor: isOffline ? '#ef4444' : '#10b981',
-                color: isOffline ? '#fca5a5' : '#34d399'
+                background: isOffline ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                borderColor: isOffline ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)',
+                color: isOffline ? '#ef4444' : '#16a34a'
               }}
-              title="Toggle Cloud Connection"
+              title={isOffline ? "Tap to reconnect" : "Cloud Connected"}
             >
               <span className={`mobile-pulse-dot ${isOffline ? 'offline' : 'online'}`} />
-              {isOffline ? 'Offline' : 'Cloud Sync'}
+              {isOffline ? 'Offline · Reconnect' : 'Live Sync'}
             </button>
           </div>
         </div>

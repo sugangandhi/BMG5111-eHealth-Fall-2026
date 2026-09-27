@@ -564,13 +564,40 @@ h1, h2, h3, h4, h5, h6 {
   box-sizing: border-box;
 }
 
+/* Compact Mobile Offline Notice Bar */
+.mobile-offline-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 10px;
+  color: var(--text-primary);
+}
+
+.mobile-offline-reconnect-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mobile-offline-reconnect-btn:active {
+  transform: scale(0.95);
+}
+
 .mobile-greeting-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.85) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px 14px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .mobile-greeting-label {
@@ -578,8 +605,8 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #94a3b8;
-  margin-bottom: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
 }
 
 .mobile-greeting-title {
@@ -681,7 +708,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: center;
   border: 1px solid;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
   transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -693,27 +720,16 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.01em;
 }
 
-/* Up Next Patient Hero Card */
+/* Up Next Patient Hero Card - Clean Theme Adaptive */
 .mobile-hero-patient-card {
-  background: linear-gradient(135deg, rgba(30, 58, 138, 0.25) 0%, rgba(15, 23, 42, 0.6) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
   border-radius: 14px;
   padding: 12px 14px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   position: relative;
   overflow: hidden;
-}
-
-.mobile-hero-patient-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 3px;
-  height: 100%;
-  background: #3b82f6;
-  border-top-left-radius: 14px;
-  border-bottom-left-radius: 14px;
 }
 
 .mobile-hero-header {
@@ -730,14 +746,14 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.05em;
-  color: #60a5fa;
+  color: var(--primary);
 }
 
 .mobile-hero-time {
   font-size: 12px;
   font-weight: 700;
-  color: #93c5fd;
-  background: rgba(59, 130, 246, 0.15);
+  color: var(--primary);
+  background: rgba(47, 129, 247, 0.12);
   padding: 2px 7px;
   border-radius: 6px;
 }
@@ -753,7 +769,7 @@ h1, h2, h3, h4, h5, h6 {
   width: 40px;
   height: 40px;
   border-radius: 11px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
   color: white;
   display: flex;
   align-items: center;
@@ -761,7 +777,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 800;
   font-size: 15px;
   flex-shrink: 0;
-  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
 .mobile-hero-info {
