@@ -385,12 +385,26 @@ function App() {
             </div>
           )}
           <div>
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' }}>Prime Care App <span style={{ fontSize: '11px', background: 'rgba(47, 129, 247, 0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', verticalAlign: 'middle', border: '1px solid rgba(47, 129, 247, 0.2)', fontWeight: '600' }}>PRO</span></h2>
-            <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              <span className="desktop-only">{user?.clinic || 'Prime Care Medical Group'} · </span>
-              <strong style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{user?.name}</strong>
-              <span className="desktop-only">{user?.email && ` (${user.email})`}</span>
-            </p>
+            {/* Desktop header text */}
+            <div className="desktop-only">
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' }}>Prime Care App <span style={{ fontSize: '11px', background: 'rgba(47, 129, 247, 0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', verticalAlign: 'middle', border: '1px solid rgba(47, 129, 247, 0.2)', fontWeight: '600' }}>PRO</span></h2>
+              <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                <span>{user?.clinic || 'Prime Care Medical Group'} · </span>
+                <strong style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{user?.name}</strong>
+                {user?.email && ` (${user.email})`}
+              </p>
+            </div>
+
+            {/* Mobile header text - consolidated doctor info & duty status */}
+            <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <strong style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{user?.name || 'Dr. Patel'}</strong>
+                <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#16a34a', padding: '1px 6px', borderRadius: '6px', fontWeight: '700' }}>🟢 On Duty</span>
+              </div>
+              <p style={{ margin: '1px 0 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                Prime Care · {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </p>
+            </div>
           </div>
         </div>
 

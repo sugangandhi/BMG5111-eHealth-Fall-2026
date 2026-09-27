@@ -492,45 +492,6 @@ export default function Dashboard() {
 
       {/* ── MOBILE VIEW (Mobile-Only Native Clinical Experience) ─────────── */}
       <div className="mobile-only mobile-home-container">
-        {/* Mobile Clinical Top Bar */}
-        <div className="mobile-greeting-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div className="mobile-greeting-label">{greeting}</div>
-              <h2 className="mobile-greeting-title">
-                {user?.name ? (user.name.startsWith('Dr.') ? user.name : `Dr. ${user.name}`) : 'Dr. Patel'}
-              </h2>
-              <div className="mobile-greeting-meta">
-                <span className="mobile-shift-badge">🟢 On Duty</span>
-                <span>{todayDateStr}</span>
-              </div>
-            </div>
-            
-            {/* Quick Cloud Connection Status Pill */}
-            <button 
-              type="button"
-              onClick={() => {
-                if (isOffline) {
-                  setIsOffline(false);
-                } else {
-                  setActionMessage("Cloud synchronized & operational.");
-                  setTimeout(() => setActionMessage(null), 2000);
-                }
-              }}
-              className="mobile-status-pill"
-              style={{
-                background: isOffline ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                borderColor: isOffline ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)',
-                color: isOffline ? '#ef4444' : '#16a34a'
-              }}
-              title={isOffline ? "Tap to reconnect" : "Cloud Connected"}
-            >
-              <span className={`mobile-pulse-dot ${isOffline ? 'offline' : 'online'}`} />
-              {isOffline ? 'Offline · Reconnect' : 'Live Sync'}
-            </button>
-          </div>
-        </div>
-
         {/* 4 Quick Clinical Thumb Actions Dock */}
         <div className="mobile-quick-actions">
           <button 
