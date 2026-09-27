@@ -778,10 +778,11 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
   // Mobile Responsiveness & View Selection
   const [mobileTab, setMobileTab] = useState('3d'); // '3d' | '2d'
   const [isPatientDrawerOpen, setIsPatientDrawerOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth <= 960 : true);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => setIsMobile(window.innerWidth <= 960);
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -834,23 +835,26 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
   const mmDepth = ((sliceIndex - maxSlices / 2) * 3.2).toFixed(1);
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: '100%', 
-      gap: isMobile ? '10px' : '16px', 
-      background: '#090d16',
-      borderRadius: isMobile ? '16px' : '24px', 
-      padding: isMobile ? '12px' : '20px', 
-      color: '#f8fafc',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      boxShadow: 'inset 0 0 50px rgba(0,0,0,0.8)',
-      position: 'relative'
-    }}>
+    <div 
+      className="radiology-dark-suite"
+      style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: '100%', 
+        gap: isMobile ? '10px' : '16px', 
+        background: '#090d16',
+        borderRadius: isMobile ? '16px' : '24px', 
+        padding: isMobile ? '12px' : '20px', 
+        color: '#f8fafc',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        boxShadow: 'inset 0 0 50px rgba(0,0,0,0.8)',
+        position: 'relative'
+      }}
+    >
       
       {/* ─── TOP METADATA & PACS HEADER ───────────────────────────────────── */}
       {isMobile ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div className="ct-header-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {/* Row 1: Patient Menu Selector & 3D Cut Toggle */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
             <button
@@ -858,30 +862,28 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(15, 23, 42, 0.95)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
+                gap: '10px',
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
+                border: '1px solid rgba(56, 189, 248, 0.5)',
                 padding: '8px 12px',
                 borderRadius: '12px',
                 color: '#ffffff',
-                fontSize: '13px',
-                fontWeight: '700',
                 cursor: 'pointer',
                 boxShadow: '0 2px 10px rgba(0,0,0,0.4)',
                 flex: 1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
+                overflow: 'hidden'
               }}
             >
-              <Menu size={16} color="#38bdf8" style={{ flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
-                {activePatient?.name || 'Select Patient'}
-              </span>
-              <span style={{ fontSize: '10px', color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
-                MRN: {activePatient?.mrn || 'PACS'}
-              </span>
-              <ChevronDown size={14} color="#94a3b8" style={{ flexShrink: 0 }} />
+              <Menu size={18} color="#38bdf8" style={{ flexShrink: 0 }} />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                <span style={{ color: '#ffffff', fontWeight: '800', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activePatient?.name || 'David Murphy'}
+                </span>
+                <span style={{ color: '#38bdf8', fontSize: '10px', fontWeight: '600' }}>
+                  MRN: {activePatient?.mrn || 'PACS-2024'} • {activePatient?.reason || 'CT Torso'}
+                </span>
+              </div>
+              <ChevronDown size={16} color="#94a3b8" style={{ flexShrink: 0, marginLeft: '4px' }} />
             </button>
 
             {/* 3D Cut Toggle */}
@@ -897,8 +899,8 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
                 fontWeight: '700',
                 cursor: 'pointer',
                 border: `1px solid ${enableClipping ? '#38bdf8' : 'rgba(255,255,255,0.15)'}`,
-                background: enableClipping ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.8)',
-                color: enableClipping ? '#38bdf8' : '#94a3b8',
+                background: enableClipping ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.9)',
+                color: enableClipping ? '#38bdf8' : '#cbd5e1',
                 flexShrink: 0
               }}
             >
@@ -909,10 +911,10 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
           {/* Row 2: View Switcher (Segmented Control between 3D Twin & 2D CT) */}
           <div style={{
             display: 'flex',
-            background: 'rgba(0, 0, 0, 0.65)',
+            background: 'rgba(0, 0, 0, 0.7)',
             padding: '3px',
             borderRadius: '12px',
-            border: '1px solid rgba(56, 189, 248, 0.2)'
+            border: '1px solid rgba(56, 189, 248, 0.25)'
           }}>
             <button
               onClick={() => setMobileTab('3d')}
@@ -930,11 +932,11 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
                 gap: '6px',
                 background: mobileTab === '3d' ? 'linear-gradient(135deg, #0284c7, #06b6d4)' : 'transparent',
                 color: mobileTab === '3d' ? '#ffffff' : '#94a3b8',
-                boxShadow: mobileTab === '3d' ? '0 2px 8px rgba(6, 182, 212, 0.3)' : 'none',
+                boxShadow: mobileTab === '3d' ? '0 2px 10px rgba(6, 182, 212, 0.4)' : 'none',
                 transition: 'all 0.2s'
               }}
             >
-              <Sparkles size={14} /> 3D Digital Twin
+              <Sparkles size={14} /> 🫁 3D Twin View
             </button>
             <button
               onClick={() => setMobileTab('2d')}
@@ -952,11 +954,11 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
                 gap: '6px',
                 background: mobileTab === '2d' ? 'linear-gradient(135deg, #0284c7, #06b6d4)' : 'transparent',
                 color: mobileTab === '2d' ? '#ffffff' : '#94a3b8',
-                boxShadow: mobileTab === '2d' ? '0 2px 8px rgba(6, 182, 212, 0.3)' : 'none',
+                boxShadow: mobileTab === '2d' ? '0 2px 10px rgba(6, 182, 212, 0.4)' : 'none',
                 transition: 'all 0.2s'
               }}
             >
-              <Crosshair size={14} /> 2D CT MPR Scan
+              <Crosshair size={14} /> 🔬 2D CT MPR Scan
             </button>
           </div>
 
@@ -972,14 +974,14 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
                 onClick={() => setPlane(p.id)}
                 style={{
                   flex: 1,
-                  padding: '5px 8px',
+                  padding: '6px 8px',
                   borderRadius: '8px',
                   fontSize: '11px',
                   fontWeight: '700',
                   cursor: 'pointer',
                   border: `1px solid ${plane === p.id ? '#0284c7' : 'rgba(255,255,255,0.08)'}`,
-                  background: plane === p.id ? 'rgba(2, 132, 199, 0.3)' : 'rgba(255,255,255,0.03)',
-                  color: plane === p.id ? '#38bdf8' : '#94a3b8',
+                  background: plane === p.id ? 'rgba(2, 132, 199, 0.35)' : 'rgba(255,255,255,0.03)',
+                  color: plane === p.id ? '#38bdf8' : '#cbd5e1',
                   transition: 'all 0.15s'
                 }}
               >
@@ -989,7 +991,7 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
           </div>
         </div>
       ) : (
-        <div style={{ 
+        <div className="ct-header-desktop" style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
@@ -1008,7 +1010,8 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
               fontSize: '13px',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '8px',
+              color: '#ffffff'
             }}>
               <Sparkles size={16} /> SYNC 3D • CT MPR
             </div>
@@ -1075,14 +1078,15 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
 
       {/* ─── WORKSPACE (MOBILE: SINGLE CENTERED VIEWPORT | DESKTOP: DUAL VIEWPORT) ── */}
       {isMobile ? (
-        <div style={{ 
+        <div className="ct-workspace-mobile" style={{ 
           width: '100%', 
-          height: '400px', 
-          minHeight: '380px',
+          height: '430px', 
+          minHeight: '390px',
+          maxHeight: '56vh',
           position: 'relative', 
           borderRadius: '20px', 
           overflow: 'hidden',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center'
@@ -1094,24 +1098,26 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
               position: 'relative', 
               background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)', 
               borderRadius: '20px', 
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column'
             }}>
               {/* Mobile Viewport Badges */}
-              <div style={{ position: 'absolute', top: 10, left: 12, zIndex: 10, display: 'flex', alignItems: 'center', gap: '6px', pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', top: 12, left: 14, zIndex: 10, display: 'flex', alignItems: 'center', gap: '6px', pointerEvents: 'none' }}>
                 <Compass size={14} color="#38bdf8" />
-                <span style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', color: '#38bdf8', textTransform: 'uppercase' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', color: '#38bdf8', textTransform: 'uppercase' }}>
                   3D Holographic Twin
                 </span>
               </div>
-              <div style={{ position: 'absolute', top: 10, right: 12, zIndex: 10, fontSize: '10px', fontWeight: '700', color: '#94a3b8', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '6px', pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 10, fontSize: '11px', fontWeight: '700', color: '#e2e8f0', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '6px', pointerEvents: 'none' }}>
                 Z: {mmDepth} mm
               </div>
 
-              <div style={{ position: 'absolute', bottom: 8, left: 12, right: 12, zIndex: 10, fontSize: '10px', color: '#64748b', textAlign: 'center', pointerEvents: 'none' }}>
-                Drag to Rotate • Pinch to Zoom
+              <div style={{ position: 'absolute', bottom: 10, left: 12, right: 12, zIndex: 10, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 12px', borderRadius: '12px' }}>
+                  👆 Drag to Rotate • Pinch to Zoom
+                </span>
               </div>
 
               {/* Canvas Render */}
@@ -1133,7 +1139,7 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
               position: 'relative', 
               background: '#05070d', 
               borderRadius: '20px', 
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
@@ -1141,15 +1147,15 @@ export default function SynchronizedCTViewer({ activePatient, patients = {}, onS
               justifyContent: 'center',
               padding: '12px'
             }}>
-              <div style={{ position: 'absolute', top: 10, left: 12, right: 12, zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', top: 12, left: 14, right: 14, zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pointerEvents: 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Crosshair size={14} color="#38bdf8" />
-                  <span style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px', color: '#38bdf8', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.5px', color: '#38bdf8', textTransform: 'uppercase' }}>
                     2D CT MPR Cross-Section
                   </span>
                 </div>
-                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#94a3b8', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '6px' }}>
-                  W:{currentWidth} L:{currentLevel}
+                <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#cbd5e1', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '6px' }}>
+                  W:{currentWidth} L:{currentLevel} HU
                 </div>
               </div>
 

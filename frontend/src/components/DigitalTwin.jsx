@@ -320,7 +320,7 @@ export default function DigitalTwin() {
 
       </div>
 
-      <div style={{ flex: 1, display: 'flex', gap: '24px', position: 'relative', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', gap: '16px', position: 'relative', flexDirection: 'column', minHeight: 0, width: '100%' }}>
         
         {viewMode === 'ct-sync' ? (
           <SynchronizedCTViewer 

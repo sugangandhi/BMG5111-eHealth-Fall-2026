@@ -83,14 +83,32 @@ body {
 }
 
 /* Smart Inline Dark Color Overrides for Light Theme */
-[data-theme="light"] [style*="color: #e2e8f0"],
-[data-theme="light"] [style*="color: rgb(226, 232, 240)"],
-[data-theme="light"] [style*="color: #f8fafc"],
-[data-theme="light"] [style*="color: rgb(248, 250, 252)"],
-[data-theme="light"] [style*="color: #f1f5f9"],
-[data-theme="light"] [style*="color: #ffffff"]:not(.btn-primary):not(span),
-[data-theme="light"] [style*="color: rgb(255, 255, 255)"]:not(.btn-primary):not(span) {
+[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: #e2e8f0"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: rgb(226, 232, 240)"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: #f8fafc"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: rgb(248, 250, 252)"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: #f1f5f9"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: #ffffff"]:not(.btn-primary):not(span),
+[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: rgb(255, 255, 255)"]:not(.btn-primary):not(span) {
   color: var(--text-primary) !important;
+}
+
+/* Maintain high-contrast clinical dark theme for 3D Digital Twin & CT Suite */
+.radiology-dark-suite {
+  color: #f8fafc !important;
+}
+.radiology-dark-suite [style*="color: #ffffff"],
+.radiology-dark-suite [style*="color: rgb(255, 255, 255)"],
+.radiology-dark-suite [style*="color: #f8fafc"],
+.radiology-dark-suite [style*="color: #f1f5f9"],
+.radiology-dark-suite [style*="color: #e2e8f0"] {
+  color: #ffffff !important;
+}
+.radiology-dark-suite [style*="color: #94a3b8"] {
+  color: #94a3b8 !important;
+}
+.radiology-dark-suite [style*="color: #cbd5e1"] {
+  color: #cbd5e1 !important;
 }
 
 [data-theme="light"] [style*="background: rgba(0,0,0,0.25)"],
@@ -244,7 +262,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── Mobile Responsiveness & Native App Styling ───────────────────────── */
-@media (max-width: 768px) {
+@media (max-width: 960px) {
   body {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -439,16 +457,14 @@ h1, h2, h3, h4, h5, h6 {
   .digital-twin-container {
     flex-direction: column !important;
     padding: 0 !important;
-    gap: 8px !important;
+    gap: 0 !important;
     height: auto !important;
     overflow-y: auto !important;
+    width: 100% !important;
   }
 
   .digital-twin-sidebar {
-    width: 100% !important;
-    max-height: none !important;
-    padding: 16px !important;
-    border-radius: 16px !important;
+    display: none !important;
   }
 
   .digital-twin-viewport {
@@ -456,6 +472,28 @@ h1, h2, h3, h4, h5, h6 {
     min-height: 460px !important;
     height: 60vh !important;
     border-radius: 16px !important;
+  }
+
+  .ct-header-mobile {
+    display: flex !important;
+  }
+  .ct-header-desktop {
+    display: none !important;
+  }
+  .ct-workspace-mobile {
+    display: flex !important;
+    width: 100% !important;
+    height: 420px !important;
+    min-height: 380px !important;
+  }
+  .ct-workspace-desktop {
+    display: none !important;
+  }
+  .ct-deck-mobile {
+    display: flex !important;
+  }
+  .ct-deck-desktop {
+    display: none !important;
   }
 
   /* Bottom Navigation Bar (Native App Style) */
@@ -1138,4 +1176,49 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   flex-shrink: 0;
 }
+
+/* ── Digital Twin & CT Suite Layout Responsive Rules ────────────────── */
+.ct-header-mobile {
+  display: none;
+}
+.ct-header-desktop {
+  display: flex;
+}
+.ct-workspace-mobile {
+  display: none;
+}
+.ct-workspace-desktop {
+  display: flex;
+}
+.ct-deck-mobile {
+  display: none;
+}
+.ct-deck-desktop {
+  display: flex;
+}
+
+@media (max-width: 900px) {
+  .ct-header-mobile {
+    display: flex !important;
+  }
+  .ct-header-desktop {
+    display: none !important;
+  }
+  .ct-workspace-mobile {
+    display: flex !important;
+    width: 100% !important;
+    height: 420px !important;
+    min-height: 380px !important;
+  }
+  .ct-workspace-desktop {
+    display: none !important;
+  }
+  .ct-deck-mobile {
+    display: flex !important;
+  }
+  .ct-deck-desktop {
+    display: none !important;
+  }
+}
+
 
