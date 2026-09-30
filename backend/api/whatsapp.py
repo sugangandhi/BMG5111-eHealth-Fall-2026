@@ -1,9 +1,56 @@
 import os
 from fastapi import APIRouter, Request, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(tags=['whatsapp'])
 
 WHATSAPP_VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'ehospital_verified_2026')
+
+class SimulateMessageRequest(BaseModel):
+    phone: str = "613-555-0192"
+    message: str = "Hi Doctor, this is Sarah Khan. My blood pressure this morning is 138/88 and my heart rate is 78."
+
+@router.get('/api/whatsapp/status')
+async def get_whatsapp_status():
+    """
+    Returns the real-time configuration status of the WhatsApp integration,
+    including webhook callback endpoints and cloud environment details.
+    """
+    token = os.getenv('WHATSAPP_TOKEN')
+    phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+    display_phone = os.getenv('WHATSAPP_DISPLAY_PHONE', '1234567890')
+    has_meta = bool(token and phone_id)
+    has_twilio = bool(os.getenv('TWILIO_ACCOUNT_SID') and os.getenv('TWILIO_AUTH_TOKEN'))
+    
+    masked_phone_id = None
+    if phone_id:
+        masked_phone_id = phone_id[:4] + "••••" + phone_id[-4:] if len(phone_id) > 8 else phone_id
+
+    return {
+        "configured": has_meta or has_twilio,
+        "provider": "meta" if has_meta else ("twilio" if has_twilio else "simulated"),
+        "phone_number_id": masked_phone_id,
+        "display_phone": display_phone,
+        "verify_token": WHATSAPP_VERIFY_TOKEN,
+        "webhook_endpoint": "/api/whatsapp/webhook"
+    }
+
+@router.post('/api/whatsapp/simulate')
+async def simulate_whatsapp_message(req: SimulateMessageRequest):
+    """
+    Direct simulation endpoint for testing the complete NLP vital extraction,
+    FHIR patient chart update, and automated clinical reply without needing Meta webhooks.
+    """
+    from agent.patient_matcher import process_whatsapp_message
+    try:
+        result = await process_whatsapp_message(req.phone, req.message)
+        return result
+    except Exception as e:
+        print(f"Error simulating WhatsApp encounter: {e}")
+        return {
+            "status": "error",
+            "detail": str(e)
+        }
 
 @router.get('/webhook/whatsapp')
 @router.get('/webhook/whatsapp/')

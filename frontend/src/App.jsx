@@ -17,6 +17,7 @@ import BillingDashboard from './components/BillingDashboard';
 import UniversalScanner from './components/UniversalScanner';
 import KioskMode from './components/KioskMode';
 import DigitalTwin from './components/DigitalTwin';
+import WhatsAppModal from './components/WhatsAppModal';
 window.utterances = [];
 window.isSpeaking = false;
 const speakAction = (text) => {
@@ -74,6 +75,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
   const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
   const [activePatient, setActivePatient] = useState(null);
   const searchInputRef = useRef(null);
@@ -126,13 +128,18 @@ function App() {
     const handleOpenScanner = () => {
       setIsScannerOpen(true);
     };
+    const handleOpenWhatsApp = () => {
+      setIsWhatsAppOpen(true);
+    };
     window.addEventListener('set-active-patient', handleSetActivePatient);
     window.addEventListener('switch-tab', handleSwitchTab);
     window.addEventListener('open-scanner', handleOpenScanner);
+    window.addEventListener('open-whatsapp', handleOpenWhatsApp);
     return () => {
       window.removeEventListener('set-active-patient', handleSetActivePatient);
       window.removeEventListener('switch-tab', handleSwitchTab);
       window.removeEventListener('open-scanner', handleOpenScanner);
+      window.removeEventListener('open-whatsapp', handleOpenWhatsApp);
     };
   }, []);
 
@@ -561,7 +568,25 @@ function App() {
                 </span>
               </button>
 
-
+              {/* WhatsApp Patient Portal */}
+              <button
+                onClick={() => { setIsMenuOpen(false); setIsWhatsAppOpen(true); }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px',
+                  borderRadius: '10px', border: 'none', background: 'transparent', color: 'var(--text-primary)',
+                  cursor: 'pointer', fontSize: '14px', fontWeight: '500', transition: 'background 0.2s', textAlign: 'left'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <MessageCircle size={17} color="#25D366" />
+                  <span>WhatsApp Patient Portal</span>
+                </div>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(37, 211, 102, 0.2)', color: '#25D366', fontWeight: '700' }}>
+                  Live
+                </span>
+              </button>
 
               {/* Open Complete Settings Suite */}
               <button
@@ -652,11 +677,7 @@ function App() {
             <NavButton 
               icon={<MessageCircle size={18} />} 
               label="WhatsApp Patient Chat" 
-              onClick={() => {
-                const phoneNumber = '1234567890';
-                const defaultMessage = 'Hello, I am a patient reaching out to update my records. My name is [Your Name] and my DOB is [YYYY-MM-DD].';
-                window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(defaultMessage)}`, '_blank');
-              }} 
+              onClick={() => setIsWhatsAppOpen(true)} 
             />
             <NavButton icon={<ScanFace size={18} />} label="iPad Kiosk Mode" onClick={() => setIsKioskMode(true)} />
           </div>
@@ -851,6 +872,11 @@ function App() {
         user={user} 
       />
       <UniversalScanner isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
+      <WhatsAppModal 
+        isOpen={isWhatsAppOpen} 
+        onClose={() => setIsWhatsAppOpen(false)} 
+        activePatient={activePatient} 
+      />
 
       {/* Native-Grade Mobile Bottom Navigation */}
       <div className="bottom-nav mobile-only">
