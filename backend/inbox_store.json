@@ -7,9 +7,9 @@
     "patient_id": "pt-001",
     "patient_phone": "613-555-0192",
     "clean_phone": "16135550192",
-    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested Dr. Patel's Advice",
-    "snippet": "Patient asked: \"Hello Dr. Patel, this is Sarah Khan. I am feeling very dizzy and have chest tightness. My BP is 168/102. Can you give me advice on what to do?\" | \ud83e\ude7a Recorded: BP: 168/102",
-    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hello Dr. Patel, this is Sarah Khan. I am feeling very dizzy and have chest tightness. My BP is 168/102. Can you give me advice on what to do?\"\n\nExtracted Vital Signs:\nBP: 168/102\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to Dr. Patel. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
+    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested the attending physician's Advice",
+    "snippet": "Patient asked: \"Hello the attending physician, this is Sarah Khan. I am feeling very dizzy and have chest tightness. My BP is 168/102. Can you give me advice on what to do?\" | \ud83e\ude7a Recorded: BP: 168/102",
+    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hello the attending physician, this is Sarah Khan. I am feeling very dizzy and have chest tightness. My BP is 168/102. Can you give me advice on what to do?\"\n\nExtracted Vital Signs:\nBP: 168/102\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to the attending physician. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
     "timestamp": "Just now (WhatsApp)",
     "isUnread": true,
     "status": "pending",
@@ -20,7 +20,7 @@
       "bp": "168/102"
     },
     "directWhatsAppUrl": "https://wa.me/16135550192?text=Hello+Sarah%2C+this+is+Dr.+Patel+following+up+on+your+message%3A+%22Hello+Dr.+Patel%2C+this+is+Sarah+Khan.+I+am+feeling+very+dizzy+and+have+chest+tigh...%22.+How+are+you+feeling+right+now%3F",
-    "doctorReplyPrompt": "Hello Sarah, this is Dr. Patel following up on your message: \"Hello Dr. Patel, this is Sarah Khan. I am feeling very dizzy and have chest tigh...\". How are you feeling right now?"
+    "doctorReplyPrompt": "Hello Sarah, this is the attending physician following up on your message: \"Hello the attending physician, this is Sarah Khan. I am feeling very dizzy and have chest tigh...\". How are you feeling right now?"
   },
   {
     "id": 1790888977129,
@@ -30,9 +30,9 @@
     "patient_id": "pt-001",
     "patient_phone": "613-555-0192",
     "clean_phone": "16135550192",
-    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested Dr. Patel's Advice",
-    "snippet": "Patient asked: \"Hello Dr. Patel, this is Sarah Khan. I feel very dizzy and have chest tightness today. My BP is 165/98. What should I do?\" | \ud83e\ude7a Recorded: BP: 165/98",
-    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hello Dr. Patel, this is Sarah Khan. I feel very dizzy and have chest tightness today. My BP is 165/98. What should I do?\"\n\nExtracted Vital Signs:\nBP: 165/98\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to Dr. Patel. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
+    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested the attending physician's Advice",
+    "snippet": "Patient asked: \"Hello the attending physician, this is Sarah Khan. I feel very dizzy and have chest tightness today. My BP is 165/98. What should I do?\" | \ud83e\ude7a Recorded: BP: 165/98",
+    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hello the attending physician, this is Sarah Khan. I feel very dizzy and have chest tightness today. My BP is 165/98. What should I do?\"\n\nExtracted Vital Signs:\nBP: 165/98\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to the attending physician. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
     "timestamp": "Just now (WhatsApp)",
     "isUnread": true,
     "status": "pending",
@@ -43,7 +43,7 @@
       "bp": "165/98"
     },
     "directWhatsAppUrl": "https://wa.me/16135550192?text=Hello+Sarah%2C+this+is+Dr.+Patel+following+up+on+your+message%3A+%22Hello+Dr.+Patel%2C+this+is+Sarah+Khan.+I+feel+very+dizzy+and+have+chest+tightness+...%22.+How+are+you+feeling+right+now%3F",
-    "doctorReplyPrompt": "Hello Sarah, this is Dr. Patel following up on your message: \"Hello Dr. Patel, this is Sarah Khan. I feel very dizzy and have chest tightness ...\". How are you feeling right now?"
+    "doctorReplyPrompt": "Hello Sarah, this is the attending physician following up on your message: \"Hello the attending physician, this is Sarah Khan. I feel very dizzy and have chest tightness ...\". How are you feeling right now?"
   },
   {
     "id": 1790888975977,
@@ -53,9 +53,9 @@
     "patient_id": "pt-001",
     "patient_phone": "613-555-0192",
     "clean_phone": "16135550192",
-    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested Dr. Patel's Advice",
+    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested the attending physician's Advice",
     "snippet": "Patient asked: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\" | \ud83e\ude7a Recorded: BP: 120/80",
-    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\"\n\nExtracted Vital Signs:\nBP: 120/80\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to Dr. Patel. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
+    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\"\n\nExtracted Vital Signs:\nBP: 120/80\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to the attending physician. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
     "timestamp": "Just now (WhatsApp)",
     "isUnread": true,
     "status": "pending",
@@ -66,7 +66,7 @@
       "bp": "120/80"
     },
     "directWhatsAppUrl": "https://wa.me/16135550192?text=Hello+Sarah%2C+this+is+Dr.+Patel+following+up+on+your+message%3A+%22Hi+Doctor%2C+this+is+Sarah+Khan.+My+BP+today+is+120%2F80+and+heart+rate+is+72....%22.+How+are+you+feeling+right+now%3F",
-    "doctorReplyPrompt": "Hello Sarah, this is Dr. Patel following up on your message: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72....\". How are you feeling right now?"
+    "doctorReplyPrompt": "Hello Sarah, this is the attending physician following up on your message: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72....\". How are you feeling right now?"
   },
   {
     "id": 1790888945256,
@@ -76,9 +76,9 @@
     "patient_id": "pt-001",
     "patient_phone": "613-555-0192",
     "clean_phone": "16135550192",
-    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested Dr. Patel's Advice",
+    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested the attending physician's Advice",
     "snippet": "Patient asked: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\" | \ud83e\ude7a Recorded: BP: 120/80",
-    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\"\n\nExtracted Vital Signs:\nBP: 120/80\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to Dr. Patel. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
+    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\"\n\nExtracted Vital Signs:\nBP: 120/80\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to the attending physician. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
     "timestamp": "Just now (WhatsApp)",
     "isUnread": true,
     "status": "pending",
@@ -89,7 +89,7 @@
       "bp": "120/80"
     },
     "directWhatsAppUrl": "https://wa.me/16135550192?text=Hello+Sarah%2C+this+is+Dr.+Patel+following+up+on+your+message%3A+%22Hi+Doctor%2C+this+is+Sarah+Khan.+My+BP+today+is+120%2F80+and+heart+rate+is+72....%22.+How+are+you+feeling+right+now%3F",
-    "doctorReplyPrompt": "Hello Sarah, this is Dr. Patel following up on your message: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72....\". How are you feeling right now?"
+    "doctorReplyPrompt": "Hello Sarah, this is the attending physician following up on your message: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72....\". How are you feeling right now?"
   },
   {
     "id": 1790888883656,
@@ -99,9 +99,9 @@
     "patient_id": "pt-001",
     "patient_phone": "613-555-0192",
     "clean_phone": "16135550192",
-    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested Dr. Patel's Advice",
+    "subject": "\ud83d\udfe2 WhatsApp Consult: Sarah Khan requested the attending physician's Advice",
     "snippet": "Patient asked: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\" | \ud83e\ude7a Recorded: BP: 120/80",
-    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\"\n\nExtracted Vital Signs:\nBP: 120/80\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to Dr. Patel. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
+    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: 613-555-0192\n\nIncoming Patient Message:\n\"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72.\"\n\nExtracted Vital Signs:\nBP: 120/80\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to the attending physician. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
     "timestamp": "Just now (WhatsApp)",
     "isUnread": true,
     "status": "pending",
@@ -112,7 +112,7 @@
       "bp": "120/80"
     },
     "directWhatsAppUrl": "https://wa.me/16135550192?text=Hello+Sarah%2C+this+is+Dr.+Patel+following+up+on+your+message%3A+%22Hi+Doctor%2C+this+is+Sarah+Khan.+My+BP+today+is+120%2F80+and+heart+rate+is+72....%22.+How+are+you+feeling+right+now%3F",
-    "doctorReplyPrompt": "Hello Sarah, this is Dr. Patel following up on your message: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72....\". How are you feeling right now?"
+    "doctorReplyPrompt": "Hello Sarah, this is the attending physician following up on your message: \"Hi Doctor, this is Sarah Khan. My BP today is 120/80 and heart rate is 72....\". How are you feeling right now?"
   },
   {
     "id": 101,

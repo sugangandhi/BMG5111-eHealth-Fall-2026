@@ -430,7 +430,7 @@ function App() {
             {/* Mobile header text - consolidated doctor info & duty status */}
             <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <strong style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{user?.name || 'Dr. Patel'}</strong>
+                <strong style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{user?.name || 'Attending Physician'}</strong>
                 <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#16a34a', padding: '1px 6px', borderRadius: '6px', fontWeight: '700' }}>🟢 On Duty</span>
               </div>
               <p style={{ margin: '1px 0 0 0', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>

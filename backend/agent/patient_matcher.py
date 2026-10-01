@@ -374,7 +374,7 @@ Message: {text_body}"""
             vitals_note = f" (Your recorded readings: {', '.join([f'{k.upper()}: {v}' for k, v in vitals.items()])})" if vitals else ""
             reply_text = (
                 f"Hello {first_name}, I am your e-Hospital Assistant. 🩺\n\n"
-                f"I have received your message and connected you directly to Dr. Patel.{vitals_note} "
+                f"I have received your message and connected you directly to your attending physician.{vitals_note} "
                 f"The doctor has been notified with your chart and will reply to you on this WhatsApp chat shortly.\n\n"
                 f"(⚠️ If this is an urgent medical emergency, please call 911 or proceed to the nearest emergency department immediately.)"
             )
@@ -460,7 +460,7 @@ Message: {text_body}"""
         reply_text = (
             "Thank you for messaging e-Hospital. 🩺\n"
             "We could not automatically match this phone number to an active patient record. "
-            "Please reply with your Full Name and Date of Birth (YYYY-MM-DD) so Dr. Patel's team can locate your chart."
+            "Please reply with your Full Name and Date of Birth (YYYY-MM-DD) so our clinical care team can locate your chart."
         )
         delivered = send_whatsapp_message(sender_phone, reply_text)
         return {

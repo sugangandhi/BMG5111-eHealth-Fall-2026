@@ -43,20 +43,25 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
 
   // Sync with activePatient or selected patient
   useEffect(() => {
+    const activeUser = JSON.parse(localStorage.getItem('medoffice_user') || '{}');
+    const docName = activeUser.name || 'Doctor';
+
     if (activePatient) {
       setSelectedPatientId(activePatient.id);
       const phone = activePatient.phone ? activePatient.phone.replace(/\D/g, '') : '1234567890';
       setTargetPhone(phone || '1234567890');
-      setDirectMessage(`Hello Dr. Patel, this is ${activePatient.name?.text || activePatient.name}. My DOB is ${activePatient.birthDate || 'YYYY-MM-DD'}. I am submitting an update.`);
+      setDirectMessage(`Hello ${docName}, this is ${activePatient.name?.text || activePatient.name}. My DOB is ${activePatient.birthDate || 'YYYY-MM-DD'}. I am submitting an update.`);
       setSimPhone(activePatient.phone || '613-555-0192');
-      setSimMessage(`Hello Doctor, this is ${activePatient.name?.text || activePatient.name}. Today's blood pressure is 136/84 and my heart rate is 74.`);
+      setSimMessage(`Hello ${docName}, this is ${activePatient.name?.text || activePatient.name}. Today's blood pressure is 136/84 and my heart rate is 74.`);
     } else {
-      setDirectMessage('Hello Dr. Patel, I am a patient reaching out to update my records. My name is [Your Name] and my DOB is [YYYY-MM-DD].');
+      setDirectMessage(`Hello ${docName}, I am a patient reaching out to update my records. My name is [Your Name] and my DOB is [YYYY-MM-DD].`);
     }
   }, [activePatient]);
 
   const handlePatientSelect = (pId) => {
     setSelectedPatientId(pId);
+    const activeUser = JSON.parse(localStorage.getItem('medoffice_user') || '{}');
+    const docName = activeUser.name || 'Doctor';
     const p = patients.find(item => item.id === pId);
     if (p) {
       axios.get(`/api/patient/${pId}`).then(res => {
@@ -64,10 +69,10 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
         const phone = fullPatient.phone ? fullPatient.phone.replace(/\D/g, '') : '6135550192';
         setTargetPhone(phone);
         setSimPhone(fullPatient.phone || '613-555-0192');
-        setDirectMessage(`Hello Dr. Patel, this is ${fullPatient.name?.text || fullPatient.name}. My DOB is ${fullPatient.birthDate}. Submitting my health update.`);
-        setSimMessage(`Hi Dr. Patel, this is ${fullPatient.name?.text || fullPatient.name}. My BP today is 135/85 and glucose is 6.5.`);
+        setDirectMessage(`Hello ${docName}, this is ${fullPatient.name?.text || fullPatient.name}. My DOB is ${fullPatient.birthDate}. Submitting my health update.`);
+        setSimMessage(`Hi ${docName}, this is ${fullPatient.name?.text || fullPatient.name}. My BP today is 135/85 and glucose is 6.5.`);
       }).catch(() => {
-        setDirectMessage(`Hello Dr. Patel, this is ${p.name}. My DOB is ${p.birthDate}.`);
+        setDirectMessage(`Hello ${docName}, this is ${p.name}. My DOB is ${p.birthDate}.`);
       });
     }
   };

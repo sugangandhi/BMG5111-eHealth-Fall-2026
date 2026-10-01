@@ -82,6 +82,9 @@ export default function SecureInbox({ triggerNotification }) {
   const [filterTime, setFilterTime] = useState(null);
   const [filterTo, setFilterTo] = useState(null);
 
+  const activeUser = JSON.parse(localStorage.getItem('medoffice_user') || '{}');
+  const doctorName = activeUser.name || 'the attending physician';
+
   // Load all messages from backend store
   const fetchAllMessages = async () => {
     try {
@@ -164,7 +167,7 @@ export default function SecureInbox({ triggerNotification }) {
     const doctorName = activeUser.name || 'your attending physician';
     const pName = msg.patient_name || msg.sender.replace(' (via WhatsApp)', '') || 'there';
     const first = pName.split(' ')[0] || 'there';
-    const textPrompt = msg.doctorReplyPrompt || `Hello ${first}, this is ${doctorName} following up directly on your message on WhatsApp. How are you feeling now?`;
+    const textPrompt = `Hello ${first}, this is ${doctorName} following up directly on your message on WhatsApp. How are you feeling now?`;
 
     const waUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(textPrompt)}`;
     window.open(waUrl, '_blank');
@@ -277,7 +280,7 @@ export default function SecureInbox({ triggerNotification }) {
                   {selectedMsg.sender} {selectedMsg.patient_phone && <span style={{ fontWeight: '500', color: '#10b981', marginLeft: '6px' }}>({selectedMsg.patient_phone})</span>}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {selectedMsg.type === 'whatsapp' ? 'Inbound WhatsApp Business Channel • Verified Patient' : 'to Dr. Patel ▾'}
+                  {selectedMsg.type === 'whatsapp' ? 'Inbound WhatsApp Business Channel • Verified Patient' : `to ${doctorName} ▾`}
                 </div>
               </div>
             </div>
@@ -337,7 +340,7 @@ export default function SecureInbox({ triggerNotification }) {
               <div style={{ background: 'var(--bg-tertiary)', padding: '12px 14px', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-primary)', borderLeft: '4px solid #25D366' }}>
                 <strong>🤖 Automated Bot Reply Sent to Patient:</strong>
                 <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '12.5px' }}>
-                  "I have recorded your message and connected you directly to Dr. Patel. The doctor has your chart and will reply to you on this WhatsApp chat shortly."
+                  {`"I have recorded your message and connected you directly to ${doctorName}. The doctor has your chart and will reply to you on this WhatsApp chat shortly."`}
                 </p>
               </div>
 
@@ -396,7 +399,7 @@ export default function SecureInbox({ triggerNotification }) {
                 </button>
 
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Opens patient's exact WhatsApp thread with Dr. Patel's follow-up prompt
+                  {`Opens patient's exact WhatsApp thread with ${doctorName}'s follow-up prompt`}
                 </span>
               </div>
             </div>

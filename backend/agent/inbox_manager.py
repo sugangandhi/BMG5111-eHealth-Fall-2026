@@ -149,10 +149,10 @@ def add_whatsapp_escalation(
             vitals_parts.append(f"Glucose: {vitals['glucose']} mmol/L")
     vitals_str = ", ".join(vitals_parts) if vitals_parts else None
 
-    # Pre-crafted direct continuation message for Dr. Patel
+    # Pre-crafted direct continuation message for attending physician
     first_name = patient_name.split()[0] if patient_name else "there"
     doctor_prompt = (
-        f"Hello {first_name}, this is Dr. Patel following up on your message: "
+        f"Hello {first_name}, this is your attending physician following up on your message: "
         f"\"{text_body[:80]}...\". How are you feeling right now?"
     )
     wa_url = f"https://wa.me/{clean_phone}?text={quote_plus(doctor_prompt)}"
@@ -170,7 +170,7 @@ def add_whatsapp_escalation(
         "patient_id": patient_id,
         "patient_phone": sender_phone,
         "clean_phone": clean_phone,
-        "subject": f"🟢 WhatsApp Consult: {patient_name} requested Dr. Patel's Advice",
+        "subject": f"🟢 WhatsApp Consult: {patient_name} requested Doctor's Advice",
         "snippet": snippet,
         "body": (
             f"CLINICAL WHATSAPP PATIENT ENCOUNTER\n\n"
@@ -179,7 +179,7 @@ def add_whatsapp_escalation(
             f"Incoming Patient Message:\n\"{text_body}\"\n\n"
             + (f"Extracted Vital Signs:\n{vitals_str}\n\n" if vitals_str else "")
             + f"🤖 Automated Bot Status:\n"
-            f"The bot replied: \"I have connected you directly to Dr. Patel. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\n"
+            f"The bot replied: \"I have connected you directly to your attending physician. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\n"
             f"Action Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient."
         ),
         "timestamp": "Just now (WhatsApp)",
