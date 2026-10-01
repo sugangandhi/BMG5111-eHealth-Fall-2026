@@ -117,6 +117,29 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Direct 1-Tap WhatsApp Launcher
+  const launchDirectWhatsApp = (patient = null, customMessage = null) => {
+    const target = patient || activePatient;
+    const rawPhone = target?.phone || '613-555-0192';
+    const digits = rawPhone.replace(/\D/g, '') || '16135550192';
+    const cleanNumber = digits.length === 10 ? `1${digits}` : digits;
+
+    let text = customMessage;
+    if (!text) {
+      if (target) {
+        const pName = target.name?.text || target.name || 'Patient';
+        const docName = user?.name || 'your attending physician';
+        text = `Hello ${pName}, this is ${docName} following up on your medical chart from Prime Care Medical Clinic.`;
+      } else {
+        const docName = user?.name || 'the attending physician';
+        text = `Hello, this is an update regarding patient clinical care with ${docName} at Prime Care Clinic.`;
+      }
+    }
+
+    const waUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+  };
+
   // Handle global events from other components
   useEffect(() => {
     const handleSetActivePatient = (e) => {
@@ -128,8 +151,10 @@ function App() {
     const handleOpenScanner = () => {
       setIsScannerOpen(true);
     };
-    const handleOpenWhatsApp = () => {
-      setIsWhatsAppOpen(true);
+    const handleOpenWhatsApp = (e) => {
+      const patient = e?.detail?.patient || activePatient;
+      const customMsg = e?.detail?.message || null;
+      launchDirectWhatsApp(patient, customMsg);
     };
     window.addEventListener('set-active-patient', handleSetActivePatient);
     window.addEventListener('switch-tab', handleSwitchTab);
@@ -141,7 +166,7 @@ function App() {
       window.removeEventListener('open-scanner', handleOpenScanner);
       window.removeEventListener('open-whatsapp', handleOpenWhatsApp);
     };
-  }, []);
+  }, [activePatient]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -568,7 +593,27 @@ function App() {
                 </span>
               </button>
 
-              {/* WhatsApp Patient Portal */}
+              {/* Direct WhatsApp Patient Chat */}
+              <button
+                onClick={() => { setIsMenuOpen(false); launchDirectWhatsApp(activePatient); }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px',
+                  borderRadius: '10px', border: 'none', background: 'transparent', color: 'var(--text-primary)',
+                  cursor: 'pointer', fontSize: '14px', fontWeight: '500', transition: 'background 0.2s', textAlign: 'left'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <MessageCircle size={17} color="#25D366" />
+                  <span>Launch WhatsApp Directly</span>
+                </div>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(37, 211, 102, 0.2)', color: '#25D366', fontWeight: '700' }}>
+                  Direct
+                </span>
+              </button>
+
+              {/* Developer WhatsApp Simulator & Cloud API */}
               <button
                 onClick={() => { setIsMenuOpen(false); setIsWhatsAppOpen(true); }}
                 style={{
@@ -580,11 +625,11 @@ function App() {
                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <MessageCircle size={17} color="#25D366" />
-                  <span>WhatsApp Patient Portal</span>
+                  <Activity size={17} color="#a855f7" />
+                  <span>WhatsApp Bot Simulator</span>
                 </div>
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(37, 211, 102, 0.2)', color: '#25D366', fontWeight: '700' }}>
-                  Live
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7', fontWeight: '700' }}>
+                  Demo
                 </span>
               </button>
 
@@ -677,7 +722,7 @@ function App() {
             <NavButton 
               icon={<MessageCircle size={18} />} 
               label="WhatsApp Patient Chat" 
-              onClick={() => setIsWhatsAppOpen(true)} 
+              onClick={() => launchDirectWhatsApp(activePatient)} 
             />
             <NavButton icon={<ScanFace size={18} />} label="iPad Kiosk Mode" onClick={() => setIsKioskMode(true)} />
           </div>

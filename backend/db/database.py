@@ -80,19 +80,91 @@ def init_db() -> None:
 
 def validate_credentials(username: str, password: str) -> Optional[Dict]:
     db = SessionLocal()
-    user = db.query(User).filter(User.username == username).first()
+    u_clean = username.strip().lower()
+    user = db.query(User).filter((User.username == u_clean) | (User.username == username.strip())).first()
     if user and verify_password(password, user.password_hash):
         ret = {
             "name": user.full_name,
             "initials": user.initials,
             "role": user.role,
             "clinic": user.clinic,
-            "cpso": user.cpso
+            "cpso": user.cpso,
+            "username": user.username
         }
         db.close()
         return ret
     db.close()
     return None
+
+def register_user(username: str, password: str, full_name: str, 
+                  role: str = "Attending Physician", clinic: str = "Prime Care Medical Group", 
+                  cpso: str = "") -> Dict[str, Any]:
+    """Registers a new clinician account with cryptographic password hashing."""
+    db = SessionLocal()
+    u_clean = username.strip().lower()
+    existing = db.query(User).filter(User.username == u_clean).first()
+    if existing:
+        db.close()
+        raise ValueError(f"Account with username or email '{username}' already exists.")
+        
+    parts = [p for p in full_name.replace("Dr.", "").replace("Dr ", "").split() if p]
+    initials = "".join([p[0].upper() for p in parts])[:3] or "MD"
+    
+    new_user = User(
+        username=u_clean,
+        password_hash=get_password_hash(password),
+        full_name=full_name.strip(),
+        initials=initials,
+        role=role.strip() or "Attending Physician",
+        clinic=clinic.strip() or "Prime Care Medical Group",
+        cpso=cpso.strip() or f"CPSO-{abs(hash(u_clean)) % 90000 + 10000}"
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    res = {
+        "id": new_user.id,
+        "username": new_user.username,
+        "name": new_user.full_name,
+        "initials": new_user.initials,
+        "role": new_user.role,
+        "clinic": new_user.clinic,
+        "cpso": new_user.cpso
+    }
+    db.close()
+    return res
+
+def reset_user_password(username: str, new_password: str) -> bool:
+    """Updates a user's password with a new hash."""
+    db = SessionLocal()
+    u_clean = username.strip().lower()
+    user = db.query(User).filter((User.username == u_clean) | (User.username == username.strip())).first()
+    if not user:
+        db.close()
+        return False
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+    db.close()
+    return True
+
+def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
+    db = SessionLocal()
+    u_clean = username.strip().lower()
+    user = db.query(User).filter((User.username == u_clean) | (User.username == username.strip())).first()
+    if not user:
+        db.close()
+        return None
+    res = {
+        "id": user.id,
+        "username": user.username,
+        "name": user.full_name,
+        "initials": user.initials,
+        "role": user.role,
+        "clinic": user.clinic,
+        "cpso": user.cpso
+    }
+    db.close()
+    return res
 
 def get_appointments(appt_date: Optional[str] = None) -> List[Dict]:
     d = appt_date or date.today().isoformat()

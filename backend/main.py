@@ -63,32 +63,113 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    role: Optional[str] = "Attending Physician"
+    clinic: Optional[str] = "Prime Care Medical Group"
+    cpso: Optional[str] = ""
+
+class ForgotPasswordRequest(BaseModel):
+    username: str
+    new_password: str
+    confirm_password: Optional[str] = None
+
 @app.post("/api/auth/login")
 async def auth_login(body: LoginRequest):
-    from auth.jwt import create_access_token
+    from auth.jwt import create_access_token, verify_password
     from db.database import SessionLocal
     from db.models import User
     
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.username == body.username).first()
-        from auth.jwt import verify_password
+        u_clean = body.username.strip().lower()
+        user = db.query(User).filter((User.username == u_clean) | (User.username == body.username.strip())).first()
         if not user or not verify_password(body.password, user.password_hash):
-            raise HTTPException(401, "Invalid credentials")
+            raise HTTPException(401, "Invalid institutional credentials. Please check your username and passcode.")
+        
+        parts = [p for p in (user.full_name or "").replace("Dr.", "").replace("Dr ", "").split() if p]
+        initials = user.initials or ("".join([p[0].upper() for p in parts])[:3] or "MD")
         
         token = create_access_token({"sub": user.username})
         return {
             "token": token,
             "user": {
                 "name": user.full_name,
-                "initials": "".join([part[0] for part in user.full_name.split()]),
-                "role": user.role,
-                "clinic": user.clinic,
-                "cpso": user.cpso,
+                "initials": initials,
+                "role": user.role or "Attending Physician",
+                "clinic": user.clinic or "Prime Care Medical Group",
+                "cpso": user.cpso or "CPSO-VERIFIED",
+                "username": user.username,
             },
         }
     finally:
         db.close()
+
+@app.post("/api/auth/register")
+async def auth_register(body: RegisterRequest):
+    from auth.jwt import create_access_token
+    from db.database import register_user, log_activity
+    if not body.username.strip() or not body.password.strip():
+        raise HTTPException(400, "Username and passcode are required.")
+    if len(body.password.strip()) < 4:
+        raise HTTPException(400, "Passcode must be at least 4 characters.")
+    if not body.full_name.strip():
+        raise HTTPException(400, "Full clinician name is required.")
+    
+    try:
+        user_data = register_user(
+            username=body.username,
+            password=body.password,
+            full_name=body.full_name,
+            role=body.role or "Attending Physician",
+            clinic=body.clinic or "Prime Care Medical Group",
+            cpso=body.cpso or ""
+        )
+        token = create_access_token({"sub": user_data["username"]})
+        log_activity(
+            action="clinician_registered",
+            description=f"New account created for {user_data['name']}",
+            patient_name=user_data['name'],
+            patient_id=user_data['cpso'],
+            detail=f"Staff account registered with role: {user_data['role']}",
+            color="emerald"
+        )
+        return {
+            "token": token,
+            "user": user_data
+        }
+    except ValueError as ve:
+        raise HTTPException(400, str(ve))
+    except Exception as e:
+        raise HTTPException(500, f"Registration failed: {e}")
+
+@app.post("/api/auth/forgot-password")
+async def auth_forgot_password(body: ForgotPasswordRequest):
+    from db.database import reset_user_password, log_activity
+    if not body.username.strip() or not body.new_password.strip():
+        raise HTTPException(400, "Username/email and new passcode are required.")
+    if len(body.new_password.strip()) < 4:
+        raise HTTPException(400, "New passcode must be at least 4 characters.")
+    if body.confirm_password and body.new_password != body.confirm_password:
+        raise HTTPException(400, "Passcodes do not match.")
+    
+    success = reset_user_password(body.username, body.new_password)
+    if not success:
+        raise HTTPException(404, "No account was found matching that username or institutional email.")
+    
+    log_activity(
+        action="password_reset",
+        description=f"Passcode reset for user {body.username}",
+        patient_name=body.username,
+        detail="Institutional security credential reset completed successfully.",
+        color="blue"
+    )
+    return {
+        "status": "success",
+        "message": "Passcode reset successfully. You can now log in with your new credentials."
+    }
 
 
 class GoogleLoginRequest(BaseModel):
@@ -639,7 +720,25 @@ async def inbox_triage_endpoint(body: InboxTriageRequest):
         raise HTTPException(500, f"Inbox triage failed: {e}")
 
 # ── Live Inbox Webhook & Dispatch Engine ──────────────────────────────────────
+from agent import inbox_manager
 INBOX_WEBHOOK_QUEUE = []
+
+@app.get("/api/inbox/messages")
+async def get_all_inbox_messages():
+    """Returns all clinical messages, e-faxes, and inbound WhatsApp patient consults."""
+    return {"messages": inbox_manager.get_inbox_messages()}
+
+class InboxStatusUpdateRequest(BaseModel):
+    message_id: int
+    status: str
+
+@app.post("/api/inbox/status")
+async def update_inbox_message_status(body: InboxStatusUpdateRequest):
+    """Updates the resolution status of an inbox message (e.g. 'Doctor Responded on WhatsApp')."""
+    res = inbox_manager.update_inbox_status(body.message_id, body.status)
+    if not res:
+        raise HTTPException(404, "Message not found")
+    return {"status": "updated", "message": res}
 
 class WebhookEmailRequest(BaseModel):
     sender: str
@@ -670,7 +769,7 @@ async def receive_inbox_webhook(req: Request):
         "status": "pending",
         "defaultReply": f"Acknowledging receipt of secure clinical transmission regarding {subject}. Clinical team has been alerted."
     }
-    INBOX_WEBHOOK_QUEUE.append(new_msg)
+    inbox_manager.add_inbox_message(new_msg)
     try:
         from db.database import SessionLocal, ActivityLog
         db = SessionLocal()
@@ -725,15 +824,12 @@ async def generate_live_dispatch():
         "status": "pending",
         "defaultReply": f"Acknowledging priority dispatch: {selected['subject']}. Orders submitted for immediate clinical verification and protocol execution."
     }
-    INBOX_WEBHOOK_QUEUE.append(new_msg)
+    inbox_manager.add_inbox_message(new_msg)
     return new_msg
 
 @app.get("/api/inbox/sync")
 async def sync_inbox_queue():
-    global INBOX_WEBHOOK_QUEUE
-    new_items = list(INBOX_WEBHOOK_QUEUE)
-    INBOX_WEBHOOK_QUEUE.clear()
-    return {"messages": new_items}
+    return {"messages": inbox_manager.get_sync_messages()}
 
 # ── Referral Checker ──────────────────────────────────────────────────────────────────
 

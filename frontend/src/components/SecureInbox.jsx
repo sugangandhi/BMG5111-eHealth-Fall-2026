@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Search, SlidersHorizontal, Settings, ChevronLeft, ChevronRight, 
   MoreVertical, RefreshCw, Archive, AlertOctagon, Mail, 
-  Paperclip, Star, Square, CheckSquare, ShieldAlert, Zap, X, CheckCircle,
-  FileText, Pill, Phone, Stethoscope, Inbox
+  Paperclip, Star, Square, CheckSquare, ShieldAlert, Zap, X, CheckCircle, CheckCircle2,
+  FileText, Pill, Phone, Stethoscope, Inbox, MessageCircle, ExternalLink, Activity
 } from 'lucide-react';
 
 const MOCK_MESSAGES = [
   {
-    id: 1,
+    id: 101,
     type: "emergency",
     sender: "Dr. James Smith (Cardiology)",
     subject: "STAT Consult Result - Patient John Doe",
@@ -21,7 +21,7 @@ const MOCK_MESSAGES = [
     starred: true
   },
   {
-    id: 2,
+    id: 102,
     type: "rx",
     sender: "Shoppers Drug Mart",
     subject: "Prescription Refill Request",
@@ -33,7 +33,7 @@ const MOCK_MESSAGES = [
     starred: false
   },
   {
-    id: 3,
+    id: 103,
     type: "discharge",
     sender: "General Hospital ER",
     subject: "Discharge Summary - Robert Lee",
@@ -45,7 +45,7 @@ const MOCK_MESSAGES = [
     starred: false
   },
   {
-    id: 4,
+    id: 104,
     type: "inquiry",
     sender: "Sarah Jenkins, RN",
     subject: "Update on Clinical Research Assistant II",
@@ -57,7 +57,7 @@ const MOCK_MESSAGES = [
     starred: false
   },
   {
-    id: 5,
+    id: 105,
     type: "admin",
     sender: "IT Support",
     subject: "System Maintenance Notice",
@@ -72,13 +72,6 @@ const MOCK_MESSAGES = [
 
 export default function SecureInbox({ triggerNotification }) {
   const [messages, setMessages] = useState(MOCK_MESSAGES);
-
-  React.useEffect(() => {
-    const draftEmails = JSON.parse(localStorage.getItem('drafted_emails') || '[]');
-    if (draftEmails.length > 0) {
-      setMessages([...draftEmails, ...MOCK_MESSAGES]);
-    }
-  }, []);
   const [selectedMsg, setSelectedMsg] = useState(null);
   const [actionToast, setActionToast] = useState(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
@@ -89,7 +82,46 @@ export default function SecureInbox({ triggerNotification }) {
   const [filterTime, setFilterTime] = useState(null);
   const [filterTo, setFilterTo] = useState(null);
 
-  React.useEffect(() => {
+  // Load all messages from backend store
+  const fetchAllMessages = async () => {
+    try {
+      const res = await axios.get('/api/inbox/messages');
+      if (res.data && res.data.messages && res.data.messages.length > 0) {
+        const draftEmails = JSON.parse(localStorage.getItem('drafted_emails') || '[]');
+        setMessages([...draftEmails, ...res.data.messages]);
+      }
+    } catch (err) {
+      console.log("[SecureInbox] Backend load note, using local fallback:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllMessages();
+
+    // Real-time polling for inbound WhatsApp consults & live dispatches
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await axios.get('/api/inbox/sync');
+        if (res.data && res.data.messages && res.data.messages.length > 0) {
+          const incoming = res.data.messages;
+          setMessages(prev => {
+            const incomingIds = new Set(incoming.map(m => m.id));
+            const existing = prev.filter(p => !incomingIds.has(p.id));
+            return [...incoming, ...existing];
+          });
+          if (triggerNotification) {
+            triggerNotification('inbox');
+          }
+        }
+      } catch (err) {
+        // Polling silent catch
+      }
+    }, 3500);
+
+    return () => clearInterval(pollInterval);
+  }, [triggerNotification]);
+
+  useEffect(() => {
     const handleVoiceCommand = (e) => {
        const act = e.detail;
        if (act.action === 'inbox_folder') {
@@ -122,6 +154,45 @@ export default function SecureInbox({ triggerNotification }) {
     setMessages(prev => prev.map(m => m.id === id ? { ...m, starred: !m.starred } : m));
   };
 
+  // Continue exact patient conversation directly on WhatsApp
+  const handleContinueWhatsApp = async (msg) => {
+    const rawPhone = msg.patient_phone || msg.clean_phone || '6135550192';
+    const digits = rawPhone.replace(/\D/g, '') || '16135550192';
+    const cleanNumber = digits.length === 10 ? `1${digits}` : digits;
+
+    const activeUser = JSON.parse(localStorage.getItem('medoffice_user') || '{}');
+    const doctorName = activeUser.name || 'your attending physician';
+    const pName = msg.patient_name || msg.sender.replace(' (via WhatsApp)', '') || 'there';
+    const first = pName.split(' ')[0] || 'there';
+    const textPrompt = msg.doctorReplyPrompt || `Hello ${first}, this is ${doctorName} following up directly on your message on WhatsApp. How are you feeling now?`;
+
+    const waUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(textPrompt)}`;
+    window.open(waUrl, '_blank');
+
+    // Update status in backend & log audit trail
+    try {
+      await axios.post('/api/inbox/status', {
+        message_id: msg.id,
+        status: 'Doctor Responded on WhatsApp'
+      });
+
+      const token = localStorage.getItem('medoffice_token') || 'demo-token';
+      await axios.post('/api/activity/log', {
+        action: "whatsapp_doctor_replied",
+        description: `${doctorName} resumed WhatsApp encounter with ${pName}`,
+        patient_name: pName,
+        detail: `Direct WhatsApp conversation opened with ${pName} (+${cleanNumber}). Clinical status: Doctor Responded.`,
+        color: "emerald"
+      }, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (err) {
+      console.log("[SecureInbox] Status update note:", err);
+    }
+
+    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, status: 'Doctor Responded on WhatsApp', isUnread: false } : m));
+    setSelectedMsg(prev => prev ? { ...prev, status: 'Doctor Responded on WhatsApp', isUnread: false } : null);
+    setActionToast(`💬 Successfully opened WhatsApp chat with ${pName}. Audit log recorded.`);
+  };
+
   const handleCopilotAction = async (actionName, triggerDashUpdate = false) => {
     setProcessingAction(true);
     
@@ -152,7 +223,7 @@ export default function SecureInbox({ triggerNotification }) {
       }
       
       setTimeout(() => setActionToast(null), 5000);
-    }, 1500);
+    }, 1200);
   };
 
   if (selectedMsg) {
@@ -171,32 +242,43 @@ export default function SecureInbox({ triggerNotification }) {
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', gap: '8px', color: 'var(--text-secondary)' }}>
-            <span style={{ fontSize: '12px', alignSelf: 'center' }}>1 of 286</span>
-            <ChevronLeft size={18} style={{ cursor: 'pointer' }} />
-            <ChevronRight size={18} style={{ cursor: 'pointer' }} />
+            <span style={{ fontSize: '12px', alignSelf: 'center' }}>Message {selectedMsg.id}</span>
           </div>
         </div>
 
-        {/* Email Content */}
+        {/* Message Content */}
         <div className="inbox-detail-body" style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', position: 'relative' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '22px', fontWeight: '400', color: 'var(--text-primary)', margin: 0 }}>
+            <h2 style={{ fontSize: '22px', fontWeight: '600', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {selectedMsg.subject}
-              <span style={{ fontSize: '12px', background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px', marginLeft: '12px', verticalAlign: 'middle', color: 'var(--text-secondary)' }}>Inbox</span>
+              {selectedMsg.type === 'whatsapp' ? (
+                <span style={{ fontSize: '12px', background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', border: '1px solid rgba(37, 211, 102, 0.3)', padding: '3px 10px', borderRadius: '12px', fontWeight: '700' }}>
+                  WhatsApp Patient Consult
+                </span>
+              ) : (
+                <span style={{ fontSize: '12px', background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle', color: 'var(--text-secondary)' }}>Inbox</span>
+              )}
             </h2>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '18px' }}>
-                {selectedMsg.sender.charAt(0)}
+              <div style={{ 
+                width: '42px', height: '42px', borderRadius: '50%', 
+                background: selectedMsg.type === 'whatsapp' ? '#25D366' : '#3b82f6', 
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '18px',
+                boxShadow: selectedMsg.type === 'whatsapp' ? '0 4px 12px rgba(37, 211, 102, 0.3)' : 'none'
+              }}>
+                {selectedMsg.type === 'whatsapp' ? <MessageCircle size={22} /> : selectedMsg.sender.charAt(0)}
               </div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                  {selectedMsg.sender} <span style={{ fontWeight: '400', color: '#6b7280' }}>&lt;secure@primecare.org&gt;</span>
+                  {selectedMsg.sender} {selectedMsg.patient_phone && <span style={{ fontWeight: '500', color: '#10b981', marginLeft: '6px' }}>({selectedMsg.patient_phone})</span>}
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>to me ▾</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  {selectedMsg.type === 'whatsapp' ? 'Inbound WhatsApp Business Channel • Verified Patient' : 'to Dr. Patel ▾'}
+                </div>
               </div>
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -206,18 +288,127 @@ export default function SecureInbox({ triggerNotification }) {
           </div>
 
           {actionToast && (
-            <div className="animate-fade-in" style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981', color: '#059669', padding: '16px 20px', borderRadius: '8px', fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+            <div className="animate-fade-in" style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981', color: '#059669', padding: '14px 18px', borderRadius: '10px', fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
               <CheckCircle size={20} />
               <span>{actionToast}</span>
             </div>
           )}
 
-          <div style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.6', whiteSpace: 'pre-wrap', maxWidth: '800px' }}>
-            {selectedMsg.snippet.replace("- ", "")}
+          {/* 🟢 SPECIAL WHATSAPP PATIENT ENCOUNTER CARD */}
+          {selectedMsg.type === 'whatsapp' && (
+            <div className="animate-fade-in" style={{ 
+              background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.1), rgba(18, 140, 126, 0.05))', 
+              border: '1px solid rgba(37, 211, 102, 0.35)', 
+              borderRadius: '16px', 
+              padding: '22px', 
+              marginBottom: '28px',
+              boxShadow: '0 8px 24px rgba(37, 211, 102, 0.08)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: '#25D366', color: 'white', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                    <MessageCircle size={18} />
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>
+                      Inbound WhatsApp Clinical Consultation
+                    </span>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      Automated e-Hospital Bot Triage · Synced to Central Clinical EMR
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ 
+                    fontSize: '11px', 
+                    padding: '4px 10px', 
+                    borderRadius: '20px', 
+                    background: selectedMsg.status.includes('Responded') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)', 
+                    color: selectedMsg.status.includes('Responded') ? '#10b981' : '#ef4444', 
+                    fontWeight: '700' 
+                  }}>
+                    {selectedMsg.status.includes('Responded') ? '✅ DOCTOR RESPONDED' : '🚨 STAT REVIEW NEEDED'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bot status alert */}
+              <div style={{ background: 'var(--bg-tertiary)', padding: '12px 14px', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-primary)', borderLeft: '4px solid #25D366' }}>
+                <strong>🤖 Automated Bot Reply Sent to Patient:</strong>
+                <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '12.5px' }}>
+                  "I have recorded your message and connected you directly to Dr. Patel. The doctor has your chart and will reply to you on this WhatsApp chat shortly."
+                </p>
+              </div>
+
+              {/* Extracted Vitals chips if present */}
+              {selectedMsg.vitals && Object.keys(selectedMsg.vitals).length > 0 && (
+                <div style={{ marginBottom: '18px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    🩺 Extracted Patient Vitals (Auto-logged into Chart):
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {selectedMsg.vitals.bp && (
+                      <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', color: '#ef4444' }}>
+                        Blood Pressure: {selectedMsg.vitals.bp} mmHg
+                      </div>
+                    )}
+                    {selectedMsg.vitals.hr && (
+                      <div style={{ background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', color: '#3b82f6' }}>
+                        Heart Rate: {selectedMsg.vitals.hr} bpm
+                      </div>
+                    )}
+                    {selectedMsg.vitals.glucose && (
+                      <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', color: '#f59e0b' }}>
+                        Glucose: {selectedMsg.vitals.glucose} mmol/L
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 1-Tap Action Button: Continue Exact Chat on WhatsApp */}
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap', paddingTop: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleContinueWhatsApp(selectedMsg)}
+                  style={{
+                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    boxShadow: '0 6px 18px rgba(37, 211, 102, 0.35)',
+                    transition: 'transform 0.15s, box-shadow 0.15s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <MessageCircle size={19} />
+                  <span>Continue Chat on WhatsApp</span>
+                  <ExternalLink size={16} />
+                </button>
+
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  Opens patient's exact WhatsApp thread with Dr. Patel's follow-up prompt
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Full Message Body */}
+          <div style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.7', whiteSpace: 'pre-wrap', maxWidth: '820px' }}>
+            {selectedMsg.body ? selectedMsg.body : selectedMsg.snippet.replace("- ", "")}
           </div>
 
-          {/* AI Copilot Inline Trigger */}
-          {selectedMsg.status === 'pending' && !copilotOpen && (
+          {/* AI Copilot Inline Trigger for Emergency/Rx/Discharge messages */}
+          {selectedMsg.type !== 'whatsapp' && selectedMsg.status === 'pending' && !copilotOpen && (
              <div style={{ marginTop: '48px', maxWidth: '800px' }}>
                <button 
                  className="animate-fade-in"
@@ -332,7 +523,7 @@ export default function SecureInbox({ triggerNotification }) {
             <Search size={18} color="#9ca3af" />
             <input 
               type="text" 
-              placeholder="Search clinical emails..." 
+              placeholder="Search clinical emails & WhatsApp consults..." 
               style={{ border: 'none', background: 'transparent', width: '100%', outline: 'none', padding: '0 10px', fontSize: '14px', color: 'var(--text-primary)' }}
               defaultValue="in:inbox"
             />
@@ -345,74 +536,33 @@ export default function SecureInbox({ triggerNotification }) {
         {/* Filter Chips */}
         <div className="inbox-chips-bar" style={{ position: 'relative', zIndex: 50, padding: '10px 16px', borderBottom: '1px solid var(--border)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div style={{ display: 'flex', gap: '10px' }}>
-          {["Any time", "Has attachment", "To", "Advanced search"].map(chip => (
+          {["Any time", "WhatsApp Consults", "Has attachment", "Advanced search"].map(chip => (
             <button 
               key={chip} 
-              onClick={() => setActiveFilter(prev => prev === chip ? null : chip)}
-              style={{ 
-                background: activeFilter === chip ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-secondary)', 
-                border: '1px solid #e5e7eb', 
-                borderColor: activeFilter === chip ? '#3b82f6' : '#e5e7eb',
-                borderRadius: '16px', 
-                padding: '6px 12px', 
-                fontSize: '13px', 
-                color: activeFilter === chip ? '#3b82f6' : 'var(--text-primary)', 
-                cursor: 'pointer', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '4px',
-                fontWeight: activeFilter === chip ? '600' : '400',
-                transition: 'all 0.2s'
+              onClick={() => setActiveFilter(activeFilter === chip ? null : chip)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '16px',
+                border: activeFilter === chip ? '1px solid #3b82f6' : '1px solid var(--border)',
+                background: activeFilter === chip ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-secondary)',
+                color: activeFilter === chip ? '#2563eb' : 'var(--text-primary)',
+                cursor: 'pointer', fontSize: '13px', fontWeight: '500', whiteSpace: 'nowrap'
               }}
             >
-              {chip} {chip !== "Advanced search" && <span style={{ fontSize: '10px' }}>▼</span>}
+              {chip === "WhatsApp Consults" && <MessageCircle size={14} color="#25D366" />}
+              {chip}
             </button>
           ))}
         </div>
-
-        {/* Dropdown menus for the tabs */}
-        {activeFilter === 'Any time' && (
-          <div style={{ position: 'absolute', top: '100%', left: '24px', zIndex: 9999, padding: '16px', minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
-            {['Any time', 'Older than a week', 'Older than a month'].map(opt => (
-              <button key={opt} onClick={() => { setFilterTime(opt === 'Any time' ? null : opt); setActiveFilter(null); }} style={{ textAlign: 'left', padding: '8px 12px', background: filterTime === opt ? 'rgba(59, 130, 246, 0.1)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer', borderRadius: '6px', fontWeight: filterTime === opt ? '600' : '400' }}>{opt}</button>
-            ))}
-          </div>
-        )}
-        
-        {activeFilter === 'To' && (
-          <div style={{ position: 'absolute', top: '100%', left: '160px', zIndex: 9999, padding: '16px', minWidth: '220px', display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
-            <input type="text" placeholder="Search contacts..." style={{ padding: '8px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.1)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none' }} autoFocus />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-              {['All senders', 'Cardiology Dept', 'Neurology', 'Dr. Smith', 'Pharmacy'].map(opt => (
-                <button key={opt} onClick={() => { setFilterTo(opt === 'All senders' ? null : opt); setActiveFilter(null); }} style={{ textAlign: 'left', padding: '6px 8px', background: filterTo === opt ? 'rgba(59, 130, 246, 0.1)' : 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer', borderRadius: '6px', fontWeight: filterTo === opt ? '600' : '400' }}>{opt}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeFilter === 'Advanced search' && (
-          <div style={{ position: 'absolute', top: '100%', right: '24px', zIndex: 9999, padding: '16px', width: '300px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#10b981', borderRadius: '8px', border: '2px solid white' }}>
-            <div style={{ fontWeight: '600', color: 'white', marginBottom: '4px' }}>Advanced Search</div>
-            <input type="text" placeholder="From" style={{ padding: '8px', borderRadius: '6px', border: 'none', background: 'white', color: 'black' }} />
-            <input type="text" placeholder="Subject" style={{ padding: '8px', borderRadius: '6px', border: 'none', background: 'white', color: 'black' }} />
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-              <button onClick={() => setActiveFilter(null)} style={{ flex: 1, padding: '8px', background: 'white', color: 'black', border: 'none', cursor: 'pointer', borderRadius: '6px' }}>Cancel</button>
-              <button onClick={() => setActiveFilter(null)} style={{ flex: 1, padding: '8px', background: 'black', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>Search</button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '8px 24px', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
         <Square size={18} color="#9ca3af" style={{ cursor: 'pointer', marginRight: '16px' }} />
-        <RefreshCw size={16} color="#6b7280" style={{ cursor: 'pointer', marginRight: '16px' }} />
+        <RefreshCw size={16} color="#6b7280" style={{ cursor: 'pointer', marginRight: '16px' }} onClick={fetchAllMessages} title="Refresh Messages" />
         <MoreVertical size={16} color="#6b7280" style={{ cursor: 'pointer' }} />
         <div style={{ flex: 1 }} />
         <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          1-25 of 286
-          <ChevronLeft size={16} style={{ cursor: 'pointer' }} />
-          <ChevronRight size={16} style={{ cursor: 'pointer' }} />
+          {messages.length} Total Messages
         </div>
       </div>
 
@@ -426,27 +576,24 @@ export default function SecureInbox({ triggerNotification }) {
           if (activeFolder === 'inbox' && m.status !== 'pending') return false;
 
           // Chip filtering
+          if (activeFilter === 'WhatsApp Consults' && m.type !== 'whatsapp') return false;
           if (activeFilter === 'Has attachment' && !m.hasAttachment) return false;
-          
-          if (filterTo === 'Cardiology Dept' && !m.sender.includes('Cardiology')) return false;
-          if (filterTo === 'Dr. Smith' && !m.sender.includes('Dr. James Smith')) return false;
-          if (filterTo === 'Neurology' && !m.sender.includes('Neurology')) return false;
-          if (filterTo === 'Pharmacy' && !m.sender.includes('Drug Mart')) return false;
-          
-          if (filterTime === 'Older than a week' && (m.timestamp.includes('AM') || m.timestamp.includes('Yesterday'))) return false;
-          if (filterTime === 'Older than a month' && !m.timestamp.includes('May')) return false;
 
           return true;
         }).map((msg) => {
           const isSelected = selectedIds.includes(msg.id);
+          const isWhatsApp = msg.type === 'whatsapp';
+          const isReplied = msg.status && msg.status.includes('Doctor Responded');
+
           return (
             <div 
               key={msg.id}
               className="inbox-msg-row"
               style={{ 
                 padding: '12px 16px', 
-                background: isSelected ? 'rgba(191, 219, 254, 0.4)' : msg.isUnread ? 'var(--bg-tertiary)' : 'transparent',
+                background: isSelected ? 'rgba(191, 219, 254, 0.4)' : msg.isUnread ? (isWhatsApp ? 'rgba(37, 211, 102, 0.06)' : 'var(--bg-tertiary)') : 'transparent',
                 borderBottom: '1px solid var(--border)',
+                borderLeft: isWhatsApp ? '4px solid #25D366' : '4px solid transparent',
                 cursor: 'pointer',
                 transition: 'background 0.15s ease',
                 fontWeight: msg.isUnread ? '700' : '400',
@@ -463,9 +610,20 @@ export default function SecureInbox({ triggerNotification }) {
                   <Star size={18} fill={msg.starred ? "#f59e0b" : "transparent"} color={msg.starred ? "#f59e0b" : "#9ca3af"} onClick={(e) => toggleStar(e, msg.id)} />
                 </div>
                 
-                <div style={{ minWidth: '200px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {msg.status !== 'pending' && <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '10px' }}>Resolved</span>}
-                  {msg.sender}
+                <div style={{ minWidth: '220px', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {isWhatsApp ? (
+                    <span style={{ 
+                      fontSize: '10px', 
+                      background: isReplied ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 211, 102, 0.2)', 
+                      color: isReplied ? '#10b981' : '#25D366', 
+                      padding: '2px 8px', borderRadius: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' 
+                    }}>
+                      <MessageCircle size={10} /> {isReplied ? 'Replied' : 'WhatsApp'}
+                    </span>
+                  ) : (
+                    msg.status !== 'pending' && <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '10px' }}>Resolved</span>
+                  )}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.sender}</span>
                 </div>
 
                 <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '16px' }}>
@@ -475,9 +633,23 @@ export default function SecureInbox({ triggerNotification }) {
                   </span>
                 </div>
 
+                {isWhatsApp && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleContinueWhatsApp(msg); }}
+                    style={{
+                      marginRight: '12px', background: 'rgba(37, 211, 102, 0.12)', border: '1px solid rgba(37, 211, 102, 0.3)',
+                      color: '#25D366', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', fontWeight: '700',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                    }}
+                    title="Open directly in WhatsApp"
+                  >
+                    <MessageCircle size={13} /> Chat
+                  </button>
+                )}
+
                 {msg.hasAttachment && <Paperclip size={16} color="#9ca3af" style={{ marginRight: '16px' }} />}
                 
-                <div style={{ minWidth: '60px', textAlign: 'right', fontSize: '12px', fontWeight: msg.isUnread ? '700' : '500' }}>
+                <div style={{ minWidth: '80px', textAlign: 'right', fontSize: '12px', fontWeight: msg.isUnread ? '700' : '500' }}>
                   {msg.timestamp}
                 </div>
               </div>
@@ -486,12 +658,17 @@ export default function SecureInbox({ triggerNotification }) {
               <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '5px', width: '100%' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: msg.isUnread ? 'var(--primary)' : 'transparent', flexShrink: 0 }} />
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: msg.isUnread ? (isWhatsApp ? '#25D366' : 'var(--primary)') : 'transparent', flexShrink: 0 }} />
                     <span style={{ fontWeight: msg.isUnread ? '700' : '600', fontSize: '14px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {msg.sender}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    {isWhatsApp && (
+                      <span style={{ fontSize: '10px', background: 'rgba(37, 211, 102, 0.15)', color: '#25D366', padding: '2px 6px', borderRadius: '6px', fontWeight: '700' }}>
+                        WA
+                      </span>
+                    )}
                     {msg.hasAttachment && <Paperclip size={14} color="#9ca3af" />}
                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{msg.timestamp}</span>
                     <Star size={16} fill={msg.starred ? "#f59e0b" : "transparent"} color={msg.starred ? "#f59e0b" : "#9ca3af"} onClick={(e) => toggleStar(e, msg.id)} />
@@ -506,11 +683,26 @@ export default function SecureInbox({ triggerNotification }) {
                   {msg.snippet.replace(/^- /, '')}
                 </div>
 
-                {msg.status !== 'pending' && (
-                  <div style={{ marginTop: '2px' }}>
-                    <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '10px', fontWeight: '600' }}>Resolved</span>
-                  </div>
-                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                  {msg.status !== 'pending' && (
+                    <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '2px 6px', borderRadius: '10px', fontWeight: '600' }}>
+                      {msg.status}
+                    </span>
+                  )}
+                  {isWhatsApp && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleContinueWhatsApp(msg); }}
+                      style={{
+                        marginLeft: 'auto', background: '#25D366', color: 'white', border: 'none',
+                        borderRadius: '6px', padding: '3px 8px', fontSize: '11px', fontWeight: '700',
+                        display: 'flex', alignItems: 'center', gap: '4px'
+                      }}
+                    >
+                      <MessageCircle size={12} /> WhatsApp ↗
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );

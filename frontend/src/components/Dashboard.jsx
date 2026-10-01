@@ -179,7 +179,7 @@ export default function Dashboard() {
     window.dispatchEvent(new CustomEvent('open-scribe'));
   };
 
-  const user = JSON.parse(localStorage.getItem('medoffice_user')) || { name: 'Dr. Patel' };
+  const user = JSON.parse(localStorage.getItem('medoffice_user')) || { name: 'Clinician' };
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -519,7 +519,7 @@ export default function Dashboard() {
           <button 
             type="button"
             className="mobile-action-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-whatsapp'))}
+            onClick={() => window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: { patient: upNextAppt } }))}
           >
             <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.25), rgba(18, 140, 126, 0.15))', color: '#25d366', borderColor: 'rgba(37, 211, 102, 0.4)' }}>
               <MessageCircle size={22} />
