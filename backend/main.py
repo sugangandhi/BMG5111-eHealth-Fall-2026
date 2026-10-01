@@ -542,10 +542,24 @@ async def scribe_endpoint(body: ScribeRequest):
         "summary": result.summary, 
         "action_items": result.action_items,
         "soap": result.soap,
-        "icd_10": result.icd_10,
-        "cpt_codes": result.cpt_codes,
+        "ohip_diagnostic_codes": getattr(result, "ohip_diagnostic_codes", []),
+        "ohip_fee_codes": getattr(result, "ohip_fee_codes", []),
+        "icd_10": getattr(result, "ohip_diagnostic_codes", []),
+        "cpt": getattr(result, "ohip_fee_codes", []),
         "warnings": result.warnings
     }
+
+class CopilotEndpointRequest(BaseModel):
+    message: str
+    history: list[dict] = []
+    patient_id: Optional[str] = None
+
+@app.post("/api/scribe/copilot")
+async def scribe_copilot_endpoint(body: CopilotEndpointRequest):
+    from agent.scribe_copilot import process_copilot_turn
+    if not body.message.strip():
+        raise HTTPException(400, "Message cannot be empty")
+    return process_copilot_turn(body.message, body.history, body.patient_id)
 
 # ── Inbox Triage ──────────────────────────────────────────────────────────────────
 

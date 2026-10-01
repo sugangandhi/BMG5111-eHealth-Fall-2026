@@ -53,6 +53,11 @@ const speakAction = (text) => {
         window.isSpeaking = false; 
       };
 
+      // Safety timeout: Chrome TTS frequently drops onend in background or with quick speech
+      setTimeout(() => {
+        window.isSpeaking = false;
+      }, 3500);
+
       window.utterances.push(msg);
       window.speechSynthesis.speak(msg);
     }, 50);
@@ -174,9 +179,11 @@ function App() {
       }
     };
     window.addEventListener('pause-voice-nav', handlePause);
+    window.addEventListener('open-scribe', handlePause);
     window.addEventListener('resume-voice-nav', handleResume);
     return () => {
       window.removeEventListener('pause-voice-nav', handlePause);
+      window.removeEventListener('open-scribe', handlePause);
       window.removeEventListener('resume-voice-nav', handleResume);
     };
   }, []);
