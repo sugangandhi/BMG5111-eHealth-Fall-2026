@@ -18,6 +18,10 @@ async def get_whatsapp_status():
     """
     token = os.getenv('WHATSAPP_TOKEN')
     phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+    if not phone_id and token and token.startswith('EAA'):
+        from agent.patient_matcher import resolve_meta_phone_number_id
+        phone_id = resolve_meta_phone_number_id(token)
+
     display_phone = os.getenv('WHATSAPP_DISPLAY_PHONE', '1234567890')
     has_meta = bool(token and phone_id)
     has_twilio = bool(os.getenv('TWILIO_ACCOUNT_SID') and os.getenv('TWILIO_AUTH_TOKEN'))

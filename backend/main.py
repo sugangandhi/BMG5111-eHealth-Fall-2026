@@ -866,5 +866,30 @@ async def get_billing_analytics_endpoint():
 from api import whatsapp
 app.include_router(whatsapp.router)
 
-# Serve frontend - must be last
-app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+# Serve frontend - safely fallback if frontend/dist hasn't been built yet
+if not os.path.exists(FRONTEND_DIR):
+    try:
+        os.makedirs(FRONTEND_DIR, exist_ok=True)
+        fallback_index = os.path.join(FRONTEND_DIR, "index.html")
+        if not os.path.exists(fallback_index):
+            with open(fallback_index, "w", encoding="utf-8") as f:
+                f.write(
+                    "<!DOCTYPE html>"
+                    "<html><head><title>e-Hospital Backend</title><style>"
+                    "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:50px;text-align:center;background:#0f172a;color:#f8fafc;}"
+                    ".card{max-width:550px;margin:0 auto;background:#1e293b;padding:30px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.5);border:1px solid #334155;}"
+                    "h2{color:#38bdf8;margin-top:0;}code{background:#0f172a;color:#a5f3fc;padding:3px 8px;border-radius:6px;font-size:13px;}"
+                    "</style></head><body><div class='card'>"
+                    "<h2>🟢 e-Hospital API Backend is Running!</h2>"
+                    "<p>The React frontend build was not found in <code>frontend/dist</code>.</p>"
+                    "<p style='text-align:left;line-height:1.6;'>To load the full interface:<br>"
+                    "1. Open a terminal in <code>frontend/</code><br>"
+                    "2. Run <code>npm install && npm run build</code><br>"
+                    "3. Refresh this page, or run <code>npm run dev</code> for hot-reloading.</p>"
+                    "</div></body></html>"
+                )
+    except Exception as e:
+        print(f"[Warning] Could not initialize FRONTEND_DIR: {e}")
+
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

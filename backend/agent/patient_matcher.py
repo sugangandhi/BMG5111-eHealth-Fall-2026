@@ -62,6 +62,30 @@ def extract_vitals_from_text(text: str) -> dict:
         
     return vitals
 
+def resolve_meta_phone_number_id(token: str):
+    """
+    If only WHATSAPP_TOKEN is provided without WHATSAPP_PHONE_NUMBER_ID,
+    automatically query Meta Graph API to discover the registered phone number ID.
+    """
+    phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+    if phone_id:
+        return phone_id
+    if not token or not token.startswith('EAA'):
+        return None
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = requests.get("https://graph.facebook.com/v20.0/me/phone_numbers", headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json().get('data', [])
+            if data and 'id' in data[0]:
+                discovered = data[0]['id']
+                print(f"[WhatsApp] Auto-discovered Phone Number ID from token: {discovered}")
+                os.environ['WHATSAPP_PHONE_NUMBER_ID'] = discovered
+                return discovered
+    except Exception as e:
+        print(f"[WhatsApp] Note during phone ID auto-discovery: {e}")
+    return None
+
 def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
     """
     Sends an outbound WhatsApp message using either:
@@ -70,7 +94,7 @@ def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
     3. Simulated dispatch (when keys are not yet configured)
     """
     token = os.getenv('WHATSAPP_TOKEN')
-    phone_number_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+    phone_number_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID') or resolve_meta_phone_number_id(token)
     
     # Option 1: Meta WhatsApp Cloud API
     if token and phone_number_id:
