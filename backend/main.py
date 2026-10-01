@@ -866,6 +866,25 @@ async def get_billing_analytics_endpoint():
 from api import whatsapp
 app.include_router(whatsapp.router)
 
+# ── Central Clinical EMR Cloud Integration ────────────────────────────────────
+from integrations import central_clinical_api
+
+@app.get("/api/central/status")
+async def get_central_emr_status():
+    return central_clinical_api.check_central_api_health()
+
+@app.get("/api/central/patients")
+async def get_central_emr_patients():
+    return {"patients": central_clinical_api.fetch_central_patients()}
+
+@app.get("/api/central/appointments")
+async def get_central_emr_appointments():
+    return {"appointments": central_clinical_api.fetch_central_appointments()}
+
+@app.get("/api/central/vitals/{patient_id}")
+async def get_central_emr_patient_vitals(patient_id: int):
+    return {"vitals": central_clinical_api.fetch_patient_vitals_history(patient_id)}
+
 # Serve frontend - safely fallback if frontend/dist hasn't been built yet
 if not os.path.exists(FRONTEND_DIR):
     try:

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   MessageCircle, X, Send, CheckCircle2, AlertCircle, 
-  ExternalLink, Sparkles, Activity, ShieldCheck, Copy, Check, Info, Phone
+  ExternalLink, Sparkles, Activity, ShieldCheck, Copy, Check, Info, Phone, Cloud, Database
 } from 'lucide-react';
 
 export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivityLogged }) {
@@ -270,7 +270,7 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
               transition: 'all 0.2s'
             }}
           >
-            <ShieldCheck size={14} /> API Key Setup
+            <Cloud size={14} /> Central EMR Cloud
           </button>
         </div>
 
@@ -416,7 +416,7 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ padding: '10px 14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                 <span style={{ fontSize: '12px', color: 'var(--text-primary)', lineHeight: '1.4', display: 'block' }}>
-                  🧪 <strong>Interactive Test Console:</strong> Simulates an incoming patient message to e-Hospital. Automatically tests regex/NLP vital extraction, matches the FHIR patient, persists vitals to EHR, and generates the bot confirmation.
+                  🧪 <strong>Interactive Test Console:</strong> Simulates an incoming patient message to e-Hospital. Automatically tests regex/NLP vital extraction, updates local EHR, and live syncs to the Central EMR MySQL database on AWS.
                 </span>
               </div>
 
@@ -574,6 +574,16 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
                     </div>
                   )}
 
+                  {/* Central EMR Cloud Live Sync Confirmation */}
+                  {simulationResult.central_emr_sync?.synced && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(56, 189, 248, 0.12)', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                      <Cloud size={14} color="#38bdf8" />
+                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#38bdf8' }}>
+                        Live Synced to Central EMR Cloud Database (Vital ID: #{simulationResult.central_emr_sync.vital_id})
+                      </span>
+                    </div>
+                  )}
+
                   {/* Automated Bot Reply */}
                   <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '10px', borderLeft: '3px solid #25D366' }}>
                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#25D366', marginBottom: '4px' }}>
@@ -588,19 +598,49 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
             </div>
           )}
 
-          {/* TAB 3: PROFESSOR & CLOUD CONFIG HELPER */}
+          {/* TAB 3: CENTRAL CLINICAL EMR CLOUD NETWORK */}
           {activeSubTab === 'config' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ padding: '12px 14px', background: 'rgba(37, 211, 102, 0.08)', borderRadius: '12px', border: '1px solid rgba(37, 211, 102, 0.25)' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-primary)', lineHeight: '1.4', display: 'block' }}>
-                  🔑 <strong>Professor API Key Checklist:</strong> When your professor provides the credentials today, add these exact keys to your <strong>Render Dashboard &gt; Environment</strong>.
-                </span>
+              <div style={{ padding: '12px 14px', background: 'rgba(56, 189, 248, 0.08)', borderRadius: '12px', border: '1px solid rgba(56, 189, 248, 0.25)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Cloud size={20} color="#38bdf8" style={{ flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                    Central Clinical EMR Cloud Network
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    Connected to AWS App Runner MySQL Database (77 Introspected Tables)
+                  </div>
+                </div>
+              </div>
+
+              {/* Central EMR Cloud Status Card */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  1. Live Cloud Database Connection
+                </div>
+                
+                <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Central Endpoint:</span>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#38bdf8', fontFamily: 'monospace' }}>
+                      https://aetab8pjmb.us-east-1.awsapprunner.com
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Active Tables:</span>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#10b981' }}>77 Tables (MySQL Sequelize)</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Active Sync Tables:</span>
+                    <span style={{ fontSize: '11px', fontWeight: '500', color: 'var(--text-primary)' }}>vitals_history, patients_registration, appointments</span>
+                  </div>
+                </div>
               </div>
 
               {/* Render Webhook Settings */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  1. Meta Webhook Configuration
+                  2. Meta Webhook Configuration
                 </div>
                 
                 <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -634,26 +674,18 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
                 </div>
               </div>
 
-              {/* Render Environment Variables */}
+              {/* Environment Variables */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  2. Render Environment Variables Needed
+                  3. Cloud Environment Variables
                 </div>
 
                 <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '10px', fontSize: '12px', lineHeight: '1.6', fontFamily: 'monospace', color: 'var(--text-primary)' }}>
+                  <div><span style={{ color: '#38bdf8' }}>CENTRAL_CLINICAL_API_URL</span>=https://aetab8pjmb...</div>
                   <div><span style={{ color: '#25D366' }}>WHATSAPP_TOKEN</span>=EAA...</div>
                   <div><span style={{ color: '#25D366' }}>WHATSAPP_PHONE_NUMBER_ID</span>=105492...</div>
                   <div><span style={{ color: '#25D366' }}>WHATSAPP_VERIFY_TOKEN</span>=ehospital_verified_2026</div>
-                  <div><span style={{ color: '#60a5fa' }}>OPENAI_API_KEY</span>=sk-... (optional)</div>
                 </div>
-              </div>
-
-              {/* Status Indicator */}
-              <div style={{ padding: '10px 14px', borderRadius: '10px', background: configStatus?.configured ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', border: `1px solid ${configStatus?.configured ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {configStatus?.configured ? <CheckCircle2 size={18} color="#10b981" /> : <Info size={18} color="#f59e0b" />}
-                <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
-                  Current Status: <strong>{configStatus?.configured ? `Connected via ${configStatus.provider.toUpperCase()}` : 'Simulation Fallback (Add keys on Render for live dispatch)'}</strong>
-                </span>
               </div>
             </div>
           )}

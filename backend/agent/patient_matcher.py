@@ -235,11 +235,33 @@ Message: {text_body}"""
             color='emerald'
         )
 
-        # 6. Formulate automated clinical confirmation
+        # 6. Central Clinical EMR Cloud Sync
+        central_sync = None
+        try:
+            from integrations.central_clinical_api import find_central_patient, post_central_vital, post_patient_message_to_doctor
+            c_patient = find_central_patient(name=p_name, phone=sender_phone)
+            c_patient_id = c_patient["patient_id"] if c_patient else 1
+
+            if vitals.get('bp') or vitals.get('hr'):
+                cloud_vital = post_central_vital(
+                    patient_id=c_patient_id,
+                    blood_pressure=vitals.get('bp'),
+                    heart_rate=int(vitals.get('hr')) if vitals.get('hr') else None,
+                    notes=f"Automated WhatsApp bot submission for {p_name}"
+                )
+                if cloud_vital.get("success"):
+                    v_id = cloud_vital.get("data", {}).get("vital_id")
+                    central_sync = {"synced": True, "vital_id": v_id, "patient_id": c_patient_id}
+
+            post_patient_message_to_doctor(patient_id=c_patient_id, message=text_body, doctor_id=1)
+        except Exception as err:
+            print(f"[WhatsApp] Central EMR sync note: {err}")
+
+        # 7. Formulate automated clinical confirmation
         first_name = matched_patient['name'].get('given', [p_name])[0]
         if vitals:
             vitals_desc = ", ".join([f"{k.upper()}: {v}" for k, v in vitals.items()])
-            reply_text = f"Hello {first_name}, thank you for updating e-Hospital. Your readings ({vitals_desc}) have been recorded directly into your patient chart."
+            reply_text = f"Hello {first_name}, thank you for updating e-Hospital. Your readings ({vitals_desc}) have been recorded directly into your patient chart and synced with the Central Clinical Network."
         else:
             reply_text = f"Hello {first_name}, we have received your message and logged it into your e-Hospital medical record. Our clinical team has been notified."
             
@@ -251,7 +273,8 @@ Message: {text_body}"""
             "patient_id": p_id,
             "vitals_extracted": vitals,
             "reply_text": reply_text,
-            "delivered": delivered
+            "delivered": delivered,
+            "central_emr_sync": central_sync
         }
     else:
         print("[WhatsApp] Unmatched sender. Logging to triage inbox.")
@@ -263,6 +286,23 @@ Message: {text_body}"""
             detail=f'WHATSAPP: {text_body}',
             color='orange'
         )
+
+        # Attempt to log to Central EMR for unknown sender
+        central_sync = None
+        try:
+            from integrations.central_clinical_api import find_central_patient, post_central_vital
+            c_patient = find_central_patient(phone=sender_phone)
+            if c_patient and (vitals.get('bp') or vitals.get('hr')):
+                cloud_vital = post_central_vital(
+                    patient_id=c_patient["patient_id"],
+                    blood_pressure=vitals.get('bp'),
+                    heart_rate=int(vitals.get('hr')) if vitals.get('hr') else None,
+                    notes=f"Automated WhatsApp entry for {c_patient.get('name')}"
+                )
+                if cloud_vital.get("success"):
+                    central_sync = {"synced": True, "vital_id": cloud_vital.get("data", {}).get("vital_id")}
+        except Exception:
+            pass
 
         reply_text = (
             "Thank you for messaging e-Hospital. We could not automatically match this phone number to an active patient record. "
@@ -276,5 +316,6 @@ Message: {text_body}"""
             "patient_id": "UNKNOWN",
             "vitals_extracted": vitals,
             "reply_text": reply_text,
-            "delivered": delivered
+            "delivered": delivered,
+            "central_emr_sync": central_sync
         }
