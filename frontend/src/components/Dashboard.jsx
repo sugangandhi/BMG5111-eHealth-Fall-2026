@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, FileText, Activity, Clock, Paperclip, X, Download, Printer, ShieldCheck, ExternalLink, TrendingUp, Sparkles, Award, Mic, Scan, Zap, MessageSquare, ChevronRight, Stethoscope, CheckCircle2, MessageCircle } from 'lucide-react';
+import { Users, FileText, Activity, Clock, Paperclip, X, Download, Printer, ShieldCheck, ExternalLink, TrendingUp, Sparkles, Award, Mic, Scan, Zap, MessageSquare, ChevronRight, Stethoscope, CheckCircle2, MessageCircle, Bot } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const WEEKLY_TREND = [
@@ -499,10 +499,10 @@ export default function Dashboard() {
             className="mobile-action-btn"
             onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}
           >
-            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-              <Mic size={22} />
+            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.4)' }}>
+              <Bot size={22} />
             </div>
-            <span className="mobile-action-label">AI Scribe</span>
+            <span className="mobile-action-label">AI Chatbot</span>
           </button>
 
           <button 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { 
-  Mic, X, Sparkles, Volume2, VolumeX, Send, Calendar, Clock, 
-  Phone, User, Bot, AlertCircle, Compass, CheckCircle2, ArrowRight,
-  ExternalLink, MessageSquare, Activity, FileText, DollarSign, Inbox, LayoutDashboard
+  Mic, Bot, Sparkles, Volume2, VolumeX, Send, Calendar, Clock, 
+  Phone, User, Compass, CheckCircle2, ArrowRight, ExternalLink, 
+  RotateCcw, Activity, DollarSign, Inbox, MessageSquare, ChevronRight,
+  AlertCircle
 } from 'lucide-react';
 
 window.utterances = [];
@@ -41,8 +42,7 @@ const speakAction = (text) => {
   }
 };
 
-export default function Scribe() {
-  const [isOpen, setIsOpen] = useState(false);
+export default function Scribe({ onNavigateTab }) {
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -52,17 +52,35 @@ export default function Scribe() {
   const [speechError, setSpeechError] = useState(null);
   const [ttsEnabled, setTtsEnabled] = useState(true);
 
-  // Chat message stream designed for hospital staff
-  const [messages, setMessages] = useState([
+  // Pre-loaded realistic chatbot greeting for hospital staff
+  const initialMessages = [
     {
       id: 1,
       sender: 'assistant',
-      text: "👋 **Hello! I am your e-Hospital Staff AI Assistant.**\n\nI can carry out instructions across the app, manage patient communication, and check schedules.\n\n**Speak or tap any instruction below:**",
-      time: "Just now"
+      text: "👋 **Hello Dr. Patel & Clinical Team!**\n\nI am your **e-Hospital Staff AI Copilot**. You can speak or type instructions to work around the app, message patients, manage appointments, and check charts.",
+      time: "Just now",
+      suggestions: [
+        "What appointments do I have today?",
+        "Send a WhatsApp message to Sarah Khan saying your blood test results are ready",
+        "Book an appointment for Sarah Khan tomorrow at 3 PM",
+        "Go to Inbox",
+        "Go to Billing",
+        "What medications is Sarah Khan taking?"
+      ]
     }
-  ]);
+  ];
+
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('hospital_chatbot_history');
+      return saved ? JSON.parse(saved) : initialMessages;
+    } catch {
+      return initialMessages;
+    }
+  });
 
   const chatEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Speech Recognition & Web Audio Refs
   const isRecordingRef = useRef(false);
@@ -82,39 +100,27 @@ export default function Scribe() {
   }, [interimTranscript]);
 
   useEffect(() => {
+    try {
+      sessionStorage.setItem('hospital_chatbot_history', JSON.stringify(messages));
+    } catch {}
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isProcessing, interimTranscript]);
 
-  // Listen for open event
+  // Clean up recording on unmount
   useEffect(() => {
-    const handleOpenScribe = () => {
-      setIsOpen(true);
-      window.dispatchEvent(new CustomEvent('pause-voice-nav'));
-    };
-    const handleStartScribe = () => {
-      setIsOpen(true);
-      window.dispatchEvent(new CustomEvent('pause-voice-nav'));
-      if (!isRecordingRef.current) startRecording();
-    };
-    window.addEventListener('open-scribe', handleOpenScribe);
-    window.addEventListener('start-scribe', handleStartScribe);
     return () => {
-      window.removeEventListener('open-scribe', handleOpenScribe);
-      window.removeEventListener('start-scribe', handleStartScribe);
+      stopRecording();
     };
   }, []);
 
-  // Cleanup on close
-  useEffect(() => {
-    if (!isOpen) {
-      stopRecording();
-      setInterimTranscript("");
-      interimRef.current = "";
-      window.dispatchEvent(new CustomEvent('resume-voice-nav'));
-    } else {
-      window.dispatchEvent(new CustomEvent('pause-voice-nav'));
-    }
-  }, [isOpen]);
+  const handleClearChat = () => {
+    setMessages(initialMessages);
+    try {
+      sessionStorage.removeItem('hospital_chatbot_history');
+    } catch {}
+    setInputMessage('');
+    setInterimTranscript('');
+  };
 
   const startRecording = async () => {
     setSpeechError(null);
@@ -126,11 +132,11 @@ export default function Scribe() {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setSpeechError("Speech recognition is not supported in this browser. Please use Google Chrome, Edge, or Safari.");
+      setSpeechError("Speech recognition is not supported in this browser. Please use Chrome, Safari, or Edge.");
       return;
     }
 
-    // 1. Web Audio API for real microphone visualizer
+    // 1. Web Audio API for animated frequency waveform
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -182,12 +188,12 @@ export default function Scribe() {
     } catch (micErr) {
       console.warn("Microphone stream note:", micErr);
       if (micErr.name === 'NotAllowedError' || micErr.name === 'PermissionDeniedError') {
-        setSpeechError("Microphone permission was denied. Please allow microphone access in your address bar.");
+        setSpeechError("Microphone permission was denied. Please allow microphone access in your browser settings.");
         return;
       }
     }
 
-    // 2. Web Speech API Recognition
+    // 2. Web Speech API Recognition with resultIndex to prevent duplicated text
     try {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
@@ -216,7 +222,10 @@ export default function Scribe() {
         }
 
         if (finalTranscript) {
-          setInputMessage(prev => (prev ? prev.trim() + ' ' + finalTranscript.trim() : finalTranscript.trim()));
+          setInputMessage(prev => {
+            const next = prev ? prev.trim() + ' ' + finalTranscript.trim() : finalTranscript.trim();
+            return next;
+          });
           setInterimTranscript('');
           interimRef.current = '';
         }
@@ -227,12 +236,12 @@ export default function Scribe() {
           return;
         }
         if (event.error === 'not-allowed') {
-          setSpeechError("Microphone access was blocked. Please enable it in browser settings.");
+          setSpeechError("Microphone access was blocked. Please enable microphone permission.");
           stopRecording();
           return;
         }
         if (event.error === 'network') {
-          setSpeechError("Speech network issue. Chrome requires internet access for speech recognition.");
+          setSpeechError("Speech recognition requires active internet connectivity.");
           stopRecording();
           return;
         }
@@ -264,7 +273,7 @@ export default function Scribe() {
 
     if (interimRef.current) {
       const remaining = interimRef.current.trim();
-      setInputMessage(prev => (prev ? prev + ' ' + remaining : remaining));
+      setInputMessage(prev => (prev ? prev.trim() + ' ' + remaining : remaining));
       setInterimTranscript('');
       interimRef.current = '';
     }
@@ -289,6 +298,7 @@ export default function Scribe() {
 
     setAudioLevel(0);
     setAudioFreqData(new Array(16).fill(4));
+    window.dispatchEvent(new CustomEvent('resume-voice-nav'));
   };
 
   const toggleRecording = () => {
@@ -299,7 +309,7 @@ export default function Scribe() {
     }
   };
 
-  // Execute instruction through Hospital Copilot
+  // Execute instruction through Hospital Copilot Backend
   const handleSendMessage = async (customText) => {
     const query = (customText || inputMessage || interimTranscript).trim();
     if (!query) return;
@@ -347,9 +357,13 @@ export default function Scribe() {
 
       setMessages(prev => [...prev, botMsg]);
 
-      // Handle App Navigation instruction
+      // If user commanded tab navigation, execute it
       if (data.action_type === 'navigate' && data.action_data?.tab) {
-        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: data.action_data.tab } }));
+        if (onNavigateTab) {
+          onNavigateTab(data.action_data.tab);
+        } else {
+          window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: data.action_data.tab } }));
+        }
       }
 
       // Voice Feedback
@@ -362,7 +376,7 @@ export default function Scribe() {
       }
     } catch (err) {
       console.error("Copilot error:", err);
-      // Graceful local instruction execution fallback
+      // Client-side fallback handler
       const qLower = query.toLowerCase();
       let fallbackReply = "I received your instruction.";
       let actType = "general_reply";
@@ -372,27 +386,32 @@ export default function Scribe() {
         fallbackReply = "🧭 Navigating to **Secure Inbox**.";
         actType = "navigate";
         actData = { tab: "inbox", label: "Secure Inbox" };
-        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'inbox' } }));
+        if (onNavigateTab) onNavigateTab('inbox');
+        else window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'inbox' } }));
       } else if (qLower.includes("dashboard") || qLower.includes("home")) {
         fallbackReply = "🧭 Navigating to **Dashboard**.";
         actType = "navigate";
         actData = { tab: "dashboard", label: "Dashboard" };
-        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'dashboard' } }));
+        if (onNavigateTab) onNavigateTab('dashboard');
+        else window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'dashboard' } }));
       } else if (qLower.includes("billing")) {
         fallbackReply = "🧭 Navigating to **Billing Dashboard**.";
         actType = "navigate";
         actData = { tab: "billing", label: "Billing Dashboard" };
-        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'billing' } }));
+        if (onNavigateTab) onNavigateTab('billing');
+        else window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'billing' } }));
       } else if (qLower.includes("twin")) {
         fallbackReply = "🧭 Navigating to **3D Digital Twin**.";
         actType = "navigate";
         actData = { tab: "twin", label: "3D Digital Twin" };
-        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'twin' } }));
+        if (onNavigateTab) onNavigateTab('twin');
+        else window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'twin' } }));
       } else if (qLower.includes("calendar")) {
         fallbackReply = "🧭 Navigating to **Smart Calendar**.";
         actType = "navigate";
         actData = { tab: "calendar", label: "Smart Calendar" };
-        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'calendar' } }));
+        if (onNavigateTab) onNavigateTab('calendar');
+        else window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'calendar' } }));
       }
 
       const botMsg = {
@@ -416,354 +435,488 @@ export default function Scribe() {
     }
   };
 
-  const handleNavigateToTab = (tab) => {
-    window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab } }));
-    setIsOpen(false);
+  const handleTabJump = (tab) => {
+    if (onNavigateTab) {
+      onNavigateTab(tab);
+    } else {
+      window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab } }));
+    }
   };
 
-  // 1. Floating Launch Button (when closed)
-  if (!isOpen) {
-    return (
-      <button 
-        className="desktop-only"
-        style={{
-          position: 'fixed', bottom: '28px', right: '28px',
-          width: '64px', height: '64px', borderRadius: '50%',
-          background: 'linear-gradient(135deg, #10b981, #059669)', 
-          color: 'white', border: '3px solid rgba(255,255,255,0.3)',
-          boxShadow: '0 10px 35px rgba(16, 185, 129, 0.55)', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
-          transition: 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        onClick={() => setIsOpen(true)}
-        title="Open Hospital Staff AI Chatbot"
-      >
-        <Mic size={28} color="white" className="animate-pulse" />
-      </button>
-    );
-  }
-
-  // 2. REAL MOBILE VERSION CHATBOT (Sheet / Screen)
   return (
-    <div style={{ 
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-      background: 'rgba(2, 6, 23, 0.75)', backdropFilter: 'blur(10px)', 
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 99999 
+    <div style={{
+      width: '100%',
+      maxWidth: '900px',
+      height: '100%',
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      background: 'rgba(15, 23, 42, 0.95)',
+      borderRadius: '20px',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      boxShadow: '0 12px 40px rgba(0, 0, 0, 0.5)',
+      overflow: 'hidden',
+      position: 'relative'
     }}>
-      <div 
-        className="animate-fade-in" 
-        style={{ 
-          width: '100%', maxWidth: '480px', height: '94vh', 
-          background: 'rgba(15, 23, 42, 0.98)', 
-          borderTopLeftRadius: '24px', borderTopRightRadius: '24px',
-          border: '1px solid rgba(16, 185, 129, 0.35)', borderBottom: 'none',
-          boxShadow: '0 -15px 50px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)', 
-          display: 'flex', flexDirection: 'column', overflow: 'hidden'
-        }}
-      >
-        
-        {/* Mobile Pull Indicator */}
-        <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px', margin: '8px auto 0 auto' }} />
-
-        {/* Mobile Chatbot Header */}
-        <div style={{ 
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-          padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)',
-          background: 'rgba(15, 23, 42, 0.7)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ 
-              width: '40px', height: '40px', borderRadius: '12px', 
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
-            }}>
-              <Sparkles size={20} color="#ffffff" />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <h3 style={{ margin: 0, fontSize: '16px', color: '#f8fafc', fontWeight: '800' }}>Hospital AI Assistant</h3>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
-              </div>
-              <span style={{ fontSize: '11px', color: '#94a3b8' }}>Live Speech • Navigation • Actions</span>
-            </div>
+      
+      {/* ── CHATBOT TOP HEADER ────────────────────────────────────────── */}
+      <div style={{
+        padding: '14px 20px',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'rgba(15, 23, 42, 0.85)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexShrink: 0
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+            position: 'relative'
+          }}>
+            <Bot size={22} color="#ffffff" />
+            <span style={{
+              position: 'absolute',
+              bottom: '-2px',
+              right: '-2px',
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              background: '#34d399',
+              border: '2px solid #0f172a'
+            }} />
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Audio Voice Response Toggle */}
-            <button 
-              onClick={() => setTtsEnabled(!ttsEnabled)} 
-              title={ttsEnabled ? "Voice replies enabled" : "Voice replies muted"}
-              style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: ttsEnabled ? '#34d399' : '#64748b', padding: '8px', borderRadius: '50%', cursor: 'pointer' }}
-            >
-              {ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-            </button>
-            {/* Close Button */}
-            <button 
-              onClick={() => { setIsOpen(false); stopRecording(); }} 
-              style={{ background: 'rgba(239, 68, 68, 0.12)', border: 'none', color: '#fca5a5', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            >
-              <X size={16} />
-            </button>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#f8fafc', letterSpacing: '-0.2px' }}>
+                e-Hospital AI Copilot
+              </h2>
+              <span style={{
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: '#34d399',
+                fontSize: '10px',
+                fontWeight: '700',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                border: '1px solid rgba(16, 185, 129, 0.3)'
+              }}>
+                STAFF ASSISTANT
+              </span>
+            </div>
+            <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>
+              Real-time Voice Recognition • Actions • Clinical Support
+            </p>
           </div>
         </div>
 
-        {/* Chat Message Stream */}
-        <div style={{ 
-          flex: 1, padding: '16px 14px', overflowY: 'auto', 
-          display: 'flex', flexDirection: 'column', gap: '14px',
-          background: 'linear-gradient(180deg, rgba(15,23,42,0.6) 0%, rgba(2,6,23,0.8) 100%)'
-        }}>
-          {messages.map((msg) => (
-            <div 
-              key={msg.id} 
-              style={{ 
-                display: 'flex', 
-                flexDirection: 'column',
-                alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', fontSize: '10px', color: '#64748b' }}>
-                {msg.sender === 'user' ? (
-                  <><span>Hospital Staff</span> <User size={10} /></>
-                ) : (
-                  <><Bot size={10} color="#34d399" /> <span style={{ color: '#34d399', fontWeight: '700' }}>e-Hospital AI</span></>
-                )}
-                <span>• {msg.time}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* TTS Audio Response Toggle */}
+          <button 
+            onClick={() => setTtsEnabled(!ttsEnabled)} 
+            title={ttsEnabled ? "Voice responses active" : "Voice responses muted"}
+            style={{
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: ttsEnabled ? '#34d399' : '#64748b',
+              padding: '8px',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
+
+          {/* Clear / Reset Chat */}
+          <button 
+            onClick={handleClearChat}
+            title="Start new conversation"
+            style={{
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#94a3b8',
+              padding: '8px',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <RotateCcw size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── CHAT MESSAGES BODY ─────────────────────────────────────────── */}
+      <div style={{
+        flex: 1,
+        padding: '20px 16px',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.5) 0%, rgba(2, 6, 23, 0.8) 100%)'
+      }}>
+        {messages.map((msg) => (
+          <div 
+            key={msg.id} 
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start'
+            }}
+          >
+            {/* Sender metadata label */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', fontSize: '11px', color: '#64748b' }}>
+              {msg.sender === 'user' ? (
+                <><span>Hospital Staff</span> <User size={11} /></>
+              ) : (
+                <><Bot size={12} color="#34d399" /> <span style={{ color: '#34d399', fontWeight: '700' }}>e-Hospital AI</span></>
+              )}
+              <span>• {msg.time}</span>
+            </div>
+
+            {/* Message Bubble */}
+            <div style={{ 
+              maxWidth: '85%', 
+              padding: '14px 18px', 
+              borderRadius: msg.sender === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+              background: msg.sender === 'user' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : 'rgba(30, 41, 59, 0.85)',
+              border: msg.sender === 'user' ? '1px solid rgba(96, 165, 250, 0.3)' : '1px solid rgba(255, 255, 255, 0.09)',
+              color: '#f8fafc',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+            }}>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {msg.text}
               </div>
 
-              <div style={{ 
-                maxWidth: '88%', 
-                padding: '12px 16px', 
-                borderRadius: msg.sender === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                background: msg.sender === 'user' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : 'rgba(30, 41, 59, 0.9)',
-                border: msg.sender === 'user' ? '1px solid rgba(96, 165, 250, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#f8fafc',
-                fontSize: '14px',
-                lineHeight: '1.5',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
-              }}>
-                <div style={{ whiteSpace: 'pre-wrap' }}>
-                  {msg.text}
-                </div>
-
-                {/* ACTION CARD: App Navigation */}
-                {msg.action_type === 'navigate' && msg.action_data && (
-                  <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#93c5fd', fontWeight: '700', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Compass size={14} /> Screen Switched
-                      </span>
-                      <button 
-                        onClick={() => handleNavigateToTab(msg.action_data.tab)}
-                        style={{ padding: '4px 10px', background: '#2563eb', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        View Screen <ExternalLink size={11} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ACTION CARD: WhatsApp Dispatched */}
-                {msg.action_type === 'whatsapp_sent' && msg.action_data && (
-                  <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontWeight: '700', fontSize: '12px', marginBottom: '4px' }}>
-                      <Phone size={14} /> Outbound WhatsApp Dispatched
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
-                      <div><strong>To:</strong> {msg.action_data.patient_name} ({msg.action_data.phone})</div>
-                      <div style={{ marginTop: '4px', fontStyle: 'italic', background: 'rgba(0,0,0,0.25)', padding: '6px 8px', borderRadius: '6px' }}>
-                        "{msg.action_data.message}"
+              {/* ACTION CARD: App Navigation */}
+              {msg.action_type === 'navigate' && msg.action_data && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px 14px',
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  border: '1px solid rgba(59, 130, 246, 0.4)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Compass size={16} color="#60a5fa" />
+                    <div>
+                      <div style={{ color: '#93c5fd', fontWeight: '700', fontSize: '13px' }}>
+                        Screen Switched to {msg.action_data.label}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#cbd5e1' }}>
+                        Ready in application viewport
                       </div>
                     </div>
                   </div>
-                )}
-
-                {/* ACTION CARD: Appointment Booked */}
-                {msg.action_type === 'appointment_booked' && msg.action_data && (
-                  <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(20, 184, 166, 0.15)', border: '1px solid rgba(20, 184, 166, 0.4)', borderRadius: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2dd4bf', fontWeight: '700', fontSize: '12px', marginBottom: '4px' }}>
-                      <CheckCircle2 size={14} /> Clinic Appointment Confirmed
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
-                      <div><strong>Patient:</strong> {msg.action_data.patient_name}</div>
-                      <div><strong>Schedule:</strong> {msg.action_data.date} at {msg.action_data.time}</div>
-                      <div><strong>Type:</strong> {msg.action_data.type}</div>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            </div>
-          ))}
-
-          {isProcessing && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontSize: '13px', fontStyle: 'italic' }}>
-              <Sparkles size={14} className="animate-spin" /> Hospital AI is processing instruction...
-            </div>
-          )}
-          <div ref={chatEndRef} />
-        </div>
-
-        {/* Horizontal Quick Action Chips */}
-        <div style={{ 
-          padding: '8px 12px', display: 'flex', gap: '6px', overflowX: 'auto', 
-          background: 'rgba(15, 23, 42, 0.95)', borderTop: '1px solid rgba(255,255,255,0.06)',
-          whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch'
-        }}>
-          <button 
-            onClick={() => handleSendMessage("Go to Inbox")}
-            style={{ padding: '6px 12px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: '16px', color: '#93c5fd', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            <Inbox size={12} /> Go to Inbox
-          </button>
-          <button 
-            onClick={() => handleSendMessage("What appointments do I have today?")}
-            style={{ padding: '6px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', borderRadius: '16px', color: '#6ee7b7', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            <Clock size={12} /> Today's Schedule
-          </button>
-          <button 
-            onClick={() => handleSendMessage("Send a WhatsApp message to Sarah Khan saying your blood pressure checkup is scheduled for Friday")}
-            style={{ padding: '6px 12px', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.35)', borderRadius: '16px', color: '#86efac', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            <Phone size={12} /> WhatsApp Sarah Khan
-          </button>
-          <button 
-            onClick={() => handleSendMessage("Book an appointment for Sarah Khan tomorrow at 3 PM for diabetes review")}
-            style={{ padding: '6px 12px', background: 'rgba(20, 184, 166, 0.15)', border: '1px solid rgba(20, 184, 166, 0.35)', borderRadius: '16px', color: '#5eead4', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            <Calendar size={12} /> Book Tomorrow at 3 PM
-          </button>
-          <button 
-            onClick={() => handleSendMessage("Go to Billing")}
-            style={{ padding: '6px 12px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '16px', color: '#fcd34d', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            <DollarSign size={12} /> Go to Billing
-          </button>
-          <button 
-            onClick={() => handleSendMessage("Go to 3D Twin")}
-            style={{ padding: '6px 12px', background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.35)', borderRadius: '16px', color: '#d8b4fe', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            <Activity size={12} /> Go to 3D Twin
-          </button>
-          <button 
-            onClick={() => handleSendMessage("What medications is Sarah Khan currently taking?")}
-            style={{ padding: '6px 12px', background: 'rgba(236, 72, 153, 0.15)', border: '1px solid rgba(236, 72, 153, 0.35)', borderRadius: '16px', color: '#f472b6', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            <User size={12} /> Sarah Khan Meds
-          </button>
-        </div>
-
-        {/* Mobile Sticky Voice & Input Bar */}
-        <div style={{ 
-          padding: '12px 14px 18px 14px', 
-          background: 'rgba(15, 23, 42, 0.98)', 
-          borderTop: '1px solid rgba(255,255,255,0.08)'
-        }}>
-          
-          {/* Real Audio Waveform when Mic is Active */}
-          {isRecording && (
-            <div style={{ 
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-              marginBottom: '10px', background: 'rgba(0,0,0,0.5)', padding: '6px 12px', 
-              borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.3)' 
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                {audioFreqData.map((height, i) => (
-                  <div 
-                    key={i} 
-                    style={{ 
-                      width: '3px', height: `${height}px`,
-                      background: audioLevel > 15 ? '#10b981' : '#ef4444',
-                      borderRadius: '3px',
-                      transition: 'height 0.05s ease'
-                    }} 
-                  />
-                ))}
-                <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: '700', color: audioLevel > 15 ? '#34d399' : '#ef4444' }}>
-                  {audioLevel > 15 ? 'VOICE HEARD' : 'LISTENING...'}
-                </span>
-              </div>
-
-              {interimTranscript && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '65%' }}>
-                  <div style={{ fontSize: '12px', color: '#93c5fd', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    "{interimTranscript}"
-                  </div>
-                  <button
-                    onClick={() => handleSendMessage(interimTranscript)}
-                    style={{ padding: '3px 8px', background: '#10b981', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', fontWeight: '700', cursor: 'pointer', flexShrink: 0 }}
+                  <button 
+                    onClick={() => handleTabJump(msg.action_data.tab)}
+                    style={{
+                      padding: '6px 12px',
+                      background: '#2563eb',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
                   >
-                    Run ↵
+                    Open Screen <ChevronRight size={14} />
                   </button>
                 </div>
               )}
+
+              {/* ACTION CARD: Outbound WhatsApp Dispatched */}
+              {msg.action_type === 'whatsapp_sent' && msg.action_data && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px 14px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.4)',
+                  borderRadius: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontWeight: '700', fontSize: '13px', marginBottom: '6px' }}>
+                    <Phone size={15} /> WhatsApp Message Dispatched
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
+                    <div><strong>Recipient:</strong> {msg.action_data.patient_name} ({msg.action_data.phone})</div>
+                    <div style={{ marginTop: '6px', fontStyle: 'italic', background: 'rgba(0,0,0,0.3)', padding: '8px 10px', borderRadius: '8px', borderLeft: '3px solid #10b981' }}>
+                      "{msg.action_data.message}"
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ACTION CARD: Appointment Confirmed */}
+              {msg.action_type === 'appointment_booked' && msg.action_data && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px 14px',
+                  background: 'rgba(20, 184, 166, 0.15)',
+                  border: '1px solid rgba(20, 184, 166, 0.4)',
+                  borderRadius: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2dd4bf', fontWeight: '700', fontSize: '13px', marginBottom: '6px' }}>
+                    <CheckCircle2 size={15} /> Clinic Appointment Confirmed
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: '1.5' }}>
+                    <div><strong>Patient:</strong> {msg.action_data.patient_name}</div>
+                    <div><strong>Date & Time:</strong> {msg.action_data.date} at {msg.action_data.time}</div>
+                    <div><strong>Service:</strong> {msg.action_data.type}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Suggestions Chips inside greeting bubble */}
+              {msg.suggestions && (
+                <div style={{ marginTop: '14px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {msg.suggestions.map((sug, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSendMessage(sug)}
+                      style={{
+                        padding: '6px 12px',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRadius: '16px',
+                        color: '#93c5fd',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)'; e.currentTarget.style.borderColor = '#3b82f6'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'; }}
+                    >
+                      {sug}
+                    </button>
+                  ))}
+                </div>
+              )}
+
             </div>
-          )}
-
-          {speechError && (
-            <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '6px', color: '#fca5a5', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>{speechError}</span>
-              <button onClick={() => setSpeechError(null)} style={{ background: 'transparent', border: 'none', color: '#fca5a5' }}><X size={12} /></button>
-            </div>
-          )}
-
-          {/* Action Input Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Quick Tap-to-Speak Mic Button */}
-            <button 
-              onClick={toggleRecording}
-              style={{
-                width: '46px', height: '46px', borderRadius: '50%',
-                background: isRecording ? 'rgba(239, 68, 68, 0.3)' : 'linear-gradient(135deg, #10b981, #059669)',
-                border: isRecording ? '2px solid #ef4444' : 'none',
-                color: isRecording ? '#fca5a5' : '#ffffff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: isRecording ? '0 0 16px rgba(239, 68, 68, 0.4)' : '0 4px 14px rgba(16, 185, 129, 0.4)',
-                cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s'
-              }}
-              title={isRecording ? "Stop listening" : "Tap to speak instruction"}
-            >
-              <Mic size={20} className={isRecording ? "animate-pulse" : ""} />
-            </button>
-
-            {/* Instruction Text Field */}
-            <input 
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isRecording ? "Listening to your voice..." : "Ask or command (e.g. 'Go to inbox')..."}
-              style={{
-                flex: 1, padding: '12px 16px', borderRadius: '24px',
-                background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.12)',
-                color: '#ffffff', fontSize: '14px', outline: 'none'
-              }}
-            />
-
-            {/* Send Instruction Button */}
-            <button 
-              onClick={() => handleSendMessage()}
-              disabled={!inputMessage.trim() && !interimTranscript.trim() || isProcessing}
-              style={{
-                width: '42px', height: '42px', borderRadius: '50%',
-                background: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'rgba(255,255,255,0.08)',
-                border: 'none', color: '#ffffff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? 'pointer' : 'not-allowed',
-                flexShrink: 0
-              }}
-            >
-              <Send size={16} />
-            </button>
           </div>
+        ))}
 
+        {/* Processing Indicator */}
+        {isProcessing && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontSize: '13px', fontStyle: 'italic', padding: '6px 0' }}>
+            <Sparkles size={16} className="animate-spin" /> Hospital AI is executing instruction...
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* ── QUICK SUGGESTION ACTIONS BAR ─────────────────────────────────── */}
+      <div style={{
+        padding: '8px 14px',
+        display: 'flex',
+        gap: '6px',
+        overflowX: 'auto',
+        background: 'rgba(15, 23, 42, 0.9)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+        whiteSpace: 'nowrap',
+        WebkitOverflowScrolling: 'touch',
+        flexShrink: 0
+      }}>
+        <button 
+          onClick={() => handleSendMessage("What appointments do I have today?")}
+          style={{ padding: '6px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', borderRadius: '16px', color: '#6ee7b7', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          <Clock size={12} /> Today's Schedule
+        </button>
+        <button 
+          onClick={() => handleSendMessage("Send a WhatsApp message to Sarah Khan saying your blood pressure checkup is scheduled for Friday")}
+          style={{ padding: '6px 12px', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.35)', borderRadius: '16px', color: '#86efac', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          <Phone size={12} /> WhatsApp Sarah Khan
+        </button>
+        <button 
+          onClick={() => handleSendMessage("Book an appointment for Sarah Khan tomorrow at 3 PM for diabetes review")}
+          style={{ padding: '6px 12px', background: 'rgba(20, 184, 166, 0.15)', border: '1px solid rgba(20, 184, 166, 0.35)', borderRadius: '16px', color: '#5eead4', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          <Calendar size={12} /> Book Tomorrow 3 PM
+        </button>
+        <button 
+          onClick={() => handleSendMessage("Go to Inbox")}
+          style={{ padding: '6px 12px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: '16px', color: '#93c5fd', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          <Inbox size={12} /> Go to Inbox
+        </button>
+        <button 
+          onClick={() => handleSendMessage("Go to Billing")}
+          style={{ padding: '6px 12px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '16px', color: '#fcd34d', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          <DollarSign size={12} /> Go to Billing
+        </button>
+        <button 
+          onClick={() => handleSendMessage("Go to 3D Twin")}
+          style={{ padding: '6px 12px', background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.35)', borderRadius: '16px', color: '#d8b4fe', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          <Activity size={12} /> Go to 3D Twin
+        </button>
+        <button 
+          onClick={() => handleSendMessage("What medications is Sarah Khan currently taking?")}
+          style={{ padding: '6px 12px', background: 'rgba(236, 72, 153, 0.15)', border: '1px solid rgba(236, 72, 153, 0.35)', borderRadius: '16px', color: '#f472b6', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          <User size={12} /> Sarah Khan Meds
+        </button>
+      </div>
+
+      {/* ── STICKY VOICE & TEXT INPUT DOCK ───────────────────────────────── */}
+      <div style={{
+        padding: '12px 16px 16px 16px',
+        background: 'rgba(15, 23, 42, 0.98)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+        flexShrink: 0
+      }}>
+
+        {/* Real Audio Waveform Visualizer Bar */}
+        {isRecording && (
+          <div style={{ 
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+            marginBottom: '10px', background: 'rgba(0,0,0,0.55)', padding: '8px 14px', 
+            borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.4)' 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              {audioFreqData.map((height, i) => (
+                <div 
+                  key={i} 
+                  style={{ 
+                    width: '3px', height: `${height}px`,
+                    background: audioLevel > 15 ? '#10b981' : '#ef4444',
+                    borderRadius: '3px',
+                    transition: 'height 0.05s ease'
+                  }} 
+                />
+              ))}
+              <span style={{ marginLeft: '10px', fontSize: '11px', fontWeight: '700', color: audioLevel > 15 ? '#34d399' : '#ef4444' }}>
+                {audioLevel > 15 ? 'VOICE DETECTED' : 'LISTENING...'}
+              </span>
+            </div>
+
+            {interimTranscript && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '65%' }}>
+                <div style={{ fontSize: '12px', color: '#93c5fd', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  "{interimTranscript}"
+                </div>
+                <button
+                  onClick={() => handleSendMessage(interimTranscript)}
+                  style={{ padding: '3px 8px', background: '#10b981', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', fontWeight: '700', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  Run ↵
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {speechError && (
+          <div style={{ marginBottom: '8px', padding: '6px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '8px', color: '#fca5a5', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>{speechError}</span>
+            <button onClick={() => setSpeechError(null)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer' }}>✕</button>
+          </div>
+        )}
+
+        {/* Input Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          
+          {/* Dedicated Microphone Button */}
+          <button 
+            onClick={toggleRecording}
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '50%',
+              background: isRecording ? 'rgba(239, 68, 68, 0.35)' : 'linear-gradient(135deg, #10b981, #059669)',
+              border: isRecording ? '2px solid #ef4444' : 'none',
+              color: isRecording ? '#fca5a5' : '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: isRecording ? '0 0 20px rgba(239, 68, 68, 0.5)' : '0 4px 14px rgba(16, 185, 129, 0.4)',
+              cursor: 'pointer',
+              flexShrink: 0,
+              transition: 'all 0.2s'
+            }}
+            title={isRecording ? "Stop listening" : "Tap to speak instruction"}
+          >
+            <Mic size={20} className={isRecording ? "animate-pulse" : ""} />
+          </button>
+
+          {/* Chat Message Input Field */}
+          <input 
+            ref={inputRef}
+            type="text"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isRecording ? "Listening... (speech converts to text live)" : "Ask a question or speak a command (e.g. 'Go to inbox')..."}
+            style={{
+              flex: 1,
+              padding: '13px 18px',
+              borderRadius: '26px',
+              background: 'rgba(0, 0, 0, 0.45)',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              color: '#ffffff',
+              fontSize: '14px',
+              outline: 'none',
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+            onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.14)'}
+          />
+
+          {/* Send Button */}
+          <button 
+            onClick={() => handleSendMessage()}
+            disabled={!inputMessage.trim() && !interimTranscript.trim() || isProcessing}
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              background: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? 'pointer' : 'not-allowed',
+              flexShrink: 0,
+              boxShadow: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? '0 4px 14px rgba(59, 130, 246, 0.4)' : 'none',
+              transition: 'all 0.2s'
+            }}
+            title="Send instruction"
+          >
+            <Send size={18} />
+          </button>
         </div>
 
       </div>
+
     </div>
   );
 }

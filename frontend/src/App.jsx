@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
 
@@ -178,12 +178,16 @@ function App() {
         setIsVoiceNavActive(true);
       }
     };
+    const handleOpenScribe = () => {
+      handlePause();
+      handleTabClick('scribe');
+    };
     window.addEventListener('pause-voice-nav', handlePause);
-    window.addEventListener('open-scribe', handlePause);
+    window.addEventListener('open-scribe', handleOpenScribe);
     window.addEventListener('resume-voice-nav', handleResume);
     return () => {
       window.removeEventListener('pause-voice-nav', handlePause);
-      window.removeEventListener('open-scribe', handlePause);
+      window.removeEventListener('open-scribe', handleOpenScribe);
       window.removeEventListener('resume-voice-nav', handleResume);
     };
   }, []);
@@ -684,6 +688,7 @@ function App() {
         {/* Sidebar Nav */}
         <aside className="glass-panel desktop-only" style={{ width: '250px', margin: '0 0 16px 16px', padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: 'none', backdropFilter: 'blur(30px)' }}>
           <NavButton icon={<LayoutDashboard size={18} />} label="Dashboard" badge={badges.dashboard} active={activeTab === 'dashboard'} onClick={() => handleTabClick('dashboard')} />
+          <NavButton icon={<Bot size={18} color="#34d399" />} label="AI Chatbot" active={activeTab === 'scribe'} onClick={() => handleTabClick('scribe')} />
           <NavButton icon={<Activity size={18} />} label="Digital Twin" active={activeTab === 'twin'} onClick={() => handleTabClick('twin')} />
           <NavButton icon={<Calendar size={18} />} label="Smart Calendar" active={activeTab === 'calendar'} onClick={() => handleTabClick('calendar')} />
           <NavButton icon={<FileText size={18} />} label="Intake OCR Engine" badge={badges.formFiller} active={activeTab === 'formFiller'} onClick={() => handleTabClick('formFiller')} />
@@ -692,21 +697,6 @@ function App() {
           <NavButton icon={<Inbox size={18} />} label="Secure Inbox" badge={badges.inbox} active={activeTab === 'inbox'} onClick={() => handleTabClick('inbox')} />
           <NavButton icon={<DollarSign size={18} />} label="Billing" badge={badges.billing} active={activeTab === 'billing'} onClick={() => handleTabClick('billing')} />
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
-                borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.4)',
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))',
-                color: '#34d399', cursor: 'pointer', fontSize: '13px', fontWeight: '700',
-                transition: 'all 0.2s', width: '100%', textAlign: 'left'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))'}
-            >
-              <Mic size={18} color="#34d399" />
-              <span>AI Staff Assistant</span>
-            </button>
             <NavButton 
               icon={<MessageCircle size={18} />} 
               label="WhatsApp Patient Chat" 
@@ -760,10 +750,10 @@ function App() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button 
-                    onClick={() => { window.dispatchEvent(new CustomEvent('open-scribe')); }}
+                    onClick={() => handleTabClick('scribe')}
                     style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.4)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
-                    <Mic size={14} /> Open AI Scribe
+                    <Bot size={14} /> AI Chatbot
                   </button>
                   <button 
                     onClick={() => setActivePatient(null)}
@@ -794,6 +784,7 @@ function App() {
               {activeTab === 'inbox' && <SecureInbox triggerNotification={triggerNotification} />}
               {activeTab === 'billing' && <BillingDashboard />}
               {activeTab === 'twin' && <DigitalTwin />}
+              {activeTab === 'scribe' && <Scribe onNavigateTab={handleTabClick} />}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -896,7 +887,6 @@ function App() {
       </AnimatePresence>
 
       {/* Floating Scribe & Settings Suite */}
-      <Scribe />
       <SettingsModal 
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
@@ -922,12 +912,23 @@ function App() {
           <span>3D Twin</span>
         </div>
         
-        {/* Prominent Center Scribe Floating Mic */}
-        <div className="bottom-nav-center-action" onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}>
-          <div className="bottom-nav-center-btn" title="Open AI Hospital Assistant">
-            <Mic size={24} />
+        {/* Prominent Center AI Chatbot Tab */}
+        <div 
+          className={`bottom-nav-center-action ${activeTab === 'scribe' ? 'active' : ''}`} 
+          onClick={() => handleTabClick('scribe')}
+        >
+          <div 
+            className="bottom-nav-center-btn" 
+            title="Open AI Chatbot"
+            style={activeTab === 'scribe' ? { 
+              transform: 'scale(1.1)',
+              boxShadow: '0 0 25px #10b981', 
+              border: '3px solid #34d399' 
+            } : {}}
+          >
+            <Bot size={24} />
           </div>
-          <span style={{ fontSize: '10px', fontWeight: '700', color: '#10b981', marginTop: '2px' }}>AI Assistant</span>
+          <span style={{ fontSize: '10px', fontWeight: '700', color: activeTab === 'scribe' ? '#10b981' : '#94a3b8', marginTop: '2px' }}>AI Chatbot</span>
         </div>
 
         <div className={`bottom-nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => handleTabClick('inbox')}>
