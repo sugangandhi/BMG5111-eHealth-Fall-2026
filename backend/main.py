@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from ocr.docling_extractor import extract_document
 from ocr.pdf_renderer import render_pdf_pages, overlay_fields, overlay_fields_on_image
-from fhir.patient_loader import list_patients, get_patient, build_patient_context
+from fhir.patient_loader import list_patients, get_patient, build_patient_context, update_patient_phone
 from agent.combined_filler import analyze_and_fill
 from db.database import (
     init_db, validate_credentials, get_appointments, update_appointment_status,
@@ -48,8 +48,61 @@ init_db()
 
 
 @app.get("/api/patients")
-async def get_patients():
-    return {"patients": list_patients()}
+async def get_patients(source: Optional[str] = None):
+    clinic_patients = list_patients()
+    for p in clinic_patients:
+        p["source"] = "clinic_ehr"
+        p["source_label"] = "Prime Care Clinic EHR"
+        p["is_cloud"] = False
+
+    if source == "clinic":
+        return {"patients": clinic_patients, "count": len(clinic_patients)}
+
+    try:
+        from integrations.central_clinical_api import fetch_central_patients_normalized
+        cloud_patients = fetch_central_patients_normalized()
+    except Exception as e:
+        print(f"[Central EMR] Failed to load normalized central patients: {e}")
+        cloud_patients = []
+
+    if source == "central":
+        return {"patients": cloud_patients, "count": len(cloud_patients)}
+
+    combined = clinic_patients + cloud_patients
+    return {
+        "patients": combined,
+        "clinic_count": len(clinic_patients),
+        "cloud_count": len(cloud_patients),
+        "count": len(combined)
+    }
+
+
+@app.get("/api/patient/{patient_id}")
+async def get_patient_endpoint(patient_id: str):
+    if patient_id.startswith("cloud-"):
+        from integrations.central_clinical_api import fetch_central_patients_normalized
+        cloud_list = fetch_central_patients_normalized()
+        for p in cloud_list:
+            if p["id"] == patient_id:
+                return p
+        raise HTTPException(status_code=404, detail="Cloud patient not found")
+
+    p = get_patient(patient_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return p
+
+
+class PatientPhoneUpdateRequest(BaseModel):
+    phone: str
+
+
+@app.put("/api/patient/{patient_id}/phone")
+async def update_patient_phone_endpoint(patient_id: str, body: PatientPhoneUpdateRequest):
+    updated = update_patient_phone(patient_id, body.phone)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return {"status": "ok", "patient_id": patient_id, "phone": body.phone}
 
 
 @app.get("/api/health")
@@ -971,7 +1024,13 @@ async def get_central_emr_status():
 
 @app.get("/api/central/patients")
 async def get_central_emr_patients():
-    return {"patients": central_clinical_api.fetch_central_patients()}
+    pts = central_clinical_api.fetch_central_patients_normalized()
+    return {
+        "patients": pts,
+        "count": len(pts),
+        "status": "connected",
+        "source": "AWS App Runner (patients_registration)"
+    }
 
 @app.get("/api/central/appointments")
 async def get_central_emr_appointments():

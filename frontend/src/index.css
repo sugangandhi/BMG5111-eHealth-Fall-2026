@@ -261,6 +261,29 @@ h1, h2, h3, h4, h5, h6 {
   box-sizing: border-box;
 }
 
+/* Patient Banner Base / Desktop Styles */
+.patient-banner-container {
+  background: rgba(59, 130, 246, 0.08);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 10px 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.patient-banner-desktop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.patient-banner-mobile {
+  display: none;
+}
+
 /* ── Mobile Responsiveness & Native App Styling ───────────────────────── */
 @media (max-width: 960px) {
   body {
@@ -306,8 +329,33 @@ h1, h2, h3, h4, h5, h6 {
   /* Compact Header on Mobile */
   header.glass-panel {
     margin: 8px 8px 6px 8px !important;
-    padding: 10px 14px !important;
+    padding: 8px 12px !important;
     border-radius: 14px !important;
+  }
+
+  /* Patient Banner Responsive Styles */
+  .patient-banner-container {
+    background: rgba(59, 130, 246, 0.08) !important;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.25) !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12) !important;
+    z-index: 10;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .patient-banner-desktop {
+    display: none !important;
+  }
+
+  .patient-banner-mobile {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Make Main Content Area span full width on mobile, and leave room for bottom nav */

@@ -2,122 +2,390 @@
   "patients": [
     {
       "id": "pt-001",
-      "name": { "text": "Sarah Khan", "family": "Khan", "given": ["Sarah"] },
+      "name": {
+        "text": "Sarah Khan",
+        "family": "Khan",
+        "given": [
+          "Sarah"
+        ]
+      },
       "birthDate": "1981-04-14",
       "gender": "female",
       "ohip": "1234-567-890-AB",
       "sin": "123-456-001",
       "language": "English",
-      "address": { "line": ["142 Rideau Street"], "city": "Ottawa", "province": "ON", "postalCode": "K1N 5Y2" },
+      "address": {
+        "line": [
+          "142 Rideau Street"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K1N 5Y2"
+      },
       "phone": "613-555-0192",
       "social_history": {
-        "smoking": "Former smoker — quit 2017, 10 pack-year history",
-        "alcohol": "Occasional, 2–3 drinks/week",
+        "smoking": "Former smoker \u2014 quit 2017, 10 pack-year history",
+        "alcohol": "Occasional, 2\u20133 drinks/week",
         "occupation": "Administrative coordinator, Ottawa City Hall",
         "housing": "Owns condo, lives with spouse and two children",
-        "exercise": "Walks 30 min 3×/week"
+        "exercise": "Walks 30 min 3\u00d7/week"
       },
-      "family_history": ["Father: type 2 diabetes, MI at 58", "Mother: hypertension, stroke at 71", "Sister: hypothyroidism"],
+      "family_history": [
+        "Father: type 2 diabetes, MI at 58",
+        "Mother: hypertension, stroke at 71",
+        "Sister: hypothyroidism"
+      ],
       "conditions": [
-        { "code": "I10", "display": "Essential hypertension", "onsetDate": "2019-03-15", "status": "active" },
-        { "code": "E11.9", "display": "Type 2 diabetes mellitus without complications", "onsetDate": "2021-07-22", "status": "active" },
-        { "code": "E78.5", "display": "Hyperlipidemia", "onsetDate": "2021-07-22", "status": "active" }
+        {
+          "code": "I10",
+          "display": "Essential hypertension",
+          "onsetDate": "2019-03-15",
+          "status": "active"
+        },
+        {
+          "code": "E11.9",
+          "display": "Type 2 diabetes mellitus without complications",
+          "onsetDate": "2021-07-22",
+          "status": "active"
+        },
+        {
+          "code": "E78.5",
+          "display": "Hyperlipidemia",
+          "onsetDate": "2021-07-22",
+          "status": "active"
+        }
       ],
       "medications": [
-        { "name": "Ramipril", "dose": "10 mg", "frequency": "once daily", "startDate": "2019-04-01", "din": "02221829", "indication": "Hypertension" },
-        { "name": "Metformin", "dose": "500 mg", "frequency": "twice daily with meals", "startDate": "2021-08-01", "din": "02229516", "indication": "Type 2 diabetes" },
-        { "name": "Atorvastatin", "dose": "20 mg", "frequency": "nightly", "startDate": "2021-08-01", "din": "02230711", "indication": "Hyperlipidemia" }
+        {
+          "name": "Ramipril",
+          "dose": "10 mg",
+          "frequency": "once daily",
+          "startDate": "2019-04-01",
+          "din": "02221829",
+          "indication": "Hypertension"
+        },
+        {
+          "name": "Metformin",
+          "dose": "500 mg",
+          "frequency": "twice daily with meals",
+          "startDate": "2021-08-01",
+          "din": "02229516",
+          "indication": "Type 2 diabetes"
+        },
+        {
+          "name": "Atorvastatin",
+          "dose": "20 mg",
+          "frequency": "nightly",
+          "startDate": "2021-08-01",
+          "din": "02230711",
+          "indication": "Hyperlipidemia"
+        }
       ],
-      "allergies": ["Penicillin — urticaria and rash", "Sulfa drugs — anaphylaxis (documented 2015)"],
+      "allergies": [
+        "Penicillin \u2014 urticaria and rash",
+        "Sulfa drugs \u2014 anaphylaxis (documented 2015)"
+      ],
       "labs": [
-        { "test": "HbA1c", "value": "7.2", "unit": "%", "date": "2026-04-15", "reference": "< 7.0", "flag": "HIGH" },
-        { "test": "Fasting glucose", "value": "8.1", "unit": "mmol/L", "date": "2026-04-15", "reference": "3.9–5.5", "flag": "HIGH" },
-        { "test": "LDL cholesterol", "value": "2.3", "unit": "mmol/L", "date": "2026-04-15", "reference": "< 2.0", "flag": "HIGH" },
-        { "test": "HDL cholesterol", "value": "1.4", "unit": "mmol/L", "date": "2026-04-15", "reference": "> 1.3", "flag": "NORMAL" },
-        { "test": "Triglycerides", "value": "1.8", "unit": "mmol/L", "date": "2026-04-15", "reference": "< 1.7", "flag": "HIGH" },
-        { "test": "eGFR", "value": "68", "unit": "mL/min/1.73m²", "date": "2026-04-15", "reference": "≥ 60", "flag": "NORMAL" },
-        { "test": "Creatinine", "value": "88", "unit": "µmol/L", "date": "2026-04-15", "reference": "50–100", "flag": "NORMAL" },
-        { "test": "CBC — Hemoglobin", "value": "128", "unit": "g/L", "date": "2026-04-15", "reference": "120–160", "flag": "NORMAL" },
-        { "test": "TSH", "value": "2.1", "unit": "mIU/L", "date": "2026-01-10", "reference": "0.4–4.0", "flag": "NORMAL" },
-        { "test": "Urine ACR", "value": "4.2", "unit": "mg/mmol", "date": "2026-04-15", "reference": "< 3.0", "flag": "HIGH" }
+        {
+          "test": "HbA1c",
+          "value": "7.2",
+          "unit": "%",
+          "date": "2026-04-15",
+          "reference": "< 7.0",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Fasting glucose",
+          "value": "8.1",
+          "unit": "mmol/L",
+          "date": "2026-04-15",
+          "reference": "3.9\u20135.5",
+          "flag": "HIGH"
+        },
+        {
+          "test": "LDL cholesterol",
+          "value": "2.3",
+          "unit": "mmol/L",
+          "date": "2026-04-15",
+          "reference": "< 2.0",
+          "flag": "HIGH"
+        },
+        {
+          "test": "HDL cholesterol",
+          "value": "1.4",
+          "unit": "mmol/L",
+          "date": "2026-04-15",
+          "reference": "> 1.3",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Triglycerides",
+          "value": "1.8",
+          "unit": "mmol/L",
+          "date": "2026-04-15",
+          "reference": "< 1.7",
+          "flag": "HIGH"
+        },
+        {
+          "test": "eGFR",
+          "value": "68",
+          "unit": "mL/min/1.73m\u00b2",
+          "date": "2026-04-15",
+          "reference": "\u2265 60",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Creatinine",
+          "value": "88",
+          "unit": "\u00b5mol/L",
+          "date": "2026-04-15",
+          "reference": "50\u2013100",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "CBC \u2014 Hemoglobin",
+          "value": "128",
+          "unit": "g/L",
+          "date": "2026-04-15",
+          "reference": "120\u2013160",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "TSH",
+          "value": "2.1",
+          "unit": "mIU/L",
+          "date": "2026-01-10",
+          "reference": "0.4\u20134.0",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Urine ACR",
+          "value": "4.2",
+          "unit": "mg/mmol",
+          "date": "2026-04-15",
+          "reference": "< 3.0",
+          "flag": "HIGH"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-05-10", "bp": "138/88", "hr": "78", "weight": "74 kg", "bmi": "27.1" },
-        { "date": "2026-01-08", "bp": "142/90", "hr": "76", "weight": "75 kg", "bmi": "27.5" },
-        { "date": "2025-07-15", "bp": "136/86", "hr": "80", "weight": "76 kg", "bmi": "27.8" }
+        {
+          "date": "2026-05-10",
+          "bp": "138/88",
+          "hr": "78",
+          "weight": "74 kg",
+          "bmi": "27.1"
+        },
+        {
+          "date": "2026-01-08",
+          "bp": "142/90",
+          "hr": "76",
+          "weight": "75 kg",
+          "bmi": "27.5"
+        },
+        {
+          "date": "2025-07-15",
+          "bp": "136/86",
+          "hr": "80",
+          "weight": "76 kg",
+          "bmi": "27.8"
+        }
       ],
       "imaging": [],
       "specialist_notes": [
-        { "date": "2025-11-20", "specialty": "Endocrinology", "physician": "Dr. R. Cho", "summary": "Diabetes management reviewed. Continue metformin. HbA1c target < 7.0. Consider addition of SGLT2 inhibitor if HbA1c not at target in 6 months. Ophthalmology referral placed for diabetic eye exam." }
+        {
+          "date": "2025-11-20",
+          "specialty": "Endocrinology",
+          "physician": "Dr. R. Cho",
+          "summary": "Diabetes management reviewed. Continue metformin. HbA1c target < 7.0. Consider addition of SGLT2 inhibitor if HbA1c not at target in 6 months. Ophthalmology referral placed for diabetic eye exam."
+        }
       ],
       "vaccinations": [
-        { "vaccine": "Influenza", "date": "2025-10-01" },
-        { "vaccine": "COVID-19 booster (mRNA)", "date": "2025-09-15" },
-        { "vaccine": "Tdap", "date": "2020-03-10" }
+        {
+          "vaccine": "Influenza",
+          "date": "2025-10-01"
+        },
+        {
+          "vaccine": "COVID-19 booster (mRNA)",
+          "date": "2025-09-15"
+        },
+        {
+          "vaccine": "Tdap",
+          "date": "2020-03-10"
+        }
       ],
       "screening": [
-        { "type": "Cervical cancer (Pap)", "date": "2024-06-15", "result": "Normal" },
-        { "type": "Mammography", "date": "2025-02-20", "result": "BI-RADS 1 — Normal" },
-        { "type": "Colorectal cancer (FIT)", "date": "2025-08-01", "result": "Negative" }
+        {
+          "type": "Cervical cancer (Pap)",
+          "date": "2024-06-15",
+          "result": "Normal"
+        },
+        {
+          "type": "Mammography",
+          "date": "2025-02-20",
+          "result": "BI-RADS 1 \u2014 Normal"
+        },
+        {
+          "type": "Colorectal cancer (FIT)",
+          "date": "2025-08-01",
+          "result": "Negative"
+        }
       ],
       "encounters": [
-        { "date": "2026-05-10", "type": "Office visit", "reason": "Diabetes and hypertension follow-up", "physician": "Dr. A. Patel", "notes": "BP improved on current regimen. HbA1c slightly above target. Discussed dietary changes. Repeat labs in 3 months." }
+        {
+          "date": "2026-05-10",
+          "type": "Office visit",
+          "reason": "Diabetes and hypertension follow-up",
+          "physician": "Dr. A. Patel",
+          "notes": "BP improved on current regimen. HbA1c slightly above target. Discussed dietary changes. Repeat labs in 3 months."
+        }
       ],
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-002",
-      "name": { "text": "Marcus Webb", "family": "Webb", "given": ["Marcus"] },
+      "name": {
+        "text": "Marcus Webb",
+        "family": "Webb",
+        "given": [
+          "Marcus"
+        ]
+      },
       "birthDate": "1968-03-12",
       "gender": "male",
       "ohip": "9876-543-210-CD",
       "sin": "456-789-002",
       "language": "English",
-      "address": { "line": ["88 Somerset Street West"], "city": "Ottawa", "province": "ON", "postalCode": "K2P 0J3" },
+      "address": {
+        "line": [
+          "88 Somerset Street West"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K2P 0J3"
+      },
       "phone": "613-555-0374",
       "social_history": {
         "smoking": "Current smoker, 20 cigarettes/day, 30 pack-year history",
-        "alcohol": "12–15 drinks/week (beer)",
+        "alcohol": "12\u201315 drinks/week (beer)",
         "occupation": "Construction labourer, Greenfield Construction Ltd",
         "housing": "Rents apartment, lives alone",
         "exercise": "Physically active at work; no structured exercise"
       },
-      "family_history": ["Father: lung cancer (smoker), deceased at 64", "Brother: hypertension"],
+      "family_history": [
+        "Father: lung cancer (smoker), deceased at 64",
+        "Brother: hypertension"
+      ],
       "conditions": [
-        { "code": "S63.40XA", "display": "Unspecified sprain of right wrist, initial encounter", "onsetDate": "2026-05-27", "status": "active", "workRelated": true, "workInjuryDetails": "Slipped on wet floor at construction site at 09:00, fell on outstretched right hand. Employer: Greenfield Construction Ltd, 55 Industrial Ave, Ottawa." },
-        { "code": "M54.5", "display": "Chronic low back pain", "onsetDate": "2024-11-01", "status": "active" }
+        {
+          "code": "S63.40XA",
+          "display": "Unspecified sprain of right wrist, initial encounter",
+          "onsetDate": "2026-05-27",
+          "status": "active",
+          "workRelated": true,
+          "workInjuryDetails": "Slipped on wet floor at construction site at 09:00, fell on outstretched right hand. Employer: Greenfield Construction Ltd, 55 Industrial Ave, Ottawa."
+        },
+        {
+          "code": "M54.5",
+          "display": "Chronic low back pain",
+          "onsetDate": "2024-11-01",
+          "status": "active"
+        }
       ],
       "medications": [
-        { "name": "Naproxen", "dose": "500 mg", "frequency": "twice daily with food", "duration": "2 weeks", "startDate": "2026-05-28", "din": "02162849", "indication": "Wrist sprain pain" },
-        { "name": "Cyclobenzaprine", "dose": "10 mg", "frequency": "at bedtime as needed", "duration": "1 week", "startDate": "2026-05-28", "din": "01907123", "indication": "Muscle spasm" }
+        {
+          "name": "Naproxen",
+          "dose": "500 mg",
+          "frequency": "twice daily with food",
+          "duration": "2 weeks",
+          "startDate": "2026-05-28",
+          "din": "02162849",
+          "indication": "Wrist sprain pain"
+        },
+        {
+          "name": "Cyclobenzaprine",
+          "dose": "10 mg",
+          "frequency": "at bedtime as needed",
+          "duration": "1 week",
+          "startDate": "2026-05-28",
+          "din": "01907123",
+          "indication": "Muscle spasm"
+        }
       ],
-      "allergies": ["NKDA"],
+      "allergies": [
+        "NKDA"
+      ],
       "labs": [
-        { "test": "CBC — Hemoglobin", "value": "148", "unit": "g/L", "date": "2026-05-28", "reference": "130–170", "flag": "NORMAL" },
-        { "test": "INR", "value": "1.0", "unit": "", "date": "2026-05-28", "reference": "0.9–1.1", "flag": "NORMAL" },
-        { "test": "CRP", "value": "18", "unit": "mg/L", "date": "2026-05-28", "reference": "< 10", "flag": "HIGH" }
+        {
+          "test": "CBC \u2014 Hemoglobin",
+          "value": "148",
+          "unit": "g/L",
+          "date": "2026-05-28",
+          "reference": "130\u2013170",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "INR",
+          "value": "1.0",
+          "unit": "",
+          "date": "2026-05-28",
+          "reference": "0.9\u20131.1",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "CRP",
+          "value": "18",
+          "unit": "mg/L",
+          "date": "2026-05-28",
+          "reference": "< 10",
+          "flag": "HIGH"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-05-28", "bp": "122/78", "hr": "84", "weight": "91 kg", "bmi": "28.4" }
+        {
+          "date": "2026-05-28",
+          "bp": "122/78",
+          "hr": "84",
+          "weight": "91 kg",
+          "bmi": "28.4"
+        }
       ],
       "imaging": [
-        { "type": "X-ray right wrist (2 views)", "date": "2026-05-28", "result": "No acute fracture or dislocation. Soft tissue swelling around the radial styloid. Mild degenerative change at the first CMC joint.", "ordered_by": "Dr. A. Patel" }
+        {
+          "type": "X-ray right wrist (2 views)",
+          "date": "2026-05-28",
+          "result": "No acute fracture or dislocation. Soft tissue swelling around the radial styloid. Mild degenerative change at the first CMC joint.",
+          "ordered_by": "Dr. A. Patel"
+        }
       ],
       "specialist_notes": [],
       "vaccinations": [
-        { "vaccine": "Tetanus booster (Td)", "date": "2022-08-10" }
+        {
+          "vaccine": "Tetanus booster (Td)",
+          "date": "2022-08-10"
+        }
       ],
       "screening": [],
       "clinical_assessment": {
         "date": "2026-05-28",
         "pain_at_rest": "6/10",
         "pain_with_activity": "9/10",
-        "pain_at_night": "5/10 — wakes patient occasionally",
-        "physical_exam": "Right wrist: marked soft tissue swelling dorsal and radial aspects. Tenderness over radial styloid, anatomical snuffbox, and volar wrist crease. Grip strength right 2/5 (severely reduced), left 5/5. ROM — Flexion: 30° (normal 80°); Extension: 20° (normal 70°); Radial deviation: 10° (normal 20°); Ulnar deviation: 20° (normal 30°). No neurovascular deficit. Capillary refill normal bilaterally. Finkelstein test positive. No bony crepitus. Volar wrist splint applied.",
+        "pain_at_night": "5/10 \u2014 wakes patient occasionally",
+        "physical_exam": "Right wrist: marked soft tissue swelling dorsal and radial aspects. Tenderness over radial styloid, anatomical snuffbox, and volar wrist crease. Grip strength right 2/5 (severely reduced), left 5/5. ROM \u2014 Flexion: 30\u00b0 (normal 80\u00b0); Extension: 20\u00b0 (normal 70\u00b0); Radial deviation: 10\u00b0 (normal 20\u00b0); Ulnar deviation: 20\u00b0 (normal 30\u00b0). No neurovascular deficit. Capillary refill normal bilaterally. Finkelstein test positive. No bony crepitus. Volar wrist splint applied.",
         "injury_type": "Sprain/Strain",
         "area_of_injury": "Right wrist",
         "body_side": "Right",
-        "pre_existing_conditions": "Chronic low back pain (M54.5, onset 2024-11-01) — may slow overall rehabilitation",
+        "pre_existing_conditions": "Chronic low back pain (M54.5, onset 2024-11-01) \u2014 may slow overall rehabilitation",
         "diagnosis_description": "Right wrist sprain/strain (S63.40XA). No fracture on X-ray. Soft tissue swelling radial styloid region."
       },
       "rtw_plan": {
@@ -131,30 +399,95 @@
         "limitations_duration": "8-14 days (reassess at follow-up 2026-06-11)",
         "follow_up_date": "2026-06-11",
         "functional_abilities": {
-          "able_to": ["bend/twist", "climb", "kneel", "sit", "stand", "walk", "use public transportation", "operate motor vehicle (automatic transmission only)"],
-          "not_able_to": ["push/pull with right arm", "lift > 2 kg with right hand", "operate heavy equipment", "grip tools", "use right upper extremity for sustained tasks", "keyboard or computer work"],
+          "able_to": [
+            "bend/twist",
+            "climb",
+            "kneel",
+            "sit",
+            "stand",
+            "walk",
+            "use public transportation",
+            "operate motor vehicle (automatic transmission only)"
+          ],
+          "not_able_to": [
+            "push/pull with right arm",
+            "lift > 2 kg with right hand",
+            "operate heavy equipment",
+            "grip tools",
+            "use right upper extremity for sustained tasks",
+            "keyboard or computer work"
+          ],
           "other_limitations": "Must wear volar wrist splint at all times including at modified work. No standard transmission driving. Avoid tasks requiring bilateral grip or vibrating tools."
         }
       },
       "referrals": [
-        { "type": "Physiotherapy", "reason": "Wrist rehabilitation post-sprain, ROM restoration, strengthening", "facility": "Ottawa Physio Centre", "address": "200 Laurier Ave W, Ottawa ON K1P 6M8", "phone": "613-555-0700", "appointment_date": "2026-06-03" },
-        { "type": "Occupational Therapist", "reason": "Functional abilities assessment if not improving in 4 weeks", "facility": "OT Ottawa", "phone": "613-555-0701", "appointment_date": null }
+        {
+          "type": "Physiotherapy",
+          "reason": "Wrist rehabilitation post-sprain, ROM restoration, strengthening",
+          "facility": "Ottawa Physio Centre",
+          "address": "200 Laurier Ave W, Ottawa ON K1P 6M8",
+          "phone": "613-555-0700",
+          "appointment_date": "2026-06-03"
+        },
+        {
+          "type": "Occupational Therapist",
+          "reason": "Functional abilities assessment if not improving in 4 weeks",
+          "facility": "OT Ottawa",
+          "phone": "613-555-0701",
+          "appointment_date": null
+        }
       ],
       "encounters": [
-        { "date": "2026-05-28", "type": "Urgent office visit — WSIB initial assessment (Form 8)", "reason": "Workplace right wrist injury", "physician": "Dr. A. Patel", "service_date": "2026-05-28", "notes": "WSIB initial assessment. Injury date: 2026-05-27 at 09:00. Mechanism: slipped on wet concrete floor at job site, fell on outstretched right hand. Patient occupation: Construction Labourer. Employer: Greenfield Construction Ltd, 55 Industrial Avenue, Ottawa ON K1G 0Z3, phone 613-555-0980, supervisor Tom Bradley. Pain 6/10 rest, 9/10 activity. Physical exam: right wrist swelling, tenderness radial styloid and anatomical snuffbox, ROM markedly restricted (see clinical_assessment), grip strength 2/5. Diagnosis: Right wrist sprain/strain S63.40XA. No fracture on X-ray (X-ray completed same visit). X-ray findings: no fracture, soft tissue swelling radial styloid, mild first CMC degenerative change. Pre-existing: chronic low back pain — may impact recovery. Treatment: volar wrist splint applied; Naproxen 500 mg BID x 2 weeks; Cyclobenzaprine 10 mg qhs PRN x 1 week. Investigation: X-ray right wrist 2 views ordered and completed. Referral: Physiotherapy — Ottawa Physio Centre 613-555-0700, appointment 2026-06-03. RTW: discussed YES. Cannot resume regular construction duties. Modified duties from 2026-05-29 — no lifting >2 kg right hand, no gripping tools, no keyboard, no heavy equipment. Functional abilities: see rtw_plan. Limitations apply approximately 8-14 days; reassess at follow-up 2026-06-11. WSIB claim initiated. Billing: service code 8M, WSIB provider ID 0512345678, HST reg 812345678RT0001, service date 2026-05-28." }
+        {
+          "date": "2026-05-28",
+          "type": "Urgent office visit \u2014 WSIB initial assessment (Form 8)",
+          "reason": "Workplace right wrist injury",
+          "physician": "Dr. A. Patel",
+          "service_date": "2026-05-28",
+          "notes": "WSIB initial assessment. Injury date: 2026-05-27 at 09:00. Mechanism: slipped on wet concrete floor at job site, fell on outstretched right hand. Patient occupation: Construction Labourer. Employer: Greenfield Construction Ltd, 55 Industrial Avenue, Ottawa ON K1G 0Z3, phone 613-555-0980, supervisor Tom Bradley. Pain 6/10 rest, 9/10 activity. Physical exam: right wrist swelling, tenderness radial styloid and anatomical snuffbox, ROM markedly restricted (see clinical_assessment), grip strength 2/5. Diagnosis: Right wrist sprain/strain S63.40XA. No fracture on X-ray (X-ray completed same visit). X-ray findings: no fracture, soft tissue swelling radial styloid, mild first CMC degenerative change. Pre-existing: chronic low back pain \u2014 may impact recovery. Treatment: volar wrist splint applied; Naproxen 500 mg BID x 2 weeks; Cyclobenzaprine 10 mg qhs PRN x 1 week. Investigation: X-ray right wrist 2 views ordered and completed. Referral: Physiotherapy \u2014 Ottawa Physio Centre 613-555-0700, appointment 2026-06-03. RTW: discussed YES. Cannot resume regular construction duties. Modified duties from 2026-05-29 \u2014 no lifting >2 kg right hand, no gripping tools, no keyboard, no heavy equipment. Functional abilities: see rtw_plan. Limitations apply approximately 8-14 days; reassess at follow-up 2026-06-11. WSIB claim initiated. Billing: service code 8M, WSIB provider ID 0512345678, HST reg 812345678RT0001, service date 2026-05-28."
+        }
       ],
-      "employer": { "name": "Greenfield Construction Ltd", "address": "55 Industrial Avenue, Ottawa ON K1G 0Z3", "phone": "613-555-0980", "supervisor": "Tom Bradley" },
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "employer": {
+        "name": "Greenfield Construction Ltd",
+        "address": "55 Industrial Avenue, Ottawa ON K1G 0Z3",
+        "phone": "613-555-0980",
+        "supervisor": "Tom Bradley"
+      },
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-003",
-      "name": { "text": "Marie Tremblay", "family": "Tremblay", "given": ["Marie"] },
+      "name": {
+        "text": "Marie Tremblay",
+        "family": "Tremblay",
+        "given": [
+          "Marie"
+        ]
+      },
       "birthDate": "1975-11-30",
       "gender": "female",
       "ohip": "5544-332-211-EF",
       "sin": "789-012-003",
       "language": "French",
-      "address": { "line": ["22 Gloucester Street, Apt 4B"], "city": "Ottawa", "province": "ON", "postalCode": "K2P 0A5" },
+      "address": {
+        "line": [
+          "22 Gloucester Street, Apt 4B"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K2P 0A5"
+      },
       "phone": "613-555-0611",
       "social_history": {
         "smoking": "Non-smoker",
@@ -163,39 +496,119 @@
         "housing": "Rents apartment, lives alone (recently separated)",
         "exercise": "Previously active; currently minimal due to low energy"
       },
-      "family_history": ["Mother: major depression", "Father: alcohol use disorder"],
+      "family_history": [
+        "Mother: major depression",
+        "Father: alcohol use disorder"
+      ],
       "conditions": [
-        { "code": "F33.1", "display": "Major depressive disorder, recurrent, moderate", "onsetDate": "2022-02-10", "status": "active" },
-        { "code": "F41.1", "display": "Generalized anxiety disorder", "onsetDate": "2022-02-10", "status": "active" },
-        { "code": "G43.909", "display": "Migraine without aura, not intractable", "onsetDate": "2018-05-01", "status": "active" }
+        {
+          "code": "F33.1",
+          "display": "Major depressive disorder, recurrent, moderate",
+          "onsetDate": "2022-02-10",
+          "status": "active"
+        },
+        {
+          "code": "F41.1",
+          "display": "Generalized anxiety disorder",
+          "onsetDate": "2022-02-10",
+          "status": "active"
+        },
+        {
+          "code": "G43.909",
+          "display": "Migraine without aura, not intractable",
+          "onsetDate": "2018-05-01",
+          "status": "active"
+        }
       ],
       "medications": [
-        { "name": "Sertraline", "dose": "100 mg", "frequency": "once daily", "startDate": "2022-03-01", "din": "02048515", "indication": "MDD / GAD" },
-        { "name": "Clonazepam", "dose": "0.5 mg", "frequency": "at bedtime as needed", "startDate": "2022-03-01", "din": "02048795", "indication": "Anxiety, sleep" },
-        { "name": "Sumatriptan", "dose": "100 mg", "frequency": "at migraine onset, max 2/day", "startDate": "2018-06-01", "din": "01934198", "indication": "Migraine" }
+        {
+          "name": "Sertraline",
+          "dose": "100 mg",
+          "frequency": "once daily",
+          "startDate": "2022-03-01",
+          "din": "02048515",
+          "indication": "MDD / GAD"
+        },
+        {
+          "name": "Clonazepam",
+          "dose": "0.5 mg",
+          "frequency": "at bedtime as needed",
+          "startDate": "2022-03-01",
+          "din": "02048795",
+          "indication": "Anxiety, sleep"
+        },
+        {
+          "name": "Sumatriptan",
+          "dose": "100 mg",
+          "frequency": "at migraine onset, max 2/day",
+          "startDate": "2018-06-01",
+          "din": "01934198",
+          "indication": "Migraine"
+        }
       ],
-      "allergies": ["Codeine — nausea and respiratory depression"],
+      "allergies": [
+        "Codeine \u2014 nausea and respiratory depression"
+      ],
       "labs": [
-        { "test": "TSH", "value": "2.8", "unit": "mIU/L", "date": "2026-05-15", "reference": "0.4–4.0", "flag": "NORMAL" },
-        { "test": "Vitamin D (25-OH)", "value": "38", "unit": "nmol/L", "date": "2026-05-15", "reference": "75–250", "flag": "LOW" },
-        { "test": "Ferritin", "value": "14", "unit": "µg/L", "date": "2026-05-15", "reference": "15–200", "flag": "LOW" },
-        { "test": "CBC — Hemoglobin", "value": "115", "unit": "g/L", "date": "2026-05-15", "reference": "120–160", "flag": "LOW" }
+        {
+          "test": "TSH",
+          "value": "2.8",
+          "unit": "mIU/L",
+          "date": "2026-05-15",
+          "reference": "0.4\u20134.0",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Vitamin D (25-OH)",
+          "value": "38",
+          "unit": "nmol/L",
+          "date": "2026-05-15",
+          "reference": "75\u2013250",
+          "flag": "LOW"
+        },
+        {
+          "test": "Ferritin",
+          "value": "14",
+          "unit": "\u00b5g/L",
+          "date": "2026-05-15",
+          "reference": "15\u2013200",
+          "flag": "LOW"
+        },
+        {
+          "test": "CBC \u2014 Hemoglobin",
+          "value": "115",
+          "unit": "g/L",
+          "date": "2026-05-15",
+          "reference": "120\u2013160",
+          "flag": "LOW"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-05-15", "bp": "118/72", "hr": "72", "weight": "61 kg", "bmi": "22.4" }
+        {
+          "date": "2026-05-15",
+          "bp": "118/72",
+          "hr": "72",
+          "weight": "61 kg",
+          "bmi": "22.4"
+        }
       ],
       "imaging": [],
       "specialist_notes": [
-        { "date": "2026-05-01", "specialty": "Psychology (CBT)", "physician": "Dr. R. Singh, PhD", "summary": "Patient commenced CBT May 2026. 6-session plan. Initial focus on cognitive restructuring and sleep hygiene. Patient engaged and motivated. Return to work planning to begin session 4." }
+        {
+          "date": "2026-05-01",
+          "specialty": "Psychology (CBT)",
+          "physician": "Dr. R. Singh, PhD",
+          "summary": "Patient commenced CBT May 2026. 6-session plan. Initial focus on cognitive restructuring and sleep hygiene. Patient engaged and motivated. Return to work planning to begin session 4."
+        }
       ],
       "functional_status": {
         "off_work_since": "2026-04-15",
         "reason": "Unable to manage classroom stress; concentration difficulties; sleep disturbance; anhedonia; low energy",
         "expected_rtw": "Reassess 2026-07-15",
         "restrictions": "Avoid high-stimulation, noisy environments. No supervisory or administrative duties initially. Graduated return: part-time 50% hours for 4 weeks, then full if tolerating.",
-        "disability_type": "Short-term disability — mental health",
+        "disability_type": "Short-term disability \u2014 mental health",
         "treatment_active": "Sertraline 100 mg daily; Clonazepam 0.5 mg PRN; CBT with Dr. R. Singh PhD (6-session plan, started 2026-05-01, sessions every 2 weeks)",
-        "functional_limitations": "Sustained concentration limited to 20-30 minutes. Social interaction causes anxiety exacerbation. Fatigue prevents full-day activity. Sleep: initial insomnia, waking 3-4×/night. Appetite: reduced 30% from baseline. ADLs: maintained but effortful.",
+        "functional_limitations": "Sustained concentration limited to 20-30 minutes. Social interaction causes anxiety exacerbation. Fatigue prevents full-day activity. Sleep: initial insomnia, waking 3-4\u00d7/night. Appetite: reduced 30% from baseline. ADLs: maintained but effortful.",
         "phq9_score": "14 (moderate depression, 2026-05-15)",
         "gad7_score": "12 (moderate anxiety, 2026-05-15)",
         "able_to_do": "Self-care ADLs, light housework, drive short distances, shop briefly",
@@ -210,97 +623,348 @@
         "employer_group_number": "OCSB-GRP-0042"
       },
       "vaccinations": [
-        { "vaccine": "Influenza", "date": "2025-10-15" },
-        { "vaccine": "COVID-19 booster", "date": "2025-09-20" }
+        {
+          "vaccine": "Influenza",
+          "date": "2025-10-15"
+        },
+        {
+          "vaccine": "COVID-19 booster",
+          "date": "2025-09-20"
+        }
       ],
       "screening": [
-        { "type": "Cervical cancer (Pap)", "date": "2023-11-05", "result": "Normal" }
+        {
+          "type": "Cervical cancer (Pap)",
+          "date": "2023-11-05",
+          "result": "Normal"
+        }
       ],
       "encounters": [
-        { "date": "2026-05-15", "type": "Office visit — disability documentation", "reason": "Mental health follow-up, short-term disability form completion", "physician": "Dr. A. Patel", "service_date": "2026-05-15", "notes": "PHQ-9: 14 (moderate depression). GAD-7: 12 (moderate anxiety). Patient off work since 2026-04-15. Diagnosis: Major depressive disorder recurrent moderate (F33.1) and Generalized Anxiety Disorder (F41.1). Totally disabled from regular occupation as elementary school teacher. CBT initiated 2026-05-01 with Dr. R. Singh PhD (6-session plan). Active medications: Sertraline 100 mg daily, Clonazepam 0.5 mg PRN. Lab: iron deficiency (ferritin 14), Vitamin D deficiency (38 nmol/L) — supplements started: ferrous gluconate 300 mg daily, Vitamin D3 2000 IU daily. Patient not malingering — genuine impairment of concentration, emotional regulation, and stamina. Expected duration of disability: minimum 3 months; reassess 2026-07-15 for graduated RTW planning. Physician certifies patient is unable to perform the essential duties of her regular occupation and any occupation for which she is reasonably suited. Disability form completed for Manulife, policy ML-OCSB-2024-001. Employer: Ottawa Catholic School Board, 570 West Hunt Club Road, Nepean ON K2G 3R4, 613-224-2222." }
+        {
+          "date": "2026-05-15",
+          "type": "Office visit \u2014 disability documentation",
+          "reason": "Mental health follow-up, short-term disability form completion",
+          "physician": "Dr. A. Patel",
+          "service_date": "2026-05-15",
+          "notes": "PHQ-9: 14 (moderate depression). GAD-7: 12 (moderate anxiety). Patient off work since 2026-04-15. Diagnosis: Major depressive disorder recurrent moderate (F33.1) and Generalized Anxiety Disorder (F41.1). Totally disabled from regular occupation as elementary school teacher. CBT initiated 2026-05-01 with Dr. R. Singh PhD (6-session plan). Active medications: Sertraline 100 mg daily, Clonazepam 0.5 mg PRN. Lab: iron deficiency (ferritin 14), Vitamin D deficiency (38 nmol/L) \u2014 supplements started: ferrous gluconate 300 mg daily, Vitamin D3 2000 IU daily. Patient not malingering \u2014 genuine impairment of concentration, emotional regulation, and stamina. Expected duration of disability: minimum 3 months; reassess 2026-07-15 for graduated RTW planning. Physician certifies patient is unable to perform the essential duties of her regular occupation and any occupation for which she is reasonably suited. Disability form completed for Manulife, policy ML-OCSB-2024-001. Employer: Ottawa Catholic School Board, 570 West Hunt Club Road, Nepean ON K2G 3R4, 613-224-2222."
+        }
       ],
-      "employer": { "name": "Ottawa Catholic School Board", "address": "570 West Hunt Club Road, Nepean ON K2G 3R4", "phone": "613-224-2222" },
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "employer": {
+        "name": "Ottawa Catholic School Board",
+        "address": "570 West Hunt Club Road, Nepean ON K2G 3R4",
+        "phone": "613-224-2222"
+      },
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-004",
-      "name": { "text": "Robert Chen", "family": "Chen", "given": ["Robert"] },
+      "name": {
+        "text": "Robert Chen",
+        "family": "Chen",
+        "given": [
+          "Robert"
+        ]
+      },
       "birthDate": "1952-08-19",
       "gender": "male",
       "ohip": "3321-009-887-GH",
       "sin": "234-567-004",
       "language": "English",
-      "address": { "line": ["55 Parkdale Avenue"], "city": "Ottawa", "province": "ON", "postalCode": "K1Y 1E5" },
+      "address": {
+        "line": [
+          "55 Parkdale Avenue"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K1Y 1E5"
+      },
       "phone": "613-555-0253",
       "social_history": {
-        "smoking": "Former smoker — quit 1998, 40 pack-year history",
+        "smoking": "Former smoker \u2014 quit 1998, 40 pack-year history",
         "alcohol": "Rare",
         "occupation": "Retired civil servant (Treasury Board of Canada)",
         "housing": "Owns home, lives with wife",
         "exercise": "Limited due to dyspnea; short walks only"
       },
-      "family_history": ["Father: COPD (smoker), deceased at 72", "Mother: type 2 diabetes, deceased at 80", "Brother: MI at 62"],
+      "family_history": [
+        "Father: COPD (smoker), deceased at 72",
+        "Mother: type 2 diabetes, deceased at 80",
+        "Brother: MI at 62"
+      ],
       "conditions": [
-        { "code": "J44.1", "display": "COPD with acute exacerbation", "onsetDate": "2015-03-10", "status": "active" },
-        { "code": "I25.10", "display": "Atherosclerotic heart disease of native coronary artery", "onsetDate": "2018-09-05", "status": "active" },
-        { "code": "I10", "display": "Essential hypertension", "onsetDate": "2010-06-01", "status": "active" },
-        { "code": "E11.9", "display": "Type 2 diabetes mellitus", "onsetDate": "2012-01-15", "status": "active" }
+        {
+          "code": "J44.1",
+          "display": "COPD with acute exacerbation",
+          "onsetDate": "2015-03-10",
+          "status": "active"
+        },
+        {
+          "code": "I25.10",
+          "display": "Atherosclerotic heart disease of native coronary artery",
+          "onsetDate": "2018-09-05",
+          "status": "active"
+        },
+        {
+          "code": "I10",
+          "display": "Essential hypertension",
+          "onsetDate": "2010-06-01",
+          "status": "active"
+        },
+        {
+          "code": "E11.9",
+          "display": "Type 2 diabetes mellitus",
+          "onsetDate": "2012-01-15",
+          "status": "active"
+        }
       ],
       "medications": [
-        { "name": "Tiotropium (Spiriva)", "dose": "18 mcg", "frequency": "inhaled once daily", "startDate": "2015-04-01", "din": "02269058", "indication": "COPD" },
-        { "name": "Salmeterol/fluticasone (Advair)", "dose": "50/500 mcg", "frequency": "inhaled twice daily", "startDate": "2015-04-01", "din": "02238922", "indication": "COPD" },
-        { "name": "Salbutamol (Ventolin)", "dose": "100 mcg/puff", "frequency": "2 puffs as needed", "startDate": "2015-04-01", "din": "00441775", "indication": "COPD rescue" },
-        { "name": "Bisoprolol", "dose": "5 mg", "frequency": "once daily", "startDate": "2018-10-01", "din": "02247439", "indication": "CAD, heart failure prevention" },
-        { "name": "Ramipril", "dose": "5 mg", "frequency": "once daily", "startDate": "2010-07-01", "din": "02221829", "indication": "Hypertension, CAD" },
-        { "name": "Rosuvastatin", "dose": "20 mg", "frequency": "nightly", "startDate": "2018-10-01", "din": "02268558", "indication": "CAD, hyperlipidemia" },
-        { "name": "ASA", "dose": "81 mg", "frequency": "once daily", "startDate": "2018-10-01", "din": "00010642", "indication": "CAD antiplatelet" },
-        { "name": "Metformin", "dose": "1000 mg", "frequency": "twice daily with meals", "startDate": "2012-02-01", "din": "02229516", "indication": "Type 2 diabetes" }
+        {
+          "name": "Tiotropium (Spiriva)",
+          "dose": "18 mcg",
+          "frequency": "inhaled once daily",
+          "startDate": "2015-04-01",
+          "din": "02269058",
+          "indication": "COPD"
+        },
+        {
+          "name": "Salmeterol/fluticasone (Advair)",
+          "dose": "50/500 mcg",
+          "frequency": "inhaled twice daily",
+          "startDate": "2015-04-01",
+          "din": "02238922",
+          "indication": "COPD"
+        },
+        {
+          "name": "Salbutamol (Ventolin)",
+          "dose": "100 mcg/puff",
+          "frequency": "2 puffs as needed",
+          "startDate": "2015-04-01",
+          "din": "00441775",
+          "indication": "COPD rescue"
+        },
+        {
+          "name": "Bisoprolol",
+          "dose": "5 mg",
+          "frequency": "once daily",
+          "startDate": "2018-10-01",
+          "din": "02247439",
+          "indication": "CAD, heart failure prevention"
+        },
+        {
+          "name": "Ramipril",
+          "dose": "5 mg",
+          "frequency": "once daily",
+          "startDate": "2010-07-01",
+          "din": "02221829",
+          "indication": "Hypertension, CAD"
+        },
+        {
+          "name": "Rosuvastatin",
+          "dose": "20 mg",
+          "frequency": "nightly",
+          "startDate": "2018-10-01",
+          "din": "02268558",
+          "indication": "CAD, hyperlipidemia"
+        },
+        {
+          "name": "ASA",
+          "dose": "81 mg",
+          "frequency": "once daily",
+          "startDate": "2018-10-01",
+          "din": "00010642",
+          "indication": "CAD antiplatelet"
+        },
+        {
+          "name": "Metformin",
+          "dose": "1000 mg",
+          "frequency": "twice daily with meals",
+          "startDate": "2012-02-01",
+          "din": "02229516",
+          "indication": "Type 2 diabetes"
+        }
       ],
-      "allergies": ["ACE inhibitors — dry cough (tolerated ramipril after titration)"],
+      "allergies": [
+        "ACE inhibitors \u2014 dry cough (tolerated ramipril after titration)"
+      ],
       "labs": [
-        { "test": "HbA1c", "value": "7.8", "unit": "%", "date": "2026-05-01", "reference": "< 8.0 (elderly with CAD)", "flag": "NORMAL" },
-        { "test": "eGFR", "value": "52", "unit": "mL/min/1.73m²", "date": "2026-05-01", "reference": "≥ 60", "flag": "LOW" },
-        { "test": "BNP", "value": "210", "unit": "pg/mL", "date": "2026-05-01", "reference": "< 100", "flag": "HIGH" },
-        { "test": "Troponin I", "value": "0.012", "unit": "µg/L", "date": "2026-05-01", "reference": "< 0.04", "flag": "NORMAL" },
-        { "test": "LDL", "value": "1.6", "unit": "mmol/L", "date": "2026-05-01", "reference": "< 1.8 (CAD target)", "flag": "NORMAL" },
-        { "test": "Potassium", "value": "4.2", "unit": "mmol/L", "date": "2026-05-01", "reference": "3.5–5.0", "flag": "NORMAL" }
+        {
+          "test": "HbA1c",
+          "value": "7.8",
+          "unit": "%",
+          "date": "2026-05-01",
+          "reference": "< 8.0 (elderly with CAD)",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "eGFR",
+          "value": "52",
+          "unit": "mL/min/1.73m\u00b2",
+          "date": "2026-05-01",
+          "reference": "\u2265 60",
+          "flag": "LOW"
+        },
+        {
+          "test": "BNP",
+          "value": "210",
+          "unit": "pg/mL",
+          "date": "2026-05-01",
+          "reference": "< 100",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Troponin I",
+          "value": "0.012",
+          "unit": "\u00b5g/L",
+          "date": "2026-05-01",
+          "reference": "< 0.04",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "LDL",
+          "value": "1.6",
+          "unit": "mmol/L",
+          "date": "2026-05-01",
+          "reference": "< 1.8 (CAD target)",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Potassium",
+          "value": "4.2",
+          "unit": "mmol/L",
+          "date": "2026-05-01",
+          "reference": "3.5\u20135.0",
+          "flag": "NORMAL"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-05-01", "bp": "132/80", "hr": "62", "weight": "82 kg", "bmi": "26.8", "o2_sat": "93% on room air" },
-        { "date": "2025-11-10", "bp": "138/84", "hr": "64", "weight": "84 kg", "bmi": "27.4", "o2_sat": "92% on room air" }
+        {
+          "date": "2026-05-01",
+          "bp": "132/80",
+          "hr": "62",
+          "weight": "82 kg",
+          "bmi": "26.8",
+          "o2_sat": "93% on room air"
+        },
+        {
+          "date": "2025-11-10",
+          "bp": "138/84",
+          "hr": "64",
+          "weight": "84 kg",
+          "bmi": "27.4",
+          "o2_sat": "92% on room air"
+        }
       ],
       "imaging": [
-        { "type": "Chest X-ray PA", "date": "2026-05-01", "result": "Hyperinflation consistent with COPD. Flattened diaphragms. No acute infiltrate. Stable cardiomegaly." },
-        { "type": "Echocardiogram", "date": "2025-10-15", "result": "EF 45% (mildly reduced). Mild LVH. No significant valvular disease. Diastolic dysfunction grade I." },
-        { "type": "Spirometry (PFTs)", "date": "2025-10-15", "result": "FEV1 52% predicted, FEV1/FVC 0.58. Post-bronchodilator FEV1 57%. Consistent with COPD GOLD Stage 3." }
+        {
+          "type": "Chest X-ray PA",
+          "date": "2026-05-01",
+          "result": "Hyperinflation consistent with COPD. Flattened diaphragms. No acute infiltrate. Stable cardiomegaly."
+        },
+        {
+          "type": "Echocardiogram",
+          "date": "2025-10-15",
+          "result": "EF 45% (mildly reduced). Mild LVH. No significant valvular disease. Diastolic dysfunction grade I."
+        },
+        {
+          "type": "Spirometry (PFTs)",
+          "date": "2025-10-15",
+          "result": "FEV1 52% predicted, FEV1/FVC 0.58. Post-bronchodilator FEV1 57%. Consistent with COPD GOLD Stage 3."
+        }
       ],
       "specialist_notes": [
-        { "date": "2025-12-10", "specialty": "Respirology", "physician": "Dr. M. Lavoie", "summary": "COPD GOLD Stage 3. On optimal inhaled therapy. Home oxygen assessment: SpO2 93% — does not meet criteria yet. Pulmonary rehabilitation referral placed. Annual spirometry. If FEV1 worsens consider roflumilast." },
-        { "date": "2025-10-20", "specialty": "Cardiology", "physician": "Dr. P. Nguyen", "summary": "Stable CAD. EF mildly reduced at 45%, likely LVSD. Continue current medications. No intervention required. Annual echo. Monitor BNP." }
+        {
+          "date": "2025-12-10",
+          "specialty": "Respirology",
+          "physician": "Dr. M. Lavoie",
+          "summary": "COPD GOLD Stage 3. On optimal inhaled therapy. Home oxygen assessment: SpO2 93% \u2014 does not meet criteria yet. Pulmonary rehabilitation referral placed. Annual spirometry. If FEV1 worsens consider roflumilast."
+        },
+        {
+          "date": "2025-10-20",
+          "specialty": "Cardiology",
+          "physician": "Dr. P. Nguyen",
+          "summary": "Stable CAD. EF mildly reduced at 45%, likely LVSD. Continue current medications. No intervention required. Annual echo. Monitor BNP."
+        }
       ],
       "vaccinations": [
-        { "vaccine": "Pneumococcal (PPSV23)", "date": "2020-03-10" },
-        { "vaccine": "Influenza", "date": "2025-10-05" },
-        { "vaccine": "COVID-19 booster", "date": "2025-09-30" },
-        { "vaccine": "Shingrix (2nd dose)", "date": "2023-05-20" }
+        {
+          "vaccine": "Pneumococcal (PPSV23)",
+          "date": "2020-03-10"
+        },
+        {
+          "vaccine": "Influenza",
+          "date": "2025-10-05"
+        },
+        {
+          "vaccine": "COVID-19 booster",
+          "date": "2025-09-30"
+        },
+        {
+          "vaccine": "Shingrix (2nd dose)",
+          "date": "2023-05-20"
+        }
       ],
       "screening": [
-        { "type": "Colorectal cancer (FIT)", "date": "2025-06-01", "result": "Negative" }
+        {
+          "type": "Colorectal cancer (FIT)",
+          "date": "2025-06-01",
+          "result": "Negative"
+        }
       ],
       "encounters": [
-        { "date": "2026-05-01", "type": "Office visit", "reason": "COPD, CAD, diabetes follow-up", "physician": "Dr. A. Patel", "notes": "Stable. Mild worsening dyspnea on exertion. BNP trending up — monitor. Medications reconciled with cardiology and respirology." }
+        {
+          "date": "2026-05-01",
+          "type": "Office visit",
+          "reason": "COPD, CAD, diabetes follow-up",
+          "physician": "Dr. A. Patel",
+          "notes": "Stable. Mild worsening dyspnea on exertion. BNP trending up \u2014 monitor. Medications reconciled with cardiology and respirology."
+        }
       ],
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-005",
-      "name": { "text": "Fatima Hassan", "family": "Hassan", "given": ["Fatima"] },
+      "name": {
+        "text": "Fatima Hassan",
+        "family": "Hassan",
+        "given": [
+          "Fatima"
+        ]
+      },
       "birthDate": "1993-02-28",
       "gender": "female",
       "ohip": "7788-112-334-IJ",
       "sin": "345-678-005",
       "language": "English",
-      "address": { "line": ["310 Laurier Avenue East, Apt 8"], "city": "Ottawa", "province": "ON", "postalCode": "K1N 6N9" },
+      "address": {
+        "line": [
+          "310 Laurier Avenue East, Apt 8"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K1N 6N9"
+      },
       "phone": "613-555-0847",
       "social_history": {
         "smoking": "Non-smoker",
@@ -309,38 +973,147 @@
         "housing": "Rents apartment, lives with husband",
         "exercise": "Light walking 20 min daily"
       },
-      "family_history": ["Mother: gestational diabetes", "Father: hypertension", "Maternal aunt: pre-eclampsia"],
+      "family_history": [
+        "Mother: gestational diabetes",
+        "Father: hypertension",
+        "Maternal aunt: pre-eclampsia"
+      ],
       "conditions": [
-        { "code": "Z34.12", "display": "Encounter for supervision of normal first pregnancy, second trimester", "onsetDate": "2026-01-15", "status": "active", "gestational_age": "26 weeks 3 days (as of 2026-06-10)" },
-        { "code": "O24.419", "display": "Gestational diabetes mellitus in pregnancy, unspecified", "onsetDate": "2026-05-20", "status": "active" }
+        {
+          "code": "Z34.12",
+          "display": "Encounter for supervision of normal first pregnancy, second trimester",
+          "onsetDate": "2026-01-15",
+          "status": "active",
+          "gestational_age": "26 weeks 3 days (as of 2026-06-10)"
+        },
+        {
+          "code": "O24.419",
+          "display": "Gestational diabetes mellitus in pregnancy, unspecified",
+          "onsetDate": "2026-05-20",
+          "status": "active"
+        }
       ],
       "medications": [
-        { "name": "Prenatal multivitamin with folic acid", "dose": "1 tablet", "frequency": "once daily", "startDate": "2025-12-01", "din": "02246876", "indication": "Prenatal supplementation" },
-        { "name": "Iron (ferrous gluconate)", "dose": "300 mg", "frequency": "once daily", "startDate": "2026-03-01", "din": "00030805", "indication": "Iron deficiency in pregnancy" }
+        {
+          "name": "Prenatal multivitamin with folic acid",
+          "dose": "1 tablet",
+          "frequency": "once daily",
+          "startDate": "2025-12-01",
+          "din": "02246876",
+          "indication": "Prenatal supplementation"
+        },
+        {
+          "name": "Iron (ferrous gluconate)",
+          "dose": "300 mg",
+          "frequency": "once daily",
+          "startDate": "2026-03-01",
+          "din": "00030805",
+          "indication": "Iron deficiency in pregnancy"
+        }
       ],
-      "allergies": ["Latex — contact urticaria"],
+      "allergies": [
+        "Latex \u2014 contact urticaria"
+      ],
       "labs": [
-        { "test": "1-hour GCT (glucose challenge)", "value": "8.4", "unit": "mmol/L", "date": "2026-05-15", "reference": "< 7.8", "flag": "HIGH" },
-        { "test": "2-hour OGTT — fasting", "value": "5.4", "unit": "mmol/L", "date": "2026-05-20", "reference": "< 5.1", "flag": "HIGH" },
-        { "test": "2-hour OGTT — 2h", "value": "9.1", "unit": "mmol/L", "date": "2026-05-20", "reference": "< 8.5", "flag": "HIGH" },
-        { "test": "Hemoglobin", "value": "110", "unit": "g/L", "date": "2026-05-20", "reference": "110–165 (pregnancy)", "flag": "NORMAL" },
-        { "test": "Blood type", "value": "A+", "unit": "", "date": "2026-02-01", "reference": "", "flag": "NORMAL" },
-        { "test": "GBS screen", "value": "Pending", "unit": "", "date": "2026-06-10", "reference": "Negative expected", "flag": "PENDING" },
-        { "test": "MSS (maternal serum screening)", "value": "Screen negative", "unit": "", "date": "2026-03-15", "reference": "Screen negative", "flag": "NORMAL" }
+        {
+          "test": "1-hour GCT (glucose challenge)",
+          "value": "8.4",
+          "unit": "mmol/L",
+          "date": "2026-05-15",
+          "reference": "< 7.8",
+          "flag": "HIGH"
+        },
+        {
+          "test": "2-hour OGTT \u2014 fasting",
+          "value": "5.4",
+          "unit": "mmol/L",
+          "date": "2026-05-20",
+          "reference": "< 5.1",
+          "flag": "HIGH"
+        },
+        {
+          "test": "2-hour OGTT \u2014 2h",
+          "value": "9.1",
+          "unit": "mmol/L",
+          "date": "2026-05-20",
+          "reference": "< 8.5",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Hemoglobin",
+          "value": "110",
+          "unit": "g/L",
+          "date": "2026-05-20",
+          "reference": "110\u2013165 (pregnancy)",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Blood type",
+          "value": "A+",
+          "unit": "",
+          "date": "2026-02-01",
+          "reference": "",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "GBS screen",
+          "value": "Pending",
+          "unit": "",
+          "date": "2026-06-10",
+          "reference": "Negative expected",
+          "flag": "PENDING"
+        },
+        {
+          "test": "MSS (maternal serum screening)",
+          "value": "Screen negative",
+          "unit": "",
+          "date": "2026-03-15",
+          "reference": "Screen negative",
+          "flag": "NORMAL"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-06-10", "bp": "112/68", "hr": "88", "weight": "72 kg", "bmi": "26.1", "fundal_height": "26 cm" },
-        { "date": "2026-05-01", "bp": "110/66", "hr": "86", "weight": "70 kg", "bmi": "25.4", "fundal_height": "23 cm" }
+        {
+          "date": "2026-06-10",
+          "bp": "112/68",
+          "hr": "88",
+          "weight": "72 kg",
+          "bmi": "26.1",
+          "fundal_height": "26 cm"
+        },
+        {
+          "date": "2026-05-01",
+          "bp": "110/66",
+          "hr": "86",
+          "weight": "70 kg",
+          "bmi": "25.4",
+          "fundal_height": "23 cm"
+        }
       ],
       "imaging": [
-        { "type": "Obstetrical ultrasound (18-week anatomy)", "date": "2026-04-01", "result": "Normal fetal anatomy. No structural anomalies. Placenta anterior, not low-lying. Estimated fetal weight 280g (50th percentile). Cervical length 38 mm." }
+        {
+          "type": "Obstetrical ultrasound (18-week anatomy)",
+          "date": "2026-04-01",
+          "result": "Normal fetal anatomy. No structural anomalies. Placenta anterior, not low-lying. Estimated fetal weight 280g (50th percentile). Cervical length 38 mm."
+        }
       ],
       "specialist_notes": [
-        { "date": "2026-05-25", "specialty": "Obstetrics", "physician": "Dr. C. Beaumont, OB", "summary": "GDM confirmed on OGTT. Dietary counselling initiated. Blood glucose monitoring (4×/day) commenced. Target fasting < 5.3, post-prandial 1h < 7.8. If targets not met in 2 weeks, consider metformin or insulin." }
+        {
+          "date": "2026-05-25",
+          "specialty": "Obstetrics",
+          "physician": "Dr. C. Beaumont, OB",
+          "summary": "GDM confirmed on OGTT. Dietary counselling initiated. Blood glucose monitoring (4\u00d7/day) commenced. Target fasting < 5.3, post-prandial 1h < 7.8. If targets not met in 2 weeks, consider metformin or insulin."
+        }
       ],
       "vaccinations": [
-        { "vaccine": "Tdap (pregnancy dose)", "date": "2026-05-10" },
-        { "vaccine": "Influenza", "date": "2025-10-20" }
+        {
+          "vaccine": "Tdap (pregnancy dose)",
+          "date": "2026-05-10"
+        },
+        {
+          "vaccine": "Influenza",
+          "date": "2025-10-20"
+        }
       ],
       "screening": [],
       "prenatal_details": {
@@ -351,90 +1124,320 @@
         "ob_provider": "Dr. C. Beaumont OB-GYN, Ottawa Hospital General Campus, 501 Smyth Rd Ottawa, 613-737-8000",
         "work_restrictions": "Avoid prolonged standing > 2 hours, no heavy lifting > 10 kg, no work requiring respirator, regular rest breaks, permitted to work as pharmacist with accommodations until 36 weeks",
         "mat_leave_start": "2026-09-01 (3 weeks before EDD)",
-        "blood_glucose_log": "Fasting average 5.6 mmol/L (target <5.3); Post-prandial 1h average 7.2 mmol/L (target <7.8) — dietary management continuing",
+        "blood_glucose_log": "Fasting average 5.6 mmol/L (target <5.3); Post-prandial 1h average 7.2 mmol/L (target <7.8) \u2014 dietary management continuing",
         "next_visit": "2026-06-24 (28 weeks)",
         "prenatal_tests_planned": "28-week CBC, antibody screen, GBS at 35-37 weeks"
       },
       "encounters": [
-        { "date": "2026-06-10", "type": "Prenatal visit (26 weeks)", "reason": "Routine prenatal care, GDM follow-up, workplace accommodation", "physician": "Dr. A. Patel", "service_date": "2026-06-10", "notes": "G1P0, 26 weeks 3 days, EDD 2026-09-22. LMP 2025-12-15. OB: Dr. C. Beaumont, Ottawa Hospital. GDM diagnosed via OGTT 2026-05-20 (fasting 5.4, 2h 9.1). Dietary management only — fasting avg 5.6 (borderline, target <5.3), post-prandial avg 7.2 (at target <7.8). QBGA monitoring 4x daily. Fetal movements good. Fundal height 26 cm = dates. BP 112/68, HR 88, Wt 72 kg. Blood type A+, antibody screen negative. MSS screen negative. 18-week anatomy scan: normal, placenta anterior not low-lying. No pre-eclampsia symptoms. Work accommodation letter completed: pharmacist at Shoppers Drug Mart — permitted to continue with reduced standing time, no heavy lifting >10 kg, regular breaks, no respirator use. Maternity leave to commence 2026-09-01. Next visit 28 weeks 2026-06-24. 28-week labs ordered (CBC, antibody screen)." }
+        {
+          "date": "2026-06-10",
+          "type": "Prenatal visit (26 weeks)",
+          "reason": "Routine prenatal care, GDM follow-up, workplace accommodation",
+          "physician": "Dr. A. Patel",
+          "service_date": "2026-06-10",
+          "notes": "G1P0, 26 weeks 3 days, EDD 2026-09-22. LMP 2025-12-15. OB: Dr. C. Beaumont, Ottawa Hospital. GDM diagnosed via OGTT 2026-05-20 (fasting 5.4, 2h 9.1). Dietary management only \u2014 fasting avg 5.6 (borderline, target <5.3), post-prandial avg 7.2 (at target <7.8). QBGA monitoring 4x daily. Fetal movements good. Fundal height 26 cm = dates. BP 112/68, HR 88, Wt 72 kg. Blood type A+, antibody screen negative. MSS screen negative. 18-week anatomy scan: normal, placenta anterior not low-lying. No pre-eclampsia symptoms. Work accommodation letter completed: pharmacist at Shoppers Drug Mart \u2014 permitted to continue with reduced standing time, no heavy lifting >10 kg, regular breaks, no respirator use. Maternity leave to commence 2026-09-01. Next visit 28 weeks 2026-06-24. 28-week labs ordered (CBC, antibody screen)."
+        }
       ],
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-006",
-      "name": { "text": "David Murphy", "family": "Murphy", "given": ["David"] },
+      "name": {
+        "text": "David Murphy",
+        "family": "Murphy",
+        "given": [
+          "David"
+        ]
+      },
       "birthDate": "1961-07-03",
       "gender": "male",
       "ohip": "4456-778-990-KL",
       "sin": "456-789-006",
       "language": "English",
-      "address": { "line": ["78 Baseline Road, Unit 204"], "city": "Nepean", "province": "ON", "postalCode": "K2H 8R4" },
+      "address": {
+        "line": [
+          "78 Baseline Road, Unit 204"
+        ],
+        "city": "Nepean",
+        "province": "ON",
+        "postalCode": "K2H 8R4"
+      },
       "phone": "613-555-0519",
       "social_history": {
         "smoking": "Non-smoker",
-        "alcohol": "1–2 drinks/week",
+        "alcohol": "1\u20132 drinks/week",
         "occupation": "Retired police officer (Ottawa Police Service)",
         "housing": "Owns home, lives with wife",
-        "exercise": "Stationary bike 20 min 3×/week"
+        "exercise": "Stationary bike 20 min 3\u00d7/week"
       },
-      "family_history": ["Father: hypertension, CKD, deceased at 74", "Sister: ESRD on dialysis"],
+      "family_history": [
+        "Father: hypertension, CKD, deceased at 74",
+        "Sister: ESRD on dialysis"
+      ],
       "conditions": [
-        { "code": "N18.3", "display": "Chronic kidney disease, stage 3b", "onsetDate": "2020-08-10", "status": "active" },
-        { "code": "I10", "display": "Essential hypertension (primary cause of CKD)", "onsetDate": "2005-03-01", "status": "active" },
-        { "code": "E11.9", "display": "Type 2 diabetes mellitus", "onsetDate": "2016-05-20", "status": "active" },
-        { "code": "E03.9", "display": "Hypothyroidism, unspecified", "onsetDate": "2019-02-14", "status": "active" }
+        {
+          "code": "N18.3",
+          "display": "Chronic kidney disease, stage 3b",
+          "onsetDate": "2020-08-10",
+          "status": "active"
+        },
+        {
+          "code": "I10",
+          "display": "Essential hypertension (primary cause of CKD)",
+          "onsetDate": "2005-03-01",
+          "status": "active"
+        },
+        {
+          "code": "E11.9",
+          "display": "Type 2 diabetes mellitus",
+          "onsetDate": "2016-05-20",
+          "status": "active"
+        },
+        {
+          "code": "E03.9",
+          "display": "Hypothyroidism, unspecified",
+          "onsetDate": "2019-02-14",
+          "status": "active"
+        }
       ],
       "medications": [
-        { "name": "Amlodipine", "dose": "10 mg", "frequency": "once daily", "startDate": "2020-01-01", "din": "02238237", "indication": "Hypertension" },
-        { "name": "Lisinopril", "dose": "20 mg", "frequency": "once daily", "startDate": "2020-09-01", "din": "02301695", "indication": "Hypertension, CKD renoprotection" },
-        { "name": "Furosemide", "dose": "40 mg", "frequency": "once daily in AM", "startDate": "2022-06-01", "din": "00337765", "indication": "Edema management" },
-        { "name": "Levothyroxine", "dose": "75 mcg", "frequency": "once daily, fasting", "startDate": "2019-03-01", "din": "02240786", "indication": "Hypothyroidism" },
-        { "name": "Metformin", "dose": "500 mg", "frequency": "once daily (dose reduced for eGFR)", "startDate": "2016-06-01", "din": "02229516", "indication": "Type 2 diabetes" },
-        { "name": "Sodium bicarbonate", "dose": "650 mg", "frequency": "twice daily", "startDate": "2023-01-10", "din": "00422576", "indication": "CKD metabolic acidosis" }
+        {
+          "name": "Amlodipine",
+          "dose": "10 mg",
+          "frequency": "once daily",
+          "startDate": "2020-01-01",
+          "din": "02238237",
+          "indication": "Hypertension"
+        },
+        {
+          "name": "Lisinopril",
+          "dose": "20 mg",
+          "frequency": "once daily",
+          "startDate": "2020-09-01",
+          "din": "02301695",
+          "indication": "Hypertension, CKD renoprotection"
+        },
+        {
+          "name": "Furosemide",
+          "dose": "40 mg",
+          "frequency": "once daily in AM",
+          "startDate": "2022-06-01",
+          "din": "00337765",
+          "indication": "Edema management"
+        },
+        {
+          "name": "Levothyroxine",
+          "dose": "75 mcg",
+          "frequency": "once daily, fasting",
+          "startDate": "2019-03-01",
+          "din": "02240786",
+          "indication": "Hypothyroidism"
+        },
+        {
+          "name": "Metformin",
+          "dose": "500 mg",
+          "frequency": "once daily (dose reduced for eGFR)",
+          "startDate": "2016-06-01",
+          "din": "02229516",
+          "indication": "Type 2 diabetes"
+        },
+        {
+          "name": "Sodium bicarbonate",
+          "dose": "650 mg",
+          "frequency": "twice daily",
+          "startDate": "2023-01-10",
+          "din": "00422576",
+          "indication": "CKD metabolic acidosis"
+        }
       ],
-      "allergies": ["Ibuprofen and all NSAIDs — worsens kidney function (contraindicated)", "Sulfa — rash"],
+      "allergies": [
+        "Ibuprofen and all NSAIDs \u2014 worsens kidney function (contraindicated)",
+        "Sulfa \u2014 rash"
+      ],
       "labs": [
-        { "test": "eGFR", "value": "38", "unit": "mL/min/1.73m²", "date": "2026-05-20", "reference": "≥ 60", "flag": "LOW" },
-        { "test": "Creatinine", "value": "178", "unit": "µmol/L", "date": "2026-05-20", "reference": "70–106", "flag": "HIGH" },
-        { "test": "Urine ACR", "value": "92", "unit": "mg/mmol", "date": "2026-05-20", "reference": "< 3.0", "flag": "HIGH" },
-        { "test": "Potassium", "value": "5.1", "unit": "mmol/L", "date": "2026-05-20", "reference": "3.5–5.0", "flag": "HIGH" },
-        { "test": "Bicarbonate", "value": "19", "unit": "mmol/L", "date": "2026-05-20", "reference": "22–29", "flag": "LOW" },
-        { "test": "Hemoglobin (anemia of CKD)", "value": "108", "unit": "g/L", "date": "2026-05-20", "reference": "130–170", "flag": "LOW" },
-        { "test": "Phosphate", "value": "1.62", "unit": "mmol/L", "date": "2026-05-20", "reference": "0.87–1.45", "flag": "HIGH" },
-        { "test": "PTH", "value": "142", "unit": "pg/mL", "date": "2026-05-20", "reference": "15–65", "flag": "HIGH" },
-        { "test": "TSH", "value": "1.9", "unit": "mIU/L", "date": "2026-03-01", "reference": "0.4–4.0", "flag": "NORMAL" },
-        { "test": "HbA1c", "value": "7.4", "unit": "%", "date": "2026-05-20", "reference": "< 8.0 (CKD)", "flag": "NORMAL" }
+        {
+          "test": "eGFR",
+          "value": "38",
+          "unit": "mL/min/1.73m\u00b2",
+          "date": "2026-05-20",
+          "reference": "\u2265 60",
+          "flag": "LOW"
+        },
+        {
+          "test": "Creatinine",
+          "value": "178",
+          "unit": "\u00b5mol/L",
+          "date": "2026-05-20",
+          "reference": "70\u2013106",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Urine ACR",
+          "value": "92",
+          "unit": "mg/mmol",
+          "date": "2026-05-20",
+          "reference": "< 3.0",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Potassium",
+          "value": "5.1",
+          "unit": "mmol/L",
+          "date": "2026-05-20",
+          "reference": "3.5\u20135.0",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Bicarbonate",
+          "value": "19",
+          "unit": "mmol/L",
+          "date": "2026-05-20",
+          "reference": "22\u201329",
+          "flag": "LOW"
+        },
+        {
+          "test": "Hemoglobin (anemia of CKD)",
+          "value": "108",
+          "unit": "g/L",
+          "date": "2026-05-20",
+          "reference": "130\u2013170",
+          "flag": "LOW"
+        },
+        {
+          "test": "Phosphate",
+          "value": "1.62",
+          "unit": "mmol/L",
+          "date": "2026-05-20",
+          "reference": "0.87\u20131.45",
+          "flag": "HIGH"
+        },
+        {
+          "test": "PTH",
+          "value": "142",
+          "unit": "pg/mL",
+          "date": "2026-05-20",
+          "reference": "15\u201365",
+          "flag": "HIGH"
+        },
+        {
+          "test": "TSH",
+          "value": "1.9",
+          "unit": "mIU/L",
+          "date": "2026-03-01",
+          "reference": "0.4\u20134.0",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "HbA1c",
+          "value": "7.4",
+          "unit": "%",
+          "date": "2026-05-20",
+          "reference": "< 8.0 (CKD)",
+          "flag": "NORMAL"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-05-20", "bp": "148/92", "hr": "68", "weight": "88 kg", "bmi": "27.2" },
-        { "date": "2026-02-10", "bp": "152/94", "hr": "70", "weight": "90 kg", "bmi": "27.8" }
+        {
+          "date": "2026-05-20",
+          "bp": "148/92",
+          "hr": "68",
+          "weight": "88 kg",
+          "bmi": "27.2"
+        },
+        {
+          "date": "2026-02-10",
+          "bp": "152/94",
+          "hr": "70",
+          "weight": "90 kg",
+          "bmi": "27.8"
+        }
       ],
       "imaging": [
-        { "type": "Renal ultrasound", "date": "2025-08-15", "result": "Both kidneys mildly reduced in size (right 9.8 cm, left 9.6 cm). Increased echogenicity bilaterally consistent with medical renal disease. No hydronephrosis or stones." }
+        {
+          "type": "Renal ultrasound",
+          "date": "2025-08-15",
+          "result": "Both kidneys mildly reduced in size (right 9.8 cm, left 9.6 cm). Increased echogenicity bilaterally consistent with medical renal disease. No hydronephrosis or stones."
+        }
       ],
       "specialist_notes": [
-        { "date": "2026-02-28", "specialty": "Nephrology", "physician": "Dr. S. Obi", "summary": "CKD Stage 3b, deteriorating. eGFR declined from 48 to 38 over 18 months. Main drivers: hypertension and diabetic nephropathy. Phosphate binders initiated. Erythropoiesis-stimulating agent (EPO) discussion pending. Dialysis planning initiated — AVF creation recommended within 12 months if trajectory continues." }
+        {
+          "date": "2026-02-28",
+          "specialty": "Nephrology",
+          "physician": "Dr. S. Obi",
+          "summary": "CKD Stage 3b, deteriorating. eGFR declined from 48 to 38 over 18 months. Main drivers: hypertension and diabetic nephropathy. Phosphate binders initiated. Erythropoiesis-stimulating agent (EPO) discussion pending. Dialysis planning initiated \u2014 AVF creation recommended within 12 months if trajectory continues."
+        }
       ],
       "vaccinations": [
-        { "vaccine": "Pneumococcal (PCV20)", "date": "2023-09-10" },
-        { "vaccine": "Hepatitis B series (CKD protocol)", "date": "2024-01-15", "notes": "3-dose series completed, anti-HBs titre 22 IU/L (adequate)" },
-        { "vaccine": "Influenza", "date": "2025-10-10" }
+        {
+          "vaccine": "Pneumococcal (PCV20)",
+          "date": "2023-09-10"
+        },
+        {
+          "vaccine": "Hepatitis B series (CKD protocol)",
+          "date": "2024-01-15",
+          "notes": "3-dose series completed, anti-HBs titre 22 IU/L (adequate)"
+        },
+        {
+          "vaccine": "Influenza",
+          "date": "2025-10-10"
+        }
       ],
       "screening": [],
       "encounters": [
-        { "date": "2026-05-20", "type": "Office visit", "reason": "CKD quarterly review", "physician": "Dr. A. Patel", "notes": "eGFR continuing to decline. BP suboptimal — amlodipine dose already max. Referred back to nephrology. Sodium bicarbonate increased. Dietary referral for renal diet. Disability insurance paperwork requested by patient for inability to maintain part-time work." }
+        {
+          "date": "2026-05-20",
+          "type": "Office visit",
+          "reason": "CKD quarterly review",
+          "physician": "Dr. A. Patel",
+          "notes": "eGFR continuing to decline. BP suboptimal \u2014 amlodipine dose already max. Referred back to nephrology. Sodium bicarbonate increased. Dietary referral for renal diet. Disability insurance paperwork requested by patient for inability to maintain part-time work."
+        }
       ],
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-007",
-      "name": { "text": "Elena Petrov", "family": "Petrov", "given": ["Elena"] },
+      "name": {
+        "text": "Elena Petrov",
+        "family": "Petrov",
+        "given": [
+          "Elena"
+        ]
+      },
       "birthDate": "1969-05-22",
       "gender": "female",
       "ohip": "6612-445-003-MN",
       "sin": "567-890-007",
       "language": "English",
-      "address": { "line": ["19 Driveway Avenue"], "city": "Ottawa", "province": "ON", "postalCode": "K2P 1C8" },
+      "address": {
+        "line": [
+          "19 Driveway Avenue"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K2P 1C8"
+      },
       "phone": "613-555-0763",
       "social_history": {
         "smoking": "Non-smoker",
@@ -443,50 +1446,214 @@
         "housing": "Owns home, lives with adult daughter",
         "exercise": "Aquatherapy twice weekly, ROM limited"
       },
-      "family_history": ["Mother: rheumatoid arthritis", "Sister: psoriatic arthritis"],
+      "family_history": [
+        "Mother: rheumatoid arthritis",
+        "Sister: psoriatic arthritis"
+      ],
       "conditions": [
-        { "code": "M05.79", "display": "Rheumatoid arthritis with rheumatoid factor, multiple joints", "onsetDate": "2017-04-10", "status": "active" },
-        { "code": "M81.0", "display": "Age-related osteoporosis without pathological fracture", "onsetDate": "2023-09-15", "status": "active" }
+        {
+          "code": "M05.79",
+          "display": "Rheumatoid arthritis with rheumatoid factor, multiple joints",
+          "onsetDate": "2017-04-10",
+          "status": "active"
+        },
+        {
+          "code": "M81.0",
+          "display": "Age-related osteoporosis without pathological fracture",
+          "onsetDate": "2023-09-15",
+          "status": "active"
+        }
       ],
       "medications": [
-        { "name": "Methotrexate", "dose": "20 mg", "frequency": "once weekly (oral)", "startDate": "2017-06-01", "din": "02170698", "indication": "RA DMARD", "monitoring": "CBC, LFTs, creatinine every 3 months" },
-        { "name": "Folic acid", "dose": "5 mg", "frequency": "once daily (except methotrexate day)", "startDate": "2017-06-01", "din": "00603864", "indication": "Methotrexate toxicity prevention" },
-        { "name": "Hydroxychloroquine", "dose": "200 mg", "frequency": "twice daily", "startDate": "2018-01-15", "din": "00891770", "indication": "RA DMARD" },
-        { "name": "Adalimumab (Humira)", "dose": "40 mg", "frequency": "subcutaneous every 2 weeks", "startDate": "2021-03-01", "din": "02254751", "indication": "RA biologic — inadequate response to MTX + HCQ" },
-        { "name": "Alendronate", "dose": "70 mg", "frequency": "once weekly, fasting", "startDate": "2023-10-01", "din": "02245711", "indication": "Osteoporosis" },
-        { "name": "Calcium + Vitamin D3", "dose": "500 mg / 1000 IU", "frequency": "twice daily", "startDate": "2023-10-01", "din": "02242842", "indication": "Osteoporosis supplementation" },
-        { "name": "Naproxen", "dose": "250 mg", "frequency": "twice daily as needed for flares", "startDate": "2017-05-01", "din": "02162849", "indication": "RA flare pain" }
+        {
+          "name": "Methotrexate",
+          "dose": "20 mg",
+          "frequency": "once weekly (oral)",
+          "startDate": "2017-06-01",
+          "din": "02170698",
+          "indication": "RA DMARD",
+          "monitoring": "CBC, LFTs, creatinine every 3 months"
+        },
+        {
+          "name": "Folic acid",
+          "dose": "5 mg",
+          "frequency": "once daily (except methotrexate day)",
+          "startDate": "2017-06-01",
+          "din": "00603864",
+          "indication": "Methotrexate toxicity prevention"
+        },
+        {
+          "name": "Hydroxychloroquine",
+          "dose": "200 mg",
+          "frequency": "twice daily",
+          "startDate": "2018-01-15",
+          "din": "00891770",
+          "indication": "RA DMARD"
+        },
+        {
+          "name": "Adalimumab (Humira)",
+          "dose": "40 mg",
+          "frequency": "subcutaneous every 2 weeks",
+          "startDate": "2021-03-01",
+          "din": "02254751",
+          "indication": "RA biologic \u2014 inadequate response to MTX + HCQ"
+        },
+        {
+          "name": "Alendronate",
+          "dose": "70 mg",
+          "frequency": "once weekly, fasting",
+          "startDate": "2023-10-01",
+          "din": "02245711",
+          "indication": "Osteoporosis"
+        },
+        {
+          "name": "Calcium + Vitamin D3",
+          "dose": "500 mg / 1000 IU",
+          "frequency": "twice daily",
+          "startDate": "2023-10-01",
+          "din": "02242842",
+          "indication": "Osteoporosis supplementation"
+        },
+        {
+          "name": "Naproxen",
+          "dose": "250 mg",
+          "frequency": "twice daily as needed for flares",
+          "startDate": "2017-05-01",
+          "din": "02162849",
+          "indication": "RA flare pain"
+        }
       ],
-      "allergies": ["Sulfasalazine — hepatotoxicity (RA trial 2017)"],
+      "allergies": [
+        "Sulfasalazine \u2014 hepatotoxicity (RA trial 2017)"
+      ],
       "labs": [
-        { "test": "CBC — WBC", "value": "4.2", "unit": "×10⁹/L", "date": "2026-05-10", "reference": "4.0–11.0", "flag": "NORMAL" },
-        { "test": "CBC — Hemoglobin", "value": "118", "unit": "g/L", "date": "2026-05-10", "reference": "120–160", "flag": "LOW" },
-        { "test": "ALT", "value": "28", "unit": "U/L", "date": "2026-05-10", "reference": "< 40", "flag": "NORMAL" },
-        { "test": "AST", "value": "24", "unit": "U/L", "date": "2026-05-10", "reference": "< 40", "flag": "NORMAL" },
-        { "test": "Creatinine", "value": "76", "unit": "µmol/L", "date": "2026-05-10", "reference": "50–100", "flag": "NORMAL" },
-        { "test": "CRP", "value": "22", "unit": "mg/L", "date": "2026-05-10", "reference": "< 10", "flag": "HIGH" },
-        { "test": "RF (Rheumatoid Factor)", "value": "142", "unit": "IU/mL", "date": "2026-01-20", "reference": "< 20", "flag": "HIGH" },
-        { "test": "Anti-CCP", "value": "88", "unit": "U/mL", "date": "2026-01-20", "reference": "< 20", "flag": "HIGH" },
-        { "test": "Vitamin D (25-OH)", "value": "62", "unit": "nmol/L", "date": "2026-05-10", "reference": "75–250", "flag": "LOW" }
+        {
+          "test": "CBC \u2014 WBC",
+          "value": "4.2",
+          "unit": "\u00d710\u2079/L",
+          "date": "2026-05-10",
+          "reference": "4.0\u201311.0",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "CBC \u2014 Hemoglobin",
+          "value": "118",
+          "unit": "g/L",
+          "date": "2026-05-10",
+          "reference": "120\u2013160",
+          "flag": "LOW"
+        },
+        {
+          "test": "ALT",
+          "value": "28",
+          "unit": "U/L",
+          "date": "2026-05-10",
+          "reference": "< 40",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "AST",
+          "value": "24",
+          "unit": "U/L",
+          "date": "2026-05-10",
+          "reference": "< 40",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Creatinine",
+          "value": "76",
+          "unit": "\u00b5mol/L",
+          "date": "2026-05-10",
+          "reference": "50\u2013100",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "CRP",
+          "value": "22",
+          "unit": "mg/L",
+          "date": "2026-05-10",
+          "reference": "< 10",
+          "flag": "HIGH"
+        },
+        {
+          "test": "RF (Rheumatoid Factor)",
+          "value": "142",
+          "unit": "IU/mL",
+          "date": "2026-01-20",
+          "reference": "< 20",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Anti-CCP",
+          "value": "88",
+          "unit": "U/mL",
+          "date": "2026-01-20",
+          "reference": "< 20",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Vitamin D (25-OH)",
+          "value": "62",
+          "unit": "nmol/L",
+          "date": "2026-05-10",
+          "reference": "75\u2013250",
+          "flag": "LOW"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-05-10", "bp": "124/76", "hr": "72", "weight": "66 kg", "bmi": "23.8" }
+        {
+          "date": "2026-05-10",
+          "bp": "124/76",
+          "hr": "72",
+          "weight": "66 kg",
+          "bmi": "23.8"
+        }
       ],
       "imaging": [
-        { "type": "X-ray hands bilateral", "date": "2025-09-10", "result": "Periarticular osteopenia. Early marginal erosions at 2nd and 3rd MCP joints bilaterally. Joint space narrowing at PIP joints. Consistent with early erosive RA." },
-        { "type": "DEXA scan", "date": "2023-08-20", "result": "Lumbar spine T-score -2.6. Left femoral neck T-score -2.2. Consistent with osteoporosis at spine, osteopenia at hip." }
+        {
+          "type": "X-ray hands bilateral",
+          "date": "2025-09-10",
+          "result": "Periarticular osteopenia. Early marginal erosions at 2nd and 3rd MCP joints bilaterally. Joint space narrowing at PIP joints. Consistent with early erosive RA."
+        },
+        {
+          "type": "DEXA scan",
+          "date": "2023-08-20",
+          "result": "Lumbar spine T-score -2.6. Left femoral neck T-score -2.2. Consistent with osteoporosis at spine, osteopenia at hip."
+        }
       ],
       "specialist_notes": [
-        { "date": "2026-03-15", "specialty": "Rheumatology", "physician": "Dr. L. Fontaine", "summary": "RA moderately active on adalimumab + methotrexate. DAS28-CRP 4.1. Consider dose escalation of adalimumab or switching to abatacept. New erosions noted on imaging. Continue current monitoring. Next visit 4 months." }
+        {
+          "date": "2026-03-15",
+          "specialty": "Rheumatology",
+          "physician": "Dr. L. Fontaine",
+          "summary": "RA moderately active on adalimumab + methotrexate. DAS28-CRP 4.1. Consider dose escalation of adalimumab or switching to abatacept. New erosions noted on imaging. Continue current monitoring. Next visit 4 months."
+        }
       ],
       "vaccinations": [
-        { "vaccine": "Influenza (inactivated)", "date": "2025-10-10" },
-        { "vaccine": "Pneumococcal (PCV20)", "date": "2022-11-01" },
-        { "vaccine": "Shingrix dose 1 and 2", "date": "2024-04-10" }
+        {
+          "vaccine": "Influenza (inactivated)",
+          "date": "2025-10-10"
+        },
+        {
+          "vaccine": "Pneumococcal (PCV20)",
+          "date": "2022-11-01"
+        },
+        {
+          "vaccine": "Shingrix dose 1 and 2",
+          "date": "2024-04-10"
+        }
       ],
       "screening": [
-        { "type": "Mammography", "date": "2024-09-05", "result": "BI-RADS 1 — Normal" },
-        { "type": "Cervical cancer (Pap)", "date": "2024-03-20", "result": "Normal" }
+        {
+          "type": "Mammography",
+          "date": "2024-09-05",
+          "result": "BI-RADS 1 \u2014 Normal"
+        },
+        {
+          "type": "Cervical cancer (Pap)",
+          "date": "2024-03-20",
+          "result": "Normal"
+        }
       ],
       "functional_assessment_ra": {
         "date": "2026-05-10",
@@ -494,63 +1661,205 @@
         "pain_rating": "5/10 at rest, 7/10 with activity",
         "morning_stiffness": "45-60 minutes daily",
         "functional_limitations": "Fine motor tasks limited: cannot type > 10 min without pain, cannot grip shelving items > 1 kg, cannot open standard jars/bottles. Can: walk, sit, use computer briefly with ergonomic supports, perform self-care ADLs with difficulty.",
-        "able_to": ["sit with breaks", "walk short distances", "drive automatic vehicle", "read and supervise", "light computer work with ergonomic keyboard and mouse"],
-        "not_able_to": ["repetitive typing > 10 min", "shelving books > 1 kg", "sustained standing > 30 min", "lifting > 2 kg bilateral", "tasks requiring fine grip strength"],
+        "able_to": [
+          "sit with breaks",
+          "walk short distances",
+          "drive automatic vehicle",
+          "read and supervise",
+          "light computer work with ergonomic keyboard and mouse"
+        ],
+        "not_able_to": [
+          "repetitive typing > 10 min",
+          "shelving books > 1 kg",
+          "sustained standing > 30 min",
+          "lifting > 2 kg bilateral",
+          "tasks requiring fine grip strength"
+        ],
         "accommodation_needed": "Ergonomic workstation, voice-to-text software, lighter cataloguing duties only, no cart pushing, frequent rest breaks (10 min every 45 min), flexible start time to allow morning stiffness to resolve",
         "off_work_period": "Currently on modified duties. May require short-term leave if flare continues.",
-        "expected_improvement": "Reassess after rheumatology visit 2026-07-15 — possible biologic escalation"
+        "expected_improvement": "Reassess after rheumatology visit 2026-07-15 \u2014 possible biologic escalation"
       },
       "encounters": [
-        { "date": "2026-05-10", "type": "Office visit — RA monitoring and accommodation letter", "reason": "RA monitoring, methotrexate labs, workplace accommodation form", "physician": "Dr. A. Patel", "service_date": "2026-05-10", "notes": "MTX monitoring labs: WBC 4.2, ALT 28, creatinine 76 — all acceptable for continued MTX. Disease moderately active: DAS28-CRP 4.1. Morning stiffness 45-60 min. Pain 5/10 rest, 7/10 activity. Hands: bilateral MCP and PIP joint tenderness and mild swelling. New marginal erosions on 2025 X-ray. Patient unable to perform full librarian duties — specifically sustained typing, shelving heavy books, cart pushing. Accommodation letter written: ergonomic workstation, no repetitive typing, no lifting > 2 kg, flexible start time for morning stiffness, frequent rest breaks. Rheumatology follow-up 2026-07-15 (Dr. L. Fontaine, Ottawa Hospital). Disability insurance short-form completed for Manulife. Employer: University of Ottawa Library, 65 University Street, Ottawa ON K1N 9A5." }
+        {
+          "date": "2026-05-10",
+          "type": "Office visit \u2014 RA monitoring and accommodation letter",
+          "reason": "RA monitoring, methotrexate labs, workplace accommodation form",
+          "physician": "Dr. A. Patel",
+          "service_date": "2026-05-10",
+          "notes": "MTX monitoring labs: WBC 4.2, ALT 28, creatinine 76 \u2014 all acceptable for continued MTX. Disease moderately active: DAS28-CRP 4.1. Morning stiffness 45-60 min. Pain 5/10 rest, 7/10 activity. Hands: bilateral MCP and PIP joint tenderness and mild swelling. New marginal erosions on 2025 X-ray. Patient unable to perform full librarian duties \u2014 specifically sustained typing, shelving heavy books, cart pushing. Accommodation letter written: ergonomic workstation, no repetitive typing, no lifting > 2 kg, flexible start time for morning stiffness, frequent rest breaks. Rheumatology follow-up 2026-07-15 (Dr. L. Fontaine, Ottawa Hospital). Disability insurance short-form completed for Manulife. Employer: University of Ottawa Library, 65 University Street, Ottawa ON K1N 9A5."
+        }
       ],
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-008",
-      "name": { "text": "James Okafor", "family": "Okafor", "given": ["James"] },
+      "name": {
+        "text": "James Okafor",
+        "family": "Okafor",
+        "given": [
+          "James"
+        ]
+      },
       "birthDate": "2009-09-14",
       "gender": "male",
       "ohip": "8812-556-221-OP",
       "sin": "N/A (minor)",
       "language": "English",
-      "address": { "line": ["44 Cleary Avenue"], "city": "Ottawa", "province": "ON", "postalCode": "K2A 4A1" },
+      "address": {
+        "line": [
+          "44 Cleary Avenue"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K2A 4A1"
+      },
       "phone": "613-555-0922",
-      "guardian": { "name": "Patricia Okafor (mother)", "phone": "613-555-0922", "relationship": "Parent" },
+      "guardian": {
+        "name": "Patricia Okafor (mother)",
+        "phone": "613-555-0922",
+        "relationship": "Parent"
+      },
       "social_history": {
         "smoking": "Non-smoker (16 years old)",
         "alcohol": "Denied",
         "occupation": "Grade 10 student, Lisgar Collegiate Institute",
         "housing": "Lives with parents and younger sibling",
-        "exercise": "Soccer, 2×/week (activity limited by asthma triggers)"
+        "exercise": "Soccer, 2\u00d7/week (activity limited by asthma triggers)"
       },
-      "family_history": ["Mother: allergic rhinitis and asthma", "Father: eczema"],
+      "family_history": [
+        "Mother: allergic rhinitis and asthma",
+        "Father: eczema"
+      ],
       "conditions": [
-        { "code": "J45.50", "display": "Severe persistent asthma, uncomplicated", "onsetDate": "2014-03-01", "status": "active" },
-        { "code": "J30.9", "display": "Allergic rhinitis, unspecified", "onsetDate": "2014-03-01", "status": "active" },
-        { "code": "L20.9", "display": "Atopic dermatitis, unspecified", "onsetDate": "2011-06-01", "status": "active" }
+        {
+          "code": "J45.50",
+          "display": "Severe persistent asthma, uncomplicated",
+          "onsetDate": "2014-03-01",
+          "status": "active"
+        },
+        {
+          "code": "J30.9",
+          "display": "Allergic rhinitis, unspecified",
+          "onsetDate": "2014-03-01",
+          "status": "active"
+        },
+        {
+          "code": "L20.9",
+          "display": "Atopic dermatitis, unspecified",
+          "onsetDate": "2011-06-01",
+          "status": "active"
+        }
       ],
       "medications": [
-        { "name": "Fluticasone/salmeterol (Advair 250/25)", "dose": "250/25 mcg", "frequency": "inhaled twice daily", "startDate": "2019-09-01", "din": "02238922", "indication": "Asthma controller" },
-        { "name": "Montelukast (Singulair)", "dose": "10 mg", "frequency": "once nightly", "startDate": "2020-01-01", "din": "02238217", "indication": "Asthma and allergic rhinitis" },
-        { "name": "Salbutamol (Ventolin)", "dose": "100 mcg/puff", "frequency": "2 puffs as needed, max q4h", "startDate": "2014-04-01", "din": "00441775", "indication": "Asthma rescue" },
-        { "name": "Fluticasone nasal spray", "dose": "100 mcg", "frequency": "2 sprays each nostril once daily", "startDate": "2020-01-01", "din": "02244821", "indication": "Allergic rhinitis" },
-        { "name": "Hydrocortisone cream 1%", "dose": "thin layer", "frequency": "twice daily to affected areas as needed", "startDate": "2011-07-01", "din": "00197378", "indication": "Atopic dermatitis flares" }
+        {
+          "name": "Fluticasone/salmeterol (Advair 250/25)",
+          "dose": "250/25 mcg",
+          "frequency": "inhaled twice daily",
+          "startDate": "2019-09-01",
+          "din": "02238922",
+          "indication": "Asthma controller"
+        },
+        {
+          "name": "Montelukast (Singulair)",
+          "dose": "10 mg",
+          "frequency": "once nightly",
+          "startDate": "2020-01-01",
+          "din": "02238217",
+          "indication": "Asthma and allergic rhinitis"
+        },
+        {
+          "name": "Salbutamol (Ventolin)",
+          "dose": "100 mcg/puff",
+          "frequency": "2 puffs as needed, max q4h",
+          "startDate": "2014-04-01",
+          "din": "00441775",
+          "indication": "Asthma rescue"
+        },
+        {
+          "name": "Fluticasone nasal spray",
+          "dose": "100 mcg",
+          "frequency": "2 sprays each nostril once daily",
+          "startDate": "2020-01-01",
+          "din": "02244821",
+          "indication": "Allergic rhinitis"
+        },
+        {
+          "name": "Hydrocortisone cream 1%",
+          "dose": "thin layer",
+          "frequency": "twice daily to affected areas as needed",
+          "startDate": "2011-07-01",
+          "din": "00197378",
+          "indication": "Atopic dermatitis flares"
+        }
       ],
-      "allergies": ["Peanuts — anaphylaxis (EpiPen prescribed)", "Tree nuts — anaphylaxis", "Cats — allergic rhinitis and asthma exacerbation", "Shellfish — urticaria"],
-      "epipen": "Prescribed — EpiPen 0.3mg, 2 devices (school and home)",
+      "allergies": [
+        "Peanuts \u2014 anaphylaxis (EpiPen prescribed)",
+        "Tree nuts \u2014 anaphylaxis",
+        "Cats \u2014 allergic rhinitis and asthma exacerbation",
+        "Shellfish \u2014 urticaria"
+      ],
+      "epipen": "Prescribed \u2014 EpiPen 0.3mg, 2 devices (school and home)",
       "labs": [
-        { "test": "Total IgE", "value": "840", "unit": "IU/mL", "date": "2025-10-20", "reference": "< 100", "flag": "HIGH" },
-        { "test": "Specific IgE — Peanut (f13)", "value": "12.4", "unit": "kU/L", "date": "2025-10-20", "reference": "< 0.35", "flag": "HIGH" },
-        { "test": "CBC — Eosinophils", "value": "0.7", "unit": "×10⁹/L", "date": "2025-10-20", "reference": "< 0.5", "flag": "HIGH" }
+        {
+          "test": "Total IgE",
+          "value": "840",
+          "unit": "IU/mL",
+          "date": "2025-10-20",
+          "reference": "< 100",
+          "flag": "HIGH"
+        },
+        {
+          "test": "Specific IgE \u2014 Peanut (f13)",
+          "value": "12.4",
+          "unit": "kU/L",
+          "date": "2025-10-20",
+          "reference": "< 0.35",
+          "flag": "HIGH"
+        },
+        {
+          "test": "CBC \u2014 Eosinophils",
+          "value": "0.7",
+          "unit": "\u00d710\u2079/L",
+          "date": "2025-10-20",
+          "reference": "< 0.5",
+          "flag": "HIGH"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-05-20", "bp": "112/66", "hr": "78", "weight": "62 kg", "bmi": "20.4", "peak_flow": "380 L/min (78% predicted)" }
+        {
+          "date": "2026-05-20",
+          "bp": "112/66",
+          "hr": "78",
+          "weight": "62 kg",
+          "bmi": "20.4",
+          "peak_flow": "380 L/min (78% predicted)"
+        }
       ],
       "imaging": [
-        { "type": "Spirometry", "date": "2025-10-20", "result": "FEV1 74% predicted, FEV1/FVC 0.73. Post-bronchodilator FEV1 88%. Significant bronchodilator response. Pattern consistent with moderate-severe persistent asthma." }
+        {
+          "type": "Spirometry",
+          "date": "2025-10-20",
+          "result": "FEV1 74% predicted, FEV1/FVC 0.73. Post-bronchodilator FEV1 88%. Significant bronchodilator response. Pattern consistent with moderate-severe persistent asthma."
+        }
       ],
       "specialist_notes": [
-        { "date": "2025-11-10", "specialty": "Allergy & Immunology", "physician": "Dr. B. Wallace", "summary": "Confirmed peanut and tree nut anaphylaxis. Subcutaneous immunotherapy not indicated for food allergy. Allergen avoidance education reinforced. Referred for school anaphylaxis management plan. Considering dupilumab if atopic dermatitis not controlled on topicals." }
+        {
+          "date": "2025-11-10",
+          "specialty": "Allergy & Immunology",
+          "physician": "Dr. B. Wallace",
+          "summary": "Confirmed peanut and tree nut anaphylaxis. Subcutaneous immunotherapy not indicated for food allergy. Allergen avoidance education reinforced. Referred for school anaphylaxis management plan. Considering dupilumab if atopic dermatitis not controlled on topicals."
+        }
       ],
       "school_info": {
         "school": "Lisgar Collegiate Institute, Ottawa",
@@ -560,19 +1869,45 @@
         "phone": "613-555-1234"
       },
       "vaccinations": [
-        { "vaccine": "Influenza", "date": "2025-10-01" },
-        { "vaccine": "HPV (Gardasil 9) series complete", "date": "2024-11-15" },
-        { "vaccine": "Meningococcal (MenACWY)", "date": "2024-01-10" }
+        {
+          "vaccine": "Influenza",
+          "date": "2025-10-01"
+        },
+        {
+          "vaccine": "HPV (Gardasil 9) series complete",
+          "date": "2024-11-15"
+        },
+        {
+          "vaccine": "Meningococcal (MenACWY)",
+          "date": "2024-01-10"
+        }
       ],
       "screening": [],
       "school_medical_plan": {
         "date": "2026-05-20",
-        "diagnoses_for_school": ["Severe persistent asthma (J45.50)", "Peanut anaphylaxis", "Tree nut anaphylaxis", "Allergic rhinitis"],
+        "diagnoses_for_school": [
+          "Severe persistent asthma (J45.50)",
+          "Peanut anaphylaxis",
+          "Tree nut anaphylaxis",
+          "Allergic rhinitis"
+        ],
         "triggers": "Pollen (tree/grass/ragweed), cat dander, cold air, exercise in cold weather, upper respiratory infections",
         "emergency_medications_at_school": [
-          { "name": "EpiPen 0.3mg (epinephrine auto-injector)", "location": "Kept with student AND in school office (2 devices)", "instructions": "Inject outer right thigh immediately if anaphylaxis suspected. Call 911. Give second dose if no improvement in 5-10 min." },
-          { "name": "Salbutamol (Ventolin) MDI 100mcg", "location": "Kept with student", "instructions": "2 puffs for asthma symptoms. If no relief in 10 min call 911." },
-          { "name": "Benadryl (diphenhydramine) 25mg", "location": "School office", "instructions": "May give for mild allergic reaction after EpiPen." }
+          {
+            "name": "EpiPen 0.3mg (epinephrine auto-injector)",
+            "location": "Kept with student AND in school office (2 devices)",
+            "instructions": "Inject outer right thigh immediately if anaphylaxis suspected. Call 911. Give second dose if no improvement in 5-10 min."
+          },
+          {
+            "name": "Salbutamol (Ventolin) MDI 100mcg",
+            "location": "Kept with student",
+            "instructions": "2 puffs for asthma symptoms. If no relief in 10 min call 911."
+          },
+          {
+            "name": "Benadryl (diphenhydramine) 25mg",
+            "location": "School office",
+            "instructions": "May give for mild allergic reaction after EpiPen."
+          }
         ],
         "gym_restrictions": "Exempt from outdoor gym on high pollen days (Environment Canada pollen count > 3 moderate). Indoor gym permitted. Pre-treat with Salbutamol 2 puffs 15 min before vigorous exercise.",
         "food_restrictions": "Strict peanut and tree nut free zone in classroom. Student must not share food. Check all snack labels.",
@@ -582,19 +1917,50 @@
         "follow_up": "Annual review of plan with physician. Next review: September 2026."
       },
       "encounters": [
-        { "date": "2026-05-20", "type": "Office visit — school accommodation and anaphylaxis plan", "reason": "Asthma follow-up, school medical form and emergency action plan", "physician": "Dr. A. Patel", "service_date": "2026-05-20", "notes": "Asthma partially controlled on Advair 250/25 + Montelukast 10 mg. Rescue inhaler use 2-3x/week (above target of <2x/week). Peak flow 380 L/min = 78% predicted. Inhaler technique confirmed correct with mother. Confirmed peanut and tree nut anaphylaxis — EpiPen 0.3 mg x2 prescribed (school and home). School (Lisgar Collegiate Institute, principal Ms. J. Henderson, 613-555-1234, 29 Lisgar St Ottawa) requires: (1) medical form for gym exemptions on high pollen days, (2) anaphylaxis emergency action plan. Medical letter and action plan completed. Restrictions: exempt from outdoor gym when pollen high; pre-treat with Ventolin before vigorous exercise; strict peanut/tree nut avoidance at school; EpiPen to be kept accessible at all times. Guardian: Patricia Okafor (mother) 613-555-0922. Referral to allergy (Dr. B. Wallace) already in place." }
+        {
+          "date": "2026-05-20",
+          "type": "Office visit \u2014 school accommodation and anaphylaxis plan",
+          "reason": "Asthma follow-up, school medical form and emergency action plan",
+          "physician": "Dr. A. Patel",
+          "service_date": "2026-05-20",
+          "notes": "Asthma partially controlled on Advair 250/25 + Montelukast 10 mg. Rescue inhaler use 2-3x/week (above target of <2x/week). Peak flow 380 L/min = 78% predicted. Inhaler technique confirmed correct with mother. Confirmed peanut and tree nut anaphylaxis \u2014 EpiPen 0.3 mg x2 prescribed (school and home). School (Lisgar Collegiate Institute, principal Ms. J. Henderson, 613-555-1234, 29 Lisgar St Ottawa) requires: (1) medical form for gym exemptions on high pollen days, (2) anaphylaxis emergency action plan. Medical letter and action plan completed. Restrictions: exempt from outdoor gym when pollen high; pre-treat with Ventolin before vigorous exercise; strict peanut/tree nut avoidance at school; EpiPen to be kept accessible at all times. Guardian: Patricia Okafor (mother) 613-555-0922. Referral to allergy (Dr. B. Wallace) already in place."
+        }
       ],
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-009",
-      "name": { "text": "Louise Martin", "family": "Martin", "given": ["Louise"] },
+      "name": {
+        "text": "Louise Martin",
+        "family": "Martin",
+        "given": [
+          "Louise"
+        ]
+      },
       "birthDate": "1955-01-09",
       "gender": "female",
       "ohip": "2290-813-447-QR",
       "sin": "678-901-009",
       "language": "French",
-      "address": { "line": ["6 Hazel Street"], "city": "Ottawa", "province": "ON", "postalCode": "K1S 0G5" },
+      "address": {
+        "line": [
+          "6 Hazel Street"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K1S 0G5"
+      },
       "phone": "613-555-0381",
       "social_history": {
         "smoking": "Non-smoker",
@@ -603,119 +1969,454 @@
         "housing": "Widowed, lives alone, son nearby",
         "exercise": "Walking 45 min daily, swimming once a week"
       },
-      "family_history": ["Mother: breast cancer at 62, ovarian cancer at 70", "Sister: BRCA1 positive carrier", "Father: colon cancer at 68"],
+      "family_history": [
+        "Mother: breast cancer at 62, ovarian cancer at 70",
+        "Sister: BRCA1 positive carrier",
+        "Father: colon cancer at 68"
+      ],
       "conditions": [
-        { "code": "C50.912", "display": "Breast cancer, right, unspecified — in remission", "onsetDate": "2018-04-10", "status": "remission", "notes": "Stage II ER+/PR+ HER2- IDC. Treated with lumpectomy + radiation + 5 years tamoxifen (completed 2023)." },
-        { "code": "M81.0", "display": "Osteoporosis (treatment-induced)", "onsetDate": "2019-06-01", "status": "active" },
-        { "code": "E89.40", "display": "Asymptomatic postmenopausal state", "onsetDate": "2006-01-01", "status": "historical" }
+        {
+          "code": "C50.912",
+          "display": "Breast cancer, right, unspecified \u2014 in remission",
+          "onsetDate": "2018-04-10",
+          "status": "remission",
+          "notes": "Stage II ER+/PR+ HER2- IDC. Treated with lumpectomy + radiation + 5 years tamoxifen (completed 2023)."
+        },
+        {
+          "code": "M81.0",
+          "display": "Osteoporosis (treatment-induced)",
+          "onsetDate": "2019-06-01",
+          "status": "active"
+        },
+        {
+          "code": "E89.40",
+          "display": "Asymptomatic postmenopausal state",
+          "onsetDate": "2006-01-01",
+          "status": "historical"
+        }
       ],
       "medications": [
-        { "name": "Anastrozole", "dose": "1 mg", "frequency": "once daily", "startDate": "2023-06-01", "din": "02240387", "indication": "Breast cancer extended adjuvant therapy (switched from tamoxifen)" },
-        { "name": "Denosumab (Prolia)", "dose": "60 mg", "frequency": "subcutaneous every 6 months", "startDate": "2019-08-01", "din": "02355167", "indication": "Osteoporosis (aromatase inhibitor-induced)", "next_dose": "2026-08-15" },
-        { "name": "Calcium carbonate + Vitamin D3", "dose": "500 mg / 1000 IU", "frequency": "twice daily", "startDate": "2019-08-01", "din": "02242842", "indication": "Osteoporosis supplementation" }
+        {
+          "name": "Anastrozole",
+          "dose": "1 mg",
+          "frequency": "once daily",
+          "startDate": "2023-06-01",
+          "din": "02240387",
+          "indication": "Breast cancer extended adjuvant therapy (switched from tamoxifen)"
+        },
+        {
+          "name": "Denosumab (Prolia)",
+          "dose": "60 mg",
+          "frequency": "subcutaneous every 6 months",
+          "startDate": "2019-08-01",
+          "din": "02355167",
+          "indication": "Osteoporosis (aromatase inhibitor-induced)",
+          "next_dose": "2026-08-15"
+        },
+        {
+          "name": "Calcium carbonate + Vitamin D3",
+          "dose": "500 mg / 1000 IU",
+          "frequency": "twice daily",
+          "startDate": "2019-08-01",
+          "din": "02242842",
+          "indication": "Osteoporosis supplementation"
+        }
       ],
-      "allergies": ["Tamoxifen — severe hot flashes, switched to anastrozole (not true allergy, intolerance)"],
+      "allergies": [
+        "Tamoxifen \u2014 severe hot flashes, switched to anastrozole (not true allergy, intolerance)"
+      ],
       "labs": [
-        { "test": "Ca 15-3 (tumour marker)", "value": "18", "unit": "U/mL", "date": "2026-04-20", "reference": "< 30", "flag": "NORMAL" },
-        { "test": "CEA", "value": "2.1", "unit": "ng/mL", "date": "2026-04-20", "reference": "< 5.0", "flag": "NORMAL" },
-        { "test": "Calcium (corrected)", "value": "2.38", "unit": "mmol/L", "date": "2026-04-20", "reference": "2.10–2.60", "flag": "NORMAL" },
-        { "test": "Vitamin D (25-OH)", "value": "94", "unit": "nmol/L", "date": "2026-04-20", "reference": "75–250", "flag": "NORMAL" },
-        { "test": "Hemoglobin", "value": "132", "unit": "g/L", "date": "2026-04-20", "reference": "120–160", "flag": "NORMAL" },
-        { "test": "Cholesterol (total)", "value": "6.1", "unit": "mmol/L", "date": "2026-04-20", "reference": "< 5.2", "flag": "HIGH" },
-        { "test": "LDL", "value": "3.8", "unit": "mmol/L", "date": "2026-04-20", "reference": "< 3.5", "flag": "HIGH" }
+        {
+          "test": "Ca 15-3 (tumour marker)",
+          "value": "18",
+          "unit": "U/mL",
+          "date": "2026-04-20",
+          "reference": "< 30",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "CEA",
+          "value": "2.1",
+          "unit": "ng/mL",
+          "date": "2026-04-20",
+          "reference": "< 5.0",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Calcium (corrected)",
+          "value": "2.38",
+          "unit": "mmol/L",
+          "date": "2026-04-20",
+          "reference": "2.10\u20132.60",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Vitamin D (25-OH)",
+          "value": "94",
+          "unit": "nmol/L",
+          "date": "2026-04-20",
+          "reference": "75\u2013250",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Hemoglobin",
+          "value": "132",
+          "unit": "g/L",
+          "date": "2026-04-20",
+          "reference": "120\u2013160",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Cholesterol (total)",
+          "value": "6.1",
+          "unit": "mmol/L",
+          "date": "2026-04-20",
+          "reference": "< 5.2",
+          "flag": "HIGH"
+        },
+        {
+          "test": "LDL",
+          "value": "3.8",
+          "unit": "mmol/L",
+          "date": "2026-04-20",
+          "reference": "< 3.5",
+          "flag": "HIGH"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-04-20", "bp": "126/78", "hr": "68", "weight": "64 kg", "bmi": "23.5" }
+        {
+          "date": "2026-04-20",
+          "bp": "126/78",
+          "hr": "68",
+          "weight": "64 kg",
+          "bmi": "23.5"
+        }
       ],
       "imaging": [
-        { "type": "Mammography (right post-lumpectomy)", "date": "2025-12-10", "result": "Post-surgical changes right breast. No evidence of recurrence. Left breast normal. Recommend annual follow-up." },
-        { "type": "DEXA scan", "date": "2025-08-15", "result": "Lumbar spine T-score -2.8. Left femoral neck T-score -2.5. Osteoporosis at both sites. Stable from 2023 scan (improvement at spine from -3.1 with denosumab)." }
+        {
+          "type": "Mammography (right post-lumpectomy)",
+          "date": "2025-12-10",
+          "result": "Post-surgical changes right breast. No evidence of recurrence. Left breast normal. Recommend annual follow-up."
+        },
+        {
+          "type": "DEXA scan",
+          "date": "2025-08-15",
+          "result": "Lumbar spine T-score -2.8. Left femoral neck T-score -2.5. Osteoporosis at both sites. Stable from 2023 scan (improvement at spine from -3.1 with denosumab)."
+        }
       ],
       "specialist_notes": [
-        { "date": "2026-01-15", "specialty": "Oncology", "physician": "Dr. F. Osei, TOH Cancer Centre", "summary": "No evidence of recurrence. Continuing anastrozole — good tolerability. Annual follow-up imaging arranged. BRCA testing discussed — patient declined. Joint aches from anastrozole managed with calcium/Vit D." }
+        {
+          "date": "2026-01-15",
+          "specialty": "Oncology",
+          "physician": "Dr. F. Osei, TOH Cancer Centre",
+          "summary": "No evidence of recurrence. Continuing anastrozole \u2014 good tolerability. Annual follow-up imaging arranged. BRCA testing discussed \u2014 patient declined. Joint aches from anastrozole managed with calcium/Vit D."
+        }
       ],
       "vaccinations": [
-        { "vaccine": "Influenza (inactivated)", "date": "2025-10-05" },
-        { "vaccine": "Pneumococcal (PCV20)", "date": "2023-09-20" },
-        { "vaccine": "COVID-19 booster", "date": "2025-09-25" },
-        { "vaccine": "Shingrix (2 doses)", "date": "2022-04-15" }
+        {
+          "vaccine": "Influenza (inactivated)",
+          "date": "2025-10-05"
+        },
+        {
+          "vaccine": "Pneumococcal (PCV20)",
+          "date": "2023-09-20"
+        },
+        {
+          "vaccine": "COVID-19 booster",
+          "date": "2025-09-25"
+        },
+        {
+          "vaccine": "Shingrix (2 doses)",
+          "date": "2022-04-15"
+        }
       ],
       "screening": [
-        { "type": "Colonoscopy", "date": "2022-10-01", "result": "2 tubular adenomas removed (< 1 cm). Repeat in 3 years." },
-        { "type": "Next colonoscopy due", "date": "2025-10-01", "result": "Pending — patient booked" }
+        {
+          "type": "Colonoscopy",
+          "date": "2022-10-01",
+          "result": "2 tubular adenomas removed (< 1 cm). Repeat in 3 years."
+        },
+        {
+          "type": "Next colonoscopy due",
+          "date": "2025-10-01",
+          "result": "Pending \u2014 patient booked"
+        }
       ],
       "encounters": [
-        { "date": "2026-04-20", "type": "Office visit", "reason": "Annual preventive care, oncology liaison", "physician": "Dr. A. Patel", "notes": "Cancer surveillance coordinated with TOH oncology. DEXA showing improvement with denosumab. Cholesterol elevated — start statin discussed, patient prefers dietary trial first. Next denosumab injection due August 2026." }
+        {
+          "date": "2026-04-20",
+          "type": "Office visit",
+          "reason": "Annual preventive care, oncology liaison",
+          "physician": "Dr. A. Patel",
+          "notes": "Cancer surveillance coordinated with TOH oncology. DEXA showing improvement with denosumab. Cholesterol elevated \u2014 start statin discussed, patient prefers dietary trial first. Next denosumab injection due August 2026."
+        }
       ],
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     },
     {
       "id": "pt-010",
-      "name": { "text": "Michael Santos", "family": "Santos", "given": ["Michael"] },
+      "name": {
+        "text": "Michael Santos",
+        "family": "Santos",
+        "given": [
+          "Michael"
+        ]
+      },
       "birthDate": "1987-11-25",
       "gender": "male",
       "ohip": "5503-229-116-ST",
       "sin": "789-012-010",
       "language": "English",
-      "address": { "line": ["200 Lees Avenue, Apt 317"], "city": "Ottawa", "province": "ON", "postalCode": "K1S 5L5" },
+      "address": {
+        "line": [
+          "200 Lees Avenue, Apt 317"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K1S 5L5"
+      },
       "phone": "613-555-0644",
       "social_history": {
-        "smoking": "Former heavy smoker — quit 2023, 15 pack-year history",
-        "alcohol": "In recovery — sober since 2022-08-01",
+        "smoking": "Former heavy smoker \u2014 quit 2023, 15 pack-year history",
+        "alcohol": "In recovery \u2014 sober since 2022-08-01",
         "occupation": "Peer support worker, Ottawa Inner City Health (part-time)",
         "housing": "Supportive housing, Carlington area",
-        "exercise": "Walking group through recovery program, 3×/week",
-        "substance_use_history": "Opioid use disorder (heroin, fentanyl 2016–2022). Alcohol use disorder (2015–2022). Currently on OAT. Last illicit substance use: August 2022."
+        "exercise": "Walking group through recovery program, 3\u00d7/week",
+        "substance_use_history": "Opioid use disorder (heroin, fentanyl 2016\u20132022). Alcohol use disorder (2015\u20132022). Currently on OAT. Last illicit substance use: August 2022."
       },
-      "family_history": ["Father: alcohol use disorder, deceased at 52 (liver failure)", "Mother: depression and anxiety"],
+      "family_history": [
+        "Father: alcohol use disorder, deceased at 52 (liver failure)",
+        "Mother: depression and anxiety"
+      ],
       "conditions": [
-        { "code": "F11.20", "display": "Opioid use disorder, severe, on agonist therapy", "onsetDate": "2016-01-01", "status": "active" },
-        { "code": "F10.20", "display": "Alcohol use disorder, severe, in sustained remission", "onsetDate": "2015-06-01", "status": "remission" },
-        { "code": "F32.1", "display": "Major depressive disorder, single episode, moderate", "onsetDate": "2023-03-15", "status": "active" },
-        { "code": "B18.2", "display": "Chronic viral hepatitis C", "onsetDate": "2019-05-10", "status": "resolved", "notes": "SVR12 achieved after 8-week sofosbuvir/velpatasvir (2023). Cured." },
-        { "code": "B20", "display": "HIV disease", "onsetDate": "2021-09-01", "status": "active", "notes": "On ART. Undetectable viral load since 2022-06-01." }
+        {
+          "code": "F11.20",
+          "display": "Opioid use disorder, severe, on agonist therapy",
+          "onsetDate": "2016-01-01",
+          "status": "active"
+        },
+        {
+          "code": "F10.20",
+          "display": "Alcohol use disorder, severe, in sustained remission",
+          "onsetDate": "2015-06-01",
+          "status": "remission"
+        },
+        {
+          "code": "F32.1",
+          "display": "Major depressive disorder, single episode, moderate",
+          "onsetDate": "2023-03-15",
+          "status": "active"
+        },
+        {
+          "code": "B18.2",
+          "display": "Chronic viral hepatitis C",
+          "onsetDate": "2019-05-10",
+          "status": "resolved",
+          "notes": "SVR12 achieved after 8-week sofosbuvir/velpatasvir (2023). Cured."
+        },
+        {
+          "code": "B20",
+          "display": "HIV disease",
+          "onsetDate": "2021-09-01",
+          "status": "active",
+          "notes": "On ART. Undetectable viral load since 2022-06-01."
+        }
       ],
       "medications": [
-        { "name": "Buprenorphine/naloxone (Suboxone)", "dose": "16 mg / 4 mg", "frequency": "sublingual once daily (witnessed daily at pharmacy)", "startDate": "2022-09-01", "din": "02420252", "indication": "Opioid agonist therapy (OAT)" },
-        { "name": "Bictegravir/emtricitabine/TAF (Biktarvy)", "dose": "50/200/25 mg", "frequency": "once daily with food", "startDate": "2021-10-01", "din": "02496445", "indication": "HIV antiretroviral therapy" },
-        { "name": "Sertraline", "dose": "50 mg", "frequency": "once daily", "startDate": "2023-04-01", "din": "02048515", "indication": "Major depressive disorder" },
-        { "name": "Pantoprazole", "dose": "40 mg", "frequency": "once daily before breakfast", "startDate": "2023-05-01", "din": "02229519", "indication": "GERD (related to prior alcohol use)" }
+        {
+          "name": "Buprenorphine/naloxone (Suboxone)",
+          "dose": "16 mg / 4 mg",
+          "frequency": "sublingual once daily (witnessed daily at pharmacy)",
+          "startDate": "2022-09-01",
+          "din": "02420252",
+          "indication": "Opioid agonist therapy (OAT)"
+        },
+        {
+          "name": "Bictegravir/emtricitabine/TAF (Biktarvy)",
+          "dose": "50/200/25 mg",
+          "frequency": "once daily with food",
+          "startDate": "2021-10-01",
+          "din": "02496445",
+          "indication": "HIV antiretroviral therapy"
+        },
+        {
+          "name": "Sertraline",
+          "dose": "50 mg",
+          "frequency": "once daily",
+          "startDate": "2023-04-01",
+          "din": "02048515",
+          "indication": "Major depressive disorder"
+        },
+        {
+          "name": "Pantoprazole",
+          "dose": "40 mg",
+          "frequency": "once daily before breakfast",
+          "startDate": "2023-05-01",
+          "din": "02229519",
+          "indication": "GERD (related to prior alcohol use)"
+        }
       ],
-      "allergies": ["Methadone — QTc prolongation (switched to buprenorphine)", "Codeine — inadequate analgesia and nausea"],
+      "allergies": [
+        "Methadone \u2014 QTc prolongation (switched to buprenorphine)",
+        "Codeine \u2014 inadequate analgesia and nausea"
+      ],
       "labs": [
-        { "test": "HIV viral load", "value": "< 20 (undetectable)", "unit": "copies/mL", "date": "2026-04-15", "reference": "< 50 undetectable", "flag": "NORMAL" },
-        { "test": "CD4 count", "value": "620", "unit": "cells/µL", "date": "2026-04-15", "reference": "> 500", "flag": "NORMAL" },
-        { "test": "HCV RNA (post-treatment)", "value": "Not detected", "unit": "", "date": "2024-01-10", "reference": "Not detected = SVR (cured)", "flag": "NORMAL" },
-        { "test": "ALT", "value": "32", "unit": "U/L", "date": "2026-04-15", "reference": "< 40", "flag": "NORMAL" },
-        { "test": "Creatinine", "value": "88", "unit": "µmol/L", "date": "2026-04-15", "reference": "70–106", "flag": "NORMAL" },
-        { "test": "eGFR", "value": "82", "unit": "mL/min/1.73m²", "date": "2026-04-15", "reference": "≥ 60", "flag": "NORMAL" },
-        { "test": "CBC — Hemoglobin", "value": "138", "unit": "g/L", "date": "2026-04-15", "reference": "130–170", "flag": "NORMAL" },
-        { "test": "PHQ-9", "value": "11", "unit": "score", "date": "2026-05-12", "reference": "< 10 mild", "flag": "HIGH" }
+        {
+          "test": "HIV viral load",
+          "value": "< 20 (undetectable)",
+          "unit": "copies/mL",
+          "date": "2026-04-15",
+          "reference": "< 50 undetectable",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "CD4 count",
+          "value": "620",
+          "unit": "cells/\u00b5L",
+          "date": "2026-04-15",
+          "reference": "> 500",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "HCV RNA (post-treatment)",
+          "value": "Not detected",
+          "unit": "",
+          "date": "2024-01-10",
+          "reference": "Not detected = SVR (cured)",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "ALT",
+          "value": "32",
+          "unit": "U/L",
+          "date": "2026-04-15",
+          "reference": "< 40",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "Creatinine",
+          "value": "88",
+          "unit": "\u00b5mol/L",
+          "date": "2026-04-15",
+          "reference": "70\u2013106",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "eGFR",
+          "value": "82",
+          "unit": "mL/min/1.73m\u00b2",
+          "date": "2026-04-15",
+          "reference": "\u2265 60",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "CBC \u2014 Hemoglobin",
+          "value": "138",
+          "unit": "g/L",
+          "date": "2026-04-15",
+          "reference": "130\u2013170",
+          "flag": "NORMAL"
+        },
+        {
+          "test": "PHQ-9",
+          "value": "11",
+          "unit": "score",
+          "date": "2026-05-12",
+          "reference": "< 10 mild",
+          "flag": "HIGH"
+        }
       ],
       "vitals_trend": [
-        { "date": "2026-05-12", "bp": "118/74", "hr": "76", "weight": "74 kg", "bmi": "24.2" }
+        {
+          "date": "2026-05-12",
+          "bp": "118/74",
+          "hr": "76",
+          "weight": "74 kg",
+          "bmi": "24.2"
+        }
       ],
       "imaging": [
-        { "type": "FibroScan (liver elastography)", "date": "2024-03-01", "result": "Liver stiffness 5.8 kPa. Consistent with minimal fibrosis (F0-F1) post-HCV cure. No cirrhosis." }
+        {
+          "type": "FibroScan (liver elastography)",
+          "date": "2024-03-01",
+          "result": "Liver stiffness 5.8 kPa. Consistent with minimal fibrosis (F0-F1) post-HCV cure. No cirrhosis."
+        }
       ],
       "specialist_notes": [
-        { "date": "2026-01-20", "specialty": "Infectious Disease / HIV", "physician": "Dr. M. Diallo", "summary": "Stable HIV on Biktarvy. Viral load undetectable, CD4 excellent. Annual STI screen negative. HCV cure confirmed by SVR12. No ARV changes needed. Annual follow-up." },
-        { "date": "2025-10-05", "specialty": "Addiction Medicine", "physician": "Dr. T. Morin", "summary": "Doing well on Suboxone 16/4. No illicit drug use confirmed by monthly UDS. Discussed carry doses — transitioning to 3-day carries as next milestone. Employment positive prognostic factor. Continue current dose." }
+        {
+          "date": "2026-01-20",
+          "specialty": "Infectious Disease / HIV",
+          "physician": "Dr. M. Diallo",
+          "summary": "Stable HIV on Biktarvy. Viral load undetectable, CD4 excellent. Annual STI screen negative. HCV cure confirmed by SVR12. No ARV changes needed. Annual follow-up."
+        },
+        {
+          "date": "2025-10-05",
+          "specialty": "Addiction Medicine",
+          "physician": "Dr. T. Morin",
+          "summary": "Doing well on Suboxone 16/4. No illicit drug use confirmed by monthly UDS. Discussed carry doses \u2014 transitioning to 3-day carries as next milestone. Employment positive prognostic factor. Continue current dose."
+        }
       ],
       "vaccinations": [
-        { "vaccine": "Hepatitis A (2-dose series)", "date": "2023-02-10" },
-        { "vaccine": "Hepatitis B (3-dose series)", "date": "2022-12-01" },
-        { "vaccine": "Influenza", "date": "2025-10-12" },
-        { "vaccine": "Pneumococcal (PCV20 — HIV indication)", "date": "2023-09-15" },
-        { "vaccine": "COVID-19 booster", "date": "2025-09-18" }
+        {
+          "vaccine": "Hepatitis A (2-dose series)",
+          "date": "2023-02-10"
+        },
+        {
+          "vaccine": "Hepatitis B (3-dose series)",
+          "date": "2022-12-01"
+        },
+        {
+          "vaccine": "Influenza",
+          "date": "2025-10-12"
+        },
+        {
+          "vaccine": "Pneumococcal (PCV20 \u2014 HIV indication)",
+          "date": "2023-09-15"
+        },
+        {
+          "vaccine": "COVID-19 booster",
+          "date": "2025-09-18"
+        }
       ],
       "screening": [
-        { "type": "STI screen (HIV, gonorrhea, chlamydia, syphilis)", "date": "2026-01-20", "result": "All negative" }
+        {
+          "type": "STI screen (HIV, gonorrhea, chlamydia, syphilis)",
+          "date": "2026-01-20",
+          "result": "All negative"
+        }
       ],
       "encounters": [
-        { "date": "2026-05-12", "type": "Office visit", "reason": "OAT monthly check-in, depression management", "physician": "Dr. A. Patel", "notes": "PHQ-9 elevated at 11 — moderate depression. Sertraline dose increase to 75 mg discussed. Patient working part-time as peer support worker. Requests letter supporting continued Suboxone coverage under ODB. Doing well socially, stable housing." }
+        {
+          "date": "2026-05-12",
+          "type": "Office visit",
+          "reason": "OAT monthly check-in, depression management",
+          "physician": "Dr. A. Patel",
+          "notes": "PHQ-9 elevated at 11 \u2014 moderate depression. Sertraline dose increase to 75 mg discussed. Patient working part-time as peer support worker. Requests letter supporting continued Suboxone coverage under ODB. Doing well socially, stable housing."
+        }
       ],
-      "physician": { "name": "Dr. Anika Patel", "cpso": "92841", "wsib_provider_id": "0512345678", "hst_registration": "812345678RT0001", "service_code_form8": "8M", "invoice_prefix": "AP-2026", "clinic": "Ottawa Family Health Team", "address": "400 Elgin Street, Ottawa ON K2P 1M7", "phone": "613-555-0400", "fax": "613-555-0401" }
+      "physician": {
+        "name": "Dr. Anika Patel",
+        "cpso": "92841",
+        "wsib_provider_id": "0512345678",
+        "hst_registration": "812345678RT0001",
+        "service_code_form8": "8M",
+        "invoice_prefix": "AP-2026",
+        "clinic": "Ottawa Family Health Team",
+        "address": "400 Elgin Street, Ottawa ON K2P 1M7",
+        "phone": "613-555-0400",
+        "fax": "613-555-0401"
+      }
     }
   ]
 }

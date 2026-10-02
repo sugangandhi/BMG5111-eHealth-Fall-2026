@@ -20,7 +20,15 @@ def _load() -> list[dict]:
 
 def list_patients() -> list[dict]:
     return [
-        {"id": p["id"], "name": p["name"]["text"], "birthDate": p["birthDate"]}
+        {
+            "id": p["id"],
+            "name": p["name"]["text"],
+            "birthDate": p["birthDate"],
+            "phone": p.get("phone", "613-555-0192"),
+            "allergies": ", ".join(p.get("allergies", [])) if isinstance(p.get("allergies"), list) else (p.get("allergies") or "NKDA"),
+            "mrn": p.get("ohip", f"MRN-{p['id']}"),
+            "gender": p.get("gender", "")
+        }
         for p in _load()
     ]
 
@@ -30,6 +38,25 @@ def get_patient(patient_id: str) -> Optional[dict]:
         if p["id"] == patient_id:
             return p
     return None
+
+
+def update_patient_phone(patient_id: str, new_phone: str) -> Optional[dict]:
+    global _patients
+    clean_phone = new_phone.strip()
+    patients = _load()
+    target = None
+    for p in patients:
+        if p["id"] == patient_id:
+            p["phone"] = clean_phone
+            target = p
+            break
+    if target:
+        try:
+            with open(_DATA_PATH, "w", encoding="utf-8") as f:
+                json.dump({"patients": patients}, f, indent=2)
+        except Exception as e:
+            print(f"[PatientLoader] Error persisting patient phone: {e}")
+    return target
 
 
 def build_patient_context(patient_id: str) -> str:

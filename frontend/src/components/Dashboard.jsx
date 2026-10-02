@@ -95,6 +95,7 @@ export default function Dashboard() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [actionMessage, setActionMessage] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [patientsList, setPatientsList] = useState([]);
   
   const token = localStorage.getItem('medoffice_token');
 
@@ -102,14 +103,18 @@ export default function Dashboard() {
     if (isOffline) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [statsRes, actRes, apptsRes] = await Promise.all([
+      const [statsRes, actRes, apptsRes, patientsRes] = await Promise.all([
         axios.get('/api/dashboard/stats', { headers }),
         axios.get('/api/activity', { headers }),
-        axios.get('/api/appointments', { headers })
+        axios.get('/api/appointments', { headers }),
+        axios.get('/api/patients', { headers }).catch(() => ({ data: { patients: [] } }))
       ]);
       setStats(statsRes.data);
       setActivities(actRes.data.items);
       setAppointments(apptsRes.data.appointments);
+      if (patientsRes.data?.patients) {
+        setPatientsList(patientsRes.data.patients);
+      }
     } catch (err) {
       console.error("Dashboard error:", err);
     }
@@ -166,13 +171,16 @@ export default function Dashboard() {
   };
 
   const startEncounter = (appt) => {
-    // Generate a mock patient context payload
+    // Match against real registered patient registry
+    const matched = patientsList.find(p => p.id === appt.patient_id || (p.name && p.name.toLowerCase() === appt.patient_name.toLowerCase()));
     const patientContext = {
+      id: matched?.id || appt.patient_id || 'pt-001',
       name: appt.patient_name,
       initials: appt.initials,
-      dob: "04/12/1985", // Mock data
-      mrn: `MRN-${Math.floor(1000 + Math.random() * 9000)}`,
-      allergies: appt.patient_name.includes("Doe") ? "Penicillin" : "NKDA",
+      dob: matched?.birthDate || "1981-04-14",
+      phone: matched?.phone || "613-555-0192",
+      mrn: matched?.mrn || `MRN-${Math.floor(1000 + Math.random() * 9000)}`,
+      allergies: matched?.allergies || (appt.patient_name.includes("Doe") ? "Penicillin" : "NKDA"),
       codeStatus: "Full Code"
     };
     window.dispatchEvent(new CustomEvent('set-active-patient', { detail: patientContext }));
@@ -519,7 +527,10 @@ export default function Dashboard() {
           <button 
             type="button"
             className="mobile-action-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: { patient: upNextAppt } }))}
+            onClick={() => {
+              const matched = patientsList.find(p => p.id === upNextAppt?.patient_id || (p.name && p.name.toLowerCase() === upNextAppt?.patient_name?.toLowerCase()));
+              window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: { patient: matched || upNextAppt } }));
+            }}
           >
             <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.25), rgba(18, 140, 126, 0.15))', color: '#25d366', borderColor: 'rgba(37, 211, 102, 0.4)' }}>
               <MessageCircle size={22} />

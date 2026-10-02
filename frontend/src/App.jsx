@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle } from 'lucide-react';
+import axios from 'axios';
+import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Users, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle, ExternalLink, Phone, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
 
 // We will create these components next
 import Dashboard from './components/Dashboard';
+import PatientDirectory from './components/PatientDirectory';
 import FormFiller from './components/FormFiller';
 import ReferralChecker from './components/ReferralChecker';
 import InboundSummary from './components/InboundSummary';
@@ -84,6 +86,7 @@ function App() {
   const mockSearchResults = [
     { id: 'p1', type: 'Patient', title: 'John Doe', desc: 'DOB: 04/12/1985 • Hypertension', action: 'dashboard', icon: <User size={14} color="#3b82f6" /> },
     { id: 'p2', type: 'Patient', title: 'Sarah Jenkins', desc: 'DOB: 11/23/1992 • MRI Referral', action: 'dashboard', icon: <User size={14} color="#3b82f6" /> },
+    { id: 'p3', type: 'Directory', title: 'Central Cloud Patient Directory', desc: '60 Unified Patients (50 Cloud + 10 Clinic)', action: 'patients', icon: <Users size={14} color="#3b82f6" /> },
     { id: 's1', type: 'Setting', title: 'Voice Profile', desc: 'Change AI Assistant Voice', action: 'settings', icon: <Mic size={14} color="#10b981" /> },
     { id: 'i1', type: 'Message', title: 'Cardiology Dept', desc: 'STAT ECG Review needed', action: 'inbox', icon: <Inbox size={14} color="#a855f7" /> }
   ];
@@ -117,23 +120,97 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Direct 1-Tap WhatsApp Launcher
+  const [isEditingPatientPhone, setIsEditingPatientPhone] = useState(false);
+  const [tempPhone, setTempPhone] = useState('');
+  const [allPatients, setAllPatients] = useState([]);
+
+  // Initial patient loader so activePatient has real connected data
+  useEffect(() => {
+    axios.get('/api/patients').then(res => {
+      if (res.data?.patients && res.data.patients.length > 0) {
+        setAllPatients(res.data.patients);
+        if (!activePatient) {
+          const first = res.data.patients[0];
+          setActivePatient({
+            id: first.id,
+            name: first.name,
+            initials: (first.name || 'PT').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+            dob: first.birthDate,
+            phone: first.phone || '613-555-0192',
+            mrn: first.mrn || `MRN-${first.id}`,
+            allergies: first.allergies || 'NKDA',
+            codeStatus: 'Full Code'
+          });
+        }
+      }
+    }).catch(err => console.log("Initial patient load note:", err));
+  }, []);
+
+  const handleSelectPatientById = (patientId) => {
+    const target = allPatients.find(p => p.id === patientId);
+    if (target) {
+      setActivePatient({
+        id: target.id,
+        name: target.name,
+        initials: (target.name || 'PT').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+        dob: target.birthDate,
+        phone: target.phone || '613-555-0192',
+        mrn: target.mrn || `MRN-${target.id}`,
+        allergies: target.allergies || 'NKDA',
+        codeStatus: 'Full Code'
+      });
+      setIsEditingPatientPhone(false);
+    }
+  };
+
+  const handleSelectPatientFromDirectory = (p) => {
+    setActivePatient({
+      id: p.id,
+      name: p.name,
+      initials: p.initials || (p.name || 'PT').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+      dob: p.birthDate || p.dob || '1985-05-12',
+      phone: p.phone || p.contact || '613-555-0192',
+      mrn: p.mrn || `MRN-${p.id}`,
+      allergies: p.allergies || 'NKDA',
+      codeStatus: 'Full Code',
+      source: p.source || 'central_cloud'
+    });
+    setIsEditingPatientPhone(false);
+  };
+
+  // Save patient phone change (connect personal test phone directly to chart)
+  const handleSavePatientPhone = async () => {
+    if (!activePatient || !tempPhone.trim()) return;
+    const clean = tempPhone.trim();
+    const updated = { ...activePatient, phone: clean };
+    setActivePatient(updated);
+    setAllPatients(prev => prev.map(p => p.id === activePatient.id ? { ...p, phone: clean } : p));
+    setIsEditingPatientPhone(false);
+    localStorage.setItem('test_whatsapp_phone', clean);
+
+    try {
+      if (activePatient.id) {
+        await axios.put(`/api/patient/${activePatient.id}/phone`, { phone: clean });
+      }
+    } catch (e) {
+      console.log("Phone save note:", e);
+    }
+  };
+
+  // Direct Automatic 1-Tap WhatsApp Launcher (Zero Popups)
   const launchDirectWhatsApp = (patient = null, customMessage = null) => {
     const target = patient || activePatient;
-    const rawPhone = target?.phone || '613-555-0192';
+    const pName = target?.name?.text || target?.name || (target ? 'Patient' : 'Patient');
+    const rawPhone = target?.phone || localStorage.getItem('test_whatsapp_phone') || '613-555-0192';
     const digits = rawPhone.replace(/\D/g, '') || '16135550192';
     const cleanNumber = digits.length === 10 ? `1${digits}` : digits;
 
     let text = customMessage;
     if (!text) {
-      if (target) {
-        const pName = target.name?.text || target.name || 'Patient';
-        const docName = user?.name || 'your attending physician';
-        text = `Hello ${pName}, this is ${docName} following up on your medical chart from Prime Care Medical Clinic.`;
-      } else {
-        const docName = user?.name || 'the attending physician';
-        text = `Hello, this is an update regarding patient clinical care with ${docName} at Prime Care Clinic.`;
-      }
+      const docName = user?.name || 'your attending physician';
+      text = target 
+        ? `Hello ${pName}, this is ${docName} following up on your medical chart from Prime Care Medical Clinic.`
+        : `Hello, this is ${docName} following up on patient clinical care with Prime Care Clinic.`;
     }
 
     const waUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(text)}`;
@@ -407,45 +484,88 @@ function App() {
 
   return (
     <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'relative' }}>
-      <header className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px', margin: '16px', borderBottom: 'none', borderRadius: '16px', alignItems: 'center', position: 'relative', zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <header className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 20px', margin: '12px 16px', borderBottom: 'none', borderRadius: '16px', alignItems: 'center', position: 'relative', zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
           {user?.picture ? (
-            <img src={user.picture} alt={user?.name || 'User'} style={{ width: '42px', height: '42px', borderRadius: '50%', border: '1px solid var(--border)' }} />
+            <img src={user.picture} alt={user?.name || 'User'} style={{ width: '38px', height: '38px', borderRadius: '50%', border: '1px solid var(--border)', flexShrink: 0 }} />
           ) : (
-            <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '18px', color: 'white' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '16px', color: 'white', flexShrink: 0 }}>
               {user?.initials || 'MD'}
             </div>
           )}
-          <div>
+          <div style={{ minWidth: 0 }}>
             {/* Desktop header text */}
             <div className="desktop-only">
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' }}>Prime Care App <span style={{ fontSize: '11px', background: 'rgba(47, 129, 247, 0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', verticalAlign: 'middle', border: '1px solid rgba(47, 129, 247, 0.2)', fontWeight: '600' }}>PRO</span></h2>
-              <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '600', color: 'var(--text-primary)' }}>Prime Care App <span style={{ fontSize: '11px', background: 'rgba(47, 129, 247, 0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', verticalAlign: 'middle', border: '1px solid rgba(47, 129, 247, 0.2)', fontWeight: '600' }}>PRO</span></h2>
+              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>{user?.clinic || 'Prime Care Medical Group'} · </span>
-                <strong style={{ color: 'var(--text-primary)', fontWeight: '500' }}>{user?.name}</strong>
+                <strong style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{user?.name}</strong>
                 {user?.email && ` (${user.email})`}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#ef4444',
+                    borderRadius: '6px',
+                    padding: '2px 8px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    marginLeft: '6px'
+                  }}
+                  title="Sign out to switch doctor accounts or create a new profile"
+                >
+                  <LogOut size={11} /> Switch Doctor
+                </button>
               </p>
             </div>
 
             {/* Mobile header text - consolidated doctor info & duty status */}
-            <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <strong style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>{user?.name || 'Attending Physician'}</strong>
-                <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#16a34a', padding: '1px 6px', borderRadius: '6px', fontWeight: '700' }}>🟢 On Duty</span>
+            <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                <strong style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '125px' }}>
+                  {user?.name || 'Attending Physician'}
+                </strong>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#ef4444',
+                    borderRadius: '5px',
+                    padding: '1px 6px',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    flexShrink: 0
+                  }}
+                  title="Switch doctor account"
+                >
+                  <LogOut size={10} /> Switch
+                </button>
               </div>
-              <p style={{ margin: '1px 0 0 0', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                <span>·</span>
-                <span style={{ color: '#16a34a', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} /> Live Sync
+              <p style={{ margin: '1px 0 0 0', fontSize: '10px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ color: '#16a34a', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} /> Live
                 </span>
+                <span>·</span>
+                <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
               </p>
             </div>
           </div>
         </div>
 
         {/* Header Right Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative', flexShrink: 0 }}>
           
           {/* Spotlight Search Trigger (Desktop) */}
           <button 
@@ -478,12 +598,12 @@ function App() {
             style={{
               background: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
-              borderRadius: '6px', width: '34px', height: '34px',
+              borderRadius: '6px', width: '32px', height: '32px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--text-secondary)', cursor: 'pointer'
+              color: 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0
             }}
           >
-            <Search size={18} />
+            <Search size={16} />
           </button>
 
           {/* Hands-Free Navigation Toggle (Desktop Only) */}
@@ -507,13 +627,13 @@ function App() {
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             style={{ 
               background: 'var(--bg-secondary)', border: '1px solid var(--border)', 
-              borderRadius: '6px', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--text-secondary)', cursor: 'pointer', position: 'relative',
+              borderRadius: '6px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-secondary)', cursor: 'pointer', position: 'relative', flexShrink: 0,
               boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}
           >
-            <Bell size={18} />
-            <div style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'var(--error)', width: '10px', height: '10px', borderRadius: '50%', border: '2px solid var(--bg-primary)' }} />
+            <Bell size={16} />
+            <div style={{ position: 'absolute', top: '-3px', right: '-3px', background: 'var(--error)', width: '8px', height: '8px', borderRadius: '50%', border: '2px solid var(--bg-primary)' }} />
           </button>
 
           <button 
@@ -536,15 +656,15 @@ function App() {
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px',
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px',
               borderRadius: '6px', border: '1px solid var(--border)',
               background: 'var(--bg-secondary)', fontWeight: '500', fontSize: '13px', color: 'var(--text-primary)',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)', flexShrink: 0
             }}
           >
-            <Settings size={17} color="#60a5fa" />
-            <span className="desktop-only">Menu & Settings</span>
-            <ChevronDown size={15} style={{ transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            <Settings size={16} color="#60a5fa" />
+            <span className="desktop-only">Menu</span>
+            <ChevronDown size={13} style={{ transform: isMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
           </button>
 
           {/* Floating Dropdown Quick-Menu */}
@@ -610,6 +730,26 @@ function App() {
                 </div>
                 <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(37, 211, 102, 0.2)', color: '#25D366', fontWeight: '700' }}>
                   Direct
+                </span>
+              </button>
+
+              {/* Central Cloud Patients Directory */}
+              <button
+                onClick={() => { setIsMenuOpen(false); handleTabClick('patients'); }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px',
+                  borderRadius: '10px', border: 'none', background: 'transparent', color: 'var(--text-primary)',
+                  cursor: 'pointer', fontSize: '14px', fontWeight: '500', transition: 'background 0.2s', textAlign: 'left'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Users size={17} color="#3b82f6" />
+                  <span>Patient Directory</span>
+                </div>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', fontWeight: '700' }}>
+                  Cloud
                 </span>
               </button>
 
@@ -711,6 +851,7 @@ function App() {
         {/* Sidebar Nav */}
         <aside className="glass-panel desktop-only" style={{ width: '250px', margin: '0 0 16px 16px', padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: 'none', backdropFilter: 'blur(30px)' }}>
           <NavButton icon={<LayoutDashboard size={18} />} label="Dashboard" badge={badges.dashboard} active={activeTab === 'dashboard'} onClick={() => handleTabClick('dashboard')} />
+          <NavButton icon={<Users size={18} />} label="Patient Directory" active={activeTab === 'patients'} onClick={() => handleTabClick('patients')} />
           <NavButton icon={<Activity size={18} />} label="Digital Twin" active={activeTab === 'twin'} onClick={() => handleTabClick('twin')} />
           <NavButton icon={<Calendar size={18} />} label="Smart Calendar" active={activeTab === 'calendar'} onClick={() => handleTabClick('calendar')} />
           <NavButton icon={<FileText size={18} />} label="Intake OCR Engine" badge={badges.formFiller} active={activeTab === 'formFiller'} onClick={() => handleTabClick('formFiller')} />
@@ -738,51 +879,198 @@ function App() {
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                style={{ 
-                  background: 'rgba(59, 130, 246, 0.1)', 
-                  borderBottom: '1px solid rgba(59, 130, 246, 0.3)', 
-                  padding: '12px 24px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                  zIndex: 10
-                }}
+                className="patient-banner-container"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                {/* Desktop Layout */}
+                <div className="patient-banner-desktop">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1 }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px', flexShrink: 0 }}>
                       {activePatient.initials}
                     </div>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '16px', color: 'var(--text-primary)' }}>{activePatient.name}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>DOB: {activePatient.dob} • MRN: {activePatient.mrn}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{activePatient.name}</span>
+                        <span style={{ fontSize: '11px', padding: '1px 7px', borderRadius: '4px', background: activePatient.allergies === 'NKDA' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: activePatient.allergies === 'NKDA' ? '#10b981' : '#f87171', fontWeight: '700' }}>
+                          {activePatient.allergies === 'NKDA' ? 'NKDA' : `Allergies: ${activePatient.allergies}`}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>DOB: {activePatient.dob} • MRN: {activePatient.mrn}</span>
+                        {allPatients.length > 1 && (
+                          <select
+                            value={activePatient.id}
+                            onChange={(e) => handleSelectPatientById(e.target.value)}
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              borderRadius: '4px',
+                              color: '#60a5fa',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              padding: '1px 4px',
+                              outline: 'none'
+                            }}
+                            title="Switch active patient chart"
+                          >
+                            {allPatients.map(p => (
+                              <option key={p.id} value={p.id} style={{ background: '#161b22', color: '#e6edf3' }}>
+                                Switch: {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)' }} />
-                  <div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Allergies</div>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: activePatient.allergies === 'NKDA' ? '#10b981' : '#ef4444' }}>{activePatient.allergies}</div>
-                  </div>
-                  <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.1)' }} />
-                  <div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Code Status</div>
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#60a5fa' }}>{activePatient.codeStatus || 'Full Code'}</div>
+
+                  {/* Desktop Actions: WhatsApp Icon Button + AI Scribe + Close */}
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
+                    <button 
+                      type="button"
+                      onClick={() => launchDirectWhatsApp(activePatient)}
+                      style={{
+                        background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                        color: '#ffffff',
+                        border: 'none',
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 10px rgba(37, 211, 102, 0.35)',
+                        transition: 'transform 0.15s ease'
+                      }}
+                      title={`Open WhatsApp chat with ${activePatient.name}`}
+                    >
+                      <MessageCircle size={20} />
+                    </button>
+                    <button 
+                      onClick={() => { window.dispatchEvent(new CustomEvent('open-scribe')); }}
+                      style={{ background: 'rgba(16, 185, 129, 0.18)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      title="Open Ambient AI Scribe"
+                    >
+                      <Mic size={14} /> Open AI Scribe
+                    </button>
+                    <button 
+                      onClick={() => setActivePatient(null)}
+                      style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '50%' }}
+                      title="Dismiss patient banner"
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
-                    onClick={() => { window.dispatchEvent(new CustomEvent('open-scribe')); }}
-                    style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.4)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    <Mic size={14} /> Open AI Scribe
-                  </button>
-                  <button 
-                    onClick={() => setActivePatient(null)}
-                    style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer', padding: '6px' }}
-                  >
-                    <X size={18} />
-                  </button>
+
+                {/* Mobile Layout: Simple, Clean Single-Row Strip */}
+                <div className="patient-banner-mobile">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px', flexShrink: 0 }}>
+                      {activePatient.initials}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {activePatient.name}
+                        </span>
+                        <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', background: activePatient.allergies === 'NKDA' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: activePatient.allergies === 'NKDA' ? '#10b981' : '#f87171', fontWeight: '700', flexShrink: 0 }}>
+                          {activePatient.allergies === 'NKDA' ? 'NKDA' : 'Allergies'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>MRN: {activePatient.mrn}</span>
+                        {allPatients.length > 1 && (
+                          <select
+                            value={activePatient.id}
+                            onChange={(e) => handleSelectPatientById(e.target.value)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#60a5fa',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              padding: 0,
+                              outline: 'none'
+                            }}
+                            title="Switch patient"
+                          >
+                            {allPatients.map(p => (
+                              <option key={p.id} value={p.id} style={{ background: '#161b22', color: '#e6edf3' }}>
+                                ⇄ {p.name.split(' ')[0]}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions: Just WhatsApp Icon + Scribe Icon + Close */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <button 
+                      type="button"
+                      onClick={() => launchDirectWhatsApp(activePatient)}
+                      style={{
+                        background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                        color: '#ffffff',
+                        border: 'none',
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 8px rgba(37, 211, 102, 0.35)',
+                        flexShrink: 0
+                      }}
+                      title={`Chat with ${activePatient.name} on WhatsApp`}
+                    >
+                      <MessageCircle size={20} />
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => { window.dispatchEvent(new CustomEvent('open-scribe')); }}
+                      style={{
+                        background: 'rgba(16, 185, 129, 0.2)',
+                        color: '#34d399',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
+                      title="Open AI Scribe"
+                    >
+                      <Mic size={16} />
+                    </button>
+                    <button 
+                      onClick={() => setActivePatient(null)}
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: 'none',
+                        color: 'var(--text-secondary)',
+                        borderRadius: '50%',
+                        width: '30px',
+                        height: '30px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        flexShrink: 0
+                      }}
+                      title="Dismiss banner"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -799,6 +1087,12 @@ function App() {
               style={{ width: '100%', height: '100%', overflowY: 'auto', flex: 1 }}
             >
               {activeTab === 'dashboard' && <Dashboard />}
+              {activeTab === 'patients' && (
+                <PatientDirectory 
+                  onSelectPatient={handleSelectPatientFromDirectory} 
+                  onOpenWhatsApp={(p) => launchDirectWhatsApp(p)} 
+                />
+              )}
               {activeTab === 'calendar' && <SmartCalendar />}
               {activeTab === 'formFiller' && <FormFiller triggerNotification={triggerNotification} />}
               {activeTab === 'referral' && <ReferralChecker triggerNotification={triggerNotification} />}
@@ -929,9 +1223,9 @@ function App() {
           <LayoutDashboard size={20} />
           <span>Home</span>
         </div>
-        <div className={`bottom-nav-item ${activeTab === 'twin' ? 'active' : ''}`} onClick={() => handleTabClick('twin')}>
-          <Activity size={20} />
-          <span>3D Twin</span>
+        <div className={`bottom-nav-item ${activeTab === 'patients' ? 'active' : ''}`} onClick={() => handleTabClick('patients')}>
+          <Users size={20} />
+          <span>Patients</span>
         </div>
         
         {/* Prominent Center Scribe Floating Mic */}

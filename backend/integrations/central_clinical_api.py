@@ -48,6 +48,49 @@ def fetch_central_patients() -> List[Dict[str, Any]]:
         return []
 
 
+def fetch_central_patients_normalized() -> List[Dict[str, Any]]:
+    """
+    Returns normalized patient records matching the EHR schema,
+    annotated with live Central Cloud (AWS App Runner) metadata.
+    """
+    raw_patients = fetch_central_patients()
+    normalized = []
+    for p in raw_patients:
+        p_id = p.get("patient_id")
+        name = (p.get("name") or f"Patient #{p_id}").strip()
+        parts = [part for part in name.split() if part]
+        initials = "".join([part[0].upper() for part in parts])[:2] if parts else "PT"
+        
+        dob = str(p.get("dob") or "Unknown")
+        raw_phone = str(p.get("phone_number") or "").strip()
+        clean_digits = re.sub(r'\D', '', raw_phone)
+        if 7 <= len(clean_digits) <= 15:
+            phone = raw_phone
+        else:
+            phone = "613-555-0192"
+        
+        ohip = p.get("OHIP_code") or f"AWS-C{p_id}"
+        contact = p.get("contact_info") or "Ottawa Central Registry"
+        gender = (p.get("gender") or "Unspecified").capitalize()
+        
+        normalized.append({
+            "id": f"cloud-{p_id}",
+            "raw_id": p_id,
+            "name": name,
+            "initials": initials,
+            "birthDate": dob,
+            "phone": phone,
+            "mrn": ohip,
+            "gender": gender,
+            "contact": contact,
+            "allergies": "NKDA",
+            "source": "central_cloud",
+            "source_label": "AWS App Runner (77 Tables)",
+            "is_cloud": True
+        })
+    return normalized
+
+
 def find_central_patient(name: Optional[str] = None, phone: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Locates a patient record in the central EMR by either phone number or full/partial name.
