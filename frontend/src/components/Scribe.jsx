@@ -57,7 +57,7 @@ export default function Scribe({ onNavigateTab }) {
     {
       id: 1,
       sender: 'assistant',
-      text: "👋 **Hello Dr. Patel & Clinical Team!**\n\nI am your **e-Hospital Staff AI Copilot**. You can speak or type instructions to work around the app, message patients, manage appointments, and check charts.",
+      text: "✨ **Hello Dr. Patel & Clinical Team!**\n\nI am **Aura**, your clinical AI companion. You can speak or type instructions to navigate the clinic app, dispatch patient WhatsApp updates, manage appointments, and check patient charts.",
       time: "Just now",
       suggestions: [
         "What appointments do I have today?",
@@ -473,15 +473,15 @@ export default function Scribe({ onNavigateTab }) {
           <div style={{
             width: '42px',
             height: '42px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #10b981, #059669)',
+            borderRadius: '14px',
+            background: 'linear-gradient(135deg, #06b6d4, #10b981)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+            boxShadow: '0 4px 18px rgba(6, 182, 212, 0.4)',
             position: 'relative'
           }}>
-            <Bot size={22} color="#ffffff" />
+            <Sparkles size={22} color="#ffffff" />
             <span style={{
               position: 'absolute',
               bottom: '-2px',
@@ -489,29 +489,29 @@ export default function Scribe({ onNavigateTab }) {
               width: '10px',
               height: '10px',
               borderRadius: '50%',
-              background: '#34d399',
+              background: '#38bdf8',
               border: '2px solid #0f172a'
             }} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#f8fafc', letterSpacing: '-0.2px' }}>
-                e-Hospital AI Copilot
+              <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#f8fafc', letterSpacing: '-0.3px' }}>
+                Aura AI
               </h2>
               <span style={{
-                background: 'rgba(16, 185, 129, 0.15)',
-                color: '#34d399',
+                background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(16, 185, 129, 0.15))',
+                color: '#38bdf8',
                 fontSize: '10px',
                 fontWeight: '700',
                 padding: '2px 8px',
                 borderRadius: '10px',
-                border: '1px solid rgba(16, 185, 129, 0.3)'
+                border: '1px solid rgba(6, 182, 212, 0.3)'
               }}>
-                STAFF ASSISTANT
+                CLINICAL COMPANION
               </span>
             </div>
             <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>
-              Real-time Voice Recognition • Actions • Clinical Support
+              Ambient Intelligence • Real-Time Voice • Staff Copilot
             </p>
           </div>
         </div>
@@ -581,7 +581,7 @@ export default function Scribe({ onNavigateTab }) {
               {msg.sender === 'user' ? (
                 <><span>Hospital Staff</span> <User size={11} /></>
               ) : (
-                <><Bot size={12} color="#34d399" /> <span style={{ color: '#34d399', fontWeight: '700' }}>e-Hospital AI</span></>
+                <><Sparkles size={12} color="#38bdf8" /> <span style={{ color: '#38bdf8', fontWeight: '700' }}>Aura</span></>
               )}
               <span>• {msg.time}</span>
             </div>
@@ -723,8 +723,8 @@ export default function Scribe({ onNavigateTab }) {
 
         {/* Processing Indicator */}
         {isProcessing && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontSize: '13px', fontStyle: 'italic', padding: '6px 0' }}>
-            <Sparkles size={16} className="animate-spin" /> Hospital AI is executing instruction...
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontSize: '13px', fontStyle: 'italic', padding: '6px 0' }}>
+            <Sparkles size={16} className="animate-spin" color="#38bdf8" /> Aura is executing instruction...
           </div>
         )}
         <div ref={chatEndRef} />

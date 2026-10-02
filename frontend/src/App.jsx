@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle, Bot } from 'lucide-react';
+import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle, Bot, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
 
@@ -688,7 +688,7 @@ function App() {
         {/* Sidebar Nav */}
         <aside className="glass-panel desktop-only" style={{ width: '250px', margin: '0 0 16px 16px', padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: 'none', backdropFilter: 'blur(30px)' }}>
           <NavButton icon={<LayoutDashboard size={18} />} label="Dashboard" badge={badges.dashboard} active={activeTab === 'dashboard'} onClick={() => handleTabClick('dashboard')} />
-          <NavButton icon={<Bot size={18} color="#34d399" />} label="AI Chatbot" active={activeTab === 'scribe'} onClick={() => handleTabClick('scribe')} />
+          <NavButton icon={<Sparkles size={18} color="#38bdf8" />} label="Aura AI" active={activeTab === 'scribe'} onClick={() => handleTabClick('scribe')} />
           <NavButton icon={<Activity size={18} />} label="Digital Twin" active={activeTab === 'twin'} onClick={() => handleTabClick('twin')} />
           <NavButton icon={<Calendar size={18} />} label="Smart Calendar" active={activeTab === 'calendar'} onClick={() => handleTabClick('calendar')} />
           <NavButton icon={<FileText size={18} />} label="Intake OCR Engine" badge={badges.formFiller} active={activeTab === 'formFiller'} onClick={() => handleTabClick('formFiller')} />
@@ -751,9 +751,9 @@ function App() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button 
                     onClick={() => handleTabClick('scribe')}
-                    style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.4)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
-                    <Bot size={14} /> AI Chatbot
+                    <Sparkles size={14} color="#38bdf8" /> Aura AI
                   </button>
                   <button 
                     onClick={() => setActivePatient(null)}
@@ -912,23 +912,37 @@ function App() {
           <span>3D Twin</span>
         </div>
         
-        {/* Prominent Center AI Chatbot Tab */}
+        {/* Prominent Center Aura AI Tab */}
         <div 
           className={`bottom-nav-center-action ${activeTab === 'scribe' ? 'active' : ''}`} 
           onClick={() => handleTabClick('scribe')}
         >
           <div 
             className="bottom-nav-center-btn" 
-            title="Open AI Chatbot"
-            style={activeTab === 'scribe' ? { 
-              transform: 'scale(1.1)',
-              boxShadow: '0 0 25px #10b981', 
-              border: '3px solid #34d399' 
-            } : {}}
+            title="Aura AI Companion"
+            style={{
+              background: activeTab === 'scribe'
+                ? 'linear-gradient(135deg, #06b6d4 0%, #10b981 100%)'
+                : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              transform: activeTab === 'scribe' ? 'scale(1.1)' : 'scale(1)',
+              boxShadow: activeTab === 'scribe' 
+                ? '0 0 25px rgba(6, 182, 212, 0.75), 0 0 10px rgba(16, 185, 129, 0.5)' 
+                : '0 4px 15px rgba(16, 185, 129, 0.45)',
+              border: activeTab === 'scribe' ? '3px solid #38bdf8' : '3px solid var(--bg-primary)',
+              transition: 'all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            }}
           >
-            <Bot size={24} />
+            <Sparkles size={22} color="#ffffff" className={activeTab === 'scribe' ? 'animate-pulse' : ''} />
           </div>
-          <span style={{ fontSize: '10px', fontWeight: '700', color: activeTab === 'scribe' ? '#10b981' : '#94a3b8', marginTop: '2px' }}>AI Chatbot</span>
+          <span style={{ 
+            fontSize: '11px', 
+            fontWeight: '700', 
+            letterSpacing: '0.3px',
+            color: activeTab === 'scribe' ? '#38bdf8' : '#94a3b8', 
+            marginTop: '3px' 
+          }}>
+            Aura
+          </span>
         </div>
 
         <div className={`bottom-nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => handleTabClick('inbox')}>
