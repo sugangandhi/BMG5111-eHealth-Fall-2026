@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { 
-  Mic, CheckCircle, Loader2, X, Sparkles, Volume2, VolumeX, Copy, Bookmark, 
-  FileText, Activity, Layers, Tag, ShieldCheck, HeartHandshake, AlertCircle, 
-  Send, MessageSquare, Calendar, Clock, Phone, User, Bot, ArrowRight, RefreshCw
+  Mic, X, Sparkles, Volume2, VolumeX, Send, Calendar, Clock, 
+  Phone, User, Bot, AlertCircle, Compass, CheckCircle2, ArrowRight,
+  ExternalLink, MessageSquare, Activity, FileText, DollarSign, Inbox, LayoutDashboard
 } from 'lucide-react';
 
 window.utterances = [];
@@ -14,7 +14,7 @@ const speakAction = (text) => {
   if ('speechSynthesis' in window) {
     setTimeout(() => {
       const msg = new SpeechSynthesisUtterance(text);
-      msg.rate = 1.0;
+      msg.rate = 1.05;
       msg.pitch = 1.0;
       
       const voiceUri = localStorage.getItem('medoffice_voice_uri');
@@ -26,13 +26,11 @@ const speakAction = (text) => {
 
       window.isSpeaking = true;
       msg.onstart = () => { window.isSpeaking = true; };
-      
       msg.onend = () => {
         window.isSpeaking = false;
         const index = window.utterances.indexOf(msg);
         if (index > -1) window.utterances.splice(index, 1);
       };
-
       msg.onerror = () => { window.isSpeaking = false; };
 
       setTimeout(() => { window.isSpeaking = false; }, 3500);
@@ -43,61 +41,30 @@ const speakAction = (text) => {
   }
 };
 
-const SAMPLES = {
-  cardiac: "Patient John Doe, 58-year-old male, presents with onset of acute substernal chest pressure starting 3 hours ago during mild exertion. Reports radiation of pain to left jaw and diaphoresis. Vitals demonstrate blood pressure 152/92, heart rate 98 beats per minute, regular rhythm. ECG shows mild T-wave inversion in anterior leads. Plan to admit for cardiac observation, serial troponins, stat repeat cardiogram, and initiation of acute ischemic protocol.",
-  diabetes: "Follow up examination for Mary Smith regarding Type 2 Diabetes management. Patient admits to infrequent fingerstick monitoring and mild diet infractions over holidays, though denies polyuria or polyphagia. Today's fasting fingerstick reading is 168 mg/dL, with laboratory HbA1c elevated at 7.8%. Blood pressure controlled at 124/78. Plan is to adjust Metformin from 500mg to 1000mg BID, order repeat renal function panel, and re-evaluate HbA1c in 12 weeks.",
-  neuro: "Consultation note for Robert Vance presenting with recurrent pulsatile frontal headaches rated 8 out of 10 in severity, accompanied by nausea and marked photophobia lasting up to 24 hours. Cranial nerves II through XII are intact without focal motor or sensory neurological deficits. Negative Romberg test and gait normal. Consistent with classic cephalalgia migraine disorder without aura. Prescribing abortive rescue sumatriptan 50mg and arranging non-contrast head outpatient MRI to rule out structural etiology."
-};
-
-const audioBarsStyle = `
-  @keyframes sound-wave-1 { 0% { height: 4px; } 50% { height: 28px; } 100% { height: 4px; } }
-  @keyframes sound-wave-2 { 0% { height: 4px; } 50% { height: 18px; } 100% { height: 4px; } }
-  @keyframes sound-wave-3 { 0% { height: 4px; } 50% { height: 36px; } 100% { height: 4px; } }
-  @keyframes sound-wave-4 { 0% { height: 4px; } 50% { height: 12px; } 100% { height: 4px; } }
-  .audio-bar {
-    width: 3px;
-    background: #ef4444;
-    border-radius: 4px;
-    margin: 0 1px;
-    opacity: 0.8;
-  }
-`;
-
 export default function Scribe() {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('copilot'); // 'copilot' or 'soap'
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [audioLevel, setAudioLevel] = useState(0);
-  const [audioFreqData, setAudioFreqData] = useState(new Array(24).fill(4));
+  const [audioFreqData, setAudioFreqData] = useState(new Array(16).fill(4));
   const [speechError, setSpeechError] = useState(null);
   const [ttsEnabled, setTtsEnabled] = useState(true);
 
-  // SOAP State
-  const [dictation, setDictation] = useState('');
-  const [parsedData, setParsedData] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [fhirExporting, setFhirExporting] = useState(false);
-  const [fhirExported, setFhirExported] = useState(false);
-  const [translating, setTranslating] = useState(false);
-  const [patientSummary, setPatientSummary] = useState(null);
-
-  // Chat conversation history
+  // Chat message stream designed for hospital staff
   const [messages, setMessages] = useState([
     {
       id: 1,
       sender: 'assistant',
-      text: "👋 **Hello Doctor! I am your AI Scribe & Clinical Voice Copilot.**\n\nI can convert your voice to text, take complete clinical SOAP notes, dispatch WhatsApp notifications to patients, check available appointments, and book new consultations.\n\n**Try speaking or typing:**\n• *\"Send a WhatsApp message to Sarah Khan saying her lab tests are ready\"*\n• *\"What appointments do I have available today?\"*\n• *\"Book an appointment for Sarah Khan tomorrow at 3 PM for diabetes review\"*\n• *\"Patient John Doe presents with acute chest pain...\"* (to dictate a clinical note)",
+      text: "👋 **Hello! I am your e-Hospital Staff AI Assistant.**\n\nI can carry out instructions across the app, manage patient communication, and check schedules.\n\n**Speak or tap any instruction below:**",
       time: "Just now"
     }
   ]);
 
   const chatEndRef = useRef(null);
 
-  // Refs for real-time speech recognition
+  // Speech Recognition & Web Audio Refs
   const isRecordingRef = useRef(false);
   const recognitionRef = useRef(null);
   const mediaStreamRef = useRef(null);
@@ -116,22 +83,9 @@ export default function Scribe() {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isProcessing]);
+  }, [messages, isProcessing, interimTranscript]);
 
-  const formatMedicalPunctuation = (text) => {
-    if (!text) return "";
-    return text
-      .replace(/\s+period\b/gi, '.')
-      .replace(/\s+full stop\b/gi, '.')
-      .replace(/\s+comma\b/gi, ',')
-      .replace(/\s+colon\b/gi, ':')
-      .replace(/\s+question mark\b/gi, '?')
-      .replace(/\s+exclamation mark\b/gi, '!')
-      .replace(/\s+new line\b/gi, '\n')
-      .replace(/\s+next line\b/gi, '\n')
-      .replace(/\s+new paragraph\b/gi, '\n\n');
-  };
-
+  // Listen for open event
   useEffect(() => {
     const handleOpenScribe = () => {
       setIsOpen(true);
@@ -150,7 +104,7 @@ export default function Scribe() {
     };
   }, []);
 
-  // Modal open/close cleanup
+  // Cleanup on close
   useEffect(() => {
     if (!isOpen) {
       stopRecording();
@@ -162,14 +116,6 @@ export default function Scribe() {
     }
   }, [isOpen]);
 
-  // Inject CSS for audio visualizer
-  useEffect(() => {
-    const styleSheet = document.createElement("style");
-    styleSheet.innerText = audioBarsStyle;
-    document.head.appendChild(styleSheet);
-    return () => styleSheet.remove();
-  }, []);
-
   const startRecording = async () => {
     setSpeechError(null);
     window.isSpeaking = false;
@@ -180,11 +126,11 @@ export default function Scribe() {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setSpeechError("Speech recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Safari.");
+      setSpeechError("Speech recognition is not supported in this browser. Please use Google Chrome, Edge, or Safari.");
       return;
     }
 
-    // 1. Web Audio API for physical microphone frequency analysis
+    // 1. Web Audio API for real microphone visualizer
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -200,7 +146,7 @@ export default function Scribe() {
 
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 64;
-          analyser.smoothingTimeConstant = 0.7;
+          analyser.smoothingTimeConstant = 0.6;
           analyserRef.current = analyser;
 
           const source = audioCtx.createMediaStreamSource(stream);
@@ -212,14 +158,14 @@ export default function Scribe() {
             analyser.getByteFrequencyData(dataArray);
 
             let sum = 0;
-            const barCount = 24;
+            const barCount = 16;
             const bars = [];
             const step = Math.max(1, Math.floor(dataArray.length / barCount));
 
             for (let i = 0; i < barCount; i++) {
               const val = dataArray[i * step] || 0;
               sum += val;
-              const height = Math.max(4, Math.min(36, Math.round((val / 255) * 36)));
+              const height = Math.max(4, Math.min(28, Math.round((val / 255) * 28)));
               bars.push(height);
             }
 
@@ -234,9 +180,9 @@ export default function Scribe() {
         }
       }
     } catch (micErr) {
-      console.warn("Microphone stream warning (Web Audio):", micErr);
+      console.warn("Microphone stream note:", micErr);
       if (micErr.name === 'NotAllowedError' || micErr.name === 'PermissionDeniedError') {
-        setSpeechError("Microphone access was denied. Please allow microphone permission in your browser address bar.");
+        setSpeechError("Microphone permission was denied. Please allow microphone access in your address bar.");
         return;
       }
     }
@@ -247,53 +193,46 @@ export default function Scribe() {
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-      recognition.maxAlternatives = 1;
       recognitionRef.current = recognition;
 
       recognition.onresult = (event) => {
         window.isSpeaking = false;
 
-        let currentFinal = '';
-        let currentInterim = '';
+        let finalTranscript = '';
+        let interimTranscriptText = '';
 
-        for (let i = 0; i < event.results.length; i++) {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
           const piece = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            currentFinal += piece + ' ';
+            finalTranscript += piece + ' ';
           } else {
-            currentInterim += piece;
+            interimTranscriptText += piece;
           }
         }
 
-        const lower = (currentFinal + ' ' + currentInterim).toLowerCase();
-
-        // Voice command to stop
-        if (lower.includes('stop listening') || lower.includes('stop microphone') || lower.includes('stop recording')) {
-          stopRecording();
-          return;
+        if (interimTranscriptText) {
+          setInterimTranscript(interimTranscriptText);
+          interimRef.current = interimTranscriptText;
         }
 
-        const formatted = formatMedicalPunctuation(currentFinal || currentInterim);
-        setInterimTranscript(currentInterim);
-        interimRef.current = currentInterim;
-
-        if (currentFinal) {
-          setInputMessage(prev => (prev ? prev + ' ' + formatMedicalPunctuation(currentFinal) : formatMedicalPunctuation(currentFinal)).trim());
+        if (finalTranscript) {
+          setInputMessage(prev => (prev ? prev.trim() + ' ' + finalTranscript.trim() : finalTranscript.trim()));
+          setInterimTranscript('');
+          interimRef.current = '';
         }
       };
 
       recognition.onerror = (event) => {
-        console.warn("Speech recognition notice:", event.error);
         if (event.error === 'no-speech' || event.error === 'aborted') {
-          return; // Normal pause in speech
+          return;
         }
         if (event.error === 'not-allowed') {
-          setSpeechError("Microphone access was denied. Please click the lock/mic icon in your address bar to allow.");
+          setSpeechError("Microphone access was blocked. Please enable it in browser settings.");
           stopRecording();
           return;
         }
         if (event.error === 'network') {
-          setSpeechError("Speech network connectivity issue. Chrome speech requires internet connection.");
+          setSpeechError("Speech network issue. Chrome requires internet access for speech recognition.");
           stopRecording();
           return;
         }
@@ -313,8 +252,8 @@ export default function Scribe() {
       setIsRecording(true);
       isRecordingRef.current = true;
     } catch (e) {
-      console.error("Failed to start speech recognition:", e);
-      setSpeechError(`Could not start speech recognition: ${e.message}`);
+      console.error("Speech recognition error:", e);
+      setSpeechError(`Could not start microphone: ${e.message}`);
       stopRecording();
     }
   };
@@ -324,8 +263,8 @@ export default function Scribe() {
     isRecordingRef.current = false;
 
     if (interimRef.current) {
-      const formatted = formatMedicalPunctuation(interimRef.current);
-      setInputMessage(prev => (prev ? prev + ' ' + formatted : formatted).trim());
+      const remaining = interimRef.current.trim();
+      setInputMessage(prev => (prev ? prev + ' ' + remaining : remaining));
       setInterimTranscript('');
       interimRef.current = '';
     }
@@ -349,7 +288,7 @@ export default function Scribe() {
     }
 
     setAudioLevel(0);
-    setAudioFreqData(new Array(24).fill(4));
+    setAudioFreqData(new Array(16).fill(4));
   };
 
   const toggleRecording = () => {
@@ -360,9 +299,9 @@ export default function Scribe() {
     }
   };
 
-  // Send message to Scribe Copilot Agent
-  const handleSendMessage = async (textToSend) => {
-    const query = (textToSend || inputMessage || interimTranscript).trim();
+  // Execute instruction through Hospital Copilot
+  const handleSendMessage = async (customText) => {
+    const query = (customText || inputMessage || interimTranscript).trim();
     if (!query) return;
 
     if (isRecordingRef.current) {
@@ -403,23 +342,14 @@ export default function Scribe() {
         text: data.reply,
         action_type: data.action_type,
         action_data: data.action_data,
-        soap_data: data.soap_data,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
       setMessages(prev => [...prev, botMsg]);
 
-      // If SOAP data was generated, populate the inspector
-      if (data.action_type === 'soap_generated' && data.soap_data) {
-        setDictation(query);
-        setParsedData({
-          summary: data.action_data?.summary || "Clinical encounter structured.",
-          ohip_diagnostic_codes: data.action_data?.ohip_diagnostic_codes || [],
-          ohip_fee_codes: data.action_data?.ohip_fee_codes || [],
-          action_items: data.action_data?.action_items || [],
-          warnings: data.action_data?.warnings || [],
-          soap: data.soap_data
-        });
+      // Handle App Navigation instruction
+      if (data.action_type === 'navigate' && data.action_data?.tab) {
+        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: data.action_data.tab } }));
       }
 
       // Voice Feedback
@@ -432,10 +362,45 @@ export default function Scribe() {
       }
     } catch (err) {
       console.error("Copilot error:", err);
+      // Graceful local instruction execution fallback
+      const qLower = query.toLowerCase();
+      let fallbackReply = "I received your instruction.";
+      let actType = "general_reply";
+      let actData = null;
+
+      if (qLower.includes("inbox") || qLower.includes("message")) {
+        fallbackReply = "🧭 Navigating to **Secure Inbox**.";
+        actType = "navigate";
+        actData = { tab: "inbox", label: "Secure Inbox" };
+        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'inbox' } }));
+      } else if (qLower.includes("dashboard") || qLower.includes("home")) {
+        fallbackReply = "🧭 Navigating to **Dashboard**.";
+        actType = "navigate";
+        actData = { tab: "dashboard", label: "Dashboard" };
+        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'dashboard' } }));
+      } else if (qLower.includes("billing")) {
+        fallbackReply = "🧭 Navigating to **Billing Dashboard**.";
+        actType = "navigate";
+        actData = { tab: "billing", label: "Billing Dashboard" };
+        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'billing' } }));
+      } else if (qLower.includes("twin")) {
+        fallbackReply = "🧭 Navigating to **3D Digital Twin**.";
+        actType = "navigate";
+        actData = { tab: "twin", label: "3D Digital Twin" };
+        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'twin' } }));
+      } else if (qLower.includes("calendar")) {
+        fallbackReply = "🧭 Navigating to **Smart Calendar**.";
+        actType = "navigate";
+        actData = { tab: "calendar", label: "Smart Calendar" };
+        window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab: 'calendar' } }));
+      }
+
       const botMsg = {
         id: Date.now() + 1,
         sender: 'assistant',
-        text: "I received your message, but the copilot service is currently unavailable. You can still use the direct SOAP synthesis or sample scenarios.",
+        text: fallbackReply,
+        action_type: actType,
+        action_data: actData,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, botMsg]);
@@ -451,516 +416,352 @@ export default function Scribe() {
     }
   };
 
-  const handleLoadSample = (key) => {
-    const text = SAMPLES[key];
-    handleSendMessage(`Please scribe and synthesize a clinical note for this encounter: ${text}`);
+  const handleNavigateToTab = (tab) => {
+    window.dispatchEvent(new CustomEvent('navigate-tab', { detail: { tab } }));
+    setIsOpen(false);
   };
 
-  const handleCopy = () => {
-    if (!parsedData) return;
-    const formatted = `[PRIME CARE AI SCRIBE - SOAP NOTE]\nSummary: ${parsedData.summary}\n\n[SOAP STRUCTURE]\nSubjective: ${parsedData.soap?.subjective || ''}\nObjective: ${parsedData.soap?.objective || ''}\nAssessment: ${parsedData.soap?.assessment || ''}\nPlan: ${parsedData.soap?.plan || ''}\n\n[OHIP CODES]\n${(parsedData.ohip_diagnostic_codes || []).join('\n')}\n${(parsedData.ohip_fee_codes || []).join('\n')}\n\n[ACTION ITEMS]\n${(parsedData.action_items || []).join('\n')}`;
-    navigator.clipboard.writeText(formatted);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
-  };
-
-  const handleSaveToEhr = () => {
-    setSaved(true);
-    try {
-      const token = localStorage.getItem('medoffice_token') || 'demo-token';
-      axios.post('/api/activity/log', {
-        action: "scribe_soap_saved",
-        description: "AI-generated SOAP note electronically signed and pushed to patient EHR.",
-        patient_name: "Sarah Khan",
-        detail: `Summary: ${parsedData?.summary || "Signed SOAP note"}`,
-        color: "emerald"
-      }, { headers: { Authorization: `Bearer ${token}` } });
-    } catch(e) {}
-
-    setTimeout(() => {
-      setSaved(false);
-    }, 2500);
-  };
-
-  const handleSendToBilling = async () => {
-    setFhirExporting(true);
-    try {
-      const token = localStorage.getItem('medoffice_token') || 'demo-token';
-      const claim = {
-        claim_id: `CLM-${Math.floor(Math.random() * 10000)}`,
-        patient_name: "Sarah Khan", 
-        health_card_number: "1234-567-890-AB",
-        version_code: "",
-        date_of_service: new Date().toLocaleDateString(),
-        ohip_diagnostic_codes: parsedData?.ohip_diagnostic_codes || ["411 - Ischemic heart disease"],
-        ohip_fee_codes: parsedData?.ohip_fee_codes || ["A007 - Intermediate assessment"],
-        revenue: (parsedData?.ohip_fee_codes || []).length * 65 || 65,
-        warnings: parsedData?.warnings || []
-      };
-      
-      await axios.post('/api/claims', claim, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setFhirExporting(false);
-      setFhirExported(true);
-      window.dispatchEvent(new CustomEvent('billing-updated'));
-      setTimeout(() => setFhirExported(false), 2500);
-    } catch (e) {
-      console.error("Failed to send claim to billing:", e);
-      setFhirExporting(false);
-    }
-  };
-
-  const handleTranslate = () => {
-    setTranslating(true);
-    setTimeout(() => {
-      setTranslating(false);
-      let text = "Based on your visit today, we have checked your symptoms and ordered some standard tests to ensure everything is okay. Please follow the instructions provided by your care team and rest.";
-      if (parsedData?.summary?.toLowerCase().includes("cardiac") || parsedData?.summary?.toLowerCase().includes("chest")) {
-        text = "You came in today with chest pain. We checked your blood pressure and heart rhythm. We are admitting you to the hospital for observation to make sure your heart is okay.";
-      }
-      setPatientSummary(text);
-    }, 1500);
-  };
-
-  // 1. Closed State: Floating Action Button
+  // 1. Floating Launch Button (when closed)
   if (!isOpen) {
     return (
       <button 
         className="desktop-only"
         style={{
-          position: 'fixed', bottom: '32px', right: '32px',
-          width: '72px', height: '72px', borderRadius: '50%',
+          position: 'fixed', bottom: '28px', right: '28px',
+          width: '64px', height: '64px', borderRadius: '50%',
           background: 'linear-gradient(135deg, #10b981, #059669)', 
-          color: 'white', border: '3px solid rgba(255,255,255,0.4)',
-          boxShadow: '0 12px 40px rgba(16, 185, 129, 0.6)', cursor: 'pointer',
+          color: 'white', border: '3px solid rgba(255,255,255,0.3)',
+          boxShadow: '0 10px 35px rgba(16, 185, 129, 0.55)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
-          transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s',
+          transition: 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
         onClick={() => setIsOpen(true)}
-        title="Open Prime Care AI Scribe Voice Copilot"
+        title="Open Hospital Staff AI Chatbot"
       >
-        <Mic size={32} color="white" className="animate-pulse" />
+        <Mic size={28} color="white" className="animate-pulse" />
       </button>
     );
   }
 
-  // 2. Open State: Modal
+  // 2. REAL MOBILE VERSION CHATBOT (Sheet / Screen)
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(5, 10, 20, 0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-      <div className="glass-panel animate-fade-in" style={{ 
-        width: '92vw', maxWidth: '1420px', height: '88vh', 
-        background: 'rgba(15, 23, 42, 0.96)', border: '1px solid rgba(16, 185, 129, 0.4)', 
-        boxShadow: '0 25px 80px rgba(0,0,0,0.8), inset 0 0 40px rgba(16, 185, 129, 0.1)', 
-        display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden'
-      }}>
+    <div style={{ 
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+      background: 'rgba(2, 6, 23, 0.75)', backdropFilter: 'blur(10px)', 
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 99999 
+    }}>
+      <div 
+        className="animate-fade-in" 
+        style={{ 
+          width: '100%', maxWidth: '480px', height: '94vh', 
+          background: 'rgba(15, 23, 42, 0.98)', 
+          borderTopLeftRadius: '24px', borderTopRightRadius: '24px',
+          border: '1px solid rgba(16, 185, 129, 0.35)', borderBottom: 'none',
+          boxShadow: '0 -15px 50px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)', 
+          display: 'flex', flexDirection: 'column', overflow: 'hidden'
+        }}
+      >
         
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 28px', background: 'rgba(0,0,0,0.35)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ padding: '10px', background: 'rgba(16, 185, 129, 0.2)', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.4)' }}>
-              <Sparkles size={22} color="#34d399" />
+        {/* Mobile Pull Indicator */}
+        <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px', margin: '8px auto 0 auto' }} />
+
+        {/* Mobile Chatbot Header */}
+        <div style={{ 
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+          padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(15, 23, 42, 0.7)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ 
+              width: '40px', height: '40px', borderRadius: '12px', 
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+            }}>
+              <Sparkles size={20} color="#ffffff" />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--text-primary)', fontWeight: '800' }}>Prime Care AI Scribe & Voice Copilot</h2>
-                <span style={{ fontSize: '11px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '3px 8px', borderRadius: '12px', fontWeight: '700', border: '1px solid rgba(16, 185, 129, 0.4)' }}>
-                  AGENTIC CLINICAL AI
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#f8fafc', fontWeight: '800' }}>Hospital AI Assistant</h3>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
               </div>
-              <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>
-                Conversational Speech-to-Text • WhatsApp Outreach • Appointment Scheduler • SOAP Generator
-              </span>
+              <span style={{ fontSize: '11px', color: '#94a3b8' }}>Live Speech • Navigation • Actions</span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* View Switcher Tabs */}
-            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <button 
-                onClick={() => setActiveTab('copilot')}
-                style={{ 
-                  padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700',
-                  background: activeTab === 'copilot' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
-                  color: activeTab === 'copilot' ? '#fff' : 'var(--text-secondary)'
-                }}
-              >
-                💬 Voice Copilot
-              </button>
-              <button 
-                onClick={() => setActiveTab('soap')}
-                style={{ 
-                  padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '700',
-                  background: activeTab === 'soap' ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'transparent',
-                  color: activeTab === 'soap' ? '#fff' : 'var(--text-secondary)',
-                  display: 'flex', alignItems: 'center', gap: '6px'
-                }}
-              >
-                📝 SOAP Inspector
-                {parsedData && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399' }} />}
-              </button>
-            </div>
-
-            {/* TTS Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Audio Voice Response Toggle */}
             <button 
-              onClick={() => setTtsEnabled(!ttsEnabled)}
-              title={ttsEnabled ? "Voice Responses Active" : "Voice Responses Muted"}
-              style={{ padding: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: ttsEnabled ? '#34d399' : '#94a3b8', cursor: 'pointer' }}
+              onClick={() => setTtsEnabled(!ttsEnabled)} 
+              title={ttsEnabled ? "Voice replies enabled" : "Voice replies muted"}
+              style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: ttsEnabled ? '#34d399' : '#64748b', padding: '8px', borderRadius: '50%', cursor: 'pointer' }}
             >
-              {ttsEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              {ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
-
-            {/* Close */}
+            {/* Close Button */}
             <button 
               onClick={() => { setIsOpen(false); stopRecording(); }} 
-              style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ background: 'rgba(239, 68, 68, 0.12)', border: 'none', color: '#fca5a5', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
         </div>
 
-        {/* Modal Body */}
-        {activeTab === 'copilot' ? (
-          /* ── COPILOT CHATBOT VIEW ────────────────────────────────────────────── */
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            
-            {/* Messages Feed */}
-            <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {messages.map((msg) => (
-                <div 
-                  key={msg.id} 
-                  style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    {msg.sender === 'user' ? (
-                      <><span>You (Physician)</span> <User size={12} /></>
-                    ) : (
-                      <><Bot size={12} color="#34d399" /> <span style={{ color: '#34d399', fontWeight: '700' }}>AI Clinical Copilot</span></>
-                    )}
-                    <span>• {msg.time}</span>
-                  </div>
+        {/* Chat Message Stream */}
+        <div style={{ 
+          flex: 1, padding: '16px 14px', overflowY: 'auto', 
+          display: 'flex', flexDirection: 'column', gap: '14px',
+          background: 'linear-gradient(180deg, rgba(15,23,42,0.6) 0%, rgba(2,6,23,0.8) 100%)'
+        }}>
+          {messages.map((msg) => (
+            <div 
+              key={msg.id} 
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', fontSize: '10px', color: '#64748b' }}>
+                {msg.sender === 'user' ? (
+                  <><span>Hospital Staff</span> <User size={10} /></>
+                ) : (
+                  <><Bot size={10} color="#34d399" /> <span style={{ color: '#34d399', fontWeight: '700' }}>e-Hospital AI</span></>
+                )}
+                <span>• {msg.time}</span>
+              </div>
 
-                  <div style={{ 
-                    maxWidth: '78%', 
-                    padding: '16px 20px', 
-                    borderRadius: msg.sender === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                    background: msg.sender === 'user' ? 'linear-gradient(135deg, #1e40af, #1d4ed8)' : 'rgba(30, 41, 59, 0.85)',
-                    border: msg.sender === 'user' ? '1px solid rgba(96, 165, 250, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#f8fafc',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-                    lineHeight: '1.6',
-                    fontSize: '15px'
-                  }}>
-                    {/* Markdown-style content */}
-                    <div style={{ whiteSpace: 'pre-wrap' }}>
-                      {msg.text}
+              <div style={{ 
+                maxWidth: '88%', 
+                padding: '12px 16px', 
+                borderRadius: msg.sender === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                background: msg.sender === 'user' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : 'rgba(30, 41, 59, 0.9)',
+                border: msg.sender === 'user' ? '1px solid rgba(96, 165, 250, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                color: '#f8fafc',
+                fontSize: '14px',
+                lineHeight: '1.5',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+              }}>
+                <div style={{ whiteSpace: 'pre-wrap' }}>
+                  {msg.text}
+                </div>
+
+                {/* ACTION CARD: App Navigation */}
+                {msg.action_type === 'navigate' && msg.action_data && (
+                  <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#93c5fd', fontWeight: '700', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Compass size={14} /> Screen Switched
+                      </span>
+                      <button 
+                        onClick={() => handleNavigateToTab(msg.action_data.tab)}
+                        style={{ padding: '4px 10px', background: '#2563eb', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        View Screen <ExternalLink size={11} />
+                      </button>
                     </div>
-
-                    {/* ACTION CARD: WhatsApp Dispatched */}
-                    {msg.action_type === 'whatsapp_sent' && msg.action_data && (
-                      <div style={{ marginTop: '14px', padding: '14px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontWeight: '700', fontSize: '13px', marginBottom: '6px' }}>
-                          <Phone size={15} /> WhatsApp Outbound Dispatch
-                        </div>
-                        <div style={{ fontSize: '13px', color: '#cbd5e1' }}>
-                          <div><strong>Patient:</strong> {msg.action_data.patient_name} ({msg.action_data.phone})</div>
-                          <div style={{ marginTop: '4px', fontStyle: 'italic', background: 'rgba(0,0,0,0.2)', padding: '6px 10px', borderRadius: '6px' }}>
-                            "{msg.action_data.message}"
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ACTION CARD: Appointment Booked */}
-                    {msg.action_type === 'appointment_booked' && msg.action_data && (
-                      <div style={{ marginTop: '14px', padding: '14px', background: 'rgba(20, 184, 166, 0.12)', border: '1px solid rgba(20, 184, 166, 0.4)', borderRadius: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2dd4bf', fontWeight: '700', fontSize: '13px', marginBottom: '6px' }}>
-                          <Calendar size={15} /> E-Hospital Clinic Booking Confirmed
-                        </div>
-                        <div style={{ fontSize: '13px', color: '#cbd5e1' }}>
-                          <div><strong>Patient:</strong> {msg.action_data.patient_name}</div>
-                          <div><strong>Date & Time:</strong> {msg.action_data.date} at {msg.action_data.time}</div>
-                          <div><strong>Service:</strong> {msg.action_data.type}</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ACTION CARD: SOAP Note Generated */}
-                    {msg.action_type === 'soap_generated' && (
-                      <div style={{ marginTop: '14px', padding: '14px', background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: '#60a5fa', fontWeight: '700', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <ShieldCheck size={16} /> Structured OHIP Clinical Record Ready
-                          </span>
-                          <button 
-                            onClick={() => setActiveTab('soap')}
-                            style={{ padding: '6px 12px', background: 'rgba(59, 130, 246, 0.3)', border: '1px solid #3b82f6', color: '#93c5fd', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            Open SOAP Inspector <ArrowRight size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
                   </div>
-                </div>
-              ))}
+                )}
 
-              {isProcessing && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#34d399', fontSize: '14px', fontStyle: 'italic' }}>
-                  <Loader2 size={16} className="animate-spin" /> Prime Care AI Copilot is thinking...
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Quick Suggestion Chips */}
-            <div style={{ padding: '8px 32px', display: 'flex', gap: '8px', overflowX: 'auto', background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <button 
-                onClick={() => handleSendMessage("Send a WhatsApp message to Sarah Khan saying your blood pressure checkup is scheduled for Friday")}
-                style={{ padding: '6px 12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '20px', color: '#34d399', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                📱 Send WhatsApp to Sarah Khan
-              </button>
-              <button 
-                onClick={() => handleSendMessage("What appointments do I have available today?")}
-                style={{ padding: '6px 12px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '20px', color: '#60a5fa', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                🕒 Check Available Appointments
-              </button>
-              <button 
-                onClick={() => handleSendMessage("Book an appointment for Sarah Khan tomorrow at 3 PM for diabetes review")}
-                style={{ padding: '6px 12px', background: 'rgba(20, 184, 166, 0.1)', border: '1px solid rgba(20, 184, 166, 0.3)', borderRadius: '20px', color: '#2dd4bf', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                📅 Book Sarah Khan Tomorrow at 3 PM
-              </button>
-              <button 
-                onClick={() => handleLoadSample('cardiac')}
-                style={{ padding: '6px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '20px', color: '#fca5a5', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                🫀 Scribe Cardiology Encounter
-              </button>
-              <button 
-                onClick={() => handleSendMessage("What medications is Sarah Khan currently taking?")}
-                style={{ padding: '6px 12px', background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '20px', color: '#c084fc', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                💊 Sarah Khan Medications
-              </button>
-            </div>
-
-            {/* Bottom Voice & Text Input Section */}
-            <div style={{ padding: '20px 32px', background: 'rgba(0,0,0,0.3)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              
-              {/* Live Waveform & Streaming Words Indicator */}
-              {isRecording && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', background: 'rgba(0,0,0,0.4)', padding: '10px 16px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {audioFreqData.map((height, i) => (
-                      <div 
-                        key={i} 
-                        className="audio-bar" 
-                        style={{ 
-                          height: `${height}px`,
-                          background: audioLevel > 15 ? '#10b981' : '#ef4444',
-                          transition: 'height 0.05s ease'
-                        }} 
-                      />
-                    ))}
-                    <span style={{ marginLeft: '12px', fontSize: '12px', fontWeight: '800', color: audioLevel > 15 ? '#34d399' : '#ef4444' }}>
-                      {audioLevel > 15 ? 'LISTENING (VOICE DETECTED)' : 'LISTENING TO MICROPHONE...'}
-                    </span>
-                  </div>
-
-                  {interimTranscript && (
-                    <div style={{ fontSize: '14px', color: '#93c5fd', fontStyle: 'italic', maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      Hearing: "{interimTranscript}"
+                {/* ACTION CARD: WhatsApp Dispatched */}
+                {msg.action_type === 'whatsapp_sent' && msg.action_data && (
+                  <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontWeight: '700', fontSize: '12px', marginBottom: '4px' }}>
+                      <Phone size={14} /> Outbound WhatsApp Dispatched
                     </div>
-                  )}
-                </div>
-              )}
+                    <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
+                      <div><strong>To:</strong> {msg.action_data.patient_name} ({msg.action_data.phone})</div>
+                      <div style={{ marginTop: '4px', fontStyle: 'italic', background: 'rgba(0,0,0,0.25)', padding: '6px 8px', borderRadius: '6px' }}>
+                        "{msg.action_data.message}"
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              {speechError && (
-                <div style={{ marginBottom: '12px', padding: '10px 14px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '8px', color: '#fca5a5', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span><AlertCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} /> {speechError}</span>
-                  <button onClick={() => setSpeechError(null)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer' }}><X size={14} /></button>
-                </div>
-              )}
+                {/* ACTION CARD: Appointment Booked */}
+                {msg.action_type === 'appointment_booked' && msg.action_data && (
+                  <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(20, 184, 166, 0.15)', border: '1px solid rgba(20, 184, 166, 0.4)', borderRadius: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2dd4bf', fontWeight: '700', fontSize: '12px', marginBottom: '4px' }}>
+                      <CheckCircle2 size={14} /> Clinic Appointment Confirmed
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
+                      <div><strong>Patient:</strong> {msg.action_data.patient_name}</div>
+                      <div><strong>Schedule:</strong> {msg.action_data.date} at {msg.action_data.time}</div>
+                      <div><strong>Type:</strong> {msg.action_data.type}</div>
+                    </div>
+                  </div>
+                )}
 
-              {/* Input Form */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                {/* Microphone Toggle Button */}
-                <button 
-                  onClick={toggleRecording}
-                  style={{
-                    padding: '14px 22px', borderRadius: '28px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-                    background: isRecording ? 'rgba(239, 68, 68, 0.25)' : 'linear-gradient(135deg, #10b981, #059669)',
-                    border: isRecording ? '2px solid #ef4444' : 'none',
-                    color: isRecording ? '#fca5a5' : '#ffffff',
-                    boxShadow: isRecording ? '0 0 20px rgba(239, 68, 68, 0.4)' : '0 8px 20px rgba(16, 185, 129, 0.4)',
-                    transition: 'all 0.2s', flexShrink: 0
-                  }}
-                >
-                  <Mic size={18} className={isRecording ? "animate-pulse" : ""} />
-                  {isRecording ? 'Stop Mic' : 'Tap to Speak'}
-                </button>
+              </div>
+            </div>
+          ))}
 
-                {/* Text Input Box */}
-                <div style={{ flex: 1, position: 'relative' }}>
-                  <input 
-                    type="text"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask or command the AI Scribe (e.g. 'Send WhatsApp to Sarah Khan', 'Book appointment', or dictate note)..."
-                    style={{
-                      width: '100%', padding: '16px 20px', borderRadius: '28px',
-                      background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)',
-                      color: '#ffffff', fontSize: '15px', outline: 'none'
-                    }}
+          {isProcessing && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#34d399', fontSize: '13px', fontStyle: 'italic' }}>
+              <Sparkles size={14} className="animate-spin" /> Hospital AI is processing instruction...
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Horizontal Quick Action Chips */}
+        <div style={{ 
+          padding: '8px 12px', display: 'flex', gap: '6px', overflowX: 'auto', 
+          background: 'rgba(15, 23, 42, 0.95)', borderTop: '1px solid rgba(255,255,255,0.06)',
+          whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch'
+        }}>
+          <button 
+            onClick={() => handleSendMessage("Go to Inbox")}
+            style={{ padding: '6px 12px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: '16px', color: '#93c5fd', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Inbox size={12} /> Go to Inbox
+          </button>
+          <button 
+            onClick={() => handleSendMessage("What appointments do I have today?")}
+            style={{ padding: '6px 12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.35)', borderRadius: '16px', color: '#6ee7b7', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Clock size={12} /> Today's Schedule
+          </button>
+          <button 
+            onClick={() => handleSendMessage("Send a WhatsApp message to Sarah Khan saying your blood pressure checkup is scheduled for Friday")}
+            style={{ padding: '6px 12px', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.35)', borderRadius: '16px', color: '#86efac', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Phone size={12} /> WhatsApp Sarah Khan
+          </button>
+          <button 
+            onClick={() => handleSendMessage("Book an appointment for Sarah Khan tomorrow at 3 PM for diabetes review")}
+            style={{ padding: '6px 12px', background: 'rgba(20, 184, 166, 0.15)', border: '1px solid rgba(20, 184, 166, 0.35)', borderRadius: '16px', color: '#5eead4', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Calendar size={12} /> Book Tomorrow at 3 PM
+          </button>
+          <button 
+            onClick={() => handleSendMessage("Go to Billing")}
+            style={{ padding: '6px 12px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '16px', color: '#fcd34d', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <DollarSign size={12} /> Go to Billing
+          </button>
+          <button 
+            onClick={() => handleSendMessage("Go to 3D Twin")}
+            style={{ padding: '6px 12px', background: 'rgba(168, 85, 247, 0.15)', border: '1px solid rgba(168, 85, 247, 0.35)', borderRadius: '16px', color: '#d8b4fe', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Activity size={12} /> Go to 3D Twin
+          </button>
+          <button 
+            onClick={() => handleSendMessage("What medications is Sarah Khan currently taking?")}
+            style={{ padding: '6px 12px', background: 'rgba(236, 72, 153, 0.15)', border: '1px solid rgba(236, 72, 153, 0.35)', borderRadius: '16px', color: '#f472b6', fontSize: '11px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <User size={12} /> Sarah Khan Meds
+          </button>
+        </div>
+
+        {/* Mobile Sticky Voice & Input Bar */}
+        <div style={{ 
+          padding: '12px 14px 18px 14px', 
+          background: 'rgba(15, 23, 42, 0.98)', 
+          borderTop: '1px solid rgba(255,255,255,0.08)'
+        }}>
+          
+          {/* Real Audio Waveform when Mic is Active */}
+          {isRecording && (
+            <div style={{ 
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+              marginBottom: '10px', background: 'rgba(0,0,0,0.5)', padding: '6px 12px', 
+              borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.3)' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                {audioFreqData.map((height, i) => (
+                  <div 
+                    key={i} 
+                    style={{ 
+                      width: '3px', height: `${height}px`,
+                      background: audioLevel > 15 ? '#10b981' : '#ef4444',
+                      borderRadius: '3px',
+                      transition: 'height 0.05s ease'
+                    }} 
                   />
-                </div>
-
-                {/* Send Button */}
-                <button 
-                  onClick={() => handleSendMessage()}
-                  disabled={!inputMessage.trim() && !interimTranscript.trim() || isProcessing}
-                  style={{
-                    width: '50px', height: '50px', borderRadius: '50%',
-                    background: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'rgba(255,255,255,0.1)',
-                    border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? 'pointer' : 'not-allowed',
-                    boxShadow: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? '0 8px 20px rgba(59, 130, 246, 0.4)' : 'none',
-                    flexShrink: 0
-                  }}
-                >
-                  {isProcessing ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
-                </button>
+                ))}
+                <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: '700', color: audioLevel > 15 ? '#34d399' : '#ef4444' }}>
+                  {audioLevel > 15 ? 'VOICE HEARD' : 'LISTENING...'}
+                </span>
               </div>
 
-            </div>
-          </div>
-        ) : (
-          /* ── SOAP & BILLING INSPECTOR VIEW ──────────────────────────────────── */
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-            <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800' }}>
-                    <ShieldCheck size={22} /> Structured Electronic Health Record (SOAP)
-                  </h3>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Generated from your voice consultation & clinical reasoning.</span>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button className="btn" style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #f43f5e, #e11d48)', border: 'none', color: '#fff', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleTranslate} disabled={translating}>
-                    {translating ? <Loader2 size={16} className="animate-spin" /> : <HeartHandshake size={16} />} 
-                    Translate for Patient
+              {interimTranscript && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '65%' }}>
+                  <div style={{ fontSize: '12px', color: '#93c5fd', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    "{interimTranscript}"
+                  </div>
+                  <button
+                    onClick={() => handleSendMessage(interimTranscript)}
+                    style={{ padding: '3px 8px', background: '#10b981', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '10px', fontWeight: '700', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    Run ↵
                   </button>
-                  <button className="btn" style={{ padding: '8px 16px', background: 'rgba(59, 130, 246, 0.15)', border: '1px solid #3b82f6', color: '#60a5fa', fontWeight: '600' }} onClick={handleCopy}>
-                    <Copy size={16} style={{ marginRight: '6px' }} /> {copied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-              </div>
-
-              {patientSummary && (
-                <div style={{ marginBottom: '20px', padding: '18px', background: 'rgba(244, 63, 94, 0.1)', borderRadius: '12px', border: '1px solid rgba(244, 63, 94, 0.3)' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#fb7185', fontWeight: '700' }}>Patient-Friendly After-Visit Summary:</h4>
-                  <p style={{ margin: 0, fontSize: '14px', color: '#f1f5f9', lineHeight: '1.6' }}>{patientSummary}</p>
                 </div>
               )}
-
-              {/* Codes Banner */}
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ flex: 1 }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>
-                    Ontario OHIP Diagnostic & Fee Codes
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {(parsedData?.ohip_diagnostic_codes || ["411 - Ischemic heart disease"]).map((code, idx) => (
-                      <span key={`icd-${idx}`} style={{ fontSize: '13px', color: '#fcd34d', fontWeight: '600' }}>
-                        🏷️ {code}
-                      </span>
-                    ))}
-                    {(parsedData?.ohip_fee_codes || ["A007 - Intermediate assessment"]).map((code, idx) => (
-                      <span key={`cpt-${idx}`} style={{ fontSize: '13px', color: '#6ee7b7', fontWeight: '600' }}>
-                        💳 {code}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
-                <div style={{ flex: 1 }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#a855f7', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>
-                    Action Items & Orders
-                  </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {(parsedData?.action_items || ["File documentation to patient EHR", "Reconcile active medication list"]).map((item, i) => (
-                      <span key={i} style={{ fontSize: '13px', color: '#d8b4fe', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <CheckCircle size={14} color="#a855f7" /> {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* SOAP Note Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', flex: 1 }}>
-                <div style={{ background: 'rgba(59, 130, 246, 0.05)', padding: '18px', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                  <strong style={{ color: '#93c5fd', textTransform: 'uppercase', fontSize: '13px' }}>Subjective (History)</strong>
-                  <p style={{ marginTop: '8px', fontSize: '14px', lineHeight: '1.6', color: '#f8fafc' }}>
-                    {parsedData?.soap?.subjective || "Patient symptoms and verbal complaints discussed during consultation."}
-                  </p>
-                </div>
-                <div style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '18px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                  <strong style={{ color: '#6ee7b7', textTransform: 'uppercase', fontSize: '13px' }}>Objective (Vitals & Physical Exam)</strong>
-                  <p style={{ marginTop: '8px', fontSize: '14px', lineHeight: '1.6', color: '#f8fafc' }}>
-                    {parsedData?.soap?.objective || "Vitals within normal limits. Physical exam confirms no acute distress."}
-                  </p>
-                </div>
-                <div style={{ background: 'rgba(236, 72, 153, 0.05)', padding: '18px', borderRadius: '12px', border: '1px solid rgba(236, 72, 153, 0.2)' }}>
-                  <strong style={{ color: '#f9a8d4', textTransform: 'uppercase', fontSize: '13px' }}>Assessment (Diagnosis)</strong>
-                  <p style={{ marginTop: '8px', fontSize: '14px', lineHeight: '1.6', color: '#f8fafc' }}>
-                    {parsedData?.soap?.assessment || "Clinical assessment indicates stable progression; continuing outpatient care."}
-                  </p>
-                </div>
-                <div style={{ background: 'rgba(245, 158, 11, 0.05)', padding: '18px', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-                  <strong style={{ color: '#fcd34d', textTransform: 'uppercase', fontSize: '13px' }}>Plan & Orders</strong>
-                  <p style={{ marginTop: '8px', fontSize: '14px', lineHeight: '1.6', color: '#f8fafc' }}>
-                    {parsedData?.soap?.plan || "Continue active therapies, review diagnostic panel, and schedule 4-week follow-up."}
-                  </p>
-                </div>
-              </div>
-
-              {/* Actions Footer */}
-              <div style={{ marginTop: '20px', display: 'flex', gap: '16px' }}>
-                <button 
-                  onClick={handleSaveToEhr}
-                  style={{ flex: 1, padding: '16px', background: saved ? '#10b981' : 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: '800', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 8px 20px rgba(16, 185, 129, 0.4)' }}
-                >
-                  <Bookmark size={20} /> {saved ? 'Signed & Saved to EHR!' : 'Digitally Sign & Commit to Chart'}
-                </button>
-                <button 
-                  onClick={handleSendToBilling}
-                  disabled={fhirExporting}
-                  style={{ flex: 1, padding: '16px', background: fhirExported ? '#f59e0b' : 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: '800', fontSize: '15px', cursor: fhirExporting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 8px 20px rgba(245, 158, 11, 0.4)' }}
-                >
-                  {fhirExporting ? <Loader2 size={20} className="animate-spin" /> : <Tag size={20} />} 
-                  {fhirExported ? 'Claim Queued in Billing!' : 'Approve & Send to Billing'}
-                </button>
-              </div>
-
             </div>
+          )}
+
+          {speechError && (
+            <div style={{ marginBottom: '8px', padding: '6px 10px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '6px', color: '#fca5a5', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>{speechError}</span>
+              <button onClick={() => setSpeechError(null)} style={{ background: 'transparent', border: 'none', color: '#fca5a5' }}><X size={12} /></button>
+            </div>
+          )}
+
+          {/* Action Input Bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Quick Tap-to-Speak Mic Button */}
+            <button 
+              onClick={toggleRecording}
+              style={{
+                width: '46px', height: '46px', borderRadius: '50%',
+                background: isRecording ? 'rgba(239, 68, 68, 0.3)' : 'linear-gradient(135deg, #10b981, #059669)',
+                border: isRecording ? '2px solid #ef4444' : 'none',
+                color: isRecording ? '#fca5a5' : '#ffffff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: isRecording ? '0 0 16px rgba(239, 68, 68, 0.4)' : '0 4px 14px rgba(16, 185, 129, 0.4)',
+                cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s'
+              }}
+              title={isRecording ? "Stop listening" : "Tap to speak instruction"}
+            >
+              <Mic size={20} className={isRecording ? "animate-pulse" : ""} />
+            </button>
+
+            {/* Instruction Text Field */}
+            <input 
+              type="text"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isRecording ? "Listening to your voice..." : "Ask or command (e.g. 'Go to inbox')..."}
+              style={{
+                flex: 1, padding: '12px 16px', borderRadius: '24px',
+                background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.12)',
+                color: '#ffffff', fontSize: '14px', outline: 'none'
+              }}
+            />
+
+            {/* Send Instruction Button */}
+            <button 
+              onClick={() => handleSendMessage()}
+              disabled={!inputMessage.trim() && !interimTranscript.trim() || isProcessing}
+              style={{
+                width: '42px', height: '42px', borderRadius: '50%',
+                background: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'rgba(255,255,255,0.08)',
+                border: 'none', color: '#ffffff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: (inputMessage.trim() || interimTranscript.trim()) && !isProcessing ? 'pointer' : 'not-allowed',
+                flexShrink: 0
+              }}
+            >
+              <Send size={16} />
+            </button>
           </div>
-        )}
+
+        </div>
 
       </div>
     </div>

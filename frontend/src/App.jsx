@@ -189,6 +189,17 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const handleNavigateTab = (e) => {
+      const tab = e.detail?.tab;
+      if (tab) {
+        handleTabClick(tab);
+      }
+    };
+    window.addEventListener('navigate-tab', handleNavigateTab);
+    return () => window.removeEventListener('navigate-tab', handleNavigateTab);
+  }, []);
+
+  useEffect(() => {
     let recognition = null;
     let isActive = isVoiceNavActive;
     
@@ -680,7 +691,22 @@ function App() {
           <NavButton icon={<MessageSquare size={18} />} label="Inbound Summary & Chat" badge={badges.inbound} active={activeTab === 'inbound'} onClick={() => handleTabClick('inbound')} />
           <NavButton icon={<Inbox size={18} />} label="Secure Inbox" badge={badges.inbox} active={activeTab === 'inbox'} onClick={() => handleTabClick('inbox')} />
           <NavButton icon={<DollarSign size={18} />} label="Billing" badge={badges.billing} active={activeTab === 'billing'} onClick={() => handleTabClick('billing')} />
-          <div style={{ marginTop: 'auto' }}>
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
+                borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.4)',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))',
+                color: '#34d399', cursor: 'pointer', fontSize: '13px', fontWeight: '700',
+                transition: 'all 0.2s', width: '100%', textAlign: 'left'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08))'}
+            >
+              <Mic size={18} color="#34d399" />
+              <span>AI Staff Assistant</span>
+            </button>
             <NavButton 
               icon={<MessageCircle size={18} />} 
               label="WhatsApp Patient Chat" 
@@ -898,10 +924,10 @@ function App() {
         
         {/* Prominent Center Scribe Floating Mic */}
         <div className="bottom-nav-center-action" onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}>
-          <div className="bottom-nav-center-btn" title="Open Ambient Voice Scribe">
+          <div className="bottom-nav-center-btn" title="Open AI Hospital Assistant">
             <Mic size={24} />
           </div>
-          <span style={{ fontSize: '10px', fontWeight: '700', color: '#10b981', marginTop: '2px' }}>AI Scribe</span>
+          <span style={{ fontSize: '10px', fontWeight: '700', color: '#10b981', marginTop: '2px' }}>AI Assistant</span>
         </div>
 
         <div className={`bottom-nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => handleTabClick('inbox')}>
