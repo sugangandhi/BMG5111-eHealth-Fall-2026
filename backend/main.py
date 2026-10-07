@@ -8,7 +8,7 @@ import secrets
 import base64
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -45,6 +45,13 @@ _sessions: dict[str, str] = {}
 
 # Bootstrap DB on startup
 init_db()
+
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    import api.whatsapp as wa
+    wa._poller_task = asyncio.create_task(wa.start_twilio_inbound_poller())
+
 
 
 @app.get("/api/patients")
@@ -681,6 +688,32 @@ async def scribe_endpoint(body: ScribeRequest):
         "warnings": result.warnings
     }
 
+class AssistantChatRequest(BaseModel):
+    query: str
+    patient_id: Optional[str] = None
+    patient_name: Optional[str] = None
+    active_patient: Optional[Dict[str, Any]] = None
+
+@app.post("/api/assistant/chat")
+@app.post("/api/scribe/chat")
+async def assistant_chat_endpoint(body: AssistantChatRequest):
+    """
+    Interactive Clinical AI Copilot & Scribe endpoint.
+    Handles schedules, patient & vitals lookups, clinical SOAP notes, and inbox triage.
+    """
+    from agent.assistant import handle_assistant_query
+    if not body.query.strip():
+        raise HTTPException(400, "Query cannot be empty")
+    
+    patient_ctx = body.active_patient or {}
+    if body.patient_name:
+        patient_ctx["name"] = body.patient_name
+    if body.patient_id:
+        patient_ctx["id"] = body.patient_id
+
+    result = handle_assistant_query(body.query, patient_ctx)
+    return result
+
 # ── Inbox Triage ──────────────────────────────────────────────────────────────────
 
 class VoiceAgentRequest(BaseModel):
@@ -1011,6 +1044,28 @@ async def create_template_endpoint(body: TemplateCreateRequest):
 async def get_billing_analytics_endpoint():
     from db.database import get_billing_analytics
     return get_billing_analytics()
+
+# ── Secure Inbox Endpoints ──────────────────────────────────────────────────
+@app.get("/api/inbox/messages")
+async def get_inbox_messages_endpoint():
+    from agent.inbox_manager import get_inbox_messages
+    return {"messages": get_inbox_messages()}
+
+@app.get("/api/inbox/sync")
+async def get_inbox_sync_endpoint():
+    from agent.inbox_manager import get_sync_messages
+    return {"messages": get_sync_messages()}
+
+class InboxStatusUpdateRequest(BaseModel):
+    status: str
+
+@app.patch("/api/inbox/messages/{msg_id}/status")
+async def update_inbox_message_status(msg_id: int, body: InboxStatusUpdateRequest):
+    from agent.inbox_manager import update_inbox_status
+    updated = update_inbox_status(msg_id, body.status)
+    if not updated:
+        raise HTTPException(404, "Message not found")
+    return {"status": "updated", "message": updated}
 
 from api import whatsapp
 app.include_router(whatsapp.router)

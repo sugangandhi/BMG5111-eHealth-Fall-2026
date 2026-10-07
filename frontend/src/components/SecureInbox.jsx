@@ -82,6 +82,12 @@ export default function SecureInbox({ triggerNotification }) {
   const [filterTime, setFilterTime] = useState(null);
   const [filterTo, setFilterTo] = useState(null);
 
+  // In-Portal WhatsApp Messaging State
+  const [inPortalReplyText, setInPortalReplyText] = useState('');
+  const [inPortalSending, setInPortalSending] = useState(false);
+  const [liveThreadMessages, setLiveThreadMessages] = useState([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+
   const activeUser = JSON.parse(localStorage.getItem('medoffice_user') || '{}');
   const doctorName = activeUser.name || 'the attending physician';
 
@@ -194,6 +200,59 @@ export default function SecureInbox({ triggerNotification }) {
     setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, status: 'Doctor Responded on WhatsApp', isUnread: false } : m));
     setSelectedMsg(prev => prev ? { ...prev, status: 'Doctor Responded on WhatsApp', isUnread: false } : null);
     setActionToast(`💬 Successfully opened WhatsApp chat with ${pName}. Audit log recorded.`);
+  };
+
+  // Load live persistent WhatsApp thread when a WhatsApp encounter is selected
+  useEffect(() => {
+    if (selectedMsg && selectedMsg.type === 'whatsapp') {
+      const rawPhone = selectedMsg.patient_phone || selectedMsg.clean_phone || '6135550192';
+      const clean = rawPhone.replace(/\D/g, '') || '6135550192';
+      setThreadLoading(true);
+      axios.get(`/api/whatsapp/thread/${clean}`)
+        .then(res => {
+          if (res.data?.messages) {
+            setLiveThreadMessages(res.data.messages);
+          }
+        })
+        .catch(err => console.log("Thread load note:", err))
+        .finally(() => setThreadLoading(false));
+    } else {
+      setLiveThreadMessages([]);
+    }
+  }, [selectedMsg]);
+
+  // Send an official in-portal WhatsApp reply to the patient's phone
+  const handleSendInPortalWhatsApp = async () => {
+    if (!selectedMsg || !inPortalReplyText.trim() || inPortalSending) return;
+    const rawPhone = selectedMsg.patient_phone || selectedMsg.clean_phone || '6135550192';
+    const cleanNumber = rawPhone.replace(/\D/g, '') || '6135550192';
+    const pName = selectedMsg.patient_name || selectedMsg.sender.replace(' (via WhatsApp)', '') || 'Patient';
+    setInPortalSending(true);
+
+    try {
+      const res = await axios.post('/api/whatsapp/send', {
+        phone: cleanNumber,
+        message: inPortalReplyText.trim(),
+        patient_name: pName,
+        patient_id: selectedMsg.patient_id || '1',
+        doctor_name: doctorName
+      });
+
+      if (res.data?.message) {
+        setLiveThreadMessages(prev => [...prev, res.data.message]);
+      }
+
+      setInPortalReplyText('');
+      setMessages(prev => prev.map(m => m.id === selectedMsg.id ? { ...m, status: 'Doctor Responded on WhatsApp', isUnread: false } : m));
+      setSelectedMsg(prev => prev ? { ...prev, status: 'Doctor Responded on WhatsApp', isUnread: false } : null);
+      setActionToast(`✅ In-Portal WhatsApp reply dispatched to ${pName}!`);
+      if (triggerNotification) triggerNotification("WhatsApp Encounter Updated", `Reply sent to ${pName}`);
+    } catch (err) {
+      console.error("Failed to send in-portal WhatsApp reply:", err);
+      setActionToast(`⚠️ Could not dispatch WhatsApp message. Please check connection.`);
+    } finally {
+      setInPortalSending(false);
+    }
   };
 
   const handleCopilotAction = async (actionName, triggerDashUpdate = false) => {
@@ -370,36 +429,148 @@ export default function SecureInbox({ triggerNotification }) {
                 </div>
               )}
 
-              {/* 1-Tap Action Button: Continue Exact Chat on WhatsApp */}
+              {/* Live In-Portal WhatsApp Conversation Stream */}
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.7)',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '14px',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#38bdf8', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <MessageCircle size={14} color="#25D366" /> Verified WhatsApp Conversation Thread
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    End-to-End Encrypted via Clinic Gateway
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {/* Initial incoming message */}
+                  <div style={{
+                    alignSelf: 'flex-start',
+                    maxWidth: '85%',
+                    background: 'rgba(30, 41, 59, 0.9)',
+                    padding: '8px 12px',
+                    borderRadius: '12px 12px 12px 2px',
+                    border: '1px solid rgba(255,255,255,0.06)'
+                  }}>
+                    <div style={{ fontSize: '10.5px', color: '#94a3b8', marginBottom: '2px' }}>
+                      {selectedMsg.patient_name || selectedMsg.sender} • {selectedMsg.timestamp}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#f8fafc' }}>
+                      {selectedMsg.snippet?.replace("- ", "") || "Patient message"}
+                    </div>
+                  </div>
+
+                  {/* Render any additional thread messages */}
+                  {liveThreadMessages.map((tMsg, idx) => {
+                    const isDoctor = tMsg.role === 'doctor';
+                    const isBot = tMsg.role === 'bot';
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          alignSelf: isDoctor ? 'flex-end' : 'flex-start',
+                          maxWidth: '85%',
+                          background: isDoctor 
+                            ? 'linear-gradient(135deg, #059669, #047857)' 
+                            : isBot ? 'rgba(15, 23, 42, 0.85)' : 'rgba(30, 41, 59, 0.9)',
+                          padding: '8px 12px',
+                          borderRadius: isDoctor ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                          border: isDoctor ? 'none' : isBot ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(255,255,255,0.06)'
+                        }}
+                      >
+                        <div style={{ fontSize: '10.5px', color: isDoctor ? '#a7f3d0' : '#94a3b8', marginBottom: '2px' }}>
+                          {tMsg.sender_name || (isDoctor ? doctorName : 'Patient')} • {tMsg.timestamp}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#f8fafc' }}>
+                          {tMsg.text}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* In-Portal Reply Input Area */}
+                <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder={`Reply to ${selectedMsg.patient_name || 'patient'} directly on WhatsApp...`}
+                    value={inPortalReplyText}
+                    onChange={(e) => setInPortalReplyText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSendInPortalWhatsApp();
+                      }
+                    }}
+                    disabled={inPortalSending}
+                    style={{
+                      flex: 1,
+                      background: 'rgba(15, 23, 42, 0.85)',
+                      border: '1px solid rgba(37, 211, 102, 0.4)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  />
+                  <button
+                    onClick={handleSendInPortalWhatsApp}
+                    disabled={!inPortalReplyText.trim() || inPortalSending}
+                    style={{
+                      background: inPortalReplyText.trim() && !inPortalSending ? '#25D366' : 'rgba(255,255,255,0.08)',
+                      color: inPortalReplyText.trim() && !inPortalSending ? 'white' : 'var(--text-secondary)',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      cursor: inPortalReplyText.trim() && !inPortalSending ? 'pointer' : 'default',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <MessageCircle size={15} />
+                    <span>{inPortalSending ? "Sending..." : "Send via Portal"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons: In-Portal & Separate App Launcher */}
               <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap', paddingTop: '4px' }}>
                 <button
                   type="button"
                   onClick={() => handleContinueWhatsApp(selectedMsg)}
                   style={{
-                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
                     color: 'white',
                     border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '12px',
-                    fontSize: '14px',
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    fontSize: '13.5px',
                     fontWeight: '700',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px',
+                    gap: '8px',
                     cursor: 'pointer',
-                    boxShadow: '0 6px 18px rgba(37, 211, 102, 0.35)',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
                     transition: 'transform 0.15s, box-shadow 0.15s'
                   }}
                   onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
                   onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                  <MessageCircle size={19} />
-                  <span>Continue Chat on WhatsApp</span>
                   <ExternalLink size={16} />
+                  <span>Open in Separate WhatsApp App</span>
                 </button>
 
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {`Opens patient's exact WhatsApp thread with ${doctorName}'s follow-up prompt`}
+                <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                  {`Both In-Portal Messaging & Separate Mobile/Desktop WhatsApp App are fully synchronized.`}
                 </span>
               </div>
             </div>

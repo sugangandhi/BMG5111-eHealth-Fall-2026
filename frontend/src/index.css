@@ -83,32 +83,53 @@ body {
 }
 
 /* Smart Inline Dark Color Overrides for Light Theme */
-[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: #e2e8f0"],
-[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: rgb(226, 232, 240)"],
-[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: #f8fafc"],
-[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: rgb(248, 250, 252)"],
-[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: #f1f5f9"],
-[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: #ffffff"]:not(.btn-primary):not(span),
-[data-theme="light"] :not(.radiology-dark-suite):not(.radiology-dark-suite *) [style*="color: rgb(255, 255, 255)"]:not(.btn-primary):not(span) {
+[data-theme="light"] :not(.radiology-dark-suite):not(.clinical-copilot-drawer):not(.radiology-dark-suite *):not(.clinical-copilot-drawer *) [style*="color: #e2e8f0"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.clinical-copilot-drawer):not(.radiology-dark-suite *):not(.clinical-copilot-drawer *) [style*="color: rgb(226, 232, 240)"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.clinical-copilot-drawer):not(.radiology-dark-suite *):not(.clinical-copilot-drawer *) [style*="color: #f8fafc"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.clinical-copilot-drawer):not(.radiology-dark-suite *):not(.clinical-copilot-drawer *) [style*="color: rgb(248, 250, 252)"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.clinical-copilot-drawer):not(.radiology-dark-suite *):not(.clinical-copilot-drawer *) [style*="color: #f1f5f9"],
+[data-theme="light"] :not(.radiology-dark-suite):not(.clinical-copilot-drawer):not(.radiology-dark-suite *):not(.clinical-copilot-drawer *) [style*="color: #ffffff"]:not(.btn-primary):not(span),
+[data-theme="light"] :not(.radiology-dark-suite):not(.clinical-copilot-drawer):not(.radiology-dark-suite *):not(.clinical-copilot-drawer *) [style*="color: rgb(255, 255, 255)"]:not(.btn-primary):not(span) {
   color: var(--text-primary) !important;
 }
 
-/* Maintain high-contrast clinical dark theme for 3D Digital Twin & CT Suite */
-.radiology-dark-suite {
+/* Maintain high-contrast clinical dark theme for 3D Digital Twin, CT Suite & Copilot */
+.radiology-dark-suite, .clinical-copilot-drawer {
   color: #f8fafc !important;
 }
 .radiology-dark-suite [style*="color: #ffffff"],
+.clinical-copilot-drawer [style*="color: #ffffff"],
 .radiology-dark-suite [style*="color: rgb(255, 255, 255)"],
+.clinical-copilot-drawer [style*="color: rgb(255, 255, 255)"],
 .radiology-dark-suite [style*="color: #f8fafc"],
+.clinical-copilot-drawer [style*="color: #f8fafc"],
 .radiology-dark-suite [style*="color: #f1f5f9"],
-.radiology-dark-suite [style*="color: #e2e8f0"] {
+.clinical-copilot-drawer [style*="color: #f1f5f9"],
+.radiology-dark-suite [style*="color: #e2e8f0"],
+.clinical-copilot-drawer [style*="color: #e2e8f0"] {
   color: #ffffff !important;
 }
-.radiology-dark-suite [style*="color: #94a3b8"] {
+.radiology-dark-suite [style*="color: #94a3b8"],
+.clinical-copilot-drawer [style*="color: #94a3b8"] {
   color: #94a3b8 !important;
 }
-.radiology-dark-suite [style*="color: #cbd5e1"] {
+.radiology-dark-suite [style*="color: #cbd5e1"],
+.clinical-copilot-drawer [style*="color: #cbd5e1"] {
   color: #cbd5e1 !important;
+}
+
+/* Professional White Theme for Clinical AI Chatbot (Antigravity-Grade) */
+.clinical-white-copilot {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+.clinical-white-copilot input {
+  color: #0f172a !important;
+  background-color: #f1f5f9 !important;
+  caret-color: #2563eb !important;
+}
+.clinical-white-copilot input::placeholder {
+  color: #64748b !important;
 }
 
 [data-theme="light"] [style*="background: rgba(0,0,0,0.25)"],

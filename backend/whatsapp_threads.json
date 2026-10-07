@@ -1,0 +1,41 @@
+{
+  "6135550192": [
+    {
+      "id": 1791139606623,
+      "role": "doctor",
+      "sender_name": "Dr. Sugan",
+      "text": "Hello Sarah, your blood pressure reading of 168/102 looks elevated. Please rest and we will follow up.",
+      "vitals": {},
+      "timestamp": "02:46 PM"
+    }
+  ],
+  "6132616383": [
+    {
+      "id": 1791309686445,
+      "role": "bot",
+      "sender_name": "e-Hospital Assistant",
+      "text": "Hello Sarah, thank you for updating e-Hospital. Your readings (BP: 138/88) have been recorded directly into your patient chart and synced with the Central Clinical Network.",
+      "vitals": {},
+      "timestamp": "02:01 PM"
+    },
+    {
+      "id": 1791309972075,
+      "role": "patient",
+      "sender_name": "Sarah Khan",
+      "text": "Hi Doctor, my blood pressure this morning is 138/88 and my heart rate is 76.",
+      "vitals": {
+        "bp": "138/88",
+        "hr": "76"
+      },
+      "timestamp": "02:06 PM"
+    },
+    {
+      "id": 1791309972076,
+      "role": "bot",
+      "sender_name": "e-Hospital Assistant",
+      "text": "Hello Sarah, thank you for updating e-Hospital. Your readings (BP: 138/88, HR: 76) have been recorded directly into your patient chart and synced with the Central Clinical Network.",
+      "vitals": {},
+      "timestamp": "02:06 PM"
+    }
+  ]
+}

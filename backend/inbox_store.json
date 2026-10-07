@@ -1,5 +1,29 @@
 [
   {
+    "id": 1791309972071,
+    "type": "whatsapp",
+    "sender": "Sarah Khan (via WhatsApp)",
+    "patient_name": "Sarah Khan",
+    "patient_id": "pt-001",
+    "patient_phone": "+16132616383",
+    "clean_phone": "16132616383",
+    "subject": "\ud83d\udfe2 WhatsApp Vitals: Sarah Khan submitted home readings",
+    "snippet": "Patient asked: \"Hi Doctor, my blood pressure this morning is 138/88 and my heart rate is 76.\" | \ud83e\ude7a Recorded: BP: 138/88, HR: 76 bpm",
+    "body": "CLINICAL WHATSAPP PATIENT ENCOUNTER\n\nPatient: Sarah Khan (MRN/ID: pt-001)\nPhone: +16132616383\n\nIncoming Patient Message:\n\"Hi Doctor, my blood pressure this morning is 138/88 and my heart rate is 76.\"\n\nExtracted Vital Signs:\nBP: 138/88, HR: 76 bpm\n\n\ud83e\udd16 Automated Bot Status:\nThe bot replied: \"I have connected you directly to your attending physician. The doctor has your chart and will reply on this WhatsApp chat shortly.\"\n\nAction Required:\nReview chart and click 'Continue Chat on WhatsApp' below to reply directly to the patient.",
+    "timestamp": "Just now (WhatsApp)",
+    "isUnread": true,
+    "status": "pending",
+    "hasAttachment": false,
+    "starred": true,
+    "urgency": "routine",
+    "vitals": {
+      "bp": "138/88",
+      "hr": "76"
+    },
+    "directWhatsAppUrl": "https://wa.me/16132616383?text=Hello+Sarah%2C+this+is+your+attending+physician+following+up+on+your+message%3A+%22Hi+Doctor%2C+my+blood+pressure+this+morning+is+138%2F88+and+my+heart+rate+is+76....%22.+How+are+you+feeling+right+now%3F",
+    "doctorReplyPrompt": "Hello Sarah, this is your attending physician following up on your message: \"Hi Doctor, my blood pressure this morning is 138/88 and my heart rate is 76....\". How are you feeling right now?"
+  },
+  {
     "id": 1790889349588,
     "type": "whatsapp",
     "sender": "Sarah Khan (via WhatsApp)",

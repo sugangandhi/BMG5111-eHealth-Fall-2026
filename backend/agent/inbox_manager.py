@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from urllib.parse import quote_plus
@@ -162,6 +163,12 @@ def add_whatsapp_escalation(
     if vitals_str:
         snippet += f" | 🩺 Recorded: {vitals_str}"
 
+    subject_line = (
+        f"🟢 WhatsApp Vitals: {patient_name} submitted home readings"
+        if urgency == "routine"
+        else f"🚨 WhatsApp Consult: {patient_name} requested Doctor's Advice"
+    )
+
     escalation_msg = {
         "id": msg_id,
         "type": "whatsapp",
@@ -170,7 +177,7 @@ def add_whatsapp_escalation(
         "patient_id": patient_id,
         "patient_phone": sender_phone,
         "clean_phone": clean_phone,
-        "subject": f"🟢 WhatsApp Consult: {patient_name} requested Doctor's Advice",
+        "subject": subject_line,
         "snippet": snippet,
         "body": (
             f"CLINICAL WHATSAPP PATIENT ENCOUNTER\n\n"
@@ -195,4 +202,67 @@ def add_whatsapp_escalation(
 
     add_inbox_message(escalation_msg)
     print(f"[InboxManager] Added WhatsApp escalation for {patient_name} (ID: {msg_id})")
+
+    # Also log to persistent thread
+    record_whatsapp_thread_message(
+        identifier=clean_phone,
+        role="patient",
+        sender_name=patient_name,
+        text=text_body,
+        vitals=vitals
+    )
     return escalation_msg
+
+THREADS_FILE = Path(__file__).parent.parent / "whatsapp_threads.json"
+
+def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
+    if not THREADS_FILE.exists():
+        return {}
+    try:
+        with open(THREADS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[InboxManager] Error reading whatsapp threads: {e}")
+        return {}
+
+def _save_threads(threads: Dict[str, List[Dict[str, Any]]]) -> None:
+    try:
+        with open(THREADS_FILE, "w", encoding="utf-8") as f:
+            json.dump(threads, f, indent=2)
+    except Exception as e:
+        print(f"[InboxManager] Error saving whatsapp threads: {e}")
+
+def record_whatsapp_thread_message(
+    identifier: str,
+    role: str,
+    sender_name: str,
+    text: str,
+    vitals: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Records a single message into the persistent WhatsApp conversation thread."""
+    threads = _load_threads()
+    import re
+    clean_key = re.sub(r'\D', '', str(identifier or ''))[-10:] or str(identifier or 'default')
+    
+    msg_obj = {
+        "id": int(time.time() * 1000),
+        "role": role,  # 'patient' | 'doctor' | 'bot'
+        "sender_name": sender_name,
+        "text": text,
+        "vitals": vitals or {},
+        "timestamp": datetime.datetime.now().strftime("%I:%M %p") if 'datetime' in globals() else time.strftime("%I:%M %p")
+    }
+
+    if clean_key not in threads:
+        threads[clean_key] = []
+    threads[clean_key].append(msg_obj)
+    _save_threads(threads)
+    return msg_obj
+
+def get_whatsapp_thread(identifier: str) -> List[Dict[str, Any]]:
+    """Retrieves full conversation history for a patient or phone number."""
+    threads = _load_threads()
+    import re
+    clean_key = re.sub(r'\D', '', str(identifier or ''))[-10:] or str(identifier or 'default')
+    return threads.get(clean_key, [])
+
