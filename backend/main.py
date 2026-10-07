@@ -695,8 +695,10 @@ async def scribe_endpoint(body: ScribeRequest):
         "summary": result.summary, 
         "action_items": result.action_items,
         "soap": result.soap,
-        "icd_10": result.icd_10,
-        "cpt_codes": result.cpt_codes,
+        "ohip_diagnostic_codes": getattr(result, "ohip_diagnostic_codes", []),
+        "ohip_fee_codes": getattr(result, "ohip_fee_codes", []),
+        "icd_10": getattr(result, "icd_10", getattr(result, "ohip_diagnostic_codes", [])),
+        "cpt_codes": getattr(result, "cpt_codes", getattr(result, "ohip_fee_codes", [])),
         "warnings": result.warnings
     }
 

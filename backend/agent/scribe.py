@@ -21,6 +21,8 @@ class ScribeResult(BaseModel):
     }
     ohip_diagnostic_codes: List[str] = []
     ohip_fee_codes: List[str] = []
+    icd_10: List[str] = []
+    cpt_codes: List[str] = []
     warnings: List[str] = []
 
 def get_heuristic_scribe(text: str) -> ScribeResult:
@@ -143,12 +145,16 @@ DICTATION:
     data = generate_json_completion(messages, temperature=0.1, timeout=14.0)
     if data and "soap" in data:
         print(f"[AI Scribe] Successfully parsed dictation via {cfg['display_name']}.")
+        ohip_diag = data.get("ohip_diagnostic_codes", [])
+        ohip_fee = data.get("ohip_fee_codes", [])
         return ScribeResult(
             summary=data.get("summary", "Clinical dictation summarized."),
             action_items=data.get("action_items", []),
             soap=data.get("soap", {"subjective": "", "objective": "", "assessment": "", "plan": ""}),
-            ohip_diagnostic_codes=data.get("ohip_diagnostic_codes", []),
-            ohip_fee_codes=data.get("ohip_fee_codes", []),
+            ohip_diagnostic_codes=ohip_diag,
+            ohip_fee_codes=ohip_fee,
+            icd_10=ohip_diag,
+            cpt_codes=ohip_fee,
             warnings=data.get("warnings", [])
         )
     
