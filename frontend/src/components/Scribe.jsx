@@ -42,6 +42,7 @@ export default function Scribe() {
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const inputRef = useRef(null);
+  const baseQueryRef = useRef('');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,7 +70,7 @@ export default function Scribe() {
     };
   }, [isRecording]);
 
-  // Web Speech Recognition
+  // Web Speech Recognition — Accurate single-stream accumulator (prevents repeated words)
   const startSpeechRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -83,19 +84,25 @@ export default function Scribe() {
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
+      // Store any text typed before recording was initiated
+      baseQueryRef.current = inputRef.current?.value?.trim() || '';
+
       recognition.onstart = () => {
         setIsRecording(true);
       };
 
       recognition.onresult = (event) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
+        // Build the cumulative speech stream from session start to eliminate repetition
+        let cumulativeTranscript = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          cumulativeTranscript += event.results[i][0].transcript;
         }
-        if (finalTranscript) {
-          setInputQuery(prev => prev ? `${prev} ${finalTranscript}` : finalTranscript);
+        const spoken = cumulativeTranscript.trim();
+        const base = baseQueryRef.current;
+        if (base && spoken) {
+          setInputQuery(`${base} ${spoken}`);
+        } else if (spoken) {
+          setInputQuery(spoken);
         }
       };
 
@@ -280,12 +287,12 @@ export default function Scribe() {
               width: '38px',
               height: '38px',
               borderRadius: '10px',
-              background: '#2563eb',
+              background: '#0f172a',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#ffffff',
-              boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)'
+              boxShadow: '0 2px 8px rgba(15, 23, 42, 0.25)'
             }}>
               <Bot size={22} />
             </div>
@@ -304,9 +311,9 @@ export default function Scribe() {
             <button
               onClick={() => setVoiceFeedback(prev => !prev)}
               style={{
-                background: voiceFeedback ? '#eff6ff' : '#f8fafc',
-                border: '1px solid #e2e8f0',
-                color: voiceFeedback ? '#2563eb' : '#64748b',
+                background: voiceFeedback ? '#f1f5f9' : '#f8fafc',
+                border: '1px solid #cbd5e1',
+                color: '#0f172a',
                 padding: '6px 12px',
                 borderRadius: '8px',
                 cursor: 'pointer',
@@ -382,29 +389,29 @@ export default function Scribe() {
                   {isDoctor ? (
                     <>
                       <span>{msg.timestamp}</span>
-                      <span style={{ fontWeight: '700', color: '#2563eb' }}>You</span>
+                      <span style={{ fontWeight: '700', color: '#0f172a' }}>You</span>
                     </>
                   ) : (
                     <>
-                      <Bot size={13} color="#2563eb" />
+                      <Bot size={13} color="#0f172a" />
                       <span style={{ fontWeight: '700', color: '#0f172a' }}>Clinical Assistant</span>
                       <span>• {msg.timestamp}</span>
                     </>
                   )}
                 </div>
 
-                {/* Bubble Body */}
+                {/* Bubble Body — Clean White and Black (No blue backgrounds) */}
                 <div
                   style={{
                     maxWidth: '88%',
                     padding: '14px 16px',
                     borderRadius: isDoctor ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: isDoctor ? '#2563eb' : '#ffffff',
-                    border: isDoctor ? 'none' : '1px solid #e2e8f0',
-                    color: isDoctor ? '#ffffff' : '#0f172a',
+                    background: '#ffffff',
+                    border: isDoctor ? '1.5px solid #cbd5e1' : '1px solid #e2e8f0',
+                    color: '#0f172a',
                     fontSize: '14px',
                     lineHeight: '1.55',
-                    boxShadow: isDoctor ? '0 2px 8px rgba(37, 99, 235, 0.25)' : '0 2px 8px rgba(0,0,0,0.04)'
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
                   }}
                 >
                   <div style={{ whiteSpace: 'pre-wrap' }}>{renderFormattedContent(msg.text)}</div>
@@ -432,8 +439,8 @@ export default function Scribe() {
                         >
                           <div style={{ minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <Clock size={13} color="#2563eb" />
-                              <span style={{ fontWeight: '800', color: '#2563eb', fontSize: '13px' }}>{appt.time}</span>
+                              <Clock size={13} color="#0f172a" />
+                              <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px' }}>{appt.time}</span>
                               <span style={{ fontSize: '11px', color: '#64748b' }}>• {appt.source}</span>
                             </div>
                             <div style={{ fontWeight: '800', fontSize: '14.5px', marginTop: '3px', color: '#0f172a' }}>
@@ -445,9 +452,9 @@ export default function Scribe() {
                           <button
                             onClick={() => handleSelectPatientChart(appt)}
                             style={{
-                              background: '#eff6ff',
-                              border: '1px solid #bfdbfe',
-                              color: '#2563eb',
+                              background: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              color: '#0f172a',
                               padding: '6px 12px',
                               borderRadius: '8px',
                               fontSize: '12px',
@@ -457,7 +464,7 @@ export default function Scribe() {
                               alignItems: 'center',
                               gap: '4px',
                               flexShrink: 0,
-                              transition: 'background 0.15s'
+                              transition: 'all 0.15s'
                             }}
                           >
                             Open Chart <ChevronRight size={13} />
@@ -544,7 +551,7 @@ export default function Scribe() {
                             borderRadius: '16px',
                             background: '#ffffff',
                             border: '1px solid #cbd5e1',
-                            color: '#2563eb',
+                            color: '#0f172a',
                             fontSize: '12px',
                             fontWeight: '600',
                             cursor: 'pointer',
@@ -563,7 +570,7 @@ export default function Scribe() {
           })}
 
           {isProcessing && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2563eb', fontSize: '13px', padding: '8px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a', fontSize: '13px', padding: '8px 12px' }}>
               <RefreshCw size={15} className="animate-spin" />
               <span>Analyzing clinical database...</span>
             </div>
@@ -626,9 +633,9 @@ export default function Scribe() {
                 width: '38px',
                 height: '38px',
                 borderRadius: '50%',
-                background: isRecording ? '#ef4444' : '#eff6ff',
-                border: isRecording ? 'none' : '1px solid #bfdbfe',
-                color: isRecording ? '#ffffff' : '#2563eb',
+                background: isRecording ? '#ef4444' : '#ffffff',
+                border: isRecording ? 'none' : '1px solid #cbd5e1',
+                color: isRecording ? '#ffffff' : '#0f172a',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -676,7 +683,7 @@ export default function Scribe() {
                 height: '38px',
                 borderRadius: '10px',
                 background: inputQuery.trim() && !isProcessing
-                  ? '#2563eb'
+                  ? '#0f172a'
                   : '#e2e8f0',
                 border: 'none',
                 color: inputQuery.trim() && !isProcessing ? '#ffffff' : '#94a3b8',
