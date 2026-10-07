@@ -8,10 +8,7 @@ from dataclasses import dataclass
 
 from ocr.form_analyzer import FormSchema, FormField
 from agent.field_mapper import FilledField, CONFIDENCE_MISSING
-
-_base_url = os.getenv("LOCAL_AI_URL", "http://localhost:11434/v1")
-_client = OpenAI(base_url=_base_url, api_key="local")
-MODEL = "gemma2:2b"
+from agent.llm_client import generate_json_completion, get_llm_config
 
 _PROMPT = """You are a medical office assistant helping a Canadian primary care physician complete a form.
 
@@ -53,17 +50,10 @@ def analyze_and_fill(ocr_text: str, patient_context: str) -> tuple[FormSchema, l
         ocr_text=ocr_text[:6000],
     )
     try:
-        response = _client.chat.completions.create(
-            model=MODEL,
-            response_format={ "type": "json_object" },
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        content = response.choices[0].message.content
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0].strip()
-        return _parse_response(content)
+        data = generate_json_completion([{"role": "user", "content": prompt}], timeout=15.0)
+        if data:
+            return _parse_response(json.dumps(data))
+        return None, []
     except Exception as e:
         print(f"Error in analyze_and_fill: {e}")
         return None, []

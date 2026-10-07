@@ -2,27 +2,9 @@ import json
 import os
 import re
 import requests
-from openai import OpenAI
 from fhir.patient_loader import _load as load_fhir_patients, list_patients
 from db.database import log_activity
-
-# AI Client configuration (supports OPENAI_API_KEY on cloud/Render or LOCAL_AI_URL on local machine)
-_client = None
-MODEL = 'gemma2:2b'
-try:
-    if os.getenv('OPENAI_API_KEY'):
-        _client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-        MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
-    elif os.getenv('LOCAL_AI_URL'):
-        _client = OpenAI(base_url=os.getenv('LOCAL_AI_URL'), api_key=os.getenv('LOCAL_AI_KEY', 'local'))
-        MODEL = os.getenv('LOCAL_AI_MODEL', 'gemma2:2b')
-    else:
-        _base_url = 'http://localhost:11434/v1'
-        _client = OpenAI(base_url=_base_url, api_key='local')
-        MODEL = 'gemma2:2b'
-except Exception as e:
-    print(f"[WhatsApp] AI client initialization note: {e}")
-    _client = None
+from agent.llm_client import generate_json_completion, get_llm_config
 
 def normalize_phone(phone_str: str) -> str:
     """Extracts digits from phone string, taking the last 10 digits."""
@@ -112,30 +94,23 @@ def check_doctor_advice_needed(text: str) -> dict:
         }
 
     # 3. NLP Zero-shot Fallback if available
-    if _client:
-        try:
-            prompt = f"""You are a clinical receptionist assistant.
+    try:
+        prompt = f"""You are a clinical receptionist assistant.
 Patient message: "{text}"
 Does the patient explicitly ask for physician advice, clinical consultation, or report acute medical problems (True)?
 Or is this purely routine transmission of home readings or casual chat without questions (False)?
 Respond ONLY with JSON:
 {{"needs_doctor": false, "urgency": "routine", "reason": "brief reason"}}"""
-            response = _client.chat.completions.create(
-                model=MODEL,
-                messages=[{'role': 'user', 'content': prompt}],
-                response_format={'type': 'json_object'},
-                temperature=0.0
-            )
-            data = json.loads(response.choices[0].message.content)
-            if data.get("needs_doctor") is True:
-                return {
-                    "needs_doctor": True,
-                    "urgency": data.get("urgency", "clinical_review"),
-                    "trigger": "AI Clinical Analysis",
-                    "reason": data.get("reason", "AI detected medical concern")
-                }
-        except Exception as e:
-            print(f"[WhatsApp] NLP doctor advice check note: {e}")
+        data = generate_json_completion([{'role': 'user', 'content': prompt}], temperature=0.0, timeout=6.0)
+        if data and data.get("needs_doctor") is True:
+            return {
+                "needs_doctor": True,
+                "urgency": data.get("urgency", "clinical_review"),
+                "trigger": "AI Clinical Analysis",
+                "reason": data.get("reason", "AI detected medical concern")
+            }
+    except Exception as e:
+        print(f"[WhatsApp] NLP doctor advice check note: {e}")
 
     return {
         "needs_doctor": False,
@@ -267,7 +242,7 @@ async def process_whatsapp_message(sender_phone: str, text_body: str) -> dict:
                 break
 
     # 3. Fallback Match: Extract Name & DOB via LLM if available and still unmatched
-    if not matched_patient and _client:
+    if not matched_patient:
         try:
             prompt = f"""You are a medical receptionist assistant.
 Extract the patient name and date of birth from the following chat message.
@@ -278,21 +253,15 @@ Respond ONLY with a valid JSON object in this format:
 }}
 
 Message: {text_body}"""
-            
-            response = _client.chat.completions.create(
-                model=MODEL,
-                messages=[{'role': 'user', 'content': prompt}],
-                response_format={'type': 'json_object'},
-                temperature=0.0
-            )
-            extracted = json.loads(response.choices[0].message.content)
-            name = extracted.get('name')
-            if name:
-                for p in all_patients:
-                    if name.lower() in p['name']['text'].lower():
-                        matched_patient = p
-                        print(f"[WhatsApp] LLM matched patient: {p['name']['text']}")
-                        break
+            extracted = generate_json_completion([{'role': 'user', 'content': prompt}], temperature=0.0, timeout=6.0)
+            if extracted:
+                name = extracted.get('name')
+                if name:
+                    for p in all_patients:
+                        if name.lower() in p['name']['text'].lower():
+                            matched_patient = p
+                            print(f"[WhatsApp] LLM matched patient: {p['name']['text']}")
+                            break
         except Exception as e:
             print(f'[WhatsApp] NLP fallback failed: {e}')
 

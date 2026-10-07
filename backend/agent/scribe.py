@@ -1,12 +1,8 @@
 import os
 import json
-from openai import OpenAI
 from pydantic import BaseModel
-from typing import Optional, List, Dict
-
-_base_url = os.getenv("LOCAL_AI_URL", "http://localhost:11434/v1")
-_client = OpenAI(base_url=_base_url, api_key="local")
-MODEL = "gemma2:2b"
+from typing import Optional, List, Dict, Any
+from agent.llm_client import generate_json_completion, get_llm_config
 
 class SoapNote(BaseModel):
     subjective: str = "Patient symptoms and history discussed."
@@ -107,20 +103,26 @@ def get_heuristic_scribe(text: str) -> ScribeResult:
             warnings=[]
         )
 
-def parse_dictation(text: str) -> ScribeResult:
-    prompt = f"""You are an expert clinical medical scribe practicing in Ontario, Canada. Parse the following physician dictation into a comprehensive structured EHR record.
+def parse_dictation(text: str, patient_name: Optional[str] = None) -> ScribeResult:
+    """
+    Parses unstructured physician dictation into a structured clinical record
+    using the active AI model (OpenAI GPT-4o / GPT-4o-mini, or local Ollama),
+    falling back seamlessly to clinical heuristics if AI is offline.
+    """
+    p_context = f" for patient {patient_name}" if patient_name else ""
+    prompt = f"""You are an expert clinical medical scribe practicing in Ontario, Canada. Parse the following physician dictation{p_context} into a comprehensive structured EHR record.
 Return ONLY valid JSON matching exactly this schema:
 {{
   "summary": "Professional concise executive summary of the consultation",
   "action_items": ["Order lab test", "Prescribe medicine", "Refer to specialist"],
   "soap": {{
-    "subjective": "Patient expressed symptoms and subjective history",
+    "subjective": "Patient expressed symptoms, HPI, and subjective history",
     "objective": "Physical exam observations and vital readings mentioned or inferred",
-    "assessment": "Primary diagnosis or rule-out considerations",
-    "plan": "Therapeutic plan, medications, and follow-up timeline"
+    "assessment": "Primary clinical diagnosis or differential considerations with ICD/OHIP context",
+    "plan": "Therapeutic plan, medications, dosing, and follow-up timeline"
   }},
-  "ohip_diagnostic_codes": ["3-digit OHIP diagnostic code and description"],
-  "ohip_fee_codes": ["OHIP fee schedule code (e.g. A007) and description"],
+  "ohip_diagnostic_codes": ["3-digit OHIP diagnostic code and description, e.g. '250 - Diabetes mellitus'"],
+  "ohip_fee_codes": ["OHIP fee schedule code and description, e.g. 'A007 - Intermediate assessment'"],
   "warnings": ["Warning about MCEDT billing rules, mutually exclusive codes, or missing documentation requirements"]
 }}
 
@@ -128,31 +130,27 @@ Make sure to extract both OHIP diagnostic codes and OHIP fee schedule codes accu
 Add validation warnings if there are missing requirements based on Ontario Ministry of Health OHIP Schedule of Benefits.
 
 DICTATION:
-{text[:10000]}
+{text[:12000]}
 """
-    try:
-        response = _client.chat.completions.create(
-            model=MODEL,
-            response_format={ "type": "json_object" },
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,
-            timeout=5.0
-        )
-        content = response.choices[0].message.content
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0].strip()
-        elif "```" in content:
-            content = content.split("```")[1].strip()
-        
-        data = json.loads(content)
+    messages = [
+        {"role": "system", "content": "You are a professional Ontario Clinical AI Scribe and EMR documentation assistant."},
+        {"role": "user", "content": prompt}
+    ]
+
+    cfg = get_llm_config()
+    print(f"[AI Scribe] Processing dictation with {cfg['display_name']}...")
+    
+    data = generate_json_completion(messages, temperature=0.1, timeout=14.0)
+    if data and "soap" in data:
+        print(f"[AI Scribe] Successfully parsed dictation via {cfg['display_name']}.")
         return ScribeResult(
-            summary=data.get("summary", "No summary generated."),
+            summary=data.get("summary", "Clinical dictation summarized."),
             action_items=data.get("action_items", []),
             soap=data.get("soap", {"subjective": "", "objective": "", "assessment": "", "plan": ""}),
             ohip_diagnostic_codes=data.get("ohip_diagnostic_codes", []),
             ohip_fee_codes=data.get("ohip_fee_codes", []),
             warnings=data.get("warnings", [])
         )
-    except Exception as e:
-        print(f"Local AI unavailable or timed out ({e}), applying intelligent clinical heuristics.")
-        return get_heuristic_scribe(text)
+    
+    print("[AI Scribe] LLM response empty or unavailable. Applying intelligent clinical heuristics fallback.")
+    return get_heuristic_scribe(text)

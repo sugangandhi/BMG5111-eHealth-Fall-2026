@@ -54,6 +54,18 @@ async def startup_event():
 
 
 
+@app.get("/api/ai/status")
+async def get_ai_status():
+    from agent.llm_client import get_llm_config
+    cfg = get_llm_config()
+    return {
+        "provider": cfg["provider"],
+        "model": cfg["model"],
+        "display_name": cfg["display_name"],
+        "is_cloud_openai": cfg["provider"] == "openai",
+        "status": "ready"
+    }
+
 @app.get("/api/patients")
 async def get_patients(source: Optional[str] = None):
     clinic_patients = list_patients()

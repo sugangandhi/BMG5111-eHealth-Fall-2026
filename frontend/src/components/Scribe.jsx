@@ -13,6 +13,15 @@ export default function Scribe() {
   const [isRecording, setIsRecording] = useState(false);
   const [voiceFeedback, setVoiceFeedback] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [aiEngine, setAiEngine] = useState('EHR Integrated');
+
+  useEffect(() => {
+    axios.get('/api/ai/status')
+      .then(res => {
+        if (res.data?.display_name) setAiEngine(res.data.display_name);
+      })
+      .catch(() => {});
+  }, []);
 
   // Chat message thread
   const [messages, setMessages] = useState([
@@ -286,7 +295,7 @@ export default function Scribe() {
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#16a34a', marginTop: '2px', fontWeight: '600' }}>
                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a' }} />
-                Online • EHR Integrated
+                Online • {aiEngine}
               </div>
             </div>
           </div>

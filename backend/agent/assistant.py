@@ -8,7 +8,8 @@ from integrations.central_clinical_api import (
     fetch_central_patients_normalized,
     fetch_patient_vitals_history
 )
-from agent.scribe import get_heuristic_scribe, _client, MODEL
+from agent.scribe import parse_dictation, get_heuristic_scribe
+from agent.llm_client import generate_text_completion, get_llm_config
 
 def handle_assistant_query(query: str, active_patient: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
@@ -76,12 +77,13 @@ def handle_assistant_query(query: str, active_patient: Optional[Dict[str, Any]] 
 
     # 2. ── CLINICAL ENCOUNTER DICTATION / SOAP NOTE INTENT ──────────────────
     if any(k in q_lower for k in ["dictate", "soap", "take a note", "create note", "clinical note", "prescribe", "assessment and plan"]) or len(q_lower.split()) > 25:
-        scribe_res = get_heuristic_scribe(query)
+        p_name = active_patient.get("name") if active_patient else None
+        scribe_res = parse_dictation(query, patient_name=p_name)
         
         # If active patient is provided, enrich context
-        p_name = active_patient.get("name") if active_patient else "the patient"
+        display_name = p_name or "the patient"
         reply = (
-            f"I've structured a comprehensive clinical SOAP note for **{p_name}** based on your dictation. "
+            f"I've structured a comprehensive clinical SOAP note for **{display_name}** based on your dictation. "
             f"Diagnostic and OHIP billing fee codes have been generated below:"
         )
 
@@ -192,34 +194,25 @@ def handle_assistant_query(query: str, active_patient: Optional[Dict[str, Any]] 
         }
 
     # 5. ── GENERAL CLINICAL ASSISTANCE & PHARMACOLOGY FALLBACK ───────────────
-    # If LLM is running locally, use it
-    if _client:
-        try:
-            sys_msg = (
-                "You are Prime Care AI, an advanced Clinical AI Copilot for attending physicians. "
-                "Provide accurate, professional, concise clinical answers. Keep responses structured and brief."
-            )
-            res = _client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {"role": "system", "content": sys_msg},
-                    {"role": "user", "content": query}
-                ],
-                max_tokens=250,
-                temperature=0.2
-            )
-            llm_text = res.choices[0].message.content.strip()
-            return {
-                "intent": "general",
-                "reply": llm_text,
-                "suggested_prompts": [
-                    "Tell me today's appointments",
-                    "Take a note for patient",
-                    "Check patient vitals"
-                ]
-            }
-        except Exception:
-            pass
+    sys_msg = (
+        "You are Prime Care AI, an advanced Clinical AI Copilot for attending physicians practicing in Ontario, Canada. "
+        "Provide accurate, professional, evidence-based, concise clinical answers. Keep responses structured and brief."
+    )
+    llm_text = generate_text_completion([
+        {"role": "system", "content": sys_msg},
+        {"role": "user", "content": query}
+    ], max_tokens=300, temperature=0.2)
+
+    if llm_text:
+        return {
+            "intent": "general",
+            "reply": llm_text,
+            "suggested_prompts": [
+                "Tell me today's appointments",
+                "Take a note for patient",
+                "Check patient vitals"
+            ]
+        }
 
     # Heuristic medical assistant guidance
     return {
