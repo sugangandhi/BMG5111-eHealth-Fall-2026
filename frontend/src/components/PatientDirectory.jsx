@@ -340,7 +340,21 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 'auto', paddingTop: '4px' }}>
                   <button
-                    onClick={() => onSelectPatient && onSelectPatient(p)}
+                    onClick={() => {
+                      const patientObj = {
+                        id: p.id || p.mrn,
+                        name: p.name,
+                        mrn: p.mrn,
+                        conditions: p.conditions || [p.badge || ''],
+                        badge: p.badge || '',
+                        allergies: p.allergies || 'NKDA'
+                      };
+                      try {
+                        localStorage.setItem('active_patient_context', JSON.stringify(patientObj));
+                      } catch (e) {}
+                      window.dispatchEvent(new CustomEvent('set-active-patient', { detail: patientObj }));
+                      if (onSelectPatient) onSelectPatient(p);
+                    }}
                     style={{
                       flex: 1,
                       background: 'rgba(59, 130, 246, 0.15)',
@@ -383,8 +397,19 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
 
                   <button
                     onClick={() => {
+                      const patientObj = {
+                        id: p.id || p.mrn,
+                        name: p.name,
+                        mrn: p.mrn,
+                        conditions: p.conditions || [p.badge || ''],
+                        badge: p.badge || '',
+                        allergies: p.allergies || 'NKDA'
+                      };
+                      try {
+                        localStorage.setItem('active_patient_context', JSON.stringify(patientObj));
+                      } catch (e) {}
                       if (onSelectPatient) onSelectPatient(p);
-                      window.dispatchEvent(new CustomEvent('open-scribe'));
+                      window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: patientObj } }));
                     }}
                     style={{
                       background: 'rgba(16, 185, 129, 0.15)',

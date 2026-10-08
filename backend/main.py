@@ -707,6 +707,8 @@ class AssistantChatRequest(BaseModel):
     patient_id: Optional[str] = None
     patient_name: Optional[str] = None
     active_patient: Optional[Dict[str, Any]] = None
+    previous_queries: Optional[List[str]] = None
+    patient_history: Optional[List[Dict[str, Any]]] = None
 
 @app.post("/api/assistant/chat")
 @app.post("/api/scribe/chat")
@@ -725,7 +727,12 @@ async def assistant_chat_endpoint(body: AssistantChatRequest):
     if body.patient_id:
         patient_ctx["id"] = body.patient_id
 
-    result = handle_assistant_query(body.query, patient_ctx)
+    result = handle_assistant_query(
+        body.query,
+        patient_ctx,
+        previous_queries=body.previous_queries,
+        patient_history=body.patient_history
+    )
     return result
 
 # ── Inbox Triage ──────────────────────────────────────────────────────────────────

@@ -23,11 +23,15 @@ QUESTION_STARTERS = [
     "tell me about", "explain", "help me decide", "review"
 ]
 
-def build_clinical_system_context(active_patient: Optional[Dict[str, Any]] = None, target_patient_name: Optional[str] = None) -> str:
+def build_clinical_system_context(
+    active_patient: Optional[Dict[str, Any]] = None,
+    target_patient_name: Optional[str] = None,
+    patient_history: Optional[List[Dict[str, Any]]] = None
+) -> str:
     """
     Constructs comprehensive real-time clinical context for the LLM Copilot,
     incorporating the EHR patient directory, active clinic roster, Ontario clinical standards,
-    and current schedule state.
+    current schedule state, and patient's longitudinal encounter history.
     """
     today_iso = datetime.date.today().isoformat()
     now_str = datetime.datetime.now().strftime("%I:%M %p")
@@ -68,13 +72,30 @@ def build_clinical_system_context(active_patient: Optional[Dict[str, Any]] = Non
     elif target_patient_name:
         active_focus = f"\nTARGET PATIENT IN DISCUSSION: {target_patient_name}\n"
 
+    # 3. Patient Historical Encounter & Discussion Archive
+    history_section = ""
+    if patient_history and len(patient_history) > 0:
+        history_lines = []
+        for item in patient_history[-10:]:
+            role_label = "Physician" if item.get("role") in ["doctor", "user"] else "Clinical AI"
+            content = (item.get("text") or item.get("content") or "").strip()
+            if content:
+                truncated = content[:280] + ("..." if len(content) > 280 else "")
+                history_lines.append(f"  • [{role_label}]: {truncated}")
+        if history_lines:
+            history_section = (
+                "\nLONGITUDINAL PATIENT CLINICAL HISTORY & PREVIOUS ENCOUNTERS (PERMANENT LOG):\n"
+                + "\n".join(history_lines)
+                + "\n(Always consider these historical discussions for future clinical predictions, medication continuity, and dosage titration.)\n"
+            )
+
     return f"""You are Prime Care AI, an advanced Clinical AI Copilot & Medical Reasoning Agent for attending physicians practicing in Ontario, Canada.
 You possess deep medical clinical judgment, evidence-based reasoning, and complete awareness of the clinic's Electronic Health Record (EHR) database and Ontario healthcare ecosystem.
 
 CLINICAL ENVIRONMENT CONTEXT:
 - Today's Date: {today_iso} | Time: {now_str}
 - Jurisdiction: Ontario, Canada (CPSO Standards of Practice, Ontario Ministry of Health, Health Canada)
-{active_focus}
+{active_focus}{history_section}
 REGISTERED EHR CLINIC PATIENTS:
 {pts_str}
 
@@ -271,7 +292,192 @@ def is_explicit_raw_dictation(query: str) -> bool:
     words = q_low.split()
     return len(words) > 28 and any(k in q_low for k in ["patient presented", "examination", "assessment and plan", "prescribed", "history of present illness"])
 
-def handle_assistant_query(query: str, active_patient: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def generate_dynamic_suggested_prompts(
+    target_patient_name: Optional[str] = None,
+    active_patient: Optional[Dict[str, Any]] = None,
+    previous_queries: Optional[List[str]] = None,
+    offset: int = 0
+) -> List[str]:
+    """
+    Generates tailored, clinically authentic, non-repeating suggested questions
+    based on the active patient and discussion context.
+    """
+    p_name = target_patient_name or (active_patient.get("name") if active_patient else None)
+    
+    if not p_name:
+        all_pool = [
+            "Tell me appointments today",
+            "Check urgent inbox triage and pending lab alerts",
+            "What are the OHIP billing rules for K030 and A007?",
+            "Review David Murphy's CKD staging and labs",
+            "Check Robert Chen's COPD inhaler regimen",
+            "What are the clinical criteria for WSIB Form 8 completion?",
+            "How do I document an encounter SOAP note in the EHR?",
+            "Review upcoming clinic schedule for tomorrow"
+        ]
+    else:
+        p_low = p_name.lower()
+        conds_str = ""
+        if active_patient:
+            conds_raw = active_patient.get("conditions") or []
+            badge = active_patient.get("badge") or ""
+            conds_str = (" ".join([str(c) for c in conds_raw]) + " " + str(badge)).lower()
+
+        if "sarah" in p_low or "diabet" in conds_str:
+            all_pool = [
+                f"What are {p_name}'s latest HbA1c and glycemic trend?",
+                f"Review blood pressure & Ramipril dosing for {p_name}",
+                f"Check lipid panel and Atorvastatin tolerability for {p_name}",
+                f"What is the OHIP fee code (K030) for {p_name}'s diabetes consult?",
+                f"Assess microalbuminuria and annual diabetic nephropathy screen for {p_name}",
+                f"Book next diabetes review appointment for {p_name}",
+                f"Take an encounter note for {p_name}'s diabetes follow-up",
+                f"Draft dietary carbohydrate counseling instructions for {p_name}"
+            ]
+        elif "robert" in p_low or "copd" in conds_str or "lung" in conds_str:
+            all_pool = [
+                f"Assess COPD exacerbation risk and GOLD staging for {p_name}",
+                f"Review current inhaler therapy (Tiotropium/Budesonide) for {p_name}",
+                f"Check baseline resting SpO2 and dyspnea grade for {p_name}",
+                f"Draft patient instructions for proper inhaler technique for {p_name}",
+                f"Assess coronary artery disease stability & cardiac symptoms for {p_name}",
+                f"Book follow-up pulmonary check for {p_name}",
+                f"Take an encounter note for {p_name}'s respiratory consult",
+                f"Review vaccination status (Pneumococcal & Influenza) for {p_name}"
+            ]
+        elif "david" in p_low or "ckd" in conds_str or "renal" in conds_str or "kidney" in conds_str:
+            all_pool = [
+                f"What are {p_name}'s latest eGFR and serum creatinine levels?",
+                f"Review renal-safe medications and ACE inhibitor titration for {p_name}",
+                f"Check serum electrolytes (potassium) & hyperkalemia risk for {p_name}",
+                f"Assess urine albumin-to-creatinine ratio (uACR) for {p_name}",
+                f"Schedule {p_name}'s quarterly renal review appointment",
+                f"Take a clinical progress note for {p_name}'s nephrology follow-up",
+                f"Review dietary restrictions (low potassium & phosphorus) for {p_name}",
+                f"Order renal ultrasound and repeat metabolic panel for {p_name}"
+            ]
+        elif "fatima" in p_low or "prenatal" in conds_str or "pregnan" in conds_str:
+            all_pool = [
+                f"Review {p_name}'s 26-week gestational milestones and growth curve",
+                f"Check 75g oral glucose tolerance test (OGTT) protocol for {p_name}",
+                f"Assess symphysis-fundal height and fetal heart tones for {p_name}",
+                f"Confirm blood group, Rh(D) status and antibody screen for {p_name}",
+                f"Take an obstetrical progress note for {p_name}'s prenatal visit",
+                f"Book 28-week prenatal check and repeat bloodwork for {p_name}",
+                f"Review fetal movement kick counts instructions with {p_name}",
+                f"What is the OHIP prenatal fee code (A007/P005) for {p_name}?"
+            ]
+        elif "marcus" in p_low or "wsib" in conds_str or "wrist" in conds_str or "lumbar" in conds_str:
+            all_pool = [
+                f"Review {p_name}'s WSIB Form 8 functional abilities & claim status",
+                f"Document lumbar spine range of motion and tenderness for {p_name}",
+                f"Outline modified duties and lifting restrictions (under 10 lbs) for {p_name}",
+                f"Draft WSIB medical progress report & treatment plan for {p_name}",
+                f"Schedule physiotherapy reassessment appointment for {p_name}",
+                f"Take an occupational health encounter note for {p_name}",
+                f"Assess neuropathic symptoms and straight leg raise test for {p_name}",
+                f"Review NSAID analgesia and gastroprotection for {p_name}"
+            ]
+        elif "james" in p_low or "asthma" in conds_str or "pediatric" in conds_str:
+            all_pool = [
+                f"Review {p_name}'s school asthma & EpiPen emergency action plan",
+                f"Check pediatric Asthma Control Test (PACT) score for {p_name}",
+                f"Assess Flovent and Ventolin spacer adherence for {p_name}",
+                f"Review environmental allergen triggers and eczema topical therapy for {p_name}",
+                f"Take a pediatric encounter note for {p_name}",
+                f"Check inhaler refill and renew pharmacy prescription for {p_name}",
+                f"Book seasonal asthma follow-up for {p_name}",
+                f"Provide school administration medical authorization letter for {p_name}"
+            ]
+        elif "elena" in p_low or "rheumatoid" in conds_str or "arthrit" in conds_str:
+            all_pool = [
+                f"Check {p_name}'s Methotrexate lab monitoring (CBC, LFTs, ESR/CRP)",
+                f"Assess joint stiffness duration and 28-joint disease activity score (DAS28)",
+                f"Confirm Folic acid 5mg supplementation timing for {p_name}",
+                f"Review DEXA bone mineral density scan & osteoporosis therapy for {p_name}",
+                f"Take a clinical note for {p_name}'s rheumatology follow-up",
+                f"Schedule {p_name}'s next routine 12-week safety bloodwork",
+                f"Assess criteria for biologic or JAK inhibitor step-up therapy for {p_name}",
+                f"Book next clinical assessment for {p_name}"
+            ]
+        elif "marie" in p_low or "mental" in conds_str or "depress" in conds_str or "anxiety" in conds_str:
+            all_pool = [
+                f"Review {p_name}'s PHQ-9 depression and GAD-7 anxiety scores",
+                f"Assess SSRI tolerability, emotional blunting, and sleep hygiene for {p_name}",
+                f"Review acute migraine abortive therapy (Triptan) frequency for {p_name}",
+                f"Take a confidential mental health progress note for {p_name}",
+                f"Discuss CBT and structured psychotherapy referrals for {p_name}",
+                f"Book {p_name}'s 4-week mental health follow-up appointment",
+                f"Screen for suicidal ideation, safety plan, and crisis resources for {p_name}",
+                f"What is the OHIP psychotherapy fee code (K197/K198) for {p_name}?"
+            ]
+        elif "louise" in p_low or "oncol" in conds_str or "cancer" in conds_str or "breast" in conds_str:
+            all_pool = [
+                f"Review {p_name}'s post-treatment oncology surveillance interval",
+                f"Check routine surveillance bloodwork (CBC, LFTs, Calcium) for {p_name}",
+                f"Review endocrine therapy (Tamoxifen/Aromatase inhibitor) adherence & side effects",
+                f"Schedule annual bilateral surveillance mammogram for {p_name}",
+                f"Assess bone density DEXA scan and bisphosphonate compliance for {p_name}",
+                f"Take a clinical progress note for {p_name}'s oncology follow-up",
+                f"Book oncology liaison check for {p_name}",
+                f"Review lifestyle, lymphedema precautions, and cardiovascular health for {p_name}"
+            ]
+        elif "michael" in p_low or "oat" in conds_str or "suboxone" in conds_str or "opioid" in conds_str:
+            all_pool = [
+                f"Review {p_name}'s Suboxone maintenance dosing and craving control",
+                f"Check point-of-care urine drug screen status and compliance for {p_name}",
+                f"Review Hepatitis C viral load and direct-acting antiviral (DAA) staging",
+                f"Confirm HIV viral load suppression and Antiretroviral (ART) compliance for {p_name}",
+                f"Take an encounter note for {p_name}'s OAT monthly check-in",
+                f"Authorize 30-day OAT pharmacy dispensation and carry doses for {p_name}",
+                f"Confirm naloxone kit availability and harm reduction counseling for {p_name}",
+                f"Book next addiction medicine review appointment for {p_name}"
+            ]
+        else:
+            all_pool = [
+                f"What are {p_name}'s recorded vitals and allergies?",
+                f"Review active medications and clinical history for {p_name}",
+                f"Take a clinical encounter note for {p_name}",
+                f"Book an appointment for {p_name}",
+                f"Check recent lab results and diagnostic imaging for {p_name}",
+                f"Review immunizations and preventive care schedule for {p_name}",
+                f"What are the relevant OHIP assessment fee codes for {p_name}?",
+                f"Send WhatsApp follow-up reminder to {p_name}"
+            ]
+
+    # Non-repetition filtering: exclude prompts that match past queries
+    past_clean = [q.lower().strip() for q in (previous_queries or []) if q]
+    unasked = []
+    for item in all_pool:
+        item_low = item.lower()
+        # Check if already asked in recent history
+        already_used = any(
+            (p in item_low or item_low in p)
+            for p in past_clean
+        )
+        if not already_used:
+            unasked.append(item)
+
+    if not unasked:
+        unasked = all_pool
+
+    # Apply offset/window to cycle questions cleanly
+    num_to_take = min(4, len(unasked))
+    start_idx = offset % len(unasked) if len(unasked) > 0 else 0
+    selected = []
+    for i in range(num_to_take):
+        idx = (start_idx + i) % len(unasked)
+        if unasked[idx] not in selected:
+            selected.append(unasked[idx])
+
+    return selected
+
+def handle_assistant_query(
+    query: str,
+    active_patient: Optional[Dict[str, Any]] = None,
+    previous_queries: Optional[List[str]] = None,
+    patient_history: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """
     Intelligent clinical reasoning engine for the interactive AI Scribe & Clinical Copilot.
     Processes natural language doctor inquiries across the full scope of clinical reasoning,
@@ -496,40 +702,48 @@ def handle_assistant_query(query: str, active_patient: Optional[Dict[str, Any]] 
     # Build comprehensive clinical system prompt
     system_prompt = build_clinical_system_context(
         active_patient=active_patient,
-        target_patient_name=target_patient_name
+        target_patient_name=target_patient_name,
+        patient_history=patient_history
     )
 
+    llm_messages = [{"role": "system", "content": system_prompt}]
+    if patient_history and len(patient_history) > 0:
+        for turn in patient_history[-4:]:
+            r = "user" if turn.get("role") in ["doctor", "user"] else "assistant"
+            txt = (turn.get("text") or turn.get("content") or "").strip()
+            if txt:
+                llm_messages.append({"role": r, "content": txt[:350]})
+    llm_messages.append({"role": "user", "content": query})
+
     llm_reply = generate_text_completion(
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query}
-        ],
+        messages=llm_messages,
         max_tokens=450,
         temperature=0.2
     )
 
-    if llm_reply:
-        # Generate contextually relevant suggested follow-up prompts
-        follow_ups = []
-        if target_patient_name:
-            follow_ups.append(f"What are the vitals for {target_patient_name}?")
-            follow_ups.append(f"Book follow-up for {target_patient_name}")
-            follow_ups.append(f"Dictate clinical note for {target_patient_name}")
-        else:
-            follow_ups = [
-                "Tell me appointments today",
-                "Review Sarah Khan's diabetes management",
-                "What are the OHIP billing codes for K030?"
-            ]
 
+
+    combined_past = list(previous_queries or []) + [query]
+    resolved_patient_name = target_patient_name or (active_patient.get("name") if active_patient else None)
+
+    if llm_reply:
+        follow_ups = generate_dynamic_suggested_prompts(
+            target_patient_name=resolved_patient_name,
+            active_patient=active_patient,
+            previous_queries=combined_past
+        )
         return {
             "intent": "clinical_reasoning",
             "reply": llm_reply,
-            "patient_name": target_patient_name,
+            "patient_name": resolved_patient_name,
             "suggested_prompts": follow_ups
         }
 
-    # Intelligent fallback if LLM is temporarily unreachable
+    follow_ups = generate_dynamic_suggested_prompts(
+        target_patient_name=resolved_patient_name,
+        active_patient=active_patient,
+        previous_queries=combined_past
+    )
     return {
         "intent": "clinical_reasoning",
         "reply": (
@@ -539,9 +753,6 @@ def handle_assistant_query(query: str, active_patient: Optional[Dict[str, Any]] 
             f"• 💰 **Ontario OHIP Billing**: Fee schedules (A007, K030, G310) and diagnostic code lookups.\n"
             f"• 📅 **Schedule Actions**: *\"Create appointment for Sarah Khan today at 3pm\"* or *\"Cancel today's appointment\"*."
         ),
-        "suggested_prompts": [
-            "Review Sarah Khan's diabetes management",
-            "What lab tests should I order for David Murphy?",
-            "Tell me appointments today"
-        ]
+        "patient_name": resolved_patient_name,
+        "suggested_prompts": follow_ups
     }

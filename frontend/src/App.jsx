@@ -129,18 +129,32 @@ function App() {
     axios.get('/api/patients').then(res => {
       if (res.data?.patients && res.data.patients.length > 0) {
         setAllPatients(res.data.patients);
+        let stored = null;
+        try {
+          stored = JSON.parse(localStorage.getItem('active_patient_context') || 'null');
+        } catch (e) {}
+
         if (!activePatient) {
-          const first = res.data.patients[0];
-          setActivePatient({
-            id: first.id,
-            name: first.name,
-            initials: (first.name || 'PT').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
-            dob: first.birthDate,
-            phone: first.phone || '613-555-0192',
-            mrn: first.mrn || `MRN-${first.id}`,
-            allergies: first.allergies || 'NKDA',
-            codeStatus: 'Full Code'
-          });
+          const matched = stored?.name 
+            ? (res.data.patients.find(p => p.name === stored.name || p.id === stored.id) || stored)
+            : res.data.patients[0];
+          
+          const pObj = {
+            id: matched.id,
+            name: matched.name,
+            initials: (matched.name || 'PT').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+            dob: matched.birthDate || matched.dob || '1981-04-14',
+            phone: matched.phone || '613-555-0192',
+            mrn: matched.mrn || `MRN-${matched.id}`,
+            allergies: matched.allergies || 'NKDA',
+            codeStatus: 'Full Code',
+            conditions: matched.conditions || [],
+            badge: matched.badge || (matched.conditions && matched.conditions[0]?.display) || ''
+          };
+          setActivePatient(pObj);
+          try {
+            localStorage.setItem('active_patient_context', JSON.stringify(pObj));
+          } catch (e) {}
         }
       }
     }).catch(err => console.log("Initial patient load note:", err));
@@ -149,7 +163,7 @@ function App() {
   const handleSelectPatientById = (patientId) => {
     const target = allPatients.find(p => p.id === patientId);
     if (target) {
-      setActivePatient({
+      const pObj = {
         id: target.id,
         name: target.name,
         initials: (target.name || 'PT').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
@@ -157,14 +171,21 @@ function App() {
         phone: target.phone || '613-555-0192',
         mrn: target.mrn || `MRN-${target.id}`,
         allergies: target.allergies || 'NKDA',
-        codeStatus: 'Full Code'
-      });
+        codeStatus: 'Full Code',
+        conditions: target.conditions || [],
+        badge: target.badge || (target.conditions && target.conditions[0]?.display) || ''
+      };
+      setActivePatient(pObj);
       setIsEditingPatientPhone(false);
+      try {
+        localStorage.setItem('active_patient_context', JSON.stringify(pObj));
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('set-active-patient', { detail: pObj }));
     }
   };
 
   const handleSelectPatientFromDirectory = (p) => {
-    setActivePatient({
+    const pObj = {
       id: p.id,
       name: p.name,
       initials: p.initials || (p.name || 'PT').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
@@ -173,9 +194,16 @@ function App() {
       mrn: p.mrn || `MRN-${p.id}`,
       allergies: p.allergies || 'NKDA',
       codeStatus: 'Full Code',
-      source: p.source || 'central_cloud'
-    });
+      source: p.source || 'central_cloud',
+      conditions: p.conditions || [p.badge || ''],
+      badge: p.badge || ''
+    };
+    setActivePatient(pObj);
     setIsEditingPatientPhone(false);
+    try {
+      localStorage.setItem('active_patient_context', JSON.stringify(pObj));
+    } catch (e) {}
+    window.dispatchEvent(new CustomEvent('set-active-patient', { detail: pObj }));
   };
 
   // Save patient phone change (connect personal test phone directly to chart)
@@ -948,14 +976,18 @@ function App() {
                       <MessageCircle size={20} />
                     </button>
                     <button 
-                      onClick={() => { window.dispatchEvent(new CustomEvent('open-scribe')); }}
+                      onClick={() => { window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: activePatient } })); }}
                       style={{ background: 'rgba(16, 185, 129, 0.18)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                       title="Open Ambient AI Scribe"
                     >
                       <Mic size={14} /> Open AI Scribe
                     </button>
                     <button 
-                      onClick={() => setActivePatient(null)}
+                      onClick={() => {
+                        setActivePatient(null);
+                        try { localStorage.removeItem('active_patient_context'); } catch(e) {}
+                        window.dispatchEvent(new CustomEvent('set-active-patient', { detail: null }));
+                      }}
                       style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '50%' }}
                       title="Dismiss patient banner"
                     >
@@ -1033,7 +1065,7 @@ function App() {
                     </button>
                     <button 
                       type="button"
-                      onClick={() => { window.dispatchEvent(new CustomEvent('open-scribe')); }}
+                      onClick={() => { window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: activePatient } })); }}
                       style={{
                         background: 'rgba(16, 185, 129, 0.2)',
                         color: '#34d399',
@@ -1052,7 +1084,11 @@ function App() {
                       <Mic size={16} />
                     </button>
                     <button 
-                      onClick={() => setActivePatient(null)}
+                      onClick={() => {
+                        setActivePatient(null);
+                        try { localStorage.removeItem('active_patient_context'); } catch(e) {}
+                        window.dispatchEvent(new CustomEvent('set-active-patient', { detail: null }));
+                      }}
                       style={{
                         background: 'rgba(255,255,255,0.06)',
                         border: 'none',
@@ -1229,7 +1265,7 @@ function App() {
         </div>
         
         {/* Prominent Center Scribe Floating Mic */}
-        <div className="bottom-nav-center-action" onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}>
+        <div className="bottom-nav-center-action" onClick={() => window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: activePatient } }))}>
           <div className="bottom-nav-center-btn" title="Open Ambient Voice Scribe">
             <Mic size={24} />
           </div>

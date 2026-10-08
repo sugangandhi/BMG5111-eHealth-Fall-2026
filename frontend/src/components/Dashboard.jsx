@@ -183,8 +183,11 @@ export default function Dashboard() {
       allergies: matched?.allergies || (appt.patient_name.includes("Doe") ? "Penicillin" : "NKDA"),
       codeStatus: "Full Code"
     };
+    try {
+      localStorage.setItem('active_patient_context', JSON.stringify(patientContext));
+    } catch (e) {}
     window.dispatchEvent(new CustomEvent('set-active-patient', { detail: patientContext }));
-    window.dispatchEvent(new CustomEvent('open-scribe'));
+    window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: patientContext } }));
   };
 
   const user = JSON.parse(localStorage.getItem('medoffice_user')) || { name: 'Clinician' };
@@ -505,7 +508,11 @@ export default function Dashboard() {
           <button 
             type="button"
             className="mobile-action-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}
+            onClick={() => {
+              let stored = null;
+              try { stored = JSON.parse(localStorage.getItem('active_patient_context') || 'null'); } catch(e) {}
+              window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: stored } }));
+            }}
           >
             <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.4)' }}>
               <Mic size={22} />
