@@ -66,6 +66,61 @@ async def get_ai_status():
         "status": "ready"
     }
 
+class AIKeyUpdateRequest(BaseModel):
+    api_key: str
+    model: Optional[str] = "gpt-4o"
+
+@app.post("/api/ai/key")
+async def update_ai_key(req: AIKeyUpdateRequest):
+    key = req.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="API key cannot be empty")
+    
+    # Update current process environment in runtime
+    os.environ["OPENAI_API_KEY"] = key
+    if req.model:
+        os.environ["OPENAI_MODEL"] = req.model.strip()
+    
+    # Try persisting to backend/.env if writable
+    env_path = Path(__file__).parent / ".env"
+    try:
+        lines = []
+        if env_path.exists():
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        
+        has_key = False
+        has_model = False
+        new_lines = []
+        for line in lines:
+            if line.startswith("OPENAI_API_KEY="):
+                new_lines.append(f"OPENAI_API_KEY={key}\n")
+                has_key = True
+            elif line.startswith("OPENAI_MODEL=") and req.model:
+                new_lines.append(f"OPENAI_MODEL={req.model.strip()}\n")
+                has_model = True
+            else:
+                new_lines.append(line)
+        if not has_key:
+            new_lines.append(f"\nOPENAI_API_KEY={key}\n")
+        if not has_model and req.model:
+            new_lines.append(f"OPENAI_MODEL={req.model.strip()}\n")
+            
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+    except Exception as e:
+        print(f"[Warning] Could not persist key to .env: {e}")
+        
+    from agent.llm_client import get_llm_config
+    cfg = get_llm_config()
+    return {
+        "status": "success",
+        "display_name": cfg["display_name"],
+        "provider": cfg["provider"],
+        "model": cfg["model"],
+        "is_cloud_openai": cfg["provider"] == "openai"
+    }
+
 @app.get("/api/patients")
 async def get_patients(source: Optional[str] = None):
     clinic_patients = list_patients()

@@ -16,14 +16,47 @@ export default function Scribe() {
   const [voiceFeedback, setVoiceFeedback] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [aiEngine, setAiEngine] = useState('EHR Integrated');
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [keySaveMessage, setKeySaveMessage] = useState(null);
 
-  useEffect(() => {
+  const fetchAiStatus = () => {
     axios.get('/api/ai/status')
       .then(res => {
         if (res.data?.display_name) setAiEngine(res.data.display_name);
       })
       .catch(() => {});
-  }, []);
+  };
+
+  useEffect(() => {
+    fetchAiStatus();
+  }, [isOpen]);
+
+  const handleSaveApiKey = async () => {
+    if (!apiKeyInput.trim()) return;
+    setIsSavingKey(true);
+    setKeySaveMessage(null);
+    try {
+      const res = await axios.post('/api/ai/key', {
+        api_key: apiKeyInput.trim(),
+        model: 'gpt-4o'
+      });
+      if (res.data?.display_name) {
+        setAiEngine(res.data.display_name);
+        setKeySaveMessage({ type: 'success', text: `Connected to ${res.data.display_name}!` });
+        setTimeout(() => {
+          setShowKeyModal(false);
+          setKeySaveMessage(null);
+          setApiKeyInput('');
+        }, 1200);
+      }
+    } catch (e) {
+      setKeySaveMessage({ type: 'error', text: e.response?.data?.detail || 'Failed to update key' });
+    } finally {
+      setIsSavingKey(false);
+    }
+  };
 
   // Dynamic active patient context
   const [currentPatient, setCurrentPatient] = useState(() => {
@@ -1347,9 +1380,33 @@ export default function Scribe() {
               <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 Prime Care AI • Clinical Assistant
               </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#16a34a', marginTop: '2px', fontWeight: '600' }}>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a' }} />
-                Online • {aiEngine}
+              <div
+                onClick={() => setShowKeyModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  fontSize: '11px',
+                  color: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#d97706',
+                  marginTop: '2px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  padding: '1px 6px',
+                  borderRadius: '6px',
+                  background: aiEngine.toLowerCase().includes('openai') ? '#f0fdf4' : '#fffbeb',
+                  border: aiEngine.toLowerCase().includes('openai') ? '1px solid #bbf7d0' : '1px solid #fde68a',
+                  transition: 'all 0.15s'
+                }}
+                title="Tap to configure or update AI Engine / OpenAI API Key"
+              >
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#f59e0b'
+                }} />
+                <span>Online • {aiEngine}</span>
+                <span style={{ fontSize: '10px', color: '#64748b' }}>⚙</span>
               </div>
             </div>
           </div>
@@ -2084,6 +2141,142 @@ export default function Scribe() {
                     Close
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* AI Model & API Key Configuration Modal */}
+        {showKeyModal && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 100020,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.15s ease-out'
+          }}>
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '12px',
+              border: '1px solid #cbd5e1',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+              width: '100%',
+              maxWidth: '380px',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={18} color="#2563eb" />
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>
+                    AI Clinical Engine Settings
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowKeyModal(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '16px' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{
+                padding: '10px 12px',
+                borderRadius: '8px',
+                background: aiEngine.toLowerCase().includes('openai') ? '#f0fdf4' : '#fffbeb',
+                border: aiEngine.toLowerCase().includes('openai') ? '1px solid #bbf7d0' : '1px solid #fde68a',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#f59e0b'
+                }} />
+                <div>
+                  <strong style={{ color: '#0f172a' }}>Active Engine:</strong> {aiEngine}
+                </div>
+              </div>
+
+              <div style={{ fontSize: '12px', color: '#475569', lineHeight: '1.45' }}>
+                To use <strong>OpenAI GPT-4o</strong> on this mobile device or cloud instance, enter your OpenAI API key:
+              </div>
+
+              <input
+                type="password"
+                placeholder="Paste OpenAI API Key (sk-...)"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                  color: '#0f172a',
+                  outline: 'none'
+                }}
+              />
+
+              {keySaveMessage && (
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: keySaveMessage.type === 'success' ? '#16a34a' : '#dc2626'
+                }}>
+                  {keySaveMessage.text}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                <button
+                  onClick={() => setShowKeyModal(false)}
+                  style={{
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    padding: '7px 12px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#475569',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveApiKey}
+                  disabled={!apiKeyInput.trim() || isSavingKey}
+                  style={{
+                    background: apiKeyInput.trim() && !isSavingKey ? '#2563eb' : '#94a3b8',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '7px 14px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#ffffff',
+                    cursor: apiKeyInput.trim() && !isSavingKey ? 'pointer' : 'default',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {isSavingKey ? 'Connecting...' : 'Save & Connect GPT-4o'}
+                </button>
               </div>
             </div>
           </div>
