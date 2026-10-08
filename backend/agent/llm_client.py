@@ -7,16 +7,17 @@ Provides seamless support for:
 """
 import os
 import json
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# Ensure environment variables are loaded
-load_dotenv(override=True)
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=ENV_FILE, override=True)
 
 def get_llm_config() -> Dict[str, Any]:
     """Inspects environment and returns active model provider metadata with live reloading."""
-    load_dotenv(override=True)
+    load_dotenv(dotenv_path=ENV_FILE, override=True)
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
     local_url = os.getenv("LOCAL_AI_URL", "http://localhost:11434/v1").strip()
     
@@ -98,7 +99,7 @@ def generate_json_completion(
                     messages=messages,
                     response_format={"type": "json_object"},
                     temperature=temperature,
-                    timeout=timeout
+                    timeout=50.0
                 )
                 content = resp.choices[0].message.content or "{}"
                 if "```json" in content:
@@ -114,8 +115,8 @@ def generate_json_completion(
 def generate_text_completion(
     messages: List[Dict[str, str]],
     temperature: float = 0.2,
-    max_tokens: int = 400,
-    timeout: float = 10.0
+    max_tokens: int = 500,
+    timeout: float = 15.0
 ) -> Optional[str]:
     """
     Executes a standard conversational completion against the configured LLM.
@@ -149,7 +150,7 @@ def generate_text_completion(
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
-                    timeout=timeout
+                    timeout=50.0
                 )
                 return (resp.choices[0].message.content or "").strip()
             except Exception as e_local:

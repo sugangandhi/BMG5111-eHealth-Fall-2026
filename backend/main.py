@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 
-load_dotenv()
+ENV_FILE = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=ENV_FILE, override=True)
 
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,13 +77,28 @@ async def update_ai_key(req: AIKeyUpdateRequest):
     if not key:
         raise HTTPException(status_code=400, detail="API key cannot be empty")
     
+    # Live verification of OpenAI API key
+    from openai import OpenAI
+    warning_msg = None
+    try:
+        test_client = OpenAI(api_key=key)
+        test_client.models.list()
+    except Exception as e:
+        err_str = str(e)
+        if "401" in err_str or "invalid_api_key" in err_str:
+            raise HTTPException(status_code=400, detail="Invalid OpenAI API key. Please check your key.")
+        elif "429" in err_str or "insufficient_quota" in err_str or "credit_balance_exhausted" in err_str:
+            warning_msg = "Key saved, but OpenAI reports your credit balance is exhausted (429). The system will use the local EHR fallback engine until credits are added."
+        else:
+            print(f"[Warning] Key verification note: {err_str}")
+
     # Update current process environment in runtime
     os.environ["OPENAI_API_KEY"] = key
     if req.model:
         os.environ["OPENAI_MODEL"] = req.model.strip()
     
     # Try persisting to backend/.env if writable
-    env_path = Path(__file__).parent / ".env"
+    env_path = Path(__file__).resolve().parent / ".env"
     try:
         lines = []
         if env_path.exists():
@@ -118,7 +134,8 @@ async def update_ai_key(req: AIKeyUpdateRequest):
         "display_name": cfg["display_name"],
         "provider": cfg["provider"],
         "model": cfg["model"],
-        "is_cloud_openai": cfg["provider"] == "openai"
+        "is_cloud_openai": cfg["provider"] == "openai",
+        "warning": warning_msg
     }
 
 @app.get("/api/patients")
@@ -761,9 +778,9 @@ class AssistantChatRequest(BaseModel):
     query: str
     patient_id: Optional[str] = None
     patient_name: Optional[str] = None
-    active_patient: Optional[Dict[str, Any]] = None
+    active_patient: Optional[Any] = None
     previous_queries: Optional[List[str]] = None
-    patient_history: Optional[List[Dict[str, Any]]] = None
+    patient_history: Optional[List[Any]] = None
 
 @app.post("/api/assistant/chat")
 @app.post("/api/scribe/chat")
@@ -776,7 +793,12 @@ async def assistant_chat_endpoint(body: AssistantChatRequest):
     if not body.query.strip():
         raise HTTPException(400, "Query cannot be empty")
     
-    patient_ctx = body.active_patient or {}
+    patient_ctx = {}
+    if isinstance(body.active_patient, dict):
+        patient_ctx = dict(body.active_patient)
+    elif isinstance(body.active_patient, str):
+        patient_ctx = {"name": body.active_patient}
+
     if body.patient_name:
         patient_ctx["name"] = body.patient_name
     if body.patient_id:

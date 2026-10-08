@@ -15,7 +15,13 @@ export default function Scribe() {
   const [isRecording, setIsRecording] = useState(false);
   const [voiceFeedback, setVoiceFeedback] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
-  const [aiEngine, setAiEngine] = useState('EHR Integrated');
+  const [aiEngine, setAiEngine] = useState(() => {
+    try {
+      return localStorage.getItem('primecare_ai_engine') || 'OpenAI (gpt-4o)';
+    } catch (e) {
+      return 'OpenAI (gpt-4o)';
+    }
+  });
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isSavingKey, setIsSavingKey] = useState(false);
@@ -88,7 +94,10 @@ export default function Scribe() {
   const fetchAiStatus = () => {
     axios.get('/api/ai/status')
       .then(res => {
-        if (res.data?.display_name) setAiEngine(res.data.display_name);
+        if (res.data?.display_name) {
+          setAiEngine(res.data.display_name);
+          try { localStorage.setItem('primecare_ai_engine', res.data.display_name); } catch(e){}
+        }
       })
       .catch(() => {});
   };
@@ -108,12 +117,17 @@ export default function Scribe() {
       });
       if (res.data?.display_name) {
         setAiEngine(res.data.display_name);
-        setKeySaveMessage({ type: 'success', text: `Connected to ${res.data.display_name}!` });
-        setTimeout(() => {
-          setShowKeyModal(false);
-          setKeySaveMessage(null);
-          setApiKeyInput('');
-        }, 1200);
+        try { localStorage.setItem('primecare_ai_engine', res.data.display_name); } catch(e){}
+        if (res.data?.warning) {
+          setKeySaveMessage({ type: 'warning', text: res.data.warning });
+        } else {
+          setKeySaveMessage({ type: 'success', text: `Connected to ${res.data.display_name}!` });
+          setTimeout(() => {
+            setShowKeyModal(false);
+            setKeySaveMessage(null);
+            setApiKeyInput('');
+          }, 1500);
+        }
       }
     } catch (e) {
       setKeySaveMessage({ type: 'error', text: e.response?.data?.detail || 'Failed to update key' });
@@ -2470,7 +2484,12 @@ export default function Scribe() {
                 <div style={{
                   fontSize: '12px',
                   fontWeight: '600',
-                  color: keySaveMessage.type === 'success' ? '#16a34a' : '#dc2626'
+                  color: keySaveMessage.type === 'success' ? '#16a34a' : keySaveMessage.type === 'warning' ? '#d97706' : '#dc2626',
+                  background: keySaveMessage.type === 'warning' ? '#fffbeb' : 'transparent',
+                  padding: keySaveMessage.type === 'warning' ? '8px 10px' : '0',
+                  borderRadius: '6px',
+                  border: keySaveMessage.type === 'warning' ? '1px solid #fde68a' : 'none',
+                  lineHeight: '1.4'
                 }}>
                   {keySaveMessage.text}
                 </div>

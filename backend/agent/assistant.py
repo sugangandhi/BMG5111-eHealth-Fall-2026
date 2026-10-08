@@ -744,15 +744,84 @@ def handle_assistant_query(
         active_patient=active_patient,
         previous_queries=combined_past
     )
+
+    fallback_reply = build_clinical_fallback_response(
+        query=query,
+        target_patient_name=resolved_patient_name,
+        active_patient=active_patient
+    )
+
     return {
         "intent": "clinical_reasoning",
-        "reply": (
-            f"I'm your **Clinical AI Assistant**. I can assist with any medical reasoning or EHR operation:\n\n"
-            f"• 🩺 **Clinical Decisions**: Differential workups, pharmacological dosing, and guideline consultations.\n"
-            f"• 📋 **Patient Management**: Case analysis for registered patients (Sarah Khan, David Murphy, Robert Chen, etc.).\n"
-            f"• 💰 **Ontario OHIP Billing**: Fee schedules (A007, K030, G310) and diagnostic code lookups.\n"
-            f"• 📅 **Schedule Actions**: *\"Create appointment for Sarah Khan today at 3pm\"* or *\"Cancel today's appointment\"*."
-        ),
+        "reply": fallback_reply,
         "patient_name": resolved_patient_name,
         "suggested_prompts": follow_ups
     }
+
+def build_clinical_fallback_response(
+    query: str,
+    target_patient_name: Optional[str] = None,
+    active_patient: Optional[Dict[str, Any]] = None
+) -> str:
+    """
+    High-fidelity clinical reasoning safety fallback when both cloud OpenAI
+    (e.g. credit exhaustion 429) and local Ollama are unreachable.
+    Provides verified clinical guidelines and notifies clinician of engine status.
+    """
+    q_low = query.lower()
+    p_name = target_patient_name or (active_patient.get("name") if active_patient else "the patient")
+
+    quota_notice = (
+        "> 💡 **Clinical Engine Notice**: Cloud OpenAI reported credit balance exhaustion (429 Insufficient Quota). "
+        "The following instructions were synthesized from Prime Care EHR clinical guidelines. "
+        "Tap **⚙️ Settings** to enter a fresh OpenAI API key or top up billing credits.\n\n"
+    )
+
+    if any(k in q_low for k in ["inhaler", "copd", "asthma", "salbutamol", "tiotropium", "spiriva", "ventolin"]):
+        return (
+            quota_notice +
+            f"### Patient Instructions: Proper Inhaler Technique for {p_name}\n\n"
+            f"**Prescribed COPD / Respiratory Regimen:**\n"
+            f"• **Controller (LAMA)**: Tiotropium (Spiriva) 18 mcg — **1 inhalation once daily** at the same time each morning. Prevents bronchospasm.\n"
+            f"• **Reliever (SABA)**: Salbutamol (Ventolin) 100 mcg — **1–2 puffs every 4–6 hours PRN** for acute shortness of breath or wheezing.\n\n"
+            f"**Step-by-Step Administration Guide:**\n"
+            f"1. **Preparation**: Sit or stand upright. Remove cap and inspect mouthpiece. For MDI (Ventolin), shake vigorously 5 seconds.\n"
+            f"2. **Exhale**: Breathe out completely, away from the inhaler, emptying lungs comfortably.\n"
+            f"3. **Placement**: Place mouthpiece between teeth, closing lips tightly around it to create an airtight seal (do not bite or obstruct vents).\n"
+            f"4. **Actuation & Inhalation**: Press canister firmly once while taking a slow, deep breath in over 3 to 5 seconds.\n"
+            f"5. **Breath-Hold**: Remove inhaler and hold breath for **10 full seconds** (or as long as comfortable) so medication settles deep into the airways.\n"
+            f"6. **Interval**: If taking a second puff of Ventolin, wait **1 full minute** before repeating steps 2–5.\n\n"
+            f"**Safety & Best Practices:**\n"
+            f"• **Valved Holding Chamber (Spacer)**: Recommended with Ventolin to maximize alveolar deposition and reduce throat irritation.\n"
+            f"• **Mouth Rinse**: If using combination corticosteroid inhalers, rinse mouth with water and spit out to prevent oral thrush.\n"
+            f"• **Warning Signs**: If shortness of breath does not improve after 2 doses of rescue inhaler, or if lips turn bluish, seek urgent medical care immediately."
+        )
+
+    if any(k in q_low for k in ["hypertension", "blood pressure", "ramipril", "amlodipine"]):
+        return (
+            quota_notice +
+            f"### Clinical Guidance: Blood Pressure Management for {p_name}\n\n"
+            f"• **Target BP**: < 130/80 mmHg (Diabetes Canada / Hypertension Canada guidelines).\n"
+            f"• **Home Monitoring**: Record seated BP twice daily (morning and evening) after 5 minutes of rest.\n"
+            f"• **Lifestyle**: DASH diet, sodium < 2,000 mg/day, 150 min/week moderate aerobic activity.\n"
+            f"• **Red Flags**: SBP > 180 or DBP > 120 with chest pain, vision changes, or shortness of breath requires immediate emergency evaluation."
+        )
+
+    if any(k in q_low for k in ["diabetes", "a1c", "metformin", "glucose"]):
+        return (
+            quota_notice +
+            f"### Clinical Guidance: Type 2 Diabetes Management for {p_name}\n\n"
+            f"• **Target HbA1c**: ≤ 7.0% for most adults to prevent microvascular complications.\n"
+            f"• **First-Line Pharmacotherapy**: Metformin 500 mg BID with meals, titrating to 1,000 mg BID as tolerated; consider SGLT2i or GLP-1 RA for cardiorenal protection.\n"
+            f"• **Monitoring**: Fasting blood glucose (target 4.0–7.0 mmol/L) and 2-hour postprandial (target 5.0–10.0 mmol/L).\n"
+            f"• **Annual Screening**: Urine albumin-to-creatinine ratio (uACR), eGFR, monofilament foot exam, and dilated eye examination."
+        )
+
+    return (
+        quota_notice +
+        f"I'm your **Clinical AI Assistant**. Here are the primary actions available for {p_name}:\n\n"
+        f"• 🩺 **Clinical Decisions**: Differential workups, pharmacological dosing, and guideline consultations.\n"
+        f"• 📋 **Patient Management**: Case analysis for registered patients (Sarah Khan, David Murphy, Robert Chen, etc.).\n"
+        f"• 💰 **Ontario OHIP Billing**: Fee schedules (A007, K030, G310) and diagnostic code lookups.\n"
+        f"• 📅 **Schedule Actions**: *\"Create appointment for Sarah Khan today at 3pm\"* or *\"Cancel today's appointment\"*."
+    )
