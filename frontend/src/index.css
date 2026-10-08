@@ -783,8 +783,8 @@ h1, h2, h3, h4, h5, h6 {
 /* 5 Quick Clinical Thumb Actions Dock */
 .mobile-quick-actions {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
   margin-top: 4px;
   margin-bottom: 2px;
 }
@@ -802,6 +802,7 @@ h1, h2, h3, h4, h5, h6 {
   outline: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  min-width: 0;
 }
 
 .mobile-action-btn:active .mobile-action-icon {
@@ -809,24 +810,28 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .mobile-action-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
 }
 
 .mobile-action-label {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-primary);
   text-align: center;
   letter-spacing: -0.01em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* Up Next Patient Hero Card - Clean Theme Adaptive */
@@ -1291,4 +1296,16 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Patient Directory Responsive Grid */
+.patient-directory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+}
 
+@media (max-width: 640px) {
+  .patient-directory-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}

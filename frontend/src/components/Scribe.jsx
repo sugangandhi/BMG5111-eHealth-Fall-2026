@@ -21,6 +21,14 @@ export default function Scribe() {
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [keySaveMessage, setKeySaveMessage] = useState(null);
 
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const fetchAiStatus = () => {
     axios.get('/api/ai/status')
       .then(res => {
@@ -809,15 +817,15 @@ export default function Scribe() {
         style={{
           position: 'relative',
           overflow: 'hidden',
-          width: '520px',
+          width: isMobile ? '100vw' : '520px',
           maxWidth: '100vw',
           height: '100%',
           background: '#ffffff',
-          borderLeft: '1px solid #e2e8f0',
+          borderLeft: isMobile ? 'none' : '1px solid #e2e8f0',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '-10px 0 35px rgba(0, 0, 0, 0.1)',
-          animation: 'slideInRight 0.2s ease-out',
+          boxShadow: isMobile ? 'none' : '-10px 0 35px rgba(0, 0, 0, 0.1)',
+          animation: isMobile ? 'fadeIn 0.15s ease-out' : 'slideInRight 0.2s ease-out',
           color: '#0f172a',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
         }}
@@ -837,8 +845,8 @@ export default function Scribe() {
           }
         `}</style>
 
-        {/* Pull-out Tab Handle on Left Edge */}
-        {!isSidebarOpen && (
+        {/* Pull-out Tab Handle on Left Edge (Desktop Only - hidden on mobile so it doesn't block text) */}
+        {!isSidebarOpen && !isMobile && (
           <button
             onClick={() => setIsSidebarOpen(true)}
             style={{
@@ -1327,18 +1335,19 @@ export default function Scribe() {
           </>
         )}
 
-        {/* Professional Header */}
+        {/* Professional Header - Responsive */}
         <div style={{
-          padding: '14px 18px',
+          padding: isMobile ? '10px 14px' : '14px 18px',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           background: '#ffffff',
           flexShrink: 0,
-          position: 'relative'
+          position: 'relative',
+          gap: isMobile ? '8px' : '12px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '10px', minWidth: 0, flex: 1 }}>
             {/* Sidebar Toggle Menu Button */}
             <button
               onClick={() => setIsSidebarOpen(prev => !prev)}
@@ -1346,7 +1355,7 @@ export default function Scribe() {
                 background: isSidebarOpen ? '#eff6ff' : '#f8fafc',
                 border: isSidebarOpen ? '1px solid #93c5fd' : '1px solid #cbd5e1',
                 color: isSidebarOpen ? '#2563eb' : '#0f172a',
-                padding: '6px 9px',
+                padding: isMobile ? '6px 8px' : '6px 9px',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 display: 'flex',
@@ -1355,75 +1364,96 @@ export default function Scribe() {
                 fontSize: '12px',
                 fontWeight: '700',
                 transition: 'all 0.15s',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                flexShrink: 0
               }}
               title={isSidebarOpen ? "Close conversations sidebar" : "Open conversations sidebar (view all chats)"}
             >
               {isSidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
-              <span>Chats</span>
+              {!isMobile && <span>Chats</span>}
             </button>
 
             <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
+              width: isMobile ? '32px' : '36px',
+              height: isMobile ? '32px' : '36px',
+              borderRadius: '9px',
               background: '#2563eb',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#ffffff',
-              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
+              flexShrink: 0
             }}>
-              <Bot size={20} />
+              <Bot size={isMobile ? 17 : 20} />
             </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Prime Care AI • Clinical Assistant
+
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: isMobile ? '13.5px' : '15px',
+                fontWeight: '700',
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {isMobile ? 'Prime Care AI' : 'Prime Care AI • Clinical Assistant'}
               </h2>
               <div
                 onClick={() => setShowKeyModal(true)}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '5px',
-                  fontSize: '11px',
+                  gap: '4px',
+                  fontSize: isMobile ? '10px' : '11px',
                   color: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#d97706',
-                  marginTop: '2px',
+                  marginTop: '1px',
                   fontWeight: '600',
                   cursor: 'pointer',
-                  padding: '1px 6px',
-                  borderRadius: '6px',
+                  padding: '1px 5px',
+                  borderRadius: '5px',
                   background: aiEngine.toLowerCase().includes('openai') ? '#f0fdf4' : '#fffbeb',
                   border: aiEngine.toLowerCase().includes('openai') ? '1px solid #bbf7d0' : '1px solid #fde68a',
-                  transition: 'all 0.15s'
+                  transition: 'all 0.15s',
+                  maxWidth: isMobile ? '140px' : 'auto',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
                 }}
                 title="Tap to configure or update AI Engine / OpenAI API Key"
               >
                 <span style={{
-                  width: '6px',
-                  height: '6px',
+                  width: '5px',
+                  height: '5px',
                   borderRadius: '50%',
-                  background: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#f59e0b'
+                  background: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#f59e0b',
+                  flexShrink: 0
                 }} />
-                <span>Online • {aiEngine}</span>
-                <span style={{ fontSize: '10px', color: '#64748b' }}>⚙</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {isMobile ? (aiEngine.toLowerCase().includes('openai') ? 'OpenAI' : 'Local') : `Online • ${aiEngine}`}
+                </span>
+                <span style={{ fontSize: '9px', color: '#64748b', flexShrink: 0 }}>⚙</span>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '8px', flexShrink: 0 }}>
             <button
               onClick={() => setVoiceFeedback(prev => !prev)}
               style={{
                 background: voiceFeedback ? '#f1f5f9' : '#f8fafc',
                 border: '1px solid #cbd5e1',
                 color: '#0f172a',
-                padding: '6px 12px',
+                padding: isMobile ? '6px 8px' : '6px 12px',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '5px',
                 fontSize: '12px',
                 fontWeight: '600',
                 transition: 'all 0.15s'
@@ -1431,7 +1461,7 @@ export default function Scribe() {
               title={voiceFeedback ? "Audio feedback enabled" : "Audio muted"}
             >
               {voiceFeedback ? <Volume2 size={15} /> : <VolumeX size={15} />}
-              <span>{voiceFeedback ? "Audio ON" : "Muted"}</span>
+              {!isMobile && <span>{voiceFeedback ? "Audio ON" : "Muted"}</span>}
             </button>
 
             <button
@@ -1443,8 +1473,8 @@ export default function Scribe() {
                 background: '#f1f5f9',
                 border: 'none',
                 color: '#64748b',
-                width: '34px',
-                height: '34px',
+                width: isMobile ? '30px' : '34px',
+                height: isMobile ? '30px' : '34px',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 display: 'flex',
@@ -1459,6 +1489,124 @@ export default function Scribe() {
           </div>
         </div>
 
+        {isMobile ? (
+          /* Mobile Single Streamlined Clinical Context Bar */
+          <div style={{
+            padding: '6px 12px',
+            background: '#f8fafc',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+            fontSize: '11px',
+            flexShrink: 0
+          }}>
+            {/* Patient focus selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+              <span style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: currentPatient ? '#16a34a' : '#64748b',
+                flexShrink: 0
+              }} />
+              {availablePatients.length > 0 ? (
+                <select
+                  value={currentPatient?.id || ''}
+                  onChange={(e) => handleSwitchPatientFromScribe(e.target.value)}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    color: '#0f172a',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '3px 6px',
+                    maxWidth: '125px',
+                    outline: 'none',
+                    textOverflow: 'ellipsis'
+                  }}
+                  title="Switch active patient chart"
+                >
+                  <option value="">General Clinic</option>
+                  {availablePatients.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <span style={{ fontWeight: '700', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {currentPatient ? currentPatient.name : 'General Clinic'}
+                </span>
+              )}
+            </div>
+
+            {/* Session actions */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  color: '#0f172a',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  padding: '3px 7px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  maxWidth: '105px'
+                }}
+                title="View conversations sidebar"
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeSession?.title || 'Session'}
+                </span>
+                <ChevronDown size={11} color="#64748b" />
+              </button>
+
+              <button
+                onClick={handleNewSession}
+                style={{
+                  background: '#0f172a',
+                  border: 'none',
+                  color: '#ffffff',
+                  borderRadius: '6px',
+                  padding: '3px 7px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+                title="New session"
+              >
+                <PlusCircle size={10} />
+                <span>New</span>
+              </button>
+
+              <button
+                onClick={() => setShowHistoryModal(true)}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  color: '#64748b',
+                  padding: '3px 6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                title="Patient History"
+              >
+                <History size={11} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Active Patient Focus Banner & Fast Chart Switcher */}
         <div style={{
           padding: '10px 18px',
@@ -1872,6 +2020,8 @@ export default function Scribe() {
             </button>
           </div>
         </div>
+          </>
+        )}
 
         {/* Longitudinal History Modal Overlay */}
         {showHistoryModal && (
@@ -2556,12 +2706,12 @@ export default function Scribe() {
           if (!currentPrompts || currentPrompts.length === 0) return null;
           return (
             <div style={{
-              padding: '10px 18px',
+              padding: isMobile ? '7px 12px' : '10px 18px',
               background: '#f8fafc',
               borderTop: '1px solid #e2e8f0',
               display: 'flex',
               flexDirection: 'column',
-              gap: '6px',
+              gap: '5px',
               flexShrink: 0
             }}>
               <div style={{
@@ -2594,21 +2744,25 @@ export default function Scribe() {
                   }}
                   title="Shuffle to see more questions"
                 >
-                  <RefreshCw size={11} /> More suggestions ↻
+                  <RefreshCw size={11} /> {isMobile ? 'More ↻' : 'More suggestions ↻'}
                 </button>
               </div>
 
               <div style={{
                 display: 'flex',
-                flexWrap: 'wrap',
-                gap: '6px'
+                flexWrap: isMobile ? 'nowrap' : 'wrap',
+                overflowX: isMobile ? 'auto' : 'visible',
+                gap: '6px',
+                paddingBottom: isMobile ? '3px' : '0',
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'none'
               }}>
                 {currentPrompts.map((p, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSendQuery(p)}
                     style={{
-                      padding: '6px 12px',
+                      padding: isMobile ? '5px 11px' : '6px 12px',
                       borderRadius: '16px',
                       background: '#ffffff',
                       border: '1px solid #cbd5e1',
@@ -2621,7 +2775,9 @@ export default function Scribe() {
                       transition: 'all 0.15s',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      gap: '5px',
+                      whiteSpace: isMobile ? 'nowrap' : 'normal',
+                      flexShrink: 0
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = '#eff6ff';
@@ -2645,10 +2801,10 @@ export default function Scribe() {
           );
         })()}
 
-        {/* Input Bar — High Contrast, 100% Reliable Typing */}
+        {/* Input Bar — High Contrast, Touch-Optimized */}
         <div style={{
-          padding: '14px 18px',
-          paddingBottom: '20px',
+          padding: isMobile ? '8px 12px' : '14px 18px',
+          paddingBottom: isMobile ? 'max(12px, env(safe-area-inset-bottom))' : '20px',
           background: '#ffffff',
           borderTop: '1px solid #e2e8f0',
           display: 'flex',
@@ -2696,8 +2852,8 @@ export default function Scribe() {
             <button
               onClick={toggleRecording}
               style={{
-                width: '38px',
-                height: '38px',
+                width: isMobile ? '36px' : '38px',
+                height: isMobile ? '36px' : '38px',
                 borderRadius: '50%',
                 background: isRecording ? '#ef4444' : '#ffffff',
                 border: isRecording ? 'none' : '1px solid #cbd5e1',
@@ -2718,8 +2874,8 @@ export default function Scribe() {
             <input
               ref={inputRef}
               type="text"
-              autoFocus
-              placeholder="Ask a question or dictate clinical notes..."
+              autoFocus={!isMobile}
+              placeholder={isMobile ? "Ask or dictate note..." : "Ask a question or dictate clinical notes..."}
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -2733,20 +2889,21 @@ export default function Scribe() {
                 background: 'transparent',
                 border: 'none',
                 color: '#0f172a',
-                fontSize: '14.5px',
+                fontSize: isMobile ? '16px' : '14.5px',
                 outline: 'none',
                 padding: '8px 6px',
-                fontWeight: '500'
+                fontWeight: '500',
+                minWidth: 0
               }}
             />
 
-            {/* Send Button — Standard Professional Medical Blue */}
+            {/* Send Button — Standard Medical Blue */}
             <button
               onClick={() => handleSendQuery()}
               disabled={!inputQuery.trim() || isProcessing}
               style={{
-                width: '38px',
-                height: '38px',
+                width: isMobile ? '36px' : '38px',
+                height: isMobile ? '36px' : '38px',
                 borderRadius: '10px',
                 background: inputQuery.trim() && !isProcessing
                   ? '#2563eb'

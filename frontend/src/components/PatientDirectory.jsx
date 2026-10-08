@@ -258,7 +258,7 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '14px' }}>
+        <div className="patient-directory-grid">
           {filteredPatients.map((p) => {
             const isCloud = p.source === 'central_cloud';
             return (
