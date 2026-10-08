@@ -697,6 +697,14 @@ export default function Scribe() {
     const text = (queryToSend || inputQuery).trim();
     if (!text || isProcessing) return;
 
+    // Immediately dismiss mobile keyboard so user can see the full chat feed
+    if (isMobile) {
+      inputRef.current?.blur();
+      if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
+    }
+
     if (isRecording) {
       stopSpeechRecognition();
     }
@@ -811,7 +819,9 @@ export default function Scribe() {
       });
     } finally {
       setIsProcessing(false);
-      setTimeout(() => inputRef.current?.focus(), 100);
+      if (!isMobile) {
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     }
   };
 
@@ -2957,6 +2967,9 @@ export default function Scribe() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
+                  if (isMobile) {
+                    e.target.blur();
+                  }
                   handleSendQuery();
                 }
               }}
@@ -2975,7 +2988,12 @@ export default function Scribe() {
 
             {/* Send Button — Standard Medical Blue */}
             <button
-              onClick={() => handleSendQuery()}
+              onClick={() => {
+                if (isMobile) {
+                  inputRef.current?.blur();
+                }
+                handleSendQuery();
+              }}
               disabled={!inputQuery.trim() || isProcessing}
               style={{
                 width: isMobile ? '36px' : '38px',
