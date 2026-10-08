@@ -456,11 +456,18 @@ export default function Scribe() {
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
-      if (!isMobile) {
+    }
+  }, [messages, isOpen]);
+
+  // Only auto-focus on initial modal opening on non-touch desktop computers
+  useEffect(() => {
+    if (isOpen) {
+      const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 768);
+      if (!isTouch) {
         setTimeout(() => inputRef.current?.focus(), 150);
       }
     }
-  }, [messages, isOpen, isMobile]);
+  }, [isOpen]);
 
   const handleShufflePrompts = () => {
     setPromptOffset(prev => prev + 2);
@@ -697,8 +704,9 @@ export default function Scribe() {
     const text = (queryToSend || inputQuery).trim();
     if (!text || isProcessing) return;
 
-    // Immediately dismiss mobile keyboard so user can see the full chat feed
-    if (isMobile) {
+    // Immediately dismiss mobile/touch keyboard so user can see the full chat feed
+    const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 768);
+    if (isTouch) {
       inputRef.current?.blur();
       if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
@@ -819,7 +827,8 @@ export default function Scribe() {
       });
     } finally {
       setIsProcessing(false);
-      if (!isMobile) {
+      const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth <= 768);
+      if (!isTouch) {
         setTimeout(() => inputRef.current?.focus(), 100);
       }
     }
