@@ -22,12 +22,68 @@ export default function Scribe() {
   const [keySaveMessage, setKeySaveMessage] = useState(null);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
+  const [viewportHeight, setViewportHeight] = useState(() => {
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      return window.visualViewport.height;
+    }
+    return typeof window !== 'undefined' ? window.innerHeight : 800;
+  });
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Track visualViewport for mobile virtual keyboard changes to keep header strictly pinned at top
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleViewportChange = () => {
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      setViewportHeight(h);
+      if (window.scrollY > 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', handleViewportChange);
+    } else {
+      window.addEventListener('resize', handleViewportChange);
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleViewportChange);
+        window.visualViewport.removeEventListener('scroll', handleViewportChange);
+      } else {
+        window.removeEventListener('resize', handleViewportChange);
+      }
+    };
+  }, []);
+
+  // Lock document body scroll on mobile while Scribe is open so keyboard never scrolls page
+  useEffect(() => {
+    if (!isOpen || !isMobile) return;
+    const origBodyOverflow = document.body.style.overflow;
+    const origHtmlOverflow = document.documentElement.style.overflow;
+    const origBodyPosition = document.body.style.position;
+    const origBodyWidth = document.body.style.width;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+
+    return () => {
+      document.body.style.overflow = origBodyOverflow;
+      document.documentElement.style.overflow = origHtmlOverflow;
+      document.body.style.position = origBodyPosition;
+      document.body.style.width = origBodyWidth;
+    };
+  }, [isOpen, isMobile]);
 
   const fetchAiStatus = () => {
     axios.get('/api/ai/status')
@@ -400,9 +456,11 @@ export default function Scribe() {
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
-      setTimeout(() => inputRef.current?.focus(), 150);
+      if (!isMobile) {
+        setTimeout(() => inputRef.current?.focus(), 150);
+      }
     }
-  }, [messages, isOpen]);
+  }, [messages, isOpen, isMobile]);
 
   const handleShufflePrompts = () => {
     setPromptOffset(prev => prev + 2);
@@ -805,12 +863,16 @@ export default function Scribe() {
       top: 0,
       left: 0,
       right: 0,
-      bottom: 0,
+      bottom: isMobile ? 'auto' : 0,
+      height: isMobile ? `${viewportHeight}px` : '100%',
+      maxHeight: isMobile ? `${viewportHeight}px` : '100%',
       background: 'rgba(15, 23, 42, 0.45)',
       backdropFilter: 'blur(4px)',
       zIndex: 100000,
       display: 'flex',
-      justifyContent: 'flex-end'
+      justifyContent: 'flex-end',
+      overflow: 'hidden',
+      overscrollBehavior: 'none'
     }}>
       <div 
         className="clinical-white-copilot"
@@ -820,6 +882,7 @@ export default function Scribe() {
           width: isMobile ? '100vw' : '520px',
           maxWidth: '100vw',
           height: '100%',
+          maxHeight: '100%',
           background: '#ffffff',
           borderLeft: isMobile ? 'none' : '1px solid #e2e8f0',
           display: 'flex',
@@ -827,7 +890,8 @@ export default function Scribe() {
           boxShadow: isMobile ? 'none' : '-10px 0 35px rgba(0, 0, 0, 0.1)',
           animation: isMobile ? 'fadeIn 0.15s ease-out' : 'slideInRight 0.2s ease-out',
           color: '#0f172a',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+          overscrollBehavior: 'none'
         }}
       >
         <style>{`
@@ -1569,22 +1633,23 @@ export default function Scribe() {
               <button
                 onClick={handleNewSession}
                 style={{
-                  background: '#0f172a',
-                  border: 'none',
-                  color: '#ffffff',
+                  background: '#eff6ff',
+                  border: '1px solid #93c5fd',
+                  color: '#1d4ed8',
                   borderRadius: '6px',
-                  padding: '3px 7px',
+                  padding: '3px 8px',
                   fontSize: '11px',
                   fontWeight: '700',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '3px'
+                  gap: '3px',
+                  boxShadow: '0 1px 2px rgba(37,99,235,0.06)'
                 }}
-                title="New session"
+                title="Start a new session"
               >
-                <PlusCircle size={10} />
-                <span>New</span>
+                <PlusCircle size={11} color="#1d4ed8" />
+                <span>+ New</span>
               </button>
 
               <button
@@ -2878,6 +2943,17 @@ export default function Scribe() {
               placeholder={isMobile ? "Ask or dictate note..." : "Ask a question or dictate clinical notes..."}
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
+              onFocus={() => {
+                if (isMobile) {
+                  window.scrollTo(0, 0);
+                  document.body.scrollTop = 0;
+                  if (document.documentElement) document.documentElement.scrollTop = 0;
+                  setTimeout(() => {
+                    window.scrollTo(0, 0);
+                    scrollToBottom();
+                  }, 80);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
