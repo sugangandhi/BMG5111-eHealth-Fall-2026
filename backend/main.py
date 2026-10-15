@@ -812,6 +812,25 @@ async def assistant_chat_endpoint(body: AssistantChatRequest):
     )
     return result
 
+# ── Scribe Chat Sessions Database Persistence (GPT-Style) ───────────────────
+
+@app.get("/api/scribe/sessions")
+async def get_scribe_sessions_endpoint(patient_key: Optional[str] = None):
+    from db.database import get_chat_sessions
+    return {"sessions": get_chat_sessions(patient_key)}
+
+@app.post("/api/scribe/sessions")
+async def save_scribe_session_endpoint(body: Dict[str, Any]):
+    from db.database import upsert_chat_session
+    saved = upsert_chat_session(body)
+    return {"status": "success", "session": saved}
+
+@app.delete("/api/scribe/sessions/{session_id}")
+async def delete_scribe_session_endpoint(session_id: str):
+    from db.database import delete_chat_session
+    deleted = delete_chat_session(session_id)
+    return {"status": "deleted" if deleted else "not_found"}
+
 # ── Inbox Triage ──────────────────────────────────────────────────────────────────
 
 class VoiceAgentRequest(BaseModel):

@@ -79,3 +79,17 @@ class ClaimTemplate(Base):
     ohip_fee_codes = Column(Text, default="[]")
     revenue = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+    id = Column(String(100), primary_key=True, index=True) # sess_...
+    patient_key = Column(String(100), index=True, default="general")
+    patient_id = Column(String(50), nullable=True)
+    patient_name = Column(String(100), default="General Clinic")
+    patient_badge = Column(String(100), default="")
+    title = Column(String(255), default="Clinic Session")
+    messages = Column(Text, default="[]") # JSON encoded list of messages
+    last_doctor_query = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+

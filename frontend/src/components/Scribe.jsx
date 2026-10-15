@@ -366,12 +366,19 @@ export default function Scribe() {
     return [];
   };
 
-  const saveAllSessions = (sessList) => {
+  const saveAllSessions = (sessList, specificSess = null) => {
     try {
       localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessList));
     } catch (e) {
       console.warn("Error writing sessions to storage:", e);
     }
+    // Also sync to backend SQLite database (GPT-style multi-device persistence)
+    try {
+      const toSync = specificSess || (sessList ? sessList.find(s => s.id === activeSessionId) || sessList[0] : null);
+      if (toSync && toSync.id) {
+        axios.post('/api/scribe/sessions', toSync).catch(() => {});
+      }
+    } catch (e) {}
   };
 
   const createNewSessionObject = (patient, customTitle = null) => {
@@ -423,6 +430,40 @@ export default function Scribe() {
     if (existing.length > 0) return existing[0].id;
     return null;
   });
+
+  // Pull persistent sessions from backend SQLite database on mount / when Scribe opens (GPT-style cloud persistence)
+  useEffect(() => {
+    axios.get('/api/scribe/sessions')
+      .then(res => {
+        if (res.data?.sessions && Array.isArray(res.data.sessions) && res.data.sessions.length > 0) {
+          const remoteSessions = res.data.sessions;
+          setSessions(prevSessions => {
+            const map = new Map();
+            for (const s of remoteSessions) {
+              map.set(s.id, s);
+            }
+            for (const s of prevSessions) {
+              if (!map.has(s.id)) {
+                map.set(s.id, s);
+                axios.post('/api/scribe/sessions', s).catch(() => {});
+              } else {
+                const remote = map.get(s.id);
+                if ((s.messages?.length || 0) > (remote.messages?.length || 0)) {
+                  map.set(s.id, s);
+                  axios.post('/api/scribe/sessions', s).catch(() => {});
+                }
+              }
+            }
+            const merged = Array.from(map.values()).sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+            try {
+              localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
+        }
+      })
+      .catch(err => console.log("Sessions DB fetch note:", err));
+  }, [isOpen]);
 
   const [showSessionsDropdown, setShowSessionsDropdown] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -555,6 +596,7 @@ export default function Scribe() {
       alert("You must keep at least one active session.");
       return;
     }
+    axios.delete(`/api/scribe/sessions/${sessionIdToDelete}`).catch(() => {});
     const remaining = sessions.filter(s => s.id !== sessionIdToDelete);
     setSessions(remaining);
     saveAllSessions(remaining);

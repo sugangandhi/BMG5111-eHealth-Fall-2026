@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .models import Base, User, Appointment, ActivityLog, FormSubmission, Claim
+from .models import Base, User, Appointment, ActivityLog, FormSubmission, Claim, ClaimTemplate, ChatSession
 from auth.jwt import get_password_hash, verify_password
 
 DB_PATH = Path(__file__).parent / "medoffice.db"
@@ -465,3 +465,97 @@ def get_billing_analytics() -> Dict[str, Any]:
         "rejection_rate": round(rejection_rate, 1),
         "total_claims": total_claims
     }
+
+def get_chat_sessions(patient_key: Optional[str] = None) -> List[Dict[str, Any]]:
+    import json
+    db = SessionLocal()
+    query = db.query(ChatSession)
+    if patient_key and patient_key != "all":
+        query = query.filter(ChatSession.patient_key == patient_key)
+    sessions = query.order_by(ChatSession.updated_at.desc()).all()
+    results = []
+    for s in sessions:
+        try:
+            msgs = json.loads(s.messages) if s.messages else []
+        except Exception:
+            msgs = []
+        results.append({
+            "id": s.id,
+            "patientKey": s.patient_key,
+            "patientId": s.patient_id,
+            "patientName": s.patient_name,
+            "patientBadge": s.patient_badge,
+            "title": s.title,
+            "messages": msgs,
+            "lastDoctorQuery": s.last_doctor_query or "",
+            "createdAt": s.created_at.isoformat() if s.created_at else "",
+            "updatedAt": s.updated_at.isoformat() if s.updated_at else ""
+        })
+    db.close()
+    return results
+
+def upsert_chat_session(session_data: Dict[str, Any]) -> Dict[str, Any]:
+    import json
+    db = SessionLocal()
+    sess_id = session_data.get("id")
+    if not sess_id:
+        db.close()
+        return {}
+    
+    existing = db.query(ChatSession).filter(ChatSession.id == sess_id).first()
+    msgs_json = json.dumps(session_data.get("messages", []))
+    
+    if existing:
+        existing.patient_key = session_data.get("patientKey", existing.patient_key)
+        existing.patient_id = session_data.get("patientId", existing.patient_id)
+        existing.patient_name = session_data.get("patientName", existing.patient_name)
+        existing.patient_badge = session_data.get("patientBadge", existing.patient_badge)
+        existing.title = session_data.get("title", existing.title)
+        existing.messages = msgs_json
+        existing.last_doctor_query = session_data.get("lastDoctorQuery", existing.last_doctor_query)
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        s = existing
+    else:
+        s = ChatSession(
+            id=sess_id,
+            patient_key=session_data.get("patientKey", "general"),
+            patient_id=session_data.get("patientId"),
+            patient_name=session_data.get("patientName", "General Clinic"),
+            patient_badge=session_data.get("patientBadge", ""),
+            title=session_data.get("title", "Clinic Session"),
+            messages=msgs_json,
+            last_doctor_query=session_data.get("lastDoctorQuery", ""),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(s)
+        db.commit()
+        db.refresh(s)
+
+    res = {
+        "id": s.id,
+        "patientKey": s.patient_key,
+        "patientId": s.patient_id,
+        "patientName": s.patient_name,
+        "patientBadge": s.patient_badge,
+        "title": s.title,
+        "messages": json.loads(s.messages) if s.messages else [],
+        "lastDoctorQuery": s.last_doctor_query or "",
+        "createdAt": s.created_at.isoformat() if s.created_at else "",
+        "updatedAt": s.updated_at.isoformat() if s.updated_at else ""
+    }
+    db.close()
+    return res
+
+def delete_chat_session(session_id: str) -> bool:
+    db = SessionLocal()
+    existing = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+        db.close()
+        return True
+    db.close()
+    return False
