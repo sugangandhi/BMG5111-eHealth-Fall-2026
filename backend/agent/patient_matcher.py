@@ -22,8 +22,8 @@ def match_patient_by_phone(sender_phone: str):
         p_digits = normalize_phone(p.get('phone', ''))
         if p_digits and p_digits == target_digits:
             return p
-    # Dedicated tester fallback: map tester phone to Sarah Khan (pt-001)
-    if target_digits == "6132616383" and patients:
+    # Dedicated tester fallback: map tester phone to Sugan (pt-001)
+    if target_digits in ["6132616383", "6382761031"] and patients:
         return patients[0]
     return None
 
@@ -157,7 +157,10 @@ def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
     if token and phone_number_id:
         clean_to = re.sub(r'\D', '', to_phone)
         if len(clean_to) == 10:
-            clean_to = '1' + clean_to  # default North American country code
+            if clean_to == '6382761031':
+                clean_to = '91' + clean_to
+            else:
+                clean_to = '1' + clean_to  # default North American country code
 
         url = f"https://graph.facebook.com/v20.0/{phone_number_id}/messages"
         headers = {
