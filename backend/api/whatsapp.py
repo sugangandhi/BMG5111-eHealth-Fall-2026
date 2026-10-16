@@ -19,6 +19,12 @@ async def get_whatsapp_status():
     Returns the real-time configuration status of the WhatsApp integration,
     including webhook callback endpoints and cloud environment details.
     """
+    from pathlib import Path
+    from dotenv import load_dotenv
+    env_file = Path(__file__).resolve().parent.parent / ".env"
+    if env_file.exists():
+        load_dotenv(dotenv_path=env_file, override=True)
+
     token = os.getenv('WHATSAPP_TOKEN')
     phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
     if not phone_id and token and token.startswith('EAA'):
@@ -42,6 +48,66 @@ async def get_whatsapp_status():
         "webhook_endpoint": "/api/whatsapp/webhook",
         "poller_active": bool(_poller_task and not _poller_task.done()),
         "poller_indexed_messages": len(_processed_twilio_sids)
+    }
+
+class WhatsAppConfigRequest(BaseModel):
+    token: str
+    phone_number_id: str
+    verify_token: Optional[str] = "ehospital_verified_2026"
+
+@router.post('/api/whatsapp/config')
+async def update_whatsapp_config(req: WhatsAppConfigRequest):
+    """
+    Dynamically configures Meta WhatsApp credentials in runtime memory and persists to .env if writable.
+    """
+    token = req.token.strip()
+    phone_id = req.phone_number_id.strip()
+    v_token = req.verify_token.strip() if req.verify_token else "ehospital_verified_2026"
+
+    if not token or not phone_id:
+        raise HTTPException(status_code=400, detail="Token and Phone Number ID are required")
+
+    os.environ['WHATSAPP_TOKEN'] = token
+    os.environ['WHATSAPP_PHONE_NUMBER_ID'] = phone_id
+    os.environ['WHATSAPP_VERIFY_TOKEN'] = v_token
+
+    from pathlib import Path
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    try:
+        lines = []
+        if env_path.exists():
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        has_t, has_p, has_v = False, False, False
+        new_lines = []
+        for line in lines:
+            if line.startswith("WHATSAPP_TOKEN="):
+                new_lines.append(f"WHATSAPP_TOKEN={token}\n")
+                has_t = True
+            elif line.startswith("WHATSAPP_PHONE_NUMBER_ID="):
+                new_lines.append(f"WHATSAPP_PHONE_NUMBER_ID={phone_id}\n")
+                has_p = True
+            elif line.startswith("WHATSAPP_VERIFY_TOKEN="):
+                new_lines.append(f"WHATSAPP_VERIFY_TOKEN={v_token}\n")
+                has_v = True
+            else:
+                new_lines.append(line)
+        if not has_t:
+            new_lines.append(f"WHATSAPP_TOKEN={token}\n")
+        if not has_p:
+            new_lines.append(f"WHATSAPP_PHONE_NUMBER_ID={phone_id}\n")
+        if not has_v:
+            new_lines.append(f"WHATSAPP_VERIFY_TOKEN={v_token}\n")
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+    except Exception as e:
+        print(f"[Warning] Could not persist WhatsApp keys to .env: {e}")
+
+    return {
+        "status": "success",
+        "configured": True,
+        "provider": "meta",
+        "phone_number_id": phone_id[:4] + "••••" + phone_id[-4:] if len(phone_id) > 8 else phone_id
     }
 
 class SendWhatsAppRequest(BaseModel):
