@@ -2487,22 +2487,36 @@ export default function Scribe() {
                 border: aiEngine.toLowerCase().includes('openai') ? '1px solid #bbf7d0' : '1px solid #fde68a',
                 fontSize: '12px',
                 display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+                flexDirection: 'column',
+                gap: '4px'
               }}>
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#f59e0b'
-                }} />
-                <div>
-                  <strong style={{ color: '#0f172a' }}>Active Engine:</strong> {aiEngine}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#f59e0b'
+                  }} />
+                  <strong style={{ color: '#0f172a' }}>Active Engine:</strong>
+                  <span style={{ color: aiEngine.toLowerCase().includes('openai') ? '#16a34a' : '#d97706', fontWeight: '700' }}>
+                    {aiEngine}
+                  </span>
                 </div>
+                {aiEngine.toLowerCase().includes('openai') ? (
+                  <div style={{ color: '#15803d', fontSize: '11px', paddingLeft: '16px' }}>
+                    ✅ Your OpenAI API key is active and loaded from the backend. GPT-4o is ready.
+                  </div>
+                ) : (
+                  <div style={{ color: '#b45309', fontSize: '11px', paddingLeft: '16px' }}>
+                    Currently running via local privacy-preserving fallback engine.
+                  </div>
+                )}
               </div>
 
               <div style={{ fontSize: '12px', color: '#475569', lineHeight: '1.45' }}>
-                To use <strong>OpenAI GPT-4o</strong> on this mobile device or cloud instance, enter your OpenAI API key:
+                {aiEngine.toLowerCase().includes('openai')
+                  ? "Your key is already configured. To update or change to a different key, enter it below:"
+                  : "To connect OpenAI GPT-4o, paste your OpenAI API key below:"}
               </div>
 
               <input
