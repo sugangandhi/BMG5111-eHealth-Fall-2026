@@ -15,8 +15,8 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
   const [directMessage, setDirectMessage] = useState('');
   
   // Simulation Tab State
-  const [simPhone, setSimPhone] = useState('613-555-0192');
-  const [simMessage, setSimMessage] = useState('Hi Doctor, this is Sarah Khan. My blood pressure this morning is 138/88 and my heart rate is 78.');
+  const [simPhone, setSimPhone] = useState('613-261-6383');
+  const [simMessage, setSimMessage] = useState('Hi Doctor, this is Sugan. My blood pressure this morning is 138/88 and my heart rate is 78.');
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
 
@@ -434,12 +434,12 @@ export default function WhatsAppModal({ isOpen, onClose, activePatient, onActivi
                   <button
                     type="button"
                     onClick={() => {
-                      setSimPhone('613-555-0192');
-                      setSimMessage('Hi Doctor Patel, this is Sarah Khan. My morning blood pressure is 138/88 and pulse is 78.');
+                      setSimPhone('613-261-6383');
+                      setSimMessage('Hi Doctor Patel, this is Sugan. My morning blood pressure is 138/88 and pulse is 78.');
                     }}
                     style={{ fontSize: '11px', padding: '5px 10px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', cursor: 'pointer' }}
                   >
-                    🩺 Sarah Khan (BP + HR)
+                    🩺 Sugan (BP + HR)
                   </button>
                   <button
                     type="button"

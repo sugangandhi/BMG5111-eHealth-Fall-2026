@@ -29,7 +29,7 @@ DEMO_USERS = [
 ]
 
 _TODAY_APPTS = [
-    ("pt-001", "Sarah Khan",      "SK", "08:30", 20, "Type 2 Diabetes follow-up",           "completed",   "blue",   "Diabetes"),
+    ("pt-001", "Sugan",           "SG", "08:30", 20, "Type 2 Diabetes follow-up",           "completed",   "blue",   "Diabetes"),
     ("pt-004", "Robert Chen",     "RC", "09:00", 30, "COPD management",                     "completed",   "orange", "COPD"),
     ("pt-005", "Fatima Hassan",   "FH", "09:45", 20, "Prenatal visit — 26 weeks",           "completed",   "pink",   "Prenatal"),
     ("pt-006", "David Murphy",    "DM", "10:15", 30, "CKD Stage 3b quarterly review",       "in-progress", "red",    "CKD"),

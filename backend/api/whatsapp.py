@@ -10,8 +10,8 @@ router = APIRouter(tags=['whatsapp'])
 WHATSAPP_VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'ehospital_verified_2026')
 
 class SimulateMessageRequest(BaseModel):
-    phone: str = "613-555-0192"
-    message: str = "Hi Doctor, this is Sarah Khan. My blood pressure this morning is 138/88 and my heart rate is 78."
+    phone: str = "613-261-6383"
+    message: str = "Hi Doctor, this is Sugan. My blood pressure this morning is 138/88 and my heart rate is 78."
 
 @router.get('/api/whatsapp/status')
 async def get_whatsapp_status():

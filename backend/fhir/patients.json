@@ -3,14 +3,14 @@
     {
       "id": "pt-001",
       "name": {
-        "text": "Sarah Khan",
-        "family": "Khan",
+        "text": "Sugan",
+        "family": "Sugan",
         "given": [
-          "Sarah"
+          "Sugan"
         ]
       },
-      "birthDate": "1981-04-14",
-      "gender": "female",
+      "birthDate": "1995-04-14",
+      "gender": "male",
       "ohip": "1234-567-890-AB",
       "sin": "123-456-001",
       "language": "English",
@@ -22,7 +22,7 @@
         "province": "ON",
         "postalCode": "K1N 5Y2"
       },
-      "phone": "613-555-0192",
+      "phone": "+1 613-261-6383",
       "social_history": {
         "smoking": "Former smoker \u2014 quit 2017, 10 pack-year history",
         "alcohol": "Occasional, 2\u20133 drinks/week",
