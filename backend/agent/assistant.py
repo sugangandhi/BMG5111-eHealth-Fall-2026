@@ -62,17 +62,37 @@ def build_clinical_system_context(
         meds = ", ".join(med_list) or "No active prescriptions"
 
         allergies = p.get("allergies", "NKDA")
-        patient_summaries.append(f"- {pname} ({pid}): Conditions: [{conds}]. Meds: [{meds}]. Allergies: {allergies}.")
+        phone = p.get("phone", "None")
+        patient_summaries.append(f"- {pname} (ID: {pid}, Phone: {phone}): Conditions: [{conds}]. Meds: [{meds}]. Allergies: {allergies}.")
     pts_str = "\n".join(patient_summaries)
 
-    # 2. Active patient highlight
+    # 2. Live Clinical Appointments Schedule (EHR Database)
+    appts = get_appointments(today_iso) or get_appointments("")
+    appt_lines = []
+    for a in appts:
+        appt_lines.append(f"  • {a.get('time', 'TBD')}: {a.get('patient_name')} (ID: {a.get('patient_id')}) — {a.get('type')} [Status: {str(a.get('status', 'upcoming')).upper()}]")
+    appts_str = "\n".join(appt_lines) if appt_lines else "No appointments scheduled for today."
+
+    # 3. Live Clinical Inbox & Triage Alerts
+    inbox_str = ""
+    try:
+        from agent.inbox_manager import get_inbox_messages
+        inbox_msgs = get_inbox_messages()
+        inbox_summary = []
+        for m in inbox_msgs[:6]:
+            inbox_summary.append(f"  • [{m.get('type', 'alert').upper()}] From {m.get('sender')}: \"{m.get('snippet') or m.get('subject')}\" (Status: {m.get('status')})")
+        inbox_str = "\n".join(inbox_summary) if inbox_summary else "No unread alerts in inbox."
+    except Exception:
+        inbox_str = "Inbox system operational."
+
+    # 4. Active patient highlight
     active_focus = ""
     if active_patient and active_patient.get("name"):
         active_focus = f"\nACTIVE PATIENT IN FOCUS: {active_patient.get('name')} (ID: {active_patient.get('id', 'N/A')})\n"
     elif target_patient_name:
         active_focus = f"\nTARGET PATIENT IN DISCUSSION: {target_patient_name}\n"
 
-    # 3. Patient Historical Encounter & Discussion Archive
+    # 5. Patient Historical Encounter & Discussion Archive
     history_section = ""
     if patient_history and len(patient_history) > 0:
         history_lines = []
@@ -90,13 +110,20 @@ def build_clinical_system_context(
             )
 
     return f"""You are Prime Care AI, an advanced Clinical AI Copilot & Medical Reasoning Agent for attending physicians practicing in Ontario, Canada.
-You possess deep medical clinical judgment, evidence-based reasoning, and complete awareness of the clinic's Electronic Health Record (EHR) database and Ontario healthcare ecosystem.
+You possess deep medical clinical judgment, evidence-based reasoning, and direct live access to the clinic's entire Electronic Health Record (EHR) database, schedule, patient records, and triage inbox.
 
 CLINICAL ENVIRONMENT CONTEXT:
 - Today's Date: {today_iso} | Time: {now_str}
 - Jurisdiction: Ontario, Canada (CPSO Standards of Practice, Ontario Ministry of Health, Health Canada)
 {active_focus}{history_section}
-REGISTERED EHR CLINIC PATIENTS:
+
+TODAY'S CLINIC APPOINTMENTS SCHEDULE (LIVE EHR DATABASE):
+{appts_str}
+
+RECENT CLINICAL INBOX & WHATSAPP TRIAGE ALERTS:
+{inbox_str}
+
+REGISTERED EHR CLINIC PATIENTS DIRECTORY:
 {pts_str}
 
 ONTARIO PRACTICE & BILLING FRAMEWORK:
@@ -109,12 +136,13 @@ ONTARIO PRACTICE & BILLING FRAMEWORK:
 - Clinical Guidelines: Diabetes Canada 2023, Canadian Cardiovascular Society (CCS), GOLD COPD, KDIGO CKD Staging.
 - Clinical Forms: WSIB Form 8 (Workplace injury assessment), OESP (Ontario Energy Support Program medical confirmation), MTO (Ministry of Transportation medical fitness to drive).
 
-CORE AGENT CAPABILITIES:
-1. Deep Clinical Reasoning: Formulate differential diagnoses, diagnostic workups, pathophysiological rationale, clinical decision support (CDS), and red flags.
-2. Pharmacotherapy & Therapeutics: Dosing recommendations, contraindications, drug interactions, renal (eGFR) adjustments, and adverse effect surveillance.
-3. Case Analysis & Patient Management: Advise on ongoing care plans for registered clinic patients (e.g., Sarah Khan's glycemic control, David Murphy's CKD staging, Robert Chen's COPD).
-4. Ontario OHIP Billing Advisory: Provide correct OHIP diagnostic and fee codes with documentation compliance rules.
-5. App Workflows & Administrative Medicine: Guide the physician through clinical documentation, forms, triage, and schedule management.
+CORE AGENT CAPABILITIES & DIRECT DATABASE ACCESS:
+1. Complete Database & EHR Awareness: You have live real-time access to the entire clinic database. When the doctor asks about appointments, schedules, patient records, vitals, or triage alerts, ALWAYS answer directly and specifically using the live data above. NEVER tell the doctor to "check the EHR system", "consult another screen", or "refer to medical records" — you ARE the system assistant with direct live access.
+2. Deep Clinical Reasoning: Formulate differential diagnoses, diagnostic workups, pathophysiological rationale, clinical decision support (CDS), and red flags.
+3. Pharmacotherapy & Therapeutics: Dosing recommendations, contraindications, drug interactions, renal (eGFR) adjustments, and adverse effect surveillance.
+4. Case Analysis & Patient Management: Advise on ongoing care plans for registered clinic patients (e.g., Sugan's diabetes/hypertension, David Murphy's CKD, Robert Chen's COPD).
+5. Ontario OHIP Billing Advisory: Provide correct OHIP diagnostic and fee codes with documentation compliance rules.
+6. App Workflows & Administrative Medicine: Guide the physician through clinical documentation, forms, triage, and schedule management.
 
 Format all responses with high clinical professionalism, evidence-based clarity, and structured markdown (bullet points, bold highlights).
 """
@@ -274,15 +302,21 @@ def is_explicit_book_command(query: str) -> bool:
     )
 
 def is_explicit_schedule_inquiry(query: str) -> bool:
-    """True ONLY if the doctor asks specifically to see today's appointments/calendar."""
+    """True if the doctor asks specifically to see today's appointments/calendar or check an appointment."""
     q_low = query.lower().strip()
-    schedule_phrases = [
-        "tell me appointments today", "show appointments", "view appointments",
-        "today's appointments", "my appointments today", "what appointments today",
-        "show schedule", "view schedule", "today's schedule", "who is next",
-        "next patient", "agenda today", "calendar today"
+    if re.search(r'\b(cancel|cancelling|delete|drop|remove)\b', q_low):
+        return False
+    if re.search(r'\b(book|create|schedule a|schedule an|make an? appointment)\b', q_low) and re.search(r'\b(at\s+\d|tomorrow|next week)\b', q_low):
+        return False
+    
+    schedule_keywords = [
+        "appointment", "appointments", "schedule", "calendar", "agenda", "who is next",
+        "next patient", "up next"
     ]
-    return any(p in q_low for p in schedule_phrases)
+    intent_words = [
+        "check", "show", "tell", "view", "what", "any", "see", "list", "get", "when", "is there", "does", "have", "today"
+    ]
+    return any(p in q_low for p in schedule_keywords) and any(w in q_low for w in intent_words)
 
 def is_explicit_raw_dictation(query: str) -> bool:
     """True if user pastes an encounter dictation or explicitly asks for SOAP note."""
@@ -618,6 +652,69 @@ def handle_assistant_query(
             cloud_appts = fetch_central_appointments(limit=10)
         except Exception:
             pass
+
+        # Check if the inquiry is asking about a specific patient (e.g. "check appointment for sugan today")
+        p_name, p_id, _ = extract_or_match_patient(query, active_patient)
+        if not p_name:
+            matched_direct = match_patient_appointment(query, clinic_appts)
+            if matched_direct:
+                p_name = matched_direct.get("patient_name")
+                p_id = matched_direct.get("patient_id")
+
+        if p_name:
+            p_name_lower = p_name.lower().strip()
+            matched_appts = [
+                a for a in clinic_appts 
+                if (a.get("patient_name") and p_name_lower in a.get("patient_name", "").lower())
+                or (p_name_lower in (a.get("patient_name") or "").lower())
+                or (a.get("patient_id") and a.get("patient_id") == p_id)
+            ]
+            if matched_appts:
+                ma = matched_appts[0]
+                status_raw = str(ma.get("status", "upcoming")).lower()
+                time_str = ma.get("time", "TBD")
+                type_str = ma.get("type", "General Consultation")
+                status_emoji = "✅ Completed" if status_raw == "completed" else ("⏳ In-Progress" if status_raw == "in-progress" else "🕒 Upcoming")
+                
+                reply = (
+                    f"📅 **Appointment for {ma.get('patient_name')}**\n\n"
+                    f"* **Scheduled Time**: `{time_str}`\n"
+                    f"* **Reason / Type**: {type_str}\n"
+                    f"* **Current Status**: **{status_emoji}**\n"
+                    f"* **Date**: `Today ({today_iso})`\n\n"
+                    f"The encounter is active in your clinic EHR database."
+                )
+                card = {
+                    "id": ma.get("id"),
+                    "patient_name": ma.get("patient_name"),
+                    "patient_id": ma.get("patient_id"),
+                    "time": time_str,
+                    "type": type_str,
+                    "status": ma.get("status", "upcoming"),
+                    "source": "Clinic EHR"
+                }
+                return {
+                    "intent": "patient_appointment_found",
+                    "reply": reply,
+                    "appointments": [card],
+                    "suggested_prompts": [
+                        f"What are {ma.get('patient_name')}'s recorded vitals?",
+                        f"Take an encounter note for {ma.get('patient_name')}",
+                        "Tell me remaining appointments today"
+                    ]
+                }
+            else:
+                reply = f"No appointment found for **{p_name}** on today's schedule ({today_iso}). Would you like me to book one?"
+                return {
+                    "intent": "patient_appointment_not_found",
+                    "reply": reply,
+                    "appointments": [],
+                    "suggested_prompts": [
+                        f"Book appointment for {p_name} today at 3pm",
+                        "Tell me appointments today",
+                        f"Open chart for {p_name}"
+                    ]
+                }
 
         unified_schedule = []
         for a in clinic_appts:

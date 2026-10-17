@@ -3123,7 +3123,7 @@ export default function Scribe() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} className="animate-ping" />
-                <span>Dictating Audio ({formatSeconds(recordingSeconds)}) — OpenAI Whisper Active</span>
+                <span>Listening ({formatSeconds(recordingSeconds)})</span>
               </div>
               <button
                 onClick={stopRecording}
@@ -3139,7 +3139,7 @@ export default function Scribe() {
                   boxShadow: '0 1px 4px rgba(239, 68, 68, 0.3)'
                 }}
               >
-                Done Dictating
+                Done
               </button>
             </div>
           )}
@@ -3159,7 +3159,7 @@ export default function Scribe() {
               boxShadow: '0 2px 8px rgba(59, 130, 246, 0.08)'
             }}>
               <Loader2 size={15} className="animate-spin" color="#2563eb" />
-              <span>OpenAI Whisper is transcribing clinical terms with zero repetition...</span>
+              <span>Transcribing audio...</span>
             </div>
           )}
 
@@ -3191,7 +3191,7 @@ export default function Scribe() {
                 flexShrink: 0,
                 transition: 'all 0.15s'
               }}
-              title={isRecording ? "Finish recording and transcribe with Whisper" : (isTranscribing ? "Transcribing audio..." : "Start clinical voice dictation")}
+              title={isRecording ? "Stop listening and transcribe" : (isTranscribing ? "Transcribing audio..." : "Start voice input")}
             >
               {isTranscribing ? <Loader2 size={18} className="animate-spin" /> : (isRecording ? <MicOff size={18} /> : <Mic size={18} />)}
             </button>
@@ -3202,7 +3202,7 @@ export default function Scribe() {
               type="text"
               autoFocus={!isMobile}
               disabled={isTranscribing}
-              placeholder={isTranscribing ? "Transcribing clinical terms with OpenAI Whisper..." : (isMobile ? "Ask or dictate note..." : "Ask a question or dictate clinical notes...")}
+              placeholder={isTranscribing ? "Transcribing audio..." : (isMobile ? "Ask or dictate note..." : "Ask a question or dictate clinical notes...")}
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               onFocus={() => {
