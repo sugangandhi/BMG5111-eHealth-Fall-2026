@@ -1185,7 +1185,9 @@ async def update_inbox_message_status(msg_id: int, body: InboxStatusUpdateReques
     return {"status": "updated", "message": updated}
 
 from api import whatsapp
+from api import voice
 app.include_router(whatsapp.router)
+app.include_router(voice.router)
 
 # ── Central Clinical EMR Cloud Integration ────────────────────────────────────
 from integrations import central_clinical_api

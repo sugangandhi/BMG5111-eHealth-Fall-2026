@@ -5,7 +5,7 @@ import {
   FileText, Activity, Layers, Tag, ShieldCheck, CheckCircle2, 
   RefreshCw, X, Calendar, Clock, User, ChevronRight, ChevronDown, Check, Pin, MessageCircle, MessageSquare, ExternalLink, Bot,
   History, PlusCircle, Trash2, Archive, FileClock,
-  Menu, PanelLeft, PanelLeftClose, Plus, Search
+  Menu, PanelLeft, PanelLeftClose, Plus, Search, Loader2
 } from 'lucide-react';
 
 export default function Scribe() {
@@ -501,8 +501,19 @@ export default function Scribe() {
 
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
   const inputRef = useRef(null);
   const baseQueryRef = useRef('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+
+  const formatSeconds = (sec) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -660,7 +671,7 @@ export default function Scribe() {
       if (e?.detail?.patient) {
         handleOpen(e);
       }
-      if (!isRecording) startSpeechRecognition();
+      if (!isRecording) startRecording();
     };
 
     window.addEventListener('open-scribe', handleOpen);
@@ -673,7 +684,137 @@ export default function Scribe() {
     };
   }, [isRecording, currentPatient, sessions, activeSessionId]);
 
-  // Web Speech Recognition — Accurate single-stream accumulator (prevents repeated words)
+  // High-End OpenAI Whisper Clinical Voice Transcription Engine
+  const startRecording = async () => {
+    baseQueryRef.current = inputRef.current?.value?.trim() || '';
+
+    // Check if browser supports MediaRecorder for high-def Whisper recording
+    if (navigator.mediaDevices && typeof window !== 'undefined' && window.MediaRecorder) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+
+        // Determine best supported container format across mobile Chrome / iOS Safari
+        let mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported('audio/webm')) {
+          if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4';
+          } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+            mimeType = 'audio/ogg';
+          } else {
+            mimeType = '';
+          }
+        }
+
+        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        audioChunksRef.current = [];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+
+        recorder.onstop = async () => {
+          // Release microphone hardware tracks
+          try {
+            stream.getTracks().forEach(t => t.stop());
+          } catch (e) {}
+
+          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || 'audio/webm' });
+          if (audioBlob.size < 300) {
+            setIsRecording(false);
+            return;
+          }
+
+          setIsTranscribing(true);
+          try {
+            const formData = new FormData();
+            const ext = mimeType.includes('mp4') ? 'mp4' : (mimeType.includes('ogg') ? 'ogg' : 'webm');
+            formData.append('file', audioBlob, `clinical_encounter.${ext}`);
+
+            // Pass active patient context dynamically so Whisper decodes patient-specific conditions & meds flawlessly
+            if (currentPatient) {
+              formData.append('patient_name', currentPatient.name || '');
+              const conds = (currentPatient.conditions || [])
+                .map(c => typeof c === 'object' ? (c.display || c.name || '') : String(c))
+                .filter(Boolean)
+                .join(', ');
+              if (conds) formData.append('conditions', conds);
+              if (currentPatient.allergies) formData.append('medications', `Allergies: ${currentPatient.allergies}`);
+            }
+
+            const res = await axios.post('/api/voice/transcribe', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (res.data?.text) {
+              const cleanText = res.data.text.trim();
+              if (cleanText) {
+                const base = baseQueryRef.current;
+                const combined = base ? `${base} ${cleanText}` : cleanText;
+                setInputQuery(combined);
+              }
+            }
+          } catch (err) {
+            console.warn("OpenAI Whisper transcription notice:", err);
+          } finally {
+            setIsTranscribing(false);
+          }
+        };
+
+        mediaRecorderRef.current = recorder;
+        recorder.start(250);
+        setIsRecording(true);
+        setRecordingSeconds(0);
+
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = setInterval(() => {
+          setRecordingSeconds(prev => prev + 1);
+        }, 1000);
+
+        return;
+      } catch (err) {
+        console.warn("MediaRecorder permission denied or unavailable, falling back to Web Speech:", err);
+      }
+    }
+
+    // Graceful fallback to Browser Web Speech API if MediaRecorder is blocked
+    startSpeechRecognition();
+  };
+
+  const stopRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.warn("Error stopping MediaRecorder:", e);
+      }
+    }
+
+    stopSpeechRecognition();
+    setIsRecording(false);
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  // Browser Speech Fallback (with deduplicated token indexing)
   const startSpeechRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -687,7 +828,6 @@ export default function Scribe() {
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
-      // Store any text typed before recording was initiated
       baseQueryRef.current = inputRef.current?.value?.trim() || '';
 
       recognition.onstart = () => {
@@ -695,12 +835,16 @@ export default function Scribe() {
       };
 
       recognition.onresult = (event) => {
-        // Build the cumulative speech stream from session start to eliminate repetition
-        let cumulativeTranscript = '';
-        for (let i = 0; i < event.results.length; ++i) {
-          cumulativeTranscript += event.results[i][0].transcript;
+        let finalTranscript = '';
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + ' ';
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
         }
-        const spoken = cumulativeTranscript.trim();
+        const spoken = (finalTranscript + interimTranscript).trim();
         const base = baseQueryRef.current;
         if (base && spoken) {
           setInputQuery(`${base} ${spoken}`);
@@ -735,14 +879,6 @@ export default function Scribe() {
     setIsRecording(false);
   };
 
-  const toggleRecording = () => {
-    if (isRecording) {
-      stopSpeechRecognition();
-    } else {
-      startSpeechRecognition();
-    }
-  };
-
   const speakText = (text) => {
     if (!voiceFeedback || !('speechSynthesis' in window)) return;
     try {
@@ -770,7 +906,7 @@ export default function Scribe() {
     }
 
     if (isRecording) {
-      stopSpeechRecognition();
+      stopRecording();
     }
 
     setAskedQueries(prev => [...prev, text]);
@@ -1605,7 +1741,7 @@ export default function Scribe() {
 
             <button
               onClick={() => {
-                if (isRecording) stopSpeechRecognition();
+                if (isRecording) stopRecording();
                 setIsOpen(false);
               }}
               style={{
@@ -2977,23 +3113,53 @@ export default function Scribe() {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '8px 14px',
-              borderRadius: '8px',
+              borderRadius: '10px',
               background: '#fef2f2',
               border: '1px solid #fecaca',
               color: '#dc2626',
               fontSize: '12.5px',
-              fontWeight: '700'
+              fontWeight: '700',
+              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.08)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} className="animate-ping" />
-                Listening... Speak clearly into your microphone
+                <span>Dictating Audio ({formatSeconds(recordingSeconds)}) — OpenAI Whisper Active</span>
               </div>
               <button
-                onClick={stopSpeechRecognition}
-                style={{ background: 'transparent', border: 'none', color: '#dc2626', cursor: 'pointer', fontWeight: '800' }}
+                onClick={stopRecording}
+                style={{
+                  background: '#ef4444',
+                  border: 'none',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  fontWeight: '700',
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  boxShadow: '0 1px 4px rgba(239, 68, 68, 0.3)'
+                }}
               >
-                Done
+                Done Dictating
               </button>
+            </div>
+          )}
+
+          {isTranscribing && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #eff6ff, #f0fdf4)',
+              border: '1px solid #bfdbfe',
+              color: '#1d4ed8',
+              fontSize: '12.5px',
+              fontWeight: '700',
+              boxShadow: '0 2px 8px rgba(59, 130, 246, 0.08)'
+            }}>
+              <Loader2 size={15} className="animate-spin" color="#2563eb" />
+              <span>OpenAI Whisper is transcribing clinical terms with zero repetition...</span>
             </div>
           )}
 
@@ -3002,7 +3168,7 @@ export default function Scribe() {
             alignItems: 'center',
             gap: '8px',
             background: '#f8fafc',
-            border: isRecording ? '1.5px solid #ef4444' : '1.5px solid #cbd5e1',
+            border: isRecording ? '1.5px solid #ef4444' : (isTranscribing ? '1.5px solid #3b82f6' : '1.5px solid #cbd5e1'),
             borderRadius: '14px',
             padding: '6px 10px',
             boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
@@ -3010,23 +3176,24 @@ export default function Scribe() {
             {/* Mic Toggle Button */}
             <button
               onClick={toggleRecording}
+              disabled={isTranscribing}
               style={{
                 width: isMobile ? '36px' : '38px',
                 height: isMobile ? '36px' : '38px',
                 borderRadius: '50%',
-                background: isRecording ? '#ef4444' : '#ffffff',
+                background: isRecording ? '#ef4444' : (isTranscribing ? '#dbeafe' : '#ffffff'),
                 border: isRecording ? 'none' : '1px solid #cbd5e1',
-                color: isRecording ? '#ffffff' : '#0f172a',
-                cursor: 'pointer',
+                color: isRecording ? '#ffffff' : (isTranscribing ? '#2563eb' : '#0f172a'),
+                cursor: isTranscribing ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
                 transition: 'all 0.15s'
               }}
-              title={isRecording ? "Stop voice listening" : "Start voice speech input"}
+              title={isRecording ? "Finish recording and transcribe with Whisper" : (isTranscribing ? "Transcribing audio..." : "Start clinical voice dictation")}
             >
-              {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
+              {isTranscribing ? <Loader2 size={18} className="animate-spin" /> : (isRecording ? <MicOff size={18} /> : <Mic size={18} />)}
             </button>
 
             {/* Reliable White Mode Input Field */}
@@ -3034,7 +3201,8 @@ export default function Scribe() {
               ref={inputRef}
               type="text"
               autoFocus={!isMobile}
-              placeholder={isMobile ? "Ask or dictate note..." : "Ask a question or dictate clinical notes..."}
+              disabled={isTranscribing}
+              placeholder={isTranscribing ? "Transcribing clinical terms with OpenAI Whisper..." : (isMobile ? "Ask or dictate note..." : "Ask a question or dictate clinical notes...")}
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               onFocus={() => {
