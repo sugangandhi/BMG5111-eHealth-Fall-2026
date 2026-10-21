@@ -139,13 +139,93 @@ async def update_ai_key(req: AIKeyUpdateRequest):
     }
 
 @app.get("/api/wearables/vitals")
-async def get_wearable_vitals(patient_id: Optional[str] = None, patient_name: Optional[str] = None):
+async def get_wearable_vitals(
+    patient_id: Optional[str] = None, 
+    patient_name: Optional[str] = None,
+    mode: Optional[str] = "demo"
+):
     """
-    Returns live Apple Watch wearable telemetry for a specific patient.
+    Returns Apple Watch wearable telemetry for a specific patient.
+    Supports mode='demo' (simulated clinical feed) or mode='real' (live paired device feed).
     """
     from integrations.wearables import get_patient_wearable_telemetry
     target_p = patient_name or patient_id or "John Doe"
-    return get_patient_wearable_telemetry(target_p)
+    return get_patient_wearable_telemetry(target_p, mode=mode or "demo")
+
+class WearableSyncPayload(BaseModel):
+    patient_name: str
+    heart_rate: Optional[int] = 72
+    resting_hr: Optional[int] = 64
+    blood_pressure: Optional[str] = "120/80"
+    map_mmhg: Optional[int] = 93
+    rhythm_status: Optional[str] = "Normal Sinus Rhythm"
+    spo2: Optional[int] = 98
+    steps: Optional[int] = 5000
+    device: Optional[str] = "Apple Watch (Physical Device)"
+    battery: Optional[str] = "95%"
+    fall_detection: Optional[str] = "Armed & Active"
+
+@app.post("/api/wearables/sync")
+async def sync_wearable_vitals(payload: WearableSyncPayload):
+    """
+    Receives incoming telemetry from physical Apple HealthKit / iOS Shortcuts / Webhook.
+    """
+    from integrations.wearables import sync_patient_wearable_telemetry
+    data = payload.dict()
+    updated = sync_patient_wearable_telemetry(data)
+    
+    # Log clinical activity
+    log_activity(
+        action="wearable_synced",
+        description=f"Apple HealthKit telemetry synced for {payload.patient_name}",
+        patient_name=payload.patient_name,
+        detail=f"HR {payload.heart_rate} bpm · BP {payload.blood_pressure} · SpO2 {payload.spo2}% · Source: Physical Device Webhook",
+        color="blue"
+    )
+    
+    return {"status": "success", "message": "HealthKit vitals synced successfully", "data": updated}
+
+class WearablePairInvitePayload(BaseModel):
+    patient_name: str
+    channel: Optional[str] = "whatsapp"
+    phone_number: Optional[str] = None
+
+@app.post("/api/wearables/pair-invite")
+async def send_wearable_pair_invite(payload: WearablePairInvitePayload):
+    """
+    Sends an Apple HealthKit pairing invite link to the patient via WhatsApp or SMS.
+    """
+    invite_url = "https://bmg5111-ehealth-fall-2026.onrender.com/healthkit/authorize"
+    msg_body = (
+        f"Hello {payload.patient_name}, your physician at Prime Care Clinic has invited you to connect "
+        f"your Apple Watch via Apple HealthKit. Tap this secure link on your iPhone to approve vital signs sharing: {invite_url}"
+    )
+    
+    # If WhatsApp is enabled, attempt to push via WhatsApp router
+    sent_whatsapp = False
+    try:
+        from api.whatsapp import send_whatsapp_message
+        if payload.phone_number:
+            send_whatsapp_message(payload.phone_number, msg_body)
+            sent_whatsapp = True
+    except Exception:
+        pass
+        
+    log_activity(
+        action="healthkit_invite_sent",
+        description=f"Apple HealthKit authorization link sent to {payload.patient_name}",
+        patient_name=payload.patient_name,
+        detail=f"Channel: {payload.channel}. Destination: {payload.phone_number or 'Patient Chart Phone'}. Link: {invite_url}",
+        color="purple"
+    )
+    
+    return {
+        "status": "sent",
+        "channel": payload.channel,
+        "invite_url": invite_url,
+        "whatsapp_dispatched": sent_whatsapp,
+        "message": f"HealthKit pairing invitation sent to {payload.patient_name}"
+    }
 
 @app.get("/api/patients")
 async def get_patients(source: Optional[str] = None):

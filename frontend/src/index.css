@@ -1334,3 +1334,151 @@ h1, h2, h3, h4, h5, h6 {
     gap: 10px !important;
   }
 }
+
+/* ── Apple Watch & HealthKit Responsive Modal ────────────────────── */
+.apple-watch-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.apple-watch-modal-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  width: 680px;
+  max-width: 100%;
+  max-height: 90vh;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: auto;
+}
+
+.apple-watch-header-container {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  gap: 12px;
+}
+
+.apple-watch-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.apple-watch-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.apple-watch-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.apple-watch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.apple-watch-metric-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.apple-watch-footer-container {
+  padding: 14px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.apple-watch-footer-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Mobile-first responsive overrides */
+@media (max-width: 640px) {
+  .apple-watch-overlay {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+  
+  .apple-watch-modal-card {
+    max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    width: 100% !important;
+  }
+  
+  .apple-watch-header-container {
+    padding: 14px 16px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  
+  .apple-watch-header-actions {
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+  
+  .apple-watch-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  
+  .apple-watch-metric-card {
+    padding: 14px !important;
+  }
+  
+  .apple-watch-footer-container {
+    padding: 14px 16px !important;
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  
+  .apple-watch-footer-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+  
+  .apple-watch-footer-actions button {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 11px !important;
+  }
+}
+
