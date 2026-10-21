@@ -577,7 +577,48 @@ def handle_assistant_query(
                 ]
             }
 
-    # 2. ── EXPLICIT APPOINTMENT BOOKING / CREATION COMMAND ───────────────────
+    # 2. ── EXPLICIT PATIENT PHONE / DETAIL UPDATE COMMAND ───────────────────
+    if ("phone" in q_lower or "contact" in q_lower or "mobile" in q_lower or "number" in q_lower) and any(w in q_lower for w in ["update", "change", "set", "modify", "edit"]):
+        phone_match = re.search(r'(\+?\d[\d\s\-\(\)\.]{7,}\d)', query)
+        p_name, p_id, initials = extract_or_match_patient(query, active_patient)
+        
+        if phone_match and (p_id or p_name):
+            new_phone = phone_match.group(1).strip()
+            from fhir.patient_loader import update_patient_phone
+            target_id = p_id or "pt-001"
+            updated = update_patient_phone(target_id, new_phone)
+            actual_name = p_name or (updated.get("name", {}).get("text") if updated else "Patient")
+            
+            log_activity(
+                action="patient_phone_updated",
+                description=f"Updated phone number for {actual_name} to {new_phone}",
+                patient_name=actual_name,
+                patient_id=target_id,
+                detail=f"Phone number updated via Clinical AI Assistant to {new_phone}.",
+                color="green"
+            )
+            
+            reply = (
+                f"✅ **Patient Phone Number Updated**\n\n"
+                f"* **Patient**: **{actual_name}** (`{target_id}`)\n"
+                f"* **New Phone Number**: `{new_phone}`\n"
+                f"* **Status**: `Synchronized with EHR Chart`\n\n"
+                f"All clinic channels (including automated WhatsApp alerts, ambient voice confirmations, "
+                f"and HealthKit pairing invitations) will now route to `{new_phone}`."
+            )
+            
+            return {
+                "intent": "patient_phone_updated",
+                "reply": reply,
+                "patient": updated,
+                "suggested_prompts": [
+                    f"Send WhatsApp message to {actual_name}",
+                    f"Open chart for {actual_name}",
+                    f"Check {actual_name} Apple Watch vitals"
+                ]
+            }
+
+    # 3. ── EXPLICIT APPOINTMENT BOOKING / CREATION COMMAND ───────────────────
     if is_explicit_book_command(query):
         p_name, p_id, initials = extract_or_match_patient(query, active_patient)
         

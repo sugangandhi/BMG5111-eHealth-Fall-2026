@@ -472,7 +472,25 @@ export default function AppleWatchModal({ isOpen, onClose, patient, onInsertToNo
                   </h4>
                 </div>
                 <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                  Dispatches an automated WhatsApp / SMS authorization request to <strong>{patientName}</strong> ({patientPhone}).
+                  Dispatches an automated WhatsApp / SMS authorization request to <strong>{patientName}</strong> ({patientPhone}).{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('open-patient-edit', { detail: { patient } }));
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563eb',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      padding: 0,
+                      fontSize: '11px',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Change phone
+                  </button>
                 </p>
 
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

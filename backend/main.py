@@ -276,13 +276,57 @@ async def get_patient_endpoint(patient_id: str):
 class PatientPhoneUpdateRequest(BaseModel):
     phone: str
 
+class PatientUpdateRequest(BaseModel):
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    name: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    province: Optional[str] = "ON"
+    postal_code: Optional[str] = None
+    gender: Optional[str] = None
+    birthDate: Optional[str] = None
+    ohip: Optional[str] = None
+    allergies: Optional[str] = None
+    notes: Optional[str] = None
 
 @app.put("/api/patient/{patient_id}/phone")
 async def update_patient_phone_endpoint(patient_id: str, body: PatientPhoneUpdateRequest):
+    from fhir.patient_loader import update_patient_phone
     updated = update_patient_phone(patient_id, body.phone)
     if not updated:
         raise HTTPException(status_code=404, detail="Patient not found")
-    return {"status": "ok", "patient_id": patient_id, "phone": body.phone}
+    
+    p_name = updated.get("name", {}).get("text", f"Patient {patient_id}")
+    log_activity(
+        action="patient_phone_updated",
+        description=f"Updated phone number for {p_name} to {body.phone}",
+        patient_name=p_name,
+        patient_id=patient_id,
+        detail=f"Phone number changed to {body.phone}. EHR and WhatsApp channels updated.",
+        color="green"
+    )
+    return {"status": "ok", "patient_id": patient_id, "phone": body.phone, "patient": updated}
+
+@app.put("/api/patient/{patient_id}")
+async def update_patient_endpoint(patient_id: str, body: PatientUpdateRequest):
+    from fhir.patient_loader import update_patient_details
+    data = {k: v for k, v in body.dict().items() if v is not None}
+    updated = update_patient_details(patient_id, data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    p_name = updated.get("name", {}).get("text", f"Patient {patient_id}")
+    keys_str = ", ".join(data.keys())
+    log_activity(
+        action="patient_details_updated",
+        description=f"Updated clinical chart details for {p_name}",
+        patient_name=p_name,
+        patient_id=patient_id,
+        detail=f"Updated fields: {keys_str}. Phone: {updated.get('phone', 'N/A')}.",
+        color="green"
+    )
+    return {"status": "ok", "patient_id": patient_id, "patient": updated}
 
 
 @app.get("/api/health")

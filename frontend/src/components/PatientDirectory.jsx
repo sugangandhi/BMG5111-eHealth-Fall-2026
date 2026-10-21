@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Users, Cloud, Database, Search, MessageCircle, Mic, ShieldCheck, 
-  RefreshCw, Activity, CheckCircle2, ChevronRight, X, Calendar, UserCheck, Watch
+  RefreshCw, Activity, CheckCircle2, ChevronRight, X, Calendar, UserCheck, Watch,
+  Edit3, Phone
 } from 'lucide-react';
 import AppleWatchVitals from './AppleWatchVitals';
+import PatientEditModal from './PatientEditModal';
 
 export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
   const [patients, setPatients] = useState([]);
@@ -16,6 +18,7 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
   const [selectedWatchPatient, setSelectedWatchPatient] = useState(null);
   const [vitalsHistory, setVitalsHistory] = useState([]);
   const [vitalsLoading, setVitalsLoading] = useState(false);
+  const [editingPatient, setEditingPatient] = useState(null);
 
   useEffect(() => {
     loadPatients();
@@ -329,11 +332,18 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
                     <span>MRN / OHIP:</span>
                     <strong style={{ color: 'var(--text-primary)' }}>{p.mrn}</strong>
                   </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Phone:</span>
+                    <span style={{ color: '#2563eb', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Phone size={12} />
+                      {p.phone || (p.contact ? p.contact.split('·')[0].split('||')[0].trim() : '613-555-0192')}
+                    </span>
+                  </div>
                   {p.contact && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span>Contact / Info:</span>
+                      <span>Location:</span>
                       <span style={{ color: 'var(--text-primary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {p.contact.split('||')[0]}
+                        {p.contact.includes('·') ? p.contact.split('·')[1].trim() : p.contact.split('||')[0]}
                       </span>
                     </div>
                   )}
@@ -454,6 +464,27 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
                     <Watch size={13} /> Watch
                   </button>
 
+                  <button
+                    onClick={() => setEditingPatient(p)}
+                    style={{
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: '#334155',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    title="Update patient details, phone number & chart"
+                  >
+                    <Edit3 size={13} color="#2563eb" /> Edit
+                  </button>
+
                   {isCloud && (
                     <button
                       onClick={() => handleInspectVitals(p)}
@@ -557,6 +588,19 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
 
           </div>
         </div>
+      )}
+
+      {/* Patient Edit Modal */}
+      {editingPatient && (
+        <PatientEditModal
+          isOpen={!!editingPatient}
+          patient={editingPatient}
+          onClose={() => setEditingPatient(null)}
+          onPatientUpdated={(updated) => {
+            setPatients(prev => prev.map(pt => pt.id === updated.id ? { ...pt, ...updated, phone: updated.phone || pt.phone } : pt));
+            loadPatients();
+          }}
+        />
       )}
 
     </div>

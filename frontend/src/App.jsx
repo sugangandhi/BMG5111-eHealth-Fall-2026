@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Users, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle, ExternalLink, Phone, Sparkles } from 'lucide-react';
+import { LayoutDashboard, FileText, Send, MessageSquare, LogOut, Inbox, Sun, Moon, Settings, ChevronDown, Shield, User, Users, Plus, Bell, X, Activity, Mic, Search, Calendar, DollarSign, Scan, ScanFace, MessageCircle, ExternalLink, Phone, Sparkles, Edit3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './index.css';
 
@@ -21,6 +21,7 @@ import KioskMode from './components/KioskMode';
 import DigitalTwin from './components/DigitalTwin';
 import WhatsAppModal from './components/WhatsAppModal';
 import AppleWatchModal from './components/AppleWatchModal';
+import PatientEditModal from './components/PatientEditModal';
 window.utterances = [];
 window.isSpeaking = false;
 const speakAction = (text) => {
@@ -132,6 +133,19 @@ function App() {
     };
     window.addEventListener('open-apple-watch', handleOpenWatch);
     return () => window.removeEventListener('open-apple-watch', handleOpenWatch);
+  }, [activePatient]);
+
+  const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
+  const [editPatientTarget, setEditPatientTarget] = useState(null);
+
+  // Global listener to edit patient details from any view
+  useEffect(() => {
+    const handleOpenEdit = (e) => {
+      setEditPatientTarget(e.detail?.patient || activePatient);
+      setIsEditPatientModalOpen(true);
+    };
+    window.addEventListener('open-patient-edit', handleOpenEdit);
+    return () => window.removeEventListener('open-patient-edit', handleOpenEdit);
   }, [activePatient]);
 
   const [isEditingPatientPhone, setIsEditingPatientPhone] = useState(false);
@@ -979,6 +993,32 @@ function App() {
                         <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: activePatient.allergies === 'NKDA' ? '#ecfdf5' : '#fef2f2', color: activePatient.allergies === 'NKDA' ? '#059669' : '#dc2626', fontWeight: '700', border: `1px solid ${activePatient.allergies === 'NKDA' ? '#a7f3d0' : '#fecaca'}` }}>
                           {activePatient.allergies === 'NKDA' ? 'NKDA' : `Allergies: ${activePatient.allergies}`}
                         </span>
+                        <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: '#eff6ff', color: '#2563eb', fontWeight: '600', border: '1px solid #bfdbfe', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <Phone size={10} /> {activePatient.phone || '613-555-0192'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditPatientTarget(activePatient);
+                            setIsEditPatientModalOpen(true);
+                          }}
+                          style={{
+                            fontSize: '11px',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: '#ffffff',
+                            color: '#334155',
+                            fontWeight: '600',
+                            border: '1px solid #cbd5e1',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer'
+                          }}
+                          title="Edit patient phone number, contact & chart details"
+                        >
+                          <Edit3 size={11} color="#2563eb" /> Edit Details
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
@@ -1121,8 +1161,31 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Actions: Just WhatsApp Icon + Scribe Icon + Close */}
+                  {/* Actions: Just WhatsApp Icon + Scribe Icon + Edit + Close */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setEditPatientTarget(activePatient);
+                        setIsEditPatientModalOpen(true);
+                      }}
+                      style={{
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px solid #bfdbfe',
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
+                      title="Edit patient phone & chart details"
+                    >
+                      <Edit3 size={15} />
+                    </button>
                     <button 
                       type="button"
                       onClick={() => launchDirectWhatsApp(activePatient)}
@@ -1337,6 +1400,15 @@ function App() {
         isOpen={isWatchModalOpen} 
         onClose={() => setIsWatchModalOpen(false)} 
         patient={watchModalPatient || activePatient} 
+      />
+      <PatientEditModal
+        isOpen={isEditPatientModalOpen}
+        onClose={() => setIsEditPatientModalOpen(false)}
+        patient={editPatientTarget || activePatient}
+        onPatientUpdated={(updated) => {
+          setActivePatient(prev => ({ ...prev, ...updated, phone: updated.phone || prev.phone }));
+          setAllPatients(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+        }}
       />
 
       {/* Native-Grade Mobile Bottom Navigation */}

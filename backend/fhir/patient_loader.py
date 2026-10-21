@@ -25,9 +25,13 @@ def list_patients() -> list[dict]:
             "name": p["name"]["text"],
             "birthDate": p["birthDate"],
             "phone": p.get("phone", "613-555-0192"),
+            "email": p.get("email", ""),
+            "address": p.get("address", {}),
+            "contact": f"{p.get('phone', '613-555-0192')} · {p.get('address', {}).get('city', 'Ottawa')}",
             "allergies": ", ".join(p.get("allergies", [])) if isinstance(p.get("allergies"), list) else (p.get("allergies") or "NKDA"),
             "mrn": p.get("ohip", f"MRN-{p['id']}"),
-            "gender": p.get("gender", "")
+            "gender": p.get("gender", ""),
+            "notes": p.get("notes", "")
         }
         for p in _load()
     ]
@@ -41,21 +45,79 @@ def get_patient(patient_id: str) -> Optional[dict]:
 
 
 def update_patient_phone(patient_id: str, new_phone: str) -> Optional[dict]:
+    return update_patient_details(patient_id, {"phone": new_phone})
+
+
+def update_patient_details(patient_id: str, updates: dict) -> Optional[dict]:
+    """
+    Updates patient details (phone, email, address, name, notes, etc.)
+    and persists them to patients.json.
+    """
     global _patients
-    clean_phone = new_phone.strip()
     patients = _load()
     target = None
     for p in patients:
         if p["id"] == patient_id:
-            p["phone"] = clean_phone
+            # Update phone
+            if "phone" in updates and updates["phone"] is not None:
+                p["phone"] = str(updates["phone"]).strip()
+            # Update email
+            if "email" in updates and updates["email"] is not None:
+                p["email"] = str(updates["email"]).strip()
+            # Update name
+            if "name" in updates and updates["name"]:
+                clean_name = str(updates["name"]).strip()
+                if "name" not in p or not isinstance(p["name"], dict):
+                    p["name"] = {"text": clean_name, "given": [clean_name], "family": clean_name}
+                else:
+                    p["name"]["text"] = clean_name
+                    parts = clean_name.split()
+                    if len(parts) > 1:
+                        p["name"]["given"] = parts[:-1]
+                        p["name"]["family"] = parts[-1]
+                    else:
+                        p["name"]["given"] = [clean_name]
+                        p["name"]["family"] = clean_name
+            # Update address
+            addr = p.get("address", {})
+            if "address" in updates and isinstance(updates["address"], dict):
+                p["address"] = {**addr, **updates["address"]}
+            else:
+                if "address_line" in updates and updates["address_line"]:
+                    addr["line"] = [str(updates["address_line"]).strip()]
+                if "city" in updates and updates["city"]:
+                    addr["city"] = str(updates["city"]).strip()
+                if "province" in updates and updates["province"]:
+                    addr["province"] = str(updates["province"]).strip()
+                if "postal_code" in updates and updates["postal_code"]:
+                    addr["postalCode"] = str(updates["postal_code"]).strip()
+                elif "postalCode" in updates and updates["postalCode"]:
+                    addr["postalCode"] = str(updates["postalCode"]).strip()
+                p["address"] = addr
+            # Update gender / birthDate / ohip
+            if "gender" in updates and updates["gender"]:
+                p["gender"] = str(updates["gender"]).strip().lower()
+            if "birthDate" in updates and updates["birthDate"]:
+                p["birthDate"] = str(updates["birthDate"]).strip()
+            if "ohip" in updates and updates["ohip"]:
+                p["ohip"] = str(updates["ohip"]).strip()
+            if "allergies" in updates and updates["allergies"] is not None:
+                if isinstance(updates["allergies"], list):
+                    p["allergies"] = updates["allergies"]
+                else:
+                    p["allergies"] = [a.strip() for a in str(updates["allergies"]).split(",") if a.strip()]
+            if "notes" in updates and updates["notes"] is not None:
+                p["notes"] = str(updates["notes"]).strip()
             target = p
             break
+            
     if target:
         try:
             with open(_DATA_PATH, "w", encoding="utf-8") as f:
                 json.dump({"patients": patients}, f, indent=2)
+            _patients = patients
         except Exception as e:
-            print(f"[PatientLoader] Error persisting patient phone: {e}")
+            print(f"[PatientLoader] Error persisting patient updates: {e}")
     return target
 
 
