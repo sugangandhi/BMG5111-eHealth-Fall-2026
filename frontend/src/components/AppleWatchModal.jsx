@@ -72,7 +72,7 @@ export default function AppleWatchModal({ isOpen, onClose, patient, onInsertToNo
 
   const fetchVitals = (mode = telemetryMode) => {
     setIsSyncing(true);
-    axios.get(`/api/wearables/vitals?patient_name=${encodeURIComponent(patientName)}&mode=${mode}`)
+    axios.get(`/api/wearables/vitals?patient_name=${encodeURIComponent(patientName)}&patient_id=${encodeURIComponent(patientId)}&mode=${mode}`)
       .then(res => {
         if (res.data) {
           setVitals(res.data);
@@ -197,6 +197,7 @@ export default function AppleWatchModal({ isOpen, onClose, patient, onInsertToNo
     setIsSyncing(true);
     const testPayload = {
       patient_name: patientName,
+      patient_id: patientId,
       heart_rate: 74,
       resting_hr: 63,
       blood_pressure: '118/76',

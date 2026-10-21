@@ -259,3 +259,101 @@ def fetch_central_appointments(limit: int = 50) -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"[Central EMR] Error fetching appointments: {e}")
         return []
+
+
+def fetch_central_wearable_vitals(patient_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+    """
+    Fetches the latest real-time Apple Watch / HealthKit wearable vitals for a patient
+    from the Central AWS App Runner wearable_vitals table.
+    """
+    try:
+        url = f"{CENTRAL_API_BASE}/sql/select"
+        sql = """
+            SELECT vital_id, patient_id, heart_rate, steps, calories, sleep, timestamp, recorded_on,
+                   hrv_sdnn, resting_heart_rate, respiratory_rate, stress_score, annotation
+            FROM wearable_vitals 
+            WHERE patient_id = :patient_id 
+            ORDER BY recorded_on DESC 
+            LIMIT :limit
+        """
+        payload = {
+            "sql": sql,
+            "replacements": {
+                "patient_id": int(patient_id),
+                "limit": int(limit)
+            }
+        }
+        resp = requests.post(url, json=payload, timeout=TIMEOUT)
+        if resp.status_code == 200:
+            return resp.json().get("data", [])
+        return []
+    except Exception as e:
+        print(f"[Central EMR] Error querying wearable_vitals: {e}")
+        return []
+
+
+def post_central_wearable_vital(
+    patient_id: int,
+    heart_rate: Optional[int] = None,
+    steps: Optional[int] = None,
+    calories: Optional[int] = None,
+    sleep: Optional[Any] = None,
+    resting_heart_rate: Optional[int] = None,
+    respiratory_rate: Optional[int] = None,
+    annotation: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Writes a new Apple Watch telemetry entry directly into the Central AWS MySQL wearable_vitals table.
+    """
+    now_iso = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    payload = {
+        "patient_id": int(patient_id),
+        "timestamp": now_iso,
+        "recorded_on": now_iso
+    }
+    if heart_rate is not None:
+        try:
+            payload["heart_rate"] = int(heart_rate)
+        except (ValueError, TypeError):
+            pass
+    if steps is not None:
+        try:
+            payload["steps"] = int(steps)
+        except (ValueError, TypeError):
+            pass
+    if calories is not None:
+        try:
+            payload["calories"] = int(calories)
+        except (ValueError, TypeError):
+            pass
+    if sleep is not None:
+        try:
+            if isinstance(sleep, (int, float)):
+                payload["sleep"] = f"{float(sleep):.2f}"
+            else:
+                payload["sleep"] = str(sleep)
+        except Exception:
+            pass
+    if resting_heart_rate is not None:
+        try:
+            payload["resting_heart_rate"] = int(resting_heart_rate)
+        except (ValueError, TypeError):
+            pass
+    if respiratory_rate is not None:
+        try:
+            payload["respiratory_rate"] = int(respiratory_rate)
+        except (ValueError, TypeError):
+            pass
+    if annotation:
+        payload["annotation"] = str(annotation)
+
+    try:
+        url = f"{CENTRAL_API_BASE}/table/wearable_vitals"
+        resp = requests.post(url, json=payload, timeout=TIMEOUT)
+        if resp.status_code in [200, 201]:
+            return {"success": True, "data": resp.json()}
+        return {"success": False, "status_code": resp.status_code, "error": resp.text}
+    except Exception as e:
+        print(f"[Central EMR] Exception posting wearable_vital to AWS: {e}")
+        return {"success": False, "error": str(e)}
+

@@ -150,10 +150,11 @@ async def get_wearable_vitals(
     """
     from integrations.wearables import get_patient_wearable_telemetry
     target_p = patient_name or patient_id or "John Doe"
-    return get_patient_wearable_telemetry(target_p, mode=mode or "demo")
+    return get_patient_wearable_telemetry(target_p, mode=mode or "demo", patient_id=patient_id)
 
 class WearableSyncPayload(BaseModel):
     patient_name: str
+    patient_id: Optional[str] = None
     heart_rate: Optional[int] = 72
     resting_hr: Optional[int] = 64
     blood_pressure: Optional[str] = "120/80"
