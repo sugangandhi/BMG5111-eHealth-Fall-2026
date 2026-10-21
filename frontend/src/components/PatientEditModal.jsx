@@ -20,19 +20,20 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  const patientId = patient?.id || patient?.mrn || 'pt-001';
+  const rawId = patient?.patient_id || patient?.id || patient?.mrn || 'pt-001';
+  const patientId = String(rawId);
 
   useEffect(() => {
     if (isOpen && patient) {
       setErrorMsg(null);
       setSuccessMsg(null);
 
-      // Populate with existing data
-      const pName = patient.name?.text || patient.name || '';
-      const pPhone = patient.phone || patient.contact?.split('·')[0]?.trim() || '';
+      // Safely populate with existing data
+      const pName = typeof patient?.name === 'string' ? patient.name : (patient?.name?.text || patient?.patient_name || '');
+      const pPhone = patient?.phone || (typeof patient?.contact === 'string' ? patient.contact.split('·')[0].split('||')[0].trim() : '') || '';
       const pEmail = patient.email || '';
       const pAddr = patient.address || {};
-      const pAddrLine = Array.isArray(pAddr.line) ? pAddr.line[0] : (pAddr.line || '');
+      const pAddrLine = Array.isArray(pAddr.line) ? pAddr.line[0] : (typeof pAddr.line === 'string' ? pAddr.line : '');
       const pCity = pAddr.city || '';
       const pPostal = pAddr.postalCode || pAddr.postal_code || '';
       const pAllergies = typeof patient.allergies === 'string' ? patient.allergies : (Array.isArray(patient.allergies) ? patient.allergies.join(', ') : 'NKDA');
@@ -56,12 +57,14 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
             if (res.data) {
               const d = res.data;
               const addr = d.address || {};
+              const dName = typeof d.name === 'string' ? d.name : (d.name?.text || '');
+              const dAddrLine = Array.isArray(addr.line) ? addr.line[0] : (typeof addr.line === 'string' ? addr.line : '');
               setFormData(prev => ({
                 ...prev,
-                name: d.name?.text || prev.name,
+                name: dName || prev.name,
                 phone: d.phone || prev.phone,
                 email: d.email || prev.email,
-                addressLine: (Array.isArray(addr.line) ? addr.line[0] : addr.line) || prev.addressLine,
+                addressLine: dAddrLine || prev.addressLine,
                 city: addr.city || prev.city,
                 postalCode: addr.postalCode || prev.postalCode,
                 allergies: Array.isArray(d.allergies) ? d.allergies.join(', ') : (d.allergies || prev.allergies),

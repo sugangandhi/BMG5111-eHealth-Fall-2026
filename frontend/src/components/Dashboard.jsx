@@ -204,11 +204,31 @@ export default function Dashboard() {
     storedActivePatient = JSON.parse(localStorage.getItem('active_patient_context') || 'null');
   } catch (e) {}
   
-  const currentWatchPatient = storedActivePatient || (upNextAppt ? {
-    name: upNextAppt.patient_name,
-    mrn: upNextAppt.mrn || 'MRN-4821',
-    initials: upNextAppt.initials
-  } : { name: 'John Doe', mrn: 'MRN-1002' });
+  const resolvePatientContext = (apptOrPatient) => {
+    if (!apptOrPatient) return null;
+    if (apptOrPatient.birthDate || (apptOrPatient.phone && apptOrPatient.mrn)) return apptOrPatient;
+    
+    const pName = apptOrPatient.patient_name || apptOrPatient.name || '';
+    const pId = apptOrPatient.patient_id || apptOrPatient.id;
+    const matched = patientsList.find(p => 
+      (pId && p.id === pId) || 
+      (pName && p.name && p.name.toLowerCase() === pName.toLowerCase())
+    );
+
+    return {
+      ...matched,
+      id: matched?.id || pId || 'pt-001',
+      patient_id: matched?.id || pId || 'pt-001',
+      name: matched?.name || pName || 'Patient',
+      phone: matched?.phone || '613-555-0192',
+      mrn: matched?.mrn || `MRN-${matched?.id || pId || '4821'}`,
+      allergies: matched?.allergies || 'NKDA',
+      initials: apptOrPatient.initials || matched?.initials || 'PT',
+      address: matched?.address || {}
+    };
+  };
+
+  const currentWatchPatient = storedActivePatient || (upNextAppt ? resolvePatientContext(upNextAppt) : { name: 'John Doe', mrn: 'MRN-1002' });
 
   if (!stats && !isOffline) {
     return (
@@ -381,7 +401,7 @@ export default function Dashboard() {
                   </button>
 
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: upNextAppt } }))}
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: resolvePatientContext(upNextAppt) } }))}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -460,7 +480,7 @@ export default function Dashboard() {
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <button
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: a } }))}
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: resolvePatientContext(a) } }))}
                           style={{
                             background: '#ffffff',
                             border: '1px solid #bfdbfe',
@@ -799,7 +819,7 @@ export default function Dashboard() {
                 <Mic size={15} /> Start AI Scribe
               </button>
               <button
-                onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: upNextAppt } }))}
+                onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: resolvePatientContext(upNextAppt) } }))}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -849,7 +869,7 @@ export default function Dashboard() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: a } }))}
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: resolvePatientContext(a) } }))}
                     style={{
                       background: '#ffffff',
                       border: '1px solid #bfdbfe',

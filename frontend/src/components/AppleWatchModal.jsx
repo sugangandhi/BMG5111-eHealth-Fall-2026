@@ -16,9 +16,56 @@ export default function AppleWatchModal({ isOpen, onClose, patient, onInsertToNo
   const [inviteStatus, setInviteStatus] = useState(null); // null | 'sending' | 'sent'
   const [syncStatusMsg, setSyncStatusMsg] = useState(null);
 
+  const rawPatientId = patient?.patient_id || patient?.raw_id || patient?.id || 'pt-001';
+  const patientId = String(rawPatientId);
   const patientName = typeof patient?.name === 'string' ? patient.name : (patient?.name?.text || patient?.patient_name || 'Selected Patient');
-  const patientMrn = patient?.mrn || (patient?.id ? `MRN-${patient.id}` : 'MRN-4821');
-  const patientPhone = patient?.phone || patient?.telecom?.[0]?.value || '+1 (613) 555-0199';
+  const patientMrn = patient?.mrn || (patientId ? `MRN-${patientId}` : 'MRN-4821');
+
+  const [activePhone, setActivePhone] = useState(patient?.phone || '');
+
+  // Keep phone in sync with patient prop, fresh API query, and global updates
+  useEffect(() => {
+    if (patient) {
+      if (patient.phone) {
+        setActivePhone(patient.phone);
+      }
+      if (patientId && !patientId.startsWith('cloud-')) {
+        axios.get(`/api/patient/${patientId}`)
+          .then(res => {
+            if (res.data?.phone) {
+              setActivePhone(res.data.phone);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [patient, patientId, isOpen]);
+
+  useEffect(() => {
+    const handleUpdated = (e) => {
+      if (e.detail?.phone && (String(e.detail.id) === patientId || e.detail.name === patientName)) {
+        setActivePhone(e.detail.phone);
+      }
+    };
+    window.addEventListener('patient-details-updated', handleUpdated);
+    return () => window.removeEventListener('patient-details-updated', handleUpdated);
+  }, [patientId, patientName]);
+
+  const patientPhone = activePhone || patient?.phone || patient?.telecom?.[0]?.value || '+1 613-261-6383';
+
+  const handleChangePhoneClick = () => {
+    const resolvedPatient = {
+      ...patient,
+      id: patientId,
+      patient_id: patientId,
+      name: patientName,
+      phone: activePhone || patient?.phone || ''
+    };
+    if (onClose) onClose();
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-patient-edit', { detail: { patient: resolvedPatient } }));
+    }, 120);
+  };
 
   const fetchVitals = (mode = telemetryMode) => {
     setIsSyncing(true);
@@ -475,9 +522,7 @@ export default function AppleWatchModal({ isOpen, onClose, patient, onInsertToNo
                   Dispatches an automated WhatsApp / SMS authorization request to <strong>{patientName}</strong> ({patientPhone}).{' '}
                   <button
                     type="button"
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent('open-patient-edit', { detail: { patient } }));
-                    }}
+                    onClick={handleChangePhoneClick}
                     style={{
                       background: 'none',
                       border: 'none',
