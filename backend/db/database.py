@@ -25,6 +25,15 @@ DEMO_USERS = [
         "role": "Family Physician",
         "clinic": "Ottawa Family Health Team",
         "cpso": "92841"
+    },
+    {
+        "username": "sahithya",
+        "password": "password123",
+        "full_name": "Sahithya Sree",
+        "initials": "SS",
+        "role": "Lead Researcher / Patient",
+        "clinic": "Ottawa Family Health Team",
+        "cpso": "SS-394"
     }
 ]
 
