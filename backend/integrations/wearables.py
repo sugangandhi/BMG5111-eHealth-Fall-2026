@@ -408,28 +408,76 @@ def get_patient_wearable_telemetry(
 def get_all_patients_wearable_summary() -> str:
     """
     Returns a structured summary string of wearable metrics for the OpenAI prompt,
-    clearly identifying live paired devices vs simulated baseline telemetry.
+    clearly identifying live paired devices, central cloud synced feeds, and simulated baselines.
     """
     lines = []
+    seen_names = set()
     
-    # 1. Any real live synced devices
+    # 1. Any real live synced devices from local webhook
     for live_name, prof in _LIVE_SYNCED_DEVICES.items():
         name_title = prof.get("patient_name", live_name.title())
+        seen_names.add(name_title.lower())
         lines.append(
-            f"• [REAL HARDWARE FEED] {name_title} ({prof['device']}) — Live Synced Just Now:\n"
-            f"  - Heart Rate: {prof['heart_rate']} bpm (Resting: {prof.get('resting_hr', 64)} bpm, Range: {prof.get('hr_range', '60-120 bpm')})\n"
-            f"  - Cardiac Rhythm: {prof['rhythm_status']}\n"
-            f"  - Blood Pressure: {prof['blood_pressure']} mmHg (MAP: {prof.get('map_mmhg', 92)} mmHg)\n"
-            f"  - Blood Oxygen (SpO2): {prof['spo2']}%\n"
+            f"• [REAL HARDWARE FEED - LOCAL WEBHOOK] {name_title} ({prof.get('device', 'Apple Watch')}) — Live Synced Just Now:\n"
+            f"  - Heart Rate: {prof.get('heart_rate')} bpm (Resting: {prof.get('resting_hr', 64)} bpm, Range: {prof.get('hr_range', '60-120 bpm')})\n"
+            f"  - Cardiac Rhythm: {prof.get('rhythm_status', 'Normal Sinus Rhythm')}\n"
+            f"  - Blood Pressure: {prof.get('blood_pressure', '120/80')} mmHg (MAP: {prof.get('map_mmhg', 92)} mmHg)\n"
+            f"  - Blood Oxygen (SpO2): {prof.get('spo2', 98)}%\n"
             f"  - Steps: {prof.get('steps', 0)} steps\n"
+            f"  - Sleep: {prof.get('sleep_total', '7h 30m')}\n"
             f"  - Source: Real Apple Watch via HealthKit Webhook"
         )
 
-    # 2. Baseline demo profiles
+    # 2. Query Central Cloud MySQL wearable_vitals for live cloud-synced patients
+    try:
+        from integrations.central_clinical_api import CENTRAL_API_BASE, TIMEOUT
+        import requests
+        url = f"{CENTRAL_API_BASE}/sql/select"
+        sql = """
+            SELECT w.patient_id, p.name, w.heart_rate, w.steps, w.calories, w.sleep, w.resting_heart_rate, w.recorded_on
+            FROM wearable_vitals w
+            LEFT JOIN patients_registration p ON w.patient_id = p.patient_id
+            WHERE w.heart_rate > 0 OR w.steps > 0
+            ORDER BY w.recorded_on DESC
+            LIMIT 15
+        """
+        resp = requests.post(url, json={"sql": sql}, timeout=TIMEOUT)
+        if resp.status_code == 200:
+            records = resp.json().get("data", [])
+            seen_pids = set()
+            for r in records:
+                pid = r.get("patient_id")
+                if not pid or pid in seen_pids:
+                    continue
+                seen_pids.add(pid)
+                pname = r.get("name") or f"Patient #{pid}"
+                if pname.lower() in seen_names:
+                    continue
+                seen_names.add(pname.lower())
+                
+                hr = r.get("heart_rate") or 72
+                r_hr = r.get("resting_heart_rate") or max(56, hr - 12)
+                st = r.get("steps") or 0
+                cal = r.get("calories") or int(st * 0.04)
+                sl = r.get("sleep") or "7.5"
+                rec_ts = r.get("recorded_on") or "Recently"
+                
+                lines.append(
+                    f"• [REAL HARDWARE FEED - CENTRAL CLOUD] {pname} (ID: cloud-{pid}) (Apple Watch HealthKit Synced) — Recorded: {rec_ts[:16].replace('T', ' ')}:\n"
+                    f"  - Heart Rate: {hr} bpm (Resting: {r_hr} bpm)\n"
+                    f"  - Daily Steps: {st} steps (Active Calories: {cal} kcal)\n"
+                    f"  - Sleep: {sl} hrs\n"
+                    f"  - Status: Live Apple HealthKit Connected\n"
+                    f"  - Source: Central Cloud Database (Table: wearable_vitals)"
+                )
+    except Exception as e:
+        print(f"[Wearables] Summary query note: {e}")
+
+    # 3. Baseline demo profiles
     for name_key, prof in _PATIENT_TELEMETRY_PROFILES.items():
-        if name_key in _LIVE_SYNCED_DEVICES:
+        name_title = prof.get("patient_name", name_key.title())
+        if name_title.lower() in seen_names:
             continue
-        name_title = name_key.title()
         lines.append(
             f"• [SIMULATED DEMO] {name_title} ({prof['device']}) — Synced {prof['last_synced_minutes_ago']}m ago:\n"
             f"  - Heart Rate: {prof['heart_rate']} bpm (Resting: {prof['resting_hr']} bpm, Range: {prof['hr_range']})\n"

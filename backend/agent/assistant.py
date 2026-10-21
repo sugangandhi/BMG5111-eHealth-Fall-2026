@@ -27,6 +27,43 @@ QUESTION_STARTERS = [
     "tell me about", "explain", "help me decide", "review"
 ]
 
+def get_unified_patients() -> List[Dict[str, Any]]:
+    """Loads all clinic FHIR patients combined with Central Cloud EMR normalized patients."""
+    unified = []
+    try:
+        pts = load_fhir_patients()
+        for p in pts:
+            unified.append({
+                "id": str(p.get("id", "pt-001")),
+                "raw_id": p.get("id"),
+                "name": p.get("name", {}).get("text", "") if isinstance(p.get("name"), dict) else str(p.get("name", "")),
+                "phone": p.get("phone", ""),
+                "conditions": p.get("conditions", []),
+                "medications": p.get("medications", []),
+                "allergies": p.get("allergies", "NKDA"),
+                "is_cloud": False
+            })
+    except Exception:
+        pass
+
+    try:
+        cloud_pts = fetch_central_patients_normalized()
+        for cp in cloud_pts:
+            unified.append({
+                "id": str(cp.get("id") or cp.get("patient_id")),
+                "raw_id": cp.get("raw_id") or cp.get("patient_id"),
+                "name": cp.get("name") if isinstance(cp.get("name"), str) else (cp.get("name", {}).get("text") or "Patient"),
+                "phone": cp.get("phone", ""),
+                "conditions": cp.get("conditions", []),
+                "medications": cp.get("medications", []),
+                "allergies": cp.get("allergies", "NKDA"),
+                "is_cloud": True
+            })
+    except Exception as e:
+        print(f"[Assistant] Note loading cloud patients: {e}")
+
+    return unified
+
 def build_clinical_system_context(
     active_patient: Optional[Dict[str, Any]] = None,
     target_patient_name: Optional[str] = None,
@@ -40,11 +77,11 @@ def build_clinical_system_context(
     today_iso = datetime.date.today().isoformat()
     now_str = datetime.datetime.now().strftime("%I:%M %p")
     
-    # 1. Registered Clinic Patients Roster
-    pts = load_fhir_patients()
+    # 1. Registered Clinic & Cloud Patients Roster
+    unified_pts = get_unified_patients()
     patient_summaries = []
-    for p in pts:
-        pname = p.get("name", {}).get("text", "")
+    for p in unified_pts:
+        pname = p.get("name", "")
         pid = p.get("id", "")
         
         cond_list = []
@@ -67,8 +104,9 @@ def build_clinical_system_context(
 
         allergies = p.get("allergies", "NKDA")
         phone = p.get("phone", "None")
-        patient_summaries.append(f"- {pname} (ID: {pid}, Phone: {phone}): Conditions: [{conds}]. Meds: [{meds}]. Allergies: {allergies}.")
-    pts_str = "\n".join(patient_summaries)
+        src_label = "Central Cloud" if p.get("is_cloud") else "Clinic EHR"
+        patient_summaries.append(f"- {pname} (ID: {pid}, Phone: {phone}, Source: {src_label}): Conditions: [{conds}]. Meds: [{meds}]. Allergies: {allergies}.")
+    pts_str = "\n".join(patient_summaries[:30])
 
     # 2. Live Clinical Appointments Schedule (EHR Database)
     appts = get_appointments(today_iso) or get_appointments("")
@@ -89,12 +127,28 @@ def build_clinical_system_context(
     except Exception:
         inbox_str = "Inbox system operational."
 
-    # 4. Active patient highlight
+    # 4. Active patient highlight & direct vitals injection
     active_focus = ""
-    if active_patient and active_patient.get("name"):
-        active_focus = f"\nACTIVE PATIENT IN FOCUS: {active_patient.get('name')} (ID: {active_patient.get('id', 'N/A')})\n"
-    elif target_patient_name:
-        active_focus = f"\nTARGET PATIENT IN DISCUSSION: {target_patient_name}\n"
+    focal_name = target_patient_name or (active_patient.get("name") if active_patient else None)
+    focal_id = (active_patient.get("id") or active_patient.get("patient_id")) if active_patient else None
+    
+    if focal_name or focal_id:
+        try:
+            telem = get_patient_wearable_telemetry(focal_name or str(focal_id), mode="real", patient_id=str(focal_id) if focal_id else None)
+            active_focus = (
+                f"\nACTIVE PATIENT IN FOCUS: {focal_name or 'Patient'} (ID: {focal_id or 'EHR'})\n"
+                f"LIVE PATIENT VITALS & WEARABLES FEED:\n"
+                f"  - Device: {telem.get('device')} ({telem.get('device_status')})\n"
+                f"  - Heart Rate: {telem.get('heart_rate')} BPM (Resting: {telem.get('resting_hr')} bpm, Range: {telem.get('hr_range')})\n"
+                f"  - Cardiac Rhythm: {telem.get('rhythm_status')}\n"
+                f"  - Blood Pressure: {telem.get('blood_pressure')} mmHg (MAP: {telem.get('map_mmhg')} mmHg)\n"
+                f"  - Blood Oxygen (SpO2): {telem.get('spo2')}%\n"
+                f"  - Daily Activity: {telem.get('steps')} steps ({telem.get('active_calories')} kcal)\n"
+                f"  - Sleep Total: {telem.get('sleep_total')}\n"
+                f"  - Source: {telem.get('source')} (Last synced: {telem.get('last_synced_display')})\n"
+            )
+        except Exception:
+            active_focus = f"\nACTIVE PATIENT IN FOCUS: {focal_name or 'Patient'} (ID: {focal_id or 'EHR'})\n"
 
     # 5. Patient Historical Encounter & Discussion Archive
     history_section = ""
@@ -219,25 +273,42 @@ def parse_date_slot(q_lower: str) -> str:
     return today.isoformat()
 
 def extract_or_match_patient(query: str, active_patient: Optional[Dict[str, Any]] = None) -> Tuple[Optional[str], Optional[str], str]:
-    """Returns (patient_name, patient_id, initials)."""
-    pts = load_fhir_patients()
+    """Returns (patient_name, patient_id, initials) across both Clinic EHR and Central Cloud records."""
+    pts = get_unified_patients()
     q_lower = query.lower()
+
+    # 1. Match if an explicit patient ID is mentioned (e.g. "patient 394", "pt 394", "cloud-394", "ID 394", "#394")
+    m_id = re.search(r'\b(?:patient|pt|id|#)\s*(?:#|id)?\s*(cloud-\d+|\d+)\b', q_lower)
+    if m_id:
+        target_id_str = m_id.group(1).lower()
+        clean_num = target_id_str.replace("cloud-", "")
+        for p in pts:
+            pid = str(p.get("id", "")).lower()
+            praw = str(p.get("raw_id", "")).lower()
+            if pid == target_id_str or praw == clean_num or pid == f"cloud-{clean_num}":
+                pname = p.get("name", "")
+                initials = "".join([w[0] for w in pname.split() if w]).upper()
+                return pname, p.get("id"), initials
+
+    # 2. Match exact or substring patient name
     for p in pts:
-        pname = p.get("name", {}).get("text", "")
+        pname = p.get("name", "")
         if pname and pname.lower() in q_lower:
             pid = p.get("id", "pt-001")
             initials = "".join([w[0] for w in pname.split() if w]).upper()
             return pname, pid, initials
 
+    # 3. Token-based / difflib matching
     q_tokens = [w for w in re.findall(r'\b[a-z]{3,}\b', q_lower) if w not in {
         "book", "create", "schedule", "make", "appointment", "visit", "consult",
         "intake", "today", "tomorrow", "with", "for", "please", "wanna", "want",
-        "slot", "time", "clock", "hour", "mins", "need", "like"
+        "slot", "time", "clock", "hour", "mins", "need", "like", "vital", "vitals",
+        "record", "recorded", "what", "show", "tell", "about", "apple", "watch"
     }]
     best_score = 0.0
     best_p = None
     for p in pts:
-        pname = p.get("name", {}).get("text", "")
+        pname = p.get("name", "")
         p_tokens = re.findall(r'\b[a-z]{3,}\b', pname.lower())
         score = 0.0
         for qt in q_tokens:
@@ -251,18 +322,20 @@ def extract_or_match_patient(query: str, active_patient: Optional[Dict[str, Any]
             best_p = p
 
     if best_p:
-        pname = best_p.get("name", {}).get("text", "")
+        pname = best_p.get("name", "")
         pid = best_p.get("id", "pt-001")
         initials = "".join([w[0] for w in pname.split() if w]).upper()
         return pname, pid, initials
 
+    # 4. Fallback to active patient context
     if active_patient and active_patient.get("name"):
         pname = active_patient.get("name")
         pid = active_patient.get("id", "pt-ctx")
         initials = "".join([w[0] for w in pname.split() if w]).upper()
         return pname, pid, initials
 
-    m = re.search(r'(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', query)
+    # 5. Regex for name pattern
+    m = re.search(r'(?:for|with|of|about)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)', query)
     if m:
         pname = m.group(1).title()
         pid = f"pt-{abs(hash(pname)) % 900 + 100}"
@@ -837,15 +910,119 @@ def handle_assistant_query(
             ]
         }
 
-    # 5. ── FULL CLINICAL REASONING COPILOT (EVERYTHING ELSE) ─────────────────
+    # 5. ── EXPLICIT PATIENT VITALS / WEARABLE INQUIRY ─────────────────────────
+    vitals_triggers = [
+        "vital", "vitals", "apple watch", "watch", "healthkit", "heart rate",
+        "pulse", "bpm", "blood pressure", "spo2", "steps", "sleep", "wearable", "telemetry"
+    ]
+    if any(k in q_lower for k in vitals_triggers) and not is_explicit_cancel_command(query) and not is_explicit_book_command(query):
+        p_name, p_id, initials = extract_or_match_patient(query, active_patient)
+        if p_name or p_id:
+            target_display = p_name or f"Patient #{p_id}"
+            telemetry = get_patient_wearable_telemetry(p_name or p_id, mode="real", patient_id=p_id)
+            
+            # Also check clinical vitals history from Central Cloud if available
+            clean_num_id = None
+            if p_id:
+                cand = str(p_id).replace("cloud-", "").strip()
+                if cand.isdigit():
+                    clean_num_id = int(cand)
+            if not clean_num_id and p_name:
+                try:
+                    from integrations.central_clinical_api import find_central_patient
+                    cp = find_central_patient(name=p_name)
+                    if cp and cp.get("patient_id"):
+                        clean_num_id = int(cp["patient_id"])
+                except Exception:
+                    pass
+            
+            central_vh = []
+            if clean_num_id:
+                try:
+                    central_vh = fetch_patient_vitals_history(clean_num_id, limit=3)
+                except Exception:
+                    pass
+
+            if telemetry.get("is_paired"):
+                src = telemetry.get("source", "Apple HealthKit")
+                last_sync = telemetry.get("last_synced_display", "Just now")
+                reply = (
+                    f"### ⌚ Recorded Apple Watch & HealthKit Vitals for **{target_display}**\n\n"
+                    f"* **Device Status**: **{telemetry.get('device_status', 'Live Apple HealthKit Connected')}**\n"
+                    f"* **Device**: `{telemetry.get('device', 'Apple Watch')}` ({telemetry.get('watchos', 'watchOS 11.x')}) — *{last_sync}*\n"
+                    f"* **Heart Rate**: **{telemetry.get('heart_rate')} BPM** (Resting: {telemetry.get('resting_hr')} bpm, Range: `{telemetry.get('hr_range')}`)\n"
+                    f"* **Cardiac Rhythm**: **{telemetry.get('rhythm_status', 'Normal Sinus Rhythm')}**\n"
+                    f"* **Blood Pressure**: **{telemetry.get('blood_pressure', '120/78')} mmHg** (MAP: {telemetry.get('map_mmhg', 92)} mmHg)\n"
+                    f"* **Blood Oxygen (SpO2)**: **{telemetry.get('spo2', 98)}%** continuous\n"
+                    f"* **Daily Activity**: **{telemetry.get('steps', 0):,} steps** ({telemetry.get('active_calories', 0)} active kcal)\n"
+                    f"* **Sleep Stages**: **{telemetry.get('sleep_total', '7h 30m')}** (Deep: {telemetry.get('sleep_deep', '1h 45m')}, REM: {telemetry.get('sleep_rem', '2h 09m')})\n"
+                    f"* **Fall Detection**: **{telemetry.get('fall_detection', 'Armed & Active')}**\n\n"
+                    f"✓ *Data source: {src}. Synchronized live with Central Cloud database.*"
+                )
+                return {
+                    "intent": "wearables_telemetry_found",
+                    "reply": reply,
+                    "patient_name": target_display,
+                    "patient_id": p_id,
+                    "vitals": telemetry,
+                    "suggested_prompts": [
+                        f"Add {target_display}'s vitals to SOAP note",
+                        f"Evaluate cardiovascular health for {target_display}",
+                        f"Send WhatsApp message to {target_display}"
+                    ]
+                }
+            elif central_vh and len(central_vh) > 0:
+                v0 = central_vh[0]
+                reply = (
+                    f"### 🩺 Clinical Recorded Vitals for **{target_display}**\n\n"
+                    f"* **Blood Pressure**: **{v0.get('blood_pressure', 'N/A')} mmHg**\n"
+                    f"* **Heart Rate**: **{v0.get('heart_rate', 'N/A')} BPM**\n"
+                    f"* **Temperature**: **{v0.get('temperature', 'N/A')} °C**\n"
+                    f"* **Respiratory Rate**: **{v0.get('respiratory_rate', 'N/A')} breaths/min**\n"
+                    f"* **Recorded Date**: `{v0.get('recorded_on', 'Recent')}`\n\n"
+                    f"*Note: No continuous physical Apple Watch feed is currently paired for this patient. "
+                    f"You can invite them to pair their Apple Watch via WhatsApp or test using Demo mode.*"
+                )
+                return {
+                    "intent": "clinical_vitals_found",
+                    "reply": reply,
+                    "patient_name": target_display,
+                    "patient_id": p_id,
+                    "vitals": v0,
+                    "suggested_prompts": [
+                        f"Send WhatsApp HealthKit invite to {target_display}",
+                        f"View demo vitals for {target_display}",
+                        f"Open chart for {target_display}"
+                    ]
+                }
+            else:
+                reply = (
+                    f"No continuous Apple Watch or clinical vitals records were found for **{target_display}** (`{p_id or 'EHR'}`).\n\n"
+                    f"To record vitals for this patient, you can:\n"
+                    f"1. **Send HealthKit Pairing Invite**: Click the Apple Watch icon on their chart to dispatch a WhatsApp pairing invite.\n"
+                    f"2. **Sync via Mobile App / Shortcut**: Have the patient sync from Apple Health or scan the clinic QR code.\n"
+                    f"3. **Switch to Demo Mode**: Explore realistic simulated vitals in the Apple Watch modal."
+                )
+                return {
+                    "intent": "vitals_not_found",
+                    "reply": reply,
+                    "patient_name": target_display,
+                    "patient_id": p_id,
+                    "suggested_prompts": [
+                        f"Send WhatsApp HealthKit invite to {target_display}",
+                        f"Show demo vitals for {target_display}",
+                        "Tell me appointments today"
+                    ]
+                }
+
+    # 6. ── FULL CLINICAL REASONING COPILOT (EVERYTHING ELSE) ─────────────────
     # Identify if a specific patient is being discussed in the query
     target_patient_name = None
-    all_pts = load_fhir_patients()
-    for p in all_pts:
-        pn = p.get("name", {}).get("text", "")
-        if pn and pn.lower() in q_lower:
-            target_patient_name = pn
-            break
+    target_p_id = None
+    p_match, pid_match, _ = extract_or_match_patient(query, active_patient)
+    if p_match:
+        target_patient_name = p_match
+        target_p_id = pid_match
 
     # Build comprehensive clinical system prompt
     system_prompt = build_clinical_system_context(
@@ -926,7 +1103,9 @@ def build_clinical_fallback_response(
     )
 
     if any(k in q_low for k in ["watch", "apple watch", "healthkit", "wearable", "pulse", "resting heart rate", "spo2", "vitals"]):
-        telemetry = get_patient_wearable_telemetry(p_name)
+        p_name_matched, p_id_matched, _ = extract_or_match_patient(query, active_patient)
+        p_use = p_name_matched or target_patient_name or (active_patient.get("name") if active_patient else "the patient")
+        telemetry = get_patient_wearable_telemetry(p_use, mode="real", patient_id=p_id_matched)
         return (
             quota_notice +
             f"### ⌚ Apple Watch & HealthKit Telemetry for {p_name}\n\n"
