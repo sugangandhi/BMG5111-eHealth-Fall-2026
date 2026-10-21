@@ -180,7 +180,15 @@ export default function Dashboard() {
     window.dispatchEvent(new CustomEvent('open-scribe'));
   };
 
-  const user = JSON.parse(localStorage.getItem('medoffice_user')) || { name: 'Dr. Patel' };
+  let user = { name: 'Dr. Patel' };
+  try {
+    const rawUser = localStorage.getItem('medoffice_user');
+    if (rawUser && rawUser !== 'undefined') {
+      user = JSON.parse(rawUser) || user;
+    }
+  } catch (e) {
+    user = { name: 'Dr. Patel' };
+  }
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

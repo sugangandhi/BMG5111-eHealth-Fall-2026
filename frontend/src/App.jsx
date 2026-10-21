@@ -66,7 +66,14 @@ const speakAction = (text) => {
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('medoffice_token'));
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem('medoffice_user')));
+  const [user, setUser] = useState(() => {
+    try {
+      const u = localStorage.getItem('medoffice_user');
+      return u && u !== 'undefined' ? JSON.parse(u) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [badges, setBadges] = useState({ dashboard: 0, inbox: 0 });
   const [theme, setTheme] = useState(localStorage.getItem('medoffice_theme') || 'dark');
