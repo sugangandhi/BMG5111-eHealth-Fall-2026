@@ -72,6 +72,19 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    role: Optional[str] = "Attending Physician"
+    clinic: Optional[str] = "Prime Care Medical Group"
+    cpso: Optional[str] = ""
+
+class ForgotPasswordRequest(BaseModel):
+    username: str
+    new_password: str
+    confirm_password: Optional[str] = None
+
 @app.post("/api/auth/login")
 async def auth_login(body: LoginRequest):
     from auth.jwt import create_access_token, verify_password
@@ -111,11 +124,12 @@ async def auth_login(body: LoginRequest):
                 is_password_valid = True
 
         if not is_password_valid:
-            raise HTTPException(401, "Invalid credentials")
+            raise HTTPException(401, "Invalid institutional credentials. Please check your username and passcode.")
         
         if user:
             name = user.full_name or "Clinician"
-            initials = user.initials or "".join([part[0] for part in name.split() if part])[:2].upper()
+            parts = [p for p in (name).replace("Dr.", "").replace("Dr ", "").split() if p]
+            initials = user.initials or ("".join([p[0].upper() for p in parts])[:3] or "MD")
             role = user.role or "Clinician"
             clinic = user.clinic or "Prime Care Medical Group"
             cpso = user.cpso or "PC-001"
@@ -146,10 +160,75 @@ async def auth_login(body: LoginRequest):
                 "role": role,
                 "clinic": clinic,
                 "cpso": cpso,
+                "username": sub,
             },
         }
     finally:
         db.close()
+
+@app.post("/api/auth/register")
+async def auth_register(body: RegisterRequest):
+    from auth.jwt import create_access_token
+    from db.database import register_user, log_activity
+    if not body.username.strip() or not body.password.strip():
+        raise HTTPException(400, "Username and passcode are required.")
+    if len(body.password.strip()) < 4:
+        raise HTTPException(400, "Passcode must be at least 4 characters.")
+    if not body.full_name.strip():
+        raise HTTPException(400, "Full clinician name is required.")
+    
+    try:
+        user_data = register_user(
+            username=body.username,
+            password=body.password,
+            full_name=body.full_name,
+            role=body.role or "Attending Physician",
+            clinic=body.clinic or "Prime Care Medical Group",
+            cpso=body.cpso or ""
+        )
+        token = create_access_token({"sub": user_data["username"]})
+        log_activity(
+            action="clinician_registered",
+            description=f"New account created for {user_data['name']}",
+            patient_name=user_data['name'],
+            patient_id=user_data['cpso'],
+            detail=f"Staff account registered with role: {user_data['role']}",
+            color="emerald"
+        )
+        return {
+            "token": token,
+            "user": user_data
+        }
+    except ValueError as ve:
+        raise HTTPException(400, str(ve))
+    except Exception as e:
+        raise HTTPException(500, f"Registration failed: {e}")
+
+@app.post("/api/auth/forgot-password")
+async def auth_forgot_password(body: ForgotPasswordRequest):
+    from db.database import reset_user_password, log_activity
+    if not body.username.strip() or not body.new_password.strip():
+        raise HTTPException(400, "Username/email and new passcode are required.")
+    if len(body.new_password.strip()) < 4:
+        raise HTTPException(400, "New passcode must be at least 4 characters.")
+    if body.confirm_password and body.new_password != body.confirm_password:
+        raise HTTPException(400, "Passcodes do not match.")
+    
+    success = reset_user_password(body.username, body.new_password)
+    if not success:
+        raise HTTPException(404, "No account was found matching that username or institutional email.")
+    
+    log_activity(
+        action="password_reset",
+        description=f"Passcode reset for user {body.username}",
+        patient_name=body.username,
+        detail="Institutional security credential reset completed successfully.",
+        color="blue"
+    )
+    return {
+        "status": "success",
+        "message": "Passcode reset successfully. You can now log in with your new credentials."
+    }
 
 
 class GoogleLoginRequest(BaseModel):
