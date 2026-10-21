@@ -2979,6 +2979,78 @@ export default function Scribe() {
                     </div>
                   )}
 
+                  {/* Clean Interactive Apple Watch / Vitals Card */}
+                  {msg.vitals && (
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Activity size={14} color="#2563eb" /> Apple Watch Live Telemetry
+                        </span>
+                        <button
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('open-apple-watch', {
+                              detail: {
+                                patient: {
+                                  name: msg.vitals.patient_name || currentPatient?.name || 'Patient',
+                                  id: msg.vitals.patient_id || currentPatient?.id
+                                }
+                              }
+                            }));
+                          }}
+                          style={{
+                            background: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            color: '#2563eb',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            padding: '3px 8px',
+                            borderRadius: '6px'
+                          }}
+                        >
+                          Open Monitor <ChevronRight size={12} />
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '8px' }}>
+                        <div style={{ padding: '6px 8px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>HEART RATE</div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#ef4444', marginTop: '1px' }}>
+                            {msg.vitals.heart_rate || '--'} <span style={{ fontSize: '10px', fontWeight: '600' }}>BPM</span>
+                          </div>
+                        </div>
+                        <div style={{ padding: '6px 8px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>BLOOD PRESSURE</div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a', marginTop: '1px' }}>
+                            {msg.vitals.blood_pressure || '--/--'}
+                          </div>
+                        </div>
+                        <div style={{ padding: '6px 8px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>OXYGEN (SpO2)</div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#059669', marginTop: '1px' }}>
+                            {msg.vitals.spo2 ? `${msg.vitals.spo2}%` : '--'}
+                          </div>
+                        </div>
+                        <div style={{ padding: '6px 8px', background: '#f8fafc', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>STEPS</div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', color: '#6366f1', marginTop: '1px' }}>
+                            {msg.vitals.steps ? Number(msg.vitals.steps).toLocaleString() : '--'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </div>
             );
