@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Users, FileText, Activity, Clock, Paperclip, X, Download, Printer, ShieldCheck, ExternalLink, TrendingUp, Sparkles, Award, Mic, Scan, Zap, MessageSquare, ChevronRight, Stethoscope, CheckCircle2, MessageCircle, Bot } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import AppleWatchVitalsCard from './AppleWatchVitalsCard';
 
 const WEEKLY_TREND = [
   { day: 'Mon', hoursSaved: 2.5, patients: 32 },
@@ -259,6 +260,14 @@ export default function Dashboard() {
         <MetricCard title="Forms Filled" value={stats.forms_today} icon={<FileText size={20} />} color="emerald" />
         <MetricCard title="Pending Referrals" value={stats.pending_referrals} icon={<Activity size={20} />} color="orange" />
         <MetricCard title="Time Saved (Min)" value={stats.time_saved_min} icon={<Clock size={20} />} color="purple" />
+      </div>
+
+      {/* Real-Time Apple Watch Clinical Telemetry & Patient Selector */}
+      <div style={{ marginBottom: '32px' }}>
+        <AppleWatchVitalsCard 
+          allPatients={patientsList} 
+          onOpenWhatsApp={(p) => window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: p }))} 
+        />
       </div>
 
       {/* ROI Command Center Area Chart */}

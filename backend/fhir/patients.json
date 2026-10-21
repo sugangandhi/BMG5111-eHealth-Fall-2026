@@ -1,6 +1,50 @@
 {
   "patients": [
     {
+      "id": "394",
+      "name": {
+        "text": "Sahithya Sree",
+        "family": "Sree",
+        "given": [
+          "Sahithya"
+        ]
+      },
+      "birthDate": "2002-04-14",
+      "gender": "female",
+      "ohip": "SAHI-9921-HC",
+      "sin": "832-194-394",
+      "language": "English",
+      "address": {
+        "line": [
+          "100 University Private"
+        ],
+        "city": "Ottawa",
+        "province": "ON",
+        "postalCode": "K1N 6N5"
+      },
+      "phone": "+1 613-555-0199",
+      "social_history": {
+        "smoking": "Non-smoker",
+        "alcohol": "None",
+        "occupation": "Biomedical / AI Software Researcher",
+        "housing": "Apartment",
+        "exercise": "Daily Apple Watch Health Tracking"
+      },
+      "family_history": [
+        "Normal cardiovascular baseline"
+      ],
+      "conditions": [
+        {
+          "code": "Z00.00",
+          "display": "Apple Watch Live Telemetry Active",
+          "onsetDate": "2026-10-21",
+          "status": "active"
+        }
+      ],
+      "medications": [],
+      "allergies": "NKDA"
+    },
+    {
       "id": "pt-001",
       "name": { "text": "Sarah Khan", "family": "Khan", "given": ["Sarah"] },
       "birthDate": "1981-04-14",

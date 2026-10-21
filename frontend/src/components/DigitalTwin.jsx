@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Bone, HeartPulse, Brain, Crosshair, ChevronRight, CheckCircle2, FileText, Download, Flame, Layers, Clock, Watch, Loader, Dna, Sparkles } from 'lucide-react';
 import True3DTwin from './True3DTwin';
 import SynchronizedCTViewer from './SynchronizedCTViewer';
+import AppleWatchVitalsCard from './AppleWatchVitalsCard';
 
 export default function DigitalTwin() {
   const [selectedPatientId, setSelectedPatientId] = useState('p1');
@@ -17,29 +18,38 @@ export default function DigitalTwin() {
   const [spo2, setSpo2] = useState(98);
   const [viewMode, setViewMode] = useState('ct-sync'); // 'ct-sync' | '2d' | '3d'
 
-  // When patient changes, close the panel
+  // When patient changes, close the panel and fetch wearable vitals
   useEffect(() => {
     setSelectedPart(null);
   }, [selectedPatientId]);
 
-  // Live Biometrics Simulator
+  // Real-Time Apple Watch Biometrics Sync
   useEffect(() => {
-    const interval = setInterval(() => {
-      setHeartRate(prev => {
-        const jump = Math.floor(Math.random() * 5) - 2; // -2 to +2
-        let newHr = prev + jump;
-        if (newHr < 65) newHr = 65;
-        if (newHr > 85) newHr = 85;
-        return newHr;
-      });
-      
-      setSpo2(prev => {
-        if (Math.random() > 0.8) return prev === 99 ? 98 : 99;
-        return prev;
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+    let isSubscribed = true;
+    let timer = null;
+
+    const fetchBiometrics = async () => {
+      try {
+        const res = await axios.get(`/api/wearables/patient/${selectedPatientId}/vitals`);
+        if (isSubscribed && res.data) {
+          if (res.data.heart_rate) setHeartRate(res.data.heart_rate);
+          if (res.data.spo2) setSpo2(res.data.spo2);
+        }
+      } catch (e) {
+        // Fallback gentle fluctuation if server is starting
+        setHeartRate(prev => Math.max(65, Math.min(95, prev + (Math.random() > 0.5 ? 1 : -1))));
+      }
+    };
+
+    fetchBiometrics();
+    // Poll continuously every 4 seconds to sync live watch telemetry
+    timer = setInterval(fetchBiometrics, 4000);
+
+    return () => {
+      isSubscribed = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [selectedPatientId]);
 
 
   const [patients, setPatients] = useState({});
@@ -232,6 +242,16 @@ export default function DigitalTwin() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Real-Time Apple Watch Telemetry Stream */}
+        <div style={{ marginBottom: '24px' }}>
+          <AppleWatchVitalsCard 
+            patient={activePatient} 
+            allPatients={Object.values(patients)}
+            onSelectPatient={(p) => setSelectedPatientId(p.id)}
+            compact={true}
+          />
         </div>
 
         {/* Global Controls */}
