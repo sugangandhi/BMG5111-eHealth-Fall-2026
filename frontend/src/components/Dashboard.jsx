@@ -516,10 +516,10 @@ export default function Dashboard() {
             className="mobile-action-btn"
             onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}
           >
-            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(16, 185, 129, 0.2))', color: '#38bdf8', borderColor: 'rgba(6, 182, 212, 0.4)' }}>
-              <Sparkles size={22} />
+            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.4)' }}>
+              <Bot size={22} />
             </div>
-            <span className="mobile-action-label">Aura AI</span>
+            <span className="mobile-action-label">AI Chatbot</span>
           </button>
 
           <button 
@@ -565,6 +565,14 @@ export default function Dashboard() {
             </div>
             <span className="mobile-action-label">AI Inbox</span>
           </button>
+        </div>
+
+        {/* Real-Time Apple Watch Clinical Telemetry & Patient Selector (Mobile) */}
+        <div style={{ marginBottom: '20px' }}>
+          <AppleWatchVitalsCard 
+            allPatients={patientsList} 
+            onOpenWhatsApp={(p) => window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: p }))} 
+          />
         </div>
 
         {/* Up Next Patient Hero Card */}

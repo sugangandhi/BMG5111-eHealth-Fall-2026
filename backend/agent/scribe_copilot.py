@@ -348,7 +348,7 @@ def process_copilot_turn(message: str, history: List[Dict[str, str]] = [], patie
     if _client:
         try:
             sys_prompt = (
-                "You are Aura, the clinical AI companion for hospital staff. "
+                "You are the e-Hospital AI Assistant for hospital clinical staff. "
                 "You help doctors, nurses, and coordinators with hospital navigation, appointments, "
                 "patient lookups, and clinical guidelines. Keep answers concise, clear, and actionable."
             )
@@ -373,7 +373,7 @@ def process_copilot_turn(message: str, history: List[Dict[str, str]] = [], patie
 
     # Heuristic fallback response
     fallback_reply = (
-        f"I'm **Aura**, your clinical AI companion. I received your instruction: *\"{text}\"*\n\n"
+        f"I received your instruction: *\"{text}\"*\n\n"
         f"**Actions you can ask me to do:**\n"
         f"• 🧭 **Navigate the App:** *\"Go to Inbox\"*, *\"Open Billing\"*, *\"Show 3D Twin\"*, *\"Go to Dashboard\"*\n"
         f"• 📱 **WhatsApp Patients:** *\"Send a WhatsApp message to Sarah Khan saying her test results are ready\"*\n"

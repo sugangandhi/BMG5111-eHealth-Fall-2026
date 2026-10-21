@@ -68,12 +68,12 @@ export default function Login({ onLogin }) {
     setLoading(true);
     try {
       const res = await axios.post('/api/auth/login', {
-        username: username.trim(),
-        password: password.trim()
+        username,
+        password
       });
       await runBiometricScan(res.data);
     } catch (err) {
-      setError('Invalid username or password. Please verify credentials (e.g. sahithya / password123 or dr.patel / medoffice2026).');
+      setError('Invalid username or password. Please verify institutional credentials.');
       setLoading(false);
     }
   };
@@ -269,57 +269,10 @@ export default function Login({ onLogin }) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0 16px 0', color: 'var(--text-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0', color: 'var(--text-secondary)' }}>
             <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.12)' }}></div>
-            <span style={{ padding: '0 14px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#64748b' }}>Select Profile or Type Below</span>
+            <span style={{ padding: '0 14px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#64748b' }}>Or Clinical Demo Login</span>
             <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.12)' }}></div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '18px' }}>
-            <button
-              type="button"
-              onClick={() => { setUsername('sahithya'); setPassword('password123'); setError(null); }}
-              style={{
-                flex: 1,
-                padding: '9px 8px',
-                borderRadius: '10px',
-                background: (username.toLowerCase().includes('sahi')) ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.05)',
-                border: (username.toLowerCase().includes('sahi')) ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
-                color: (username.toLowerCase().includes('sahi')) ? '#93c5fd' : '#94a3b8',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>⌚ Sahithya Sree</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setUsername('dr.patel'); setPassword('medoffice2026'); setError(null); }}
-              style={{
-                flex: 1,
-                padding: '9px 8px',
-                borderRadius: '10px',
-                background: (username.toLowerCase().includes('patel')) ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.05)',
-                border: (username.toLowerCase().includes('patel')) ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
-                color: (username.toLowerCase().includes('patel')) ? '#93c5fd' : '#94a3b8',
-                fontSize: '12px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>🩺 Dr. Patel</span>
-            </button>
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
