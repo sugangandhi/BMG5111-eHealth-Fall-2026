@@ -14,12 +14,23 @@ export default function AppleWatchVitalsCard({
   onOpenWhatsApp,
   compact = false 
 }) {
-  const [selectedPatientId, setSelectedPatientId] = useState(patient?.id || 'pt-001');
+  const [selectedPatientId, setSelectedPatientId] = useState(patient?.id || 'pt-011');
   const [vitals, setVitals] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [copied, setCopied] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncSubmitting, setSyncSubmitting] = useState(false);
+  const [syncSuccessMsg, setSyncSuccessMsg] = useState(null);
+  const [manualForm, setManualForm] = useState({
+    heart_rate: '74',
+    resting_heart_rate: '64',
+    blood_pressure: '118/78',
+    steps: '7250',
+    calories: '450',
+    sleep: '7.5'
+  });
   const timerRef = useRef(null);
 
   // Sync internal selected ID with external patient prop if provided
@@ -91,6 +102,34 @@ export default function AppleWatchVitalsCard({
 
     // Also dispatch event for Scribe component to automatically ingest
     window.dispatchEvent(new CustomEvent('insert-scribe-text', { detail: { text: `\n[Objective Wearable Vitals]: ${summary}\n` } }));
+  };
+
+  const handleManualSync = async (e) => {
+    if (e) e.preventDefault();
+    setSyncSubmitting(true);
+    setSyncSuccessMsg(null);
+    try {
+      await axios.post('/api/wearables/ingest', {
+        patient_id: selectedPatientId,
+        heart_rate: parseInt(manualForm.heart_rate) || 74,
+        resting_heart_rate: parseInt(manualForm.resting_heart_rate) || 64,
+        blood_pressure: manualForm.blood_pressure || '118/78',
+        steps: parseInt(manualForm.steps) || 7000,
+        calories: parseInt(manualForm.calories) || 450,
+        sleep: parseFloat(manualForm.sleep) || 7.5,
+        annotation: 'Live Apple Watch Reading from Sahithya'
+      });
+      setSyncSuccessMsg('✅ Live Watch Vitals uploaded directly to AWS Cloud EMR!');
+      setTimeout(() => {
+        setIsSyncModalOpen(false);
+        setSyncSuccessMsg(null);
+      }, 1500);
+      fetchVitals(selectedPatientId);
+    } catch (err) {
+      console.warn('Sync error:', err);
+    } finally {
+      setSyncSubmitting(false);
+    }
   };
 
   const currentPatientName = patient?.name || allPatients.find(p => p.id === selectedPatientId)?.name || 'Active Patient';
@@ -489,6 +528,28 @@ export default function AppleWatchVitalsCard({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
+            onClick={() => setIsSyncModalOpen(true)}
+            style={{
+              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(59, 130, 246, 0.2))',
+              border: '1px solid #06b6d4',
+              color: '#38bdf8',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+            title="Upload live reading from your physical Apple Watch into eHospital"
+          >
+            <Watch size={13} />
+            <span>Sync Watch</span>
+          </button>
+
+          <button
             onClick={handleCopyVitals}
             style={{
               background: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
@@ -511,6 +572,164 @@ export default function AppleWatchVitalsCard({
           </button>
         </div>
       </div>
+
+      {/* Live Apple Watch Manual Ingestion & Sync Modal */}
+      {isSyncModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(6px)',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            background: 'rgba(15, 23, 42, 0.98)',
+            border: '1px solid #06b6d4',
+            borderRadius: '18px',
+            width: '460px',
+            maxWidth: '95vw',
+            padding: '24px',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Watch size={20} color="#06b6d4" />
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#f8fafc', fontWeight: '800' }}>
+                  Sync Apple Watch to {currentPatientName}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsSyncModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '18px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {syncSuccessMsg && (
+              <div style={{ padding: '10px 14px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid #10b981', color: '#34d399', borderRadius: '8px', fontSize: '12px', fontWeight: '700' }}>
+                {syncSuccessMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleManualSync} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                    Heart Rate (BPM)
+                  </label>
+                  <input
+                    type="number"
+                    value={manualForm.heart_rate}
+                    onChange={(e) => setManualForm({ ...manualForm, heart_rate: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: 'white', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                    Resting HR (BPM)
+                  </label>
+                  <input
+                    type="number"
+                    value={manualForm.resting_heart_rate}
+                    onChange={(e) => setManualForm({ ...manualForm, resting_heart_rate: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: 'white', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                    Blood Pressure (mmHg)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualForm.blood_pressure}
+                    onChange={(e) => setManualForm({ ...manualForm, blood_pressure: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: 'white', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                    Daily Steps
+                  </label>
+                  <input
+                    type="number"
+                    value={manualForm.steps}
+                    onChange={(e) => setManualForm({ ...manualForm, steps: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: 'white', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                    Active Energy (kcal)
+                  </label>
+                  <input
+                    type="number"
+                    value={manualForm.calories}
+                    onChange={(e) => setManualForm({ ...manualForm, calories: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: 'white', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                    Sleep Duration (hrs)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={manualForm.sleep}
+                    onChange={(e) => setManualForm({ ...manualForm, sleep: e.target.value })}
+                    style={{ width: '100%', padding: '8px 10px', background: 'rgba(30, 41, 59, 0.8)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', color: 'white', fontSize: '13px', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginTop: '8px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsSyncModalOpen(false)}
+                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#94a3b8', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={syncSubmitting}
+                  style={{
+                    padding: '8px 18px',
+                    background: 'linear-gradient(135deg, #0284c7, #06b6d4)',
+                    border: 'none',
+                    color: 'white',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(6, 182, 212, 0.4)'
+                  }}
+                >
+                  {syncSubmitting ? 'Syncing...' : 'Upload to Cloud Database'}
+                </button>
+              </div>
+            </form>
+
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '10px', fontSize: '11px', color: '#64748b' }}>
+              💡 <strong>Automatic Sync:</strong> Run the companion iOS Flutter app or set up an Apple Shortcut to POST to <code>/api/wearables/ingest</code> for zero-touch background watch syncing.
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

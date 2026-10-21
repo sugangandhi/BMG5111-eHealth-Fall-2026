@@ -38,6 +38,7 @@ DEMO_USERS = [
 ]
 
 _TODAY_APPTS = [
+    ("pt-011", "Sahithya Sree",   "SS", "08:15", 30, "Apple Watch Continuous Telemetry & Vitals", "in-progress", "purple", "Apple Watch Telemetry"),
     ("pt-001", "Sarah Khan",      "SK", "08:30", 20, "Type 2 Diabetes follow-up",           "completed",   "blue",   "Diabetes"),
     ("pt-004", "Robert Chen",     "RC", "09:00", 30, "COPD management",                     "completed",   "orange", "COPD"),
     ("pt-005", "Fatima Hassan",   "FH", "09:45", 20, "Prenatal visit — 26 weeks",           "completed",   "pink",   "Prenatal"),

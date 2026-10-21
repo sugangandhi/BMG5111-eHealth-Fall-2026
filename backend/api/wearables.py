@@ -25,9 +25,6 @@ TIMEOUT = 6
 # e.g. {"pt-001": {"enabled": True, "alert_high": 105, "alert_low": 50, "updated_at": ...}}
 _doctor_live_settings: Dict[str, Dict[str, Any]] = {}
 
-# Instant in-memory cache for live streamed vitals from Apple Watch
-_patient_latest_cache: Dict[str, Dict[str, Any]] = {}
-
 
 class LiveModeToggleRequest(BaseModel):
     enabled: bool
@@ -49,8 +46,10 @@ class WearableIngestRequest(BaseModel):
 
 
 def _clean_patient_id(raw_id: Any) -> int:
-    """Extracts numeric patient id for database querying (handles 'pt-001' -> 1, 'cloud-391' -> 391, 391 -> 391)."""
+    """Extracts numeric patient id for database querying (handles 'pt-001' -> 1, 'pt-011'/'sahithya' -> 394, 'cloud-394' -> 394)."""
     s = str(raw_id).strip()
+    if "sahithya" in s.lower() or s in ("pt-011", "394", "cloud-394"):
+        return 394
     if s.startswith("pt-"):
         try:
             return int(s.replace("pt-", ""))
@@ -96,13 +95,8 @@ async def get_patient_wearable_vitals(patient_id: str):
     live_config = _doctor_live_settings.get(patient_id, {"enabled": False, "alert_high": 105, "alert_low": 50})
     is_live = live_config.get("enabled", False)
 
-    # 0. Check immediate live ingest cache first
-    cached_vital = _patient_latest_cache.get(str(patient_id)) or _patient_latest_cache.get(str(num_id))
-
     # 1. Attempt query to AWS MySQL wearable_vitals
     records: List[Dict[str, Any]] = []
-    if cached_vital:
-        records = [cached_vital]
     try:
         query_payload = {
             "sql": """
@@ -329,10 +323,6 @@ async def ingest_wearable_vitals(req: WearableIngestRequest):
         payload["respiratory_rate"] = int(req.respiratory_rate)
     if req.annotation:
         payload["annotation"] = str(req.annotation)
-
-    # Immediately store in local cache so live UI reflects instantly
-    _patient_latest_cache[str(req.patient_id)] = payload
-    _patient_latest_cache[str(num_id)] = payload
 
     try:
         url = f"{CENTRAL_API_BASE}/table/wearable_vitals"

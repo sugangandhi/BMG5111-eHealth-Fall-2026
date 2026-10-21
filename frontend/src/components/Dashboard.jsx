@@ -96,6 +96,7 @@ export default function Dashboard() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [actionMessage, setActionMessage] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [patientsList, setPatientsList] = useState([]);
   
   const token = localStorage.getItem('medoffice_token');
 
@@ -103,14 +104,18 @@ export default function Dashboard() {
     if (isOffline) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [statsRes, actRes, apptsRes] = await Promise.all([
+      const [statsRes, actRes, apptsRes, patientsRes] = await Promise.all([
         axios.get('/api/dashboard/stats', { headers }),
         axios.get('/api/activity', { headers }),
-        axios.get('/api/appointments', { headers })
+        axios.get('/api/appointments', { headers }),
+        axios.get('/api/patients', { headers }).catch(() => ({ data: { patients: [] } }))
       ]);
       setStats(statsRes.data);
       setActivities(actRes.data.items);
       setAppointments(apptsRes.data.appointments);
+      if (patientsRes.data?.patients) {
+        setPatientsList(patientsRes.data.patients);
+      }
     } catch (err) {
       console.error("Dashboard error:", err);
     }
@@ -180,15 +185,7 @@ export default function Dashboard() {
     window.dispatchEvent(new CustomEvent('open-scribe'));
   };
 
-  let user = { name: 'Dr. Patel' };
-  try {
-    const rawUser = localStorage.getItem('medoffice_user');
-    if (rawUser && rawUser !== 'undefined') {
-      user = JSON.parse(rawUser) || user;
-    }
-  } catch (e) {
-    user = { name: 'Dr. Patel' };
-  }
+  const user = JSON.parse(localStorage.getItem('medoffice_user')) || { name: 'Dr. Patel' };
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -509,6 +506,15 @@ export default function Dashboard() {
 
       {/* ── MOBILE VIEW (Mobile-Only Native Clinical Experience) ─────────── */}
       <div className="mobile-only mobile-home-container">
+        {/* Real-Time Apple Watch Clinical Telemetry & Patient Selector (Mobile) */}
+        <div style={{ marginBottom: '16px' }}>
+          <AppleWatchVitalsCard 
+            allPatients={patientsList} 
+            onOpenWhatsApp={(p) => window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: p }))} 
+            compact={true}
+          />
+        </div>
+
         {/* 4 Quick Clinical Thumb Actions Dock */}
         <div className="mobile-quick-actions">
           <button 
@@ -516,10 +522,10 @@ export default function Dashboard() {
             className="mobile-action-btn"
             onClick={() => window.dispatchEvent(new CustomEvent('open-scribe'))}
           >
-            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.4)' }}>
-              <Bot size={22} />
+            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(16, 185, 129, 0.2))', color: '#38bdf8', borderColor: 'rgba(6, 182, 212, 0.4)' }}>
+              <Sparkles size={22} />
             </div>
-            <span className="mobile-action-label">AI Chatbot</span>
+            <span className="mobile-action-label">Aura AI</span>
           </button>
 
           <button 
@@ -565,14 +571,6 @@ export default function Dashboard() {
             </div>
             <span className="mobile-action-label">AI Inbox</span>
           </button>
-        </div>
-
-        {/* Real-Time Apple Watch Clinical Telemetry & Patient Selector (Mobile) */}
-        <div style={{ marginBottom: '20px' }}>
-          <AppleWatchVitalsCard 
-            allPatients={patientsList} 
-            onOpenWhatsApp={(p) => window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: p }))} 
-          />
         </div>
 
         {/* Up Next Patient Hero Card */}
