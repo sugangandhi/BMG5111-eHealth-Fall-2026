@@ -4,6 +4,7 @@ import requests
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
+from agent.patient_matcher import send_whatsapp_message, process_whatsapp_message, resolve_meta_phone_number_id
 
 router = APIRouter(tags=['whatsapp'])
 
