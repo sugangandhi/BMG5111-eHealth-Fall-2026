@@ -379,6 +379,26 @@ export default function Dashboard() {
                   >
                     <MessageCircle size={16} color="#059669" /> WhatsApp
                   </button>
+
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: upNextAppt } }))}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: '#eff6ff',
+                      color: '#2563eb',
+                      border: '1px solid #bfdbfe',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                    title="View live Apple Watch & HealthKit vitals"
+                  >
+                    <Watch size={16} /> Watch Vitals
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -403,7 +423,7 @@ export default function Dashboard() {
                 <p style={{ color: '#64748b', fontSize: '13px', margin: '20px 0', textAlign: 'center' }}>No appointments scheduled for today.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {appointments.slice(0, 5).map(a => (
+                  {appointments.slice(0, 6).map(a => (
                     <div key={a.id} style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -439,6 +459,25 @@ export default function Dashboard() {
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: a } }))}
+                          style={{
+                            background: '#ffffff',
+                            border: '1px solid #bfdbfe',
+                            color: '#2563eb',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title={`Inspect ${a.patient_name}'s Apple Watch telemetry`}
+                        >
+                          <Watch size={13} /> Watch
+                        </button>
                         <button
                           onClick={() => startEncounter(a)}
                           style={{
@@ -476,12 +515,9 @@ export default function Dashboard() {
 
           </div>
 
-          {/* Right: Apple Watch Vitals & Live Activity */}
+          {/* Right: Live Clinical Activity & Practice Analytics */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
-            {/* Apple Watch Integration Card */}
-            <AppleWatchVitals patient={currentWatchPatient} />
-
             {/* Live Clinical Activity Stream */}
             <div style={{
               background: '#ffffff',
@@ -499,7 +535,7 @@ export default function Dashboard() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {activities.slice(0, 5).map(act => (
+                {activities.slice(0, 6).map(act => (
                   <div
                     key={act.id}
                     onClick={() => setSelectedActivity(act)}
@@ -741,31 +777,50 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <button
-              onClick={() => startEncounter(upNextAppt)}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                background: '#2563eb',
-                color: '#ffffff',
-                border: 'none',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                fontWeight: '600',
-                fontSize: '13px',
-                cursor: 'pointer'
-              }}
-            >
-              <Mic size={16} /> Start AI Scribe
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => startEncounter(upNextAppt)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  background: '#2563eb',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Mic size={15} /> Start AI Scribe
+              </button>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: upNextAppt } }))}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  background: '#eff6ff',
+                  color: '#2563eb',
+                  border: '1px solid #bfdbfe',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+                title="View Apple Watch vitals"
+              >
+                <Watch size={15} /> Watch
+              </button>
+            </div>
           </div>
         )}
-
-        {/* Apple Watch Telemetry Card (Mobile) */}
-        <AppleWatchVitals patient={currentWatchPatient} />
 
         {/* Schedule List (Mobile) */}
         <div style={{
@@ -792,21 +847,41 @@ export default function Dashboard() {
                   <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{a.patient_name}</h4>
                   <span style={{ fontSize: '11px', color: '#64748b' }}>{a.time} · {a.type}</span>
                 </div>
-                <button
-                  onClick={() => startEncounter(a)}
-                  style={{
-                    background: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    color: '#2563eb',
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Start
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: a } }))}
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #bfdbfe',
+                      color: '#2563eb',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                  >
+                    <Watch size={11} /> Watch
+                  </button>
+                  <button
+                    onClick={() => startEncounter(a)}
+                    style={{
+                      background: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      color: '#2563eb',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Start
+                  </button>
+                </div>
               </div>
             ))}
           </div>

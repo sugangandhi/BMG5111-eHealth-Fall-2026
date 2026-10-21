@@ -138,6 +138,15 @@ async def update_ai_key(req: AIKeyUpdateRequest):
         "warning": warning_msg
     }
 
+@app.get("/api/wearables/vitals")
+async def get_wearable_vitals(patient_id: Optional[str] = None, patient_name: Optional[str] = None):
+    """
+    Returns live Apple Watch wearable telemetry for a specific patient.
+    """
+    from integrations.wearables import get_patient_wearable_telemetry
+    target_p = patient_name or patient_id or "John Doe"
+    return get_patient_wearable_telemetry(target_p)
+
 @app.get("/api/patients")
 async def get_patients(source: Optional[str] = None):
     clinic_patients = list_patients()

@@ -20,6 +20,7 @@ import UniversalScanner from './components/UniversalScanner';
 import KioskMode from './components/KioskMode';
 import DigitalTwin from './components/DigitalTwin';
 import WhatsAppModal from './components/WhatsAppModal';
+import AppleWatchModal from './components/AppleWatchModal';
 window.utterances = [];
 window.isSpeaking = false;
 const speakAction = (text) => {
@@ -79,6 +80,8 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
+  const [isWatchModalOpen, setIsWatchModalOpen] = useState(false);
+  const [watchModalPatient, setWatchModalPatient] = useState(null);
   const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
   const [activePatient, setActivePatient] = useState(null);
   const searchInputRef = useRef(null);
@@ -120,6 +123,16 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Listen for Apple Watch inspection requests from anywhere in the app
+  useEffect(() => {
+    const handleOpenWatch = (e) => {
+      setWatchModalPatient(e.detail?.patient || activePatient);
+      setIsWatchModalOpen(true);
+    };
+    window.addEventListener('open-apple-watch', handleOpenWatch);
+    return () => window.removeEventListener('open-apple-watch', handleOpenWatch);
+  }, [activePatient]);
 
   const [isEditingPatientPhone, setIsEditingPatientPhone] = useState(false);
   const [tempPhone, setTempPhone] = useState('');
@@ -966,9 +979,29 @@ function App() {
                         <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: activePatient.allergies === 'NKDA' ? '#ecfdf5' : '#fef2f2', color: activePatient.allergies === 'NKDA' ? '#059669' : '#dc2626', fontWeight: '700', border: `1px solid ${activePatient.allergies === 'NKDA' ? '#a7f3d0' : '#fecaca'}` }}>
                           {activePatient.allergies === 'NKDA' ? 'NKDA' : `Allergies: ${activePatient.allergies}`}
                         </span>
-                        <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: '#eff6ff', color: '#2563eb', fontWeight: '600', border: '1px solid #bfdbfe', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          ⌚ Apple Watch Synced · HR 71 bpm
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWatchModalPatient(activePatient);
+                            setIsWatchModalOpen(true);
+                          }}
+                          style={{
+                            fontSize: '11px',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: '#eff6ff',
+                            color: '#2563eb',
+                            fontWeight: '600',
+                            border: '1px solid #bfdbfe',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer'
+                          }}
+                          title="Click to view full Apple Watch & HealthKit vitals"
+                        >
+                          ⌚ Watch: 71 bpm · BP 122/78
+                        </button>
                       </div>
                       <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                         <span>DOB: {activePatient.dob} • MRN: {activePatient.mrn}</span>
@@ -1299,6 +1332,11 @@ function App() {
         isOpen={isWhatsAppOpen} 
         onClose={() => setIsWhatsAppOpen(false)} 
         activePatient={activePatient} 
+      />
+      <AppleWatchModal 
+        isOpen={isWatchModalOpen} 
+        onClose={() => setIsWatchModalOpen(false)} 
+        patient={watchModalPatient || activePatient} 
       />
 
       {/* Native-Grade Mobile Bottom Navigation */}

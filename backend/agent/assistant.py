@@ -14,6 +14,10 @@ from integrations.central_clinical_api import (
     fetch_central_patients_normalized,
     fetch_patient_vitals_history
 )
+from integrations.wearables import (
+    get_patient_wearable_telemetry,
+    get_all_patients_wearable_summary
+)
 from agent.scribe import parse_dictation, get_heuristic_scribe
 from agent.llm_client import generate_text_completion, get_llm_config
 
@@ -109,8 +113,11 @@ def build_clinical_system_context(
                 + "\n(Always consider these historical discussions for future clinical predictions, medication continuity, and dosage titration.)\n"
             )
 
+    # 6. Apple Watch & HealthKit Wearable Telemetry
+    wearables_str = get_all_patients_wearable_summary()
+
     return f"""You are Prime Care AI, an advanced Clinical AI Copilot & Medical Reasoning Agent for attending physicians practicing in Ontario, Canada.
-You possess deep medical clinical judgment, evidence-based reasoning, and direct live access to the clinic's entire Electronic Health Record (EHR) database, schedule, patient records, and triage inbox.
+You possess deep medical clinical judgment, evidence-based reasoning, and direct live access to the clinic's entire Electronic Health Record (EHR) database, schedule, patient records, Apple Watch / HealthKit telemetry, and triage inbox.
 
 CLINICAL ENVIRONMENT CONTEXT:
 - Today's Date: {today_iso} | Time: {now_str}
@@ -122,6 +129,9 @@ TODAY'S CLINIC APPOINTMENTS SCHEDULE (LIVE EHR DATABASE):
 
 RECENT CLINICAL INBOX & WHATSAPP TRIAGE ALERTS:
 {inbox_str}
+
+PATIENT WEARABLE TELEMETRY (LIVE APPLE WATCH & HEALTHKIT CONTINUOUS FEEDS):
+{wearables_str}
 
 REGISTERED EHR CLINIC PATIENTS DIRECTORY:
 {pts_str}
@@ -137,7 +147,7 @@ ONTARIO PRACTICE & BILLING FRAMEWORK:
 - Clinical Forms: WSIB Form 8 (Workplace injury assessment), OESP (Ontario Energy Support Program medical confirmation), MTO (Ministry of Transportation medical fitness to drive).
 
 CORE AGENT CAPABILITIES & DIRECT DATABASE ACCESS:
-1. Complete Database & EHR Awareness: You have live real-time access to the entire clinic database. When the doctor asks about appointments, schedules, patient records, vitals, or triage alerts, ALWAYS answer directly and specifically using the live data above. NEVER tell the doctor to "check the EHR system", "consult another screen", or "refer to medical records" — you ARE the system assistant with direct live access.
+1. Complete Database, Wearables & EHR Awareness: You have live real-time access to the entire clinic database and connected Apple Watch / HealthKit wearable feeds. When the doctor asks about appointments, schedules, patient records, Apple Watch metrics, heart rate, blood pressure, SpO2, sleep, or triage alerts, ALWAYS answer directly and specifically using the live data above. NEVER tell the doctor to "check the EHR system", "consult another screen", or "refer to medical records" — you ARE the system assistant with direct live access.
 2. Deep Clinical Reasoning: Formulate differential diagnoses, diagnostic workups, pathophysiological rationale, clinical decision support (CDS), and red flags.
 3. Pharmacotherapy & Therapeutics: Dosing recommendations, contraindications, drug interactions, renal (eGFR) adjustments, and adverse effect surveillance.
 4. Case Analysis & Patient Management: Advise on ongoing care plans for registered clinic patients (e.g., Sugan's diabetes/hypertension, David Murphy's CKD, Robert Chen's COPD).
@@ -873,6 +883,21 @@ def build_clinical_fallback_response(
         "The following instructions were synthesized from Prime Care EHR clinical guidelines. "
         "Tap **⚙️ Settings** to enter a fresh OpenAI API key or top up billing credits.\n\n"
     )
+
+    if any(k in q_low for k in ["watch", "apple watch", "healthkit", "wearable", "pulse", "resting heart rate", "spo2", "vitals"]):
+        telemetry = get_patient_wearable_telemetry(p_name)
+        return (
+            quota_notice +
+            f"### ⌚ Apple Watch & HealthKit Telemetry for {p_name}\n\n"
+            f"* **Device**: `{telemetry['device']}` ({telemetry['watchos']}) — *Synced {telemetry['last_synced_minutes_ago']}m ago*\n"
+            f"* **Heart Rate**: **{telemetry['heart_rate']} BPM** (Resting: {telemetry['resting_hr']} bpm, Range: `{telemetry['hr_range']}`)\n"
+            f"* **Cardiac Rhythm**: **{telemetry['rhythm_status']}**\n"
+            f"* **Blood Pressure**: **{telemetry['blood_pressure']} mmHg** (MAP: {telemetry['map_mmhg']} mmHg — *{telemetry['bp_trend']}*)\n"
+            f"* **Blood Oxygen (SpO2)**: **{telemetry['spo2']}%** continuous (Overnight mean: {telemetry['spo2_overnight_mean']}%, {telemetry['desaturations_count']} desaturations)\n"
+            f"* **Sleep Stages**: **{telemetry['sleep_total']}** (Deep: {telemetry['sleep_deep']}, REM: {telemetry['sleep_rem']}, Core: {telemetry['sleep_core']})\n"
+            f"* **Mobility & Safety**: **{telemetry['steps']} steps** ({telemetry['active_calories']} active kcal) · Fall Detection **{telemetry['fall_detection']}**\n\n"
+            f"All wearable telemetry is synchronized with the clinic EHR database."
+        )
 
     if any(k in q_low for k in ["inhaler", "copd", "asthma", "salbutamol", "tiotropium", "spiriva", "ventolin"]):
         return (

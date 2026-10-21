@@ -167,9 +167,6 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
         </div>
       </div>
 
-      {/* Apple Watch Telemetry Component */}
-      <AppleWatchVitals patient={selectedWatchPatient || patients[0]} />
-
       {/* Filter and Search Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         {/* Source Filter Tabs */}
@@ -436,8 +433,7 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
 
                   <button
                     onClick={() => {
-                      setSelectedWatchPatient(p);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      window.dispatchEvent(new CustomEvent('open-apple-watch', { detail: { patient: p } }));
                     }}
                     style={{
                       background: '#eff6ff',
