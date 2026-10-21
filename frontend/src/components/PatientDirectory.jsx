@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Users, Cloud, Database, Search, MessageCircle, Mic, ShieldCheck, 
-  RefreshCw, Activity, CheckCircle2, ChevronRight, X, Calendar, UserCheck
+  RefreshCw, Activity, CheckCircle2, ChevronRight, X, Calendar, UserCheck, Watch
 } from 'lucide-react';
+import AppleWatchVitals from './AppleWatchVitals';
 
 export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
   const [patients, setPatients] = useState([]);
@@ -12,6 +13,7 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [cloudStatus, setCloudStatus] = useState(null);
   const [selectedVitalsPatient, setSelectedVitalsPatient] = useState(null);
+  const [selectedWatchPatient, setSelectedWatchPatient] = useState(null);
   const [vitalsHistory, setVitalsHistory] = useState([]);
   const [vitalsLoading, setVitalsLoading] = useState(false);
 
@@ -84,18 +86,18 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
       
-      {/* Directory Banner Header */}
-      <div className="glass-panel" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))' }}>
+      {/* Directory Banner Header - Clean Blue & White */}
+      <div style={{ padding: '20px 24px', borderRadius: '14px', border: '1px solid #e2e8f0', background: '#ffffff', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
                 <Users size={22} />
               </div>
               <div>
-                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)' }}>Institutional Patient Directory</h1>
-                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  Unified registry linking local clinic medical charts with the central AWS App Runner clinical database.
+                <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#0f172a' }}>Patient Directory & Records</h1>
+                <p style={{ margin: '3px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+                  Unified electronic health records linking clinic charts and continuous Apple Watch telemetry.
                 </p>
               </div>
             </div>
@@ -155,15 +157,18 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
             <div style={{ fontSize: '22px', fontWeight: '800', color: '#60a5fa', marginTop: '2px' }}>{cloudCount}</div>
             <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Table: patients_registration</span>
           </div>
-          <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '12px 16px', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-            <span style={{ fontSize: '11px', color: '#34d399', fontWeight: '600', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            <span style={{ fontSize: '11px', color: '#059669', fontWeight: '600', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Database size={12} /> Local Clinic EHR
             </span>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: '#34d399', marginTop: '2px' }}>{clinicCount}</div>
-            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Full FHIR Clinical Charts</span>
+            <div style={{ fontSize: '22px', fontWeight: '800', color: '#059669', marginTop: '2px' }}>{clinicCount}</div>
+            <span style={{ fontSize: '10px', color: '#64748b' }}>Full FHIR Clinical Charts</span>
           </div>
         </div>
       </div>
+
+      {/* Apple Watch Telemetry Component */}
+      <AppleWatchVitals patient={selectedWatchPatient || patients[0]} />
 
       {/* Filter and Search Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -429,13 +434,37 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
                     <Mic size={15} />
                   </button>
 
+                  <button
+                    onClick={() => {
+                      setSelectedWatchPatient(p);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    style={{
+                      background: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      color: '#2563eb',
+                      borderRadius: '8px',
+                      padding: '7px 10px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      flexShrink: 0
+                    }}
+                    title="View Apple Watch HealthKit Telemetry for this patient"
+                  >
+                    <Watch size={13} /> Watch
+                  </button>
+
                   {isCloud && (
                     <button
                       onClick={() => handleInspectVitals(p)}
                       style={{
-                        background: 'rgba(168, 85, 247, 0.15)',
-                        border: '1px solid rgba(168, 85, 247, 0.4)',
-                        color: '#c084fc',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        color: '#64748b',
                         borderRadius: '8px',
                         padding: '7px 10px',
                         fontSize: '11px',
@@ -460,23 +489,23 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
 
       {/* Cloud Vitals Modal */}
       {selectedVitalsPatient && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div className="glass-panel" style={{ width: '600px', maxWidth: '95vw', maxHeight: '85vh', borderRadius: '16px', border: '1px solid #3b82f6', background: 'rgba(15, 23, 42, 0.98)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ width: '600px', maxWidth: '95vw', maxHeight: '85vh', borderRadius: '14px', border: '1px solid #e2e8f0', background: '#ffffff', boxShadow: '0 10px 40px rgba(15, 23, 42, 0.15)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             
             {/* Modal Header */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Activity size={20} color="#c084fc" />
+                <Activity size={20} color="#2563eb" />
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-primary)' }}>
-                    Central Cloud Vitals History: {selectedVitalsPatient.name}
+                  <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a', fontWeight: '700' }}>
+                    Central Cloud Vitals: {selectedVitalsPatient.name}
                   </h3>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>
                     Queried from AWS App Runner MySQL table: <code>vitals_history</code>
                   </span>
                 </div>
               </div>
-              <button onClick={() => setSelectedVitalsPatient(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <button onClick={() => setSelectedVitalsPatient(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>
                 <X size={20} />
               </button>
             </div>
@@ -484,14 +513,14 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
             {/* Modal Body */}
             <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
               {vitalsLoading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-                  <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#c084fc' }} />
+                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#2563eb' }} />
                   <p style={{ margin: 0, fontSize: '13px' }}>Executing read-only SQL SELECT on AWS MySQL...</p>
                 </div>
               ) : vitalsHistory.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-                  <Activity size={28} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-                  <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>No Cloud Vitals Recorded Yet</p>
+                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  <Activity size={28} style={{ margin: '0 auto 8px', color: '#94a3b8' }} />
+                  <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>No Cloud Vitals Recorded Yet</p>
                   <p style={{ margin: 0, fontSize: '12px' }}>
                     When this patient submits vitals over WhatsApp or telemetry, they are automatically stored into <code>vitals_history</code> on AWS.
                   </p>
@@ -499,16 +528,16 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {vitalsHistory.map((v, i) => (
-                    <div key={v.vital_id || i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div key={v.vital_id || i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                          {v.blood_pressure && <span style={{ marginRight: '12px' }}>BP: <strong style={{ color: '#38bdf8' }}>{v.blood_pressure}</strong></span>}
-                          {v.heart_rate && <span style={{ marginRight: '12px' }}>HR: <strong style={{ color: '#f43f5e' }}>{v.heart_rate} bpm</strong></span>}
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                          {v.blood_pressure && <span style={{ marginRight: '12px' }}>BP: <strong style={{ color: '#2563eb' }}>{v.blood_pressure}</strong></span>}
+                          {v.heart_rate && <span style={{ marginRight: '12px' }}>HR: <strong style={{ color: '#2563eb' }}>{v.heart_rate} bpm</strong></span>}
                           {v.temperature && <span>Temp: <strong>{v.temperature}°C</strong></span>}
                         </div>
-                        {v.notes && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '3px' }}>{v.notes}</div>}
+                        {v.notes && <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>{v.notes}</div>}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'right' }}>
+                      <div style={{ fontSize: '11px', color: '#64748b', textAlign: 'right' }}>
                         {v.recorded_on ? new Date(v.recorded_on).toLocaleString() : 'Recent'}
                       </div>
                     </div>
@@ -518,7 +547,7 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <CheckCircle2 size={13} /> Verified MySQL Introspected Endpoint
               </span>

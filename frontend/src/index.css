@@ -1,19 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* DARK MODE (Professional Enterprise) */
-  --bg-primary: #0d1117;      /* Deep neutral dark */
-  --bg-secondary: #161b22;    /* Slightly lighter panel background */
-  --bg-tertiary: #21262d;     /* Hover states */
-  --text-primary: #e6edf3;
-  --text-secondary: #848d97;
-  --primary: #2f81f7;         /* Professional clinical blue */
-  --primary-hover: #1f6feb;
-  --accent: #238636;          /* Clean green for success/accents */
-  --border: #30363d;          /* Crisp 1px borders */
-  --error: #f85149;
-  --glass-bg: #161b22;        /* Renamed but kept for class compat */
-  --glass-border: #30363d;
+  /* CLEAN CLINICAL BLUE & WHITE THEME (Default) */
+  --bg-primary: #f8fafc;        /* Hospital canvas slate-50 */
+  --bg-secondary: #ffffff;      /* Pure clinical white panels */
+  --bg-tertiary: #f1f5f9;       /* Subtle slate-100 hover/chips */
+  --text-primary: #0f172a;      /* Deep navy slate-900 */
+  --text-secondary: #475569;    /* Calm charcoal slate-600 */
+  --text-muted: #94a3b8;        /* Slate-400 */
+  --primary: #2563eb;           /* Medical royal blue */
+  --primary-hover: #1d4ed8;     /* Deep medical blue */
+  --primary-light: #eff6ff;     /* Soft ice blue */
+  --primary-subtle: #dbeafe;    /* Light ice blue chip */
+  --primary-border: #bfdbfe;    /* Crisp subtle blue border */
+  --accent: #0284c7;            /* Sky clinical blue */
+  --success: #059669;           /* Clean clinical emerald */
+  --border: #e2e8f0;            /* Crisp 1px slate border */
+  --error: #dc2626;
+  --glass-bg: #ffffff;
+  --glass-border: #e2e8f0;
 }
 
 * {
@@ -25,7 +30,7 @@
 
 body {
   background-color: var(--bg-primary);
-  background-image: none !important; /* Removed scenic backgrounds */
+  background-image: none !important;
   color: var(--text-primary);
   line-height: 1.5;
   min-height: 100vh;
@@ -33,21 +38,42 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* ── Enterprise Light Mode Scheme ───────────────────────── */
+/* ── Explicit Light Mode ─────────────────────────────────── */
 [data-theme="light"] {
-  /* LIGHT MODE */
-  --bg-primary: #f6f8fa;      /* Clean off-white background */
-  --bg-secondary: #ffffff;    /* Stark white panels */
-  --bg-tertiary: #f3f4f6;     /* Light gray hover */
-  --text-primary: #1f2328;
-  --text-secondary: #656d76;
-  --primary: #0969da;         /* Professional blue */
-  --primary-hover: #0550ae;
-  --accent: #1a7f37;
-  --border: #d0d7de;
-  --error: #d1242f;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --primary-subtle: #dbeafe;
+  --primary-border: #bfdbfe;
+  --accent: #0284c7;
+  --border: #e2e8f0;
+  --error: #dc2626;
   --glass-bg: #ffffff;
-  --glass-border: #d0d7de;
+  --glass-border: #e2e8f0;
+}
+
+/* ── Dark Mode Scheme ───────────────────────────────────── */
+[data-theme="dark"] {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --text-primary: #e6edf3;
+  --text-secondary: #848d97;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-light: rgba(59, 130, 246, 0.15);
+  --primary-subtle: rgba(59, 130, 246, 0.25);
+  --primary-border: rgba(59, 130, 246, 0.4);
+  --accent: #10b981;
+  --border: #30363d;
+  --error: #f85149;
+  --glass-bg: #161b22;
+  --glass-border: #30363d;
 }
 
 [data-theme="light"] body {
@@ -142,14 +168,13 @@ body {
   border: 1px solid var(--border) !important;
 }
 
-/* Glassmorphism replacement (Flat Panels) */
+/* Clean Clinical Panels */
 .glass-panel {
   background: var(--bg-secondary) !important;
   border: 1px solid var(--border) !important;
-  border-radius: 8px !important; /* Harder corners for enterprise feel */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08) !important; /* Crisp subtle shadow */
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
   color: var(--text-primary);
-  /* Strip out backdrop-filter blurs */
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -284,10 +309,10 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Patient Banner Base / Desktop Styles */
 .patient-banner-container {
-  background: rgba(59, 130, 246, 0.08);
-  border-bottom: 1px solid rgba(59, 130, 246, 0.25);
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
   padding: 10px 24px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.06);
   z-index: 10;
   width: 100%;
   box-sizing: border-box;
@@ -356,10 +381,10 @@ h1, h2, h3, h4, h5, h6 {
 
   /* Patient Banner Responsive Styles */
   .patient-banner-container {
-    background: rgba(59, 130, 246, 0.08) !important;
-    border-bottom: 1px solid rgba(59, 130, 246, 0.25) !important;
+    background: #eff6ff !important;
+    border-bottom: 1px solid #bfdbfe !important;
     padding: 8px 12px !important;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.06) !important;
     z-index: 10;
     width: 100% !important;
     box-sizing: border-box !important;

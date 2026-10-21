@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, FileText, Activity, Clock, Paperclip, X, Download, Printer, ShieldCheck, ExternalLink, TrendingUp, Sparkles, Award, Mic, Scan, Zap, MessageSquare, ChevronRight, Stethoscope, CheckCircle2, MessageCircle } from 'lucide-react';
+import { 
+  Users, FileText, Activity, Clock, Paperclip, X, Download, Printer, 
+  ShieldCheck, ExternalLink, TrendingUp, Sparkles, Award, Mic, Scan, 
+  Zap, MessageSquare, ChevronRight, Stethoscope, CheckCircle2, MessageCircle,
+  Watch, ChevronDown, ChevronUp, Calendar
+} from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import AppleWatchVitals from './AppleWatchVitals';
 
 const WEEKLY_TREND = [
   { day: 'Mon', hoursSaved: 2.5, patients: 32 },
@@ -16,11 +22,11 @@ const WEEKLY_TREND = [
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div style={{ background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(59, 130, 246, 0.4)', padding: '12px 16px', borderRadius: '10px', boxShadow: '0 8px 30px rgba(0,0,0,0.6)' }}>
-        <p style={{ margin: '0 0 10px 0', fontWeight: '800', color: '#e2e8f0', fontSize: '14px' }}>{label} Productivity</p>
+      <div style={{ background: '#ffffff', border: '1px solid #bfdbfe', padding: '12px 16px', borderRadius: '10px', boxShadow: '0 4px 15px rgba(15, 23, 42, 0.08)' }}>
+        <p style={{ margin: '0 0 8px 0', fontWeight: '700', color: '#0f172a', fontSize: '13px' }}>{label} Productivity</p>
         {payload.map((entry, index) => (
-          <p key={index} style={{ margin: '6px 0', color: entry.color, fontSize: '13px', display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
-            <span>{entry.name}:</span> <strong style={{color:'white'}}>{entry.value}</strong>
+          <p key={index} style={{ margin: '4px 0', color: entry.color, fontSize: '12px', display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+            <span>{entry.name}:</span> <strong style={{ color: '#0f172a' }}>{entry.value}</strong>
           </p>
         ))}
       </div>
@@ -32,12 +38,12 @@ const CustomTooltip = ({ active, payload, label }) => {
 const ROI_BENCHMARKS = {
   "Orthopaedics": {
     title: "Office clinics were faster, fuller, and more productive after Prime Care AI",
-    subtitle: "Pre/post comparison of a single orthopaedic office practice before and after AI documentation implementation.",
+    subtitle: "Pre/post comparison of an orthopaedic office practice before and after AI documentation implementation.",
     stats: [
-      { value: "+79%", label: "total billed / clinic", color: "#3b82f6" },
-      { value: "+61%", label: "patients / clinic", color: "#3b82f6" },
-      { value: "+102%", label: "billing / clinic hour", color: "#3b82f6" },
-      { value: "-100%", label: "after-clinic documentation", color: "#10b981" },
+      { value: "+79%", label: "total billed / clinic", color: "#2563eb" },
+      { value: "+61%", label: "patients / clinic", color: "#2563eb" },
+      { value: "+102%", label: "billing / clinic hour", color: "#2563eb" },
+      { value: "-100%", label: "after-clinic documentation", color: "#059669" },
     ],
     quote: "Evening and after-clinic documentation time was reduced to zero following Prime Care AI implementation.",
     bars: [
@@ -52,10 +58,10 @@ const ROI_BENCHMARKS = {
     title: "Cardiovascular consults achieved record STAT turnaround times with AI Triage",
     subtitle: "Pre/post comparison of outpatient cardiology diagnostic analysis and telemetry review efficiency.",
     stats: [
-      { value: "+84%", label: "total billed / clinic", color: "#3b82f6" },
-      { value: "+55%", label: "ECG & ECHO reviews / clinic", color: "#3b82f6" },
-      { value: "+115%", label: "RVU billing efficiency", color: "#3b82f6" },
-      { value: "-100%", label: "after-hours dictation backlog", color: "#10b981" },
+      { value: "+84%", label: "total billed / clinic", color: "#2563eb" },
+      { value: "+55%", label: "ECG & ECHO reviews / clinic", color: "#2563eb" },
+      { value: "+115%", label: "RVU billing efficiency", color: "#2563eb" },
+      { value: "-100%", label: "after-hours dictation backlog", color: "#059669" },
     ],
     quote: "Cardiologists regained an average of 6.5 hours of personal evening time per week while expediting STAT CCU referrals.",
     bars: [
@@ -70,10 +76,10 @@ const ROI_BENCHMARKS = {
     title: "Oncology tumor boards maximized direct patient clinical empathy and care delivery",
     subtitle: "Pre/post clinical trial matching and chemotherapy documentation review across oncology outpatient clinics.",
     stats: [
-      { value: "+92%", label: "biopath review throughput", color: "#3b82f6" },
-      { value: "+48%", label: "patient consultations / day", color: "#3b82f6" },
-      { value: "+120%", label: "trial matching accuracy", color: "#3b82f6" },
-      { value: "-100%", label: "off-hours oncology charting", color: "#10b981" },
+      { value: "+92%", label: "biopath review throughput", color: "#2563eb" },
+      { value: "+48%", label: "patient consultations / day", color: "#2563eb" },
+      { value: "+120%", label: "trial matching accuracy", color: "#2563eb" },
+      { value: "-100%", label: "off-hours oncology charting", color: "#059669" },
     ],
     quote: "Zero after-hours administrative workload allows oncology teams to prioritize face-to-face patient clinical empathy.",
     bars: [
@@ -96,6 +102,7 @@ export default function Dashboard() {
   const [actionMessage, setActionMessage] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
   const [patientsList, setPatientsList] = useState([]);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   
   const token = localStorage.getItem('medoffice_token');
 
@@ -171,7 +178,6 @@ export default function Dashboard() {
   };
 
   const startEncounter = (appt) => {
-    // Match against real registered patient registry
     const matched = patientsList.find(p => p.id === appt.patient_id || (p.name && p.name.toLowerCase() === appt.patient_name.toLowerCase()));
     const patientContext = {
       id: matched?.id || appt.patient_id || 'pt-001',
@@ -191,592 +197,647 @@ export default function Dashboard() {
   };
 
   const user = JSON.parse(localStorage.getItem('medoffice_user')) || { name: 'Clinician' };
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const upNextAppt = appointments.find(a => a.status !== 'completed') || appointments[0];
 
-  if (!stats && !isOffline) return <div style={{ color: 'var(--text-secondary)' }}>Loading dashboard...</div>;
+  let storedActivePatient = null;
+  try {
+    storedActivePatient = JSON.parse(localStorage.getItem('active_patient_context') || 'null');
+  } catch (e) {}
+  
+  const currentWatchPatient = storedActivePatient || (upNextAppt ? {
+    name: upNextAppt.patient_name,
+    mrn: upNextAppt.mrn || 'MRN-4821',
+    initials: upNextAppt.initials
+  } : { name: 'John Doe', mrn: 'MRN-1002' });
+
+  if (!stats && !isOffline) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+        <div style={{ display: 'inline-block', width: '30px', height: '30px', border: '3px solid #bfdbfe', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <p style={{ marginTop: '12px', fontSize: '14px', fontWeight: '500' }}>Loading clinic workspace...</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ transition: 'all 0.3s' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '32px' }}>
       
-      {/* OFFLINE BANNER (Desktop Only) */}
-      {isOffline && (
-        <div className="desktop-only animate-fade-in" style={{ marginBottom: '24px', padding: '16px 20px', background: 'rgba(239, 68, 68, 0.15)', border: '2px solid #ef4444', color: '#fca5a5', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px', fontWeight: '500', boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)' }}>
-          <div style={{ background: '#ef4444', color: 'white', padding: '8px', borderRadius: '50%' }}>
-            <ShieldCheck size={24} />
-          </div>
-          <div>
-            <div style={{ fontWeight: '800', fontSize: '16px', color: '#ef4444', marginBottom: '4px' }}>⚠️ CLOUD CONNECTION SEVERED</div>
-            <div style={{ fontSize: '14px' }}>External API sync failed. Local Prime Care AI Voice Agent is continuing autonomously on-device. HIPAA compliance intact.</div>
-          </div>
-        </div>
-      )}
-
-      {/* COMPACT OFFLINE BAR (Mobile Only - Sleek 1-line) */}
-      {isOffline && (
-        <div className="mobile-only mobile-offline-bar animate-fade-in">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="mobile-pulse-dot offline" />
-            <span style={{ fontSize: '12px', fontWeight: '600' }}>Cloud Offline · Autonomous Voice Mode</span>
-          </div>
-          <button 
-            type="button" 
-            onClick={() => setIsOffline(false)}
-            className="mobile-offline-reconnect-btn"
-          >
-            Reconnect
-          </button>
-        </div>
-      )}
-      
+      {/* Action Notification Banner */}
       {actionMessage && (
-        <div style={{ marginBottom: '20px', padding: '12px 20px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#34d399', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '600' }}>
-          ✅ {actionMessage}
+        <div style={{ padding: '12px 18px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '600', fontSize: '13px' }}>
+          <CheckCircle2 size={16} color="#2563eb" /> {actionMessage}
         </div>
       )}
 
-      {/* ── DESKTOP VIEW (Desktop-Only) ─────────────────────────────────── */}
-      <div className="desktop-only">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)' }}>Hospital Workspace</h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Clinical metrics, EHR automation & appointments</p>
-          </div>
-          
-          {/* THE KILL SWITCH */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.2)', padding: '8px 16px', borderRadius: '20px', border: isOffline ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: '12px', color: isOffline ? '#ef4444' : 'var(--text-secondary)', fontWeight: '600', transition: '0.3s' }}>
-              {isOffline ? 'CLOUD DISCONNECTED' : 'CLOUD CONNECTED'}
-            </div>
-            <div 
-              onClick={() => setIsOffline(!isOffline)}
-              style={{ 
-                width: '40px', height: '22px', background: isOffline ? '#ef4444' : '#10b981', 
-                borderRadius: '20px', position: 'relative', cursor: 'pointer', transition: '0.3s'
-              }}
-            >
-              <div style={{
-                width: '18px', height: '18px', background: 'white', borderRadius: '50%',
-                position: 'absolute', top: '2px', left: isOffline ? '2px' : '20px', transition: '0.3s',
-                boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
-              }} />
-            </div>
-          </div>
-        </div>
-        <div className="dashboard-metrics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
-        <MetricCard title="Patients Seen" value={stats.patients_today} icon={<Users size={20} />} color="blue" />
-        <MetricCard title="Forms Filled" value={stats.forms_today} icon={<FileText size={20} />} color="emerald" />
-        <MetricCard title="Pending Referrals" value={stats.pending_referrals} icon={<Activity size={20} />} color="orange" />
-        <MetricCard title="Time Saved (Min)" value={stats.time_saved_min} icon={<Clock size={20} />} color="purple" />
-      </div>
-
-      {/* ROI Command Center Area Chart */}
-      <div className="glass-panel animate-fade-in" style={{ padding: '32px', marginBottom: '32px', border: '1px solid rgba(16, 185, 129, 0.3)', background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <div>
-            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TrendingUp size={20} color="#10b981" /> 7-Day Clinical ROI Trend
-            </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>Live compounding efficiency metrics based on Prime Care AI utilization.</p>
-          </div>
-        </div>
-
-        <div style={{ width: '100%', height: '300px' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={WEEKLY_TREND} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="colorPatients" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="day" stroke="rgba(255,255,255,0.3)" tick={{fill: 'var(--text-secondary)', fontSize: 12}} tickLine={false} axisLine={false} />
-              <YAxis stroke="rgba(255,255,255,0.3)" tick={{fill: 'var(--text-secondary)', fontSize: 12}} tickLine={false} axisLine={false} />
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="patients" name="Patients Seen" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorPatients)" />
-              <Area type="monotone" dataKey="hoursSaved" name="Admin Hours Saved" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorHours)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Prime Care AI · Clinical Productivity & ROI Case Study Widget */}
-      <div className="glass-panel animate-fade-in" style={{ padding: '32px', marginBottom: '32px', border: '1px solid rgba(59, 130, 246, 0.35)', background: 'radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 70%)' }}>
+      {/* ── DESKTOP CLINIC WORKSPACE ─────────────────────────────────────── */}
+      <div className="desktop-only" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {/* Specialty Select Toggles & Category Subheader */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '6px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.08)' }}>
-            {["Orthopaedics", "Cardiology", "Oncology"].map(spec => (
-              <button
-                key={spec}
-                onClick={() => setSelectedSpecialty(spec)}
-                style={{
-                  padding: '8px 22px',
-                  borderRadius: '24px',
-                  border: selectedSpecialty === spec ? '1px solid #3b82f6' : '1px solid transparent',
-                  background: selectedSpecialty === spec ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-                  color: selectedSpecialty === spec ? '#ffffff' : 'var(--text-secondary)',
-                  fontWeight: selectedSpecialty === spec ? '700' : '500',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  transition: 'all 0.2s ease',
-                  boxShadow: selectedSpecialty === spec ? '0 0 15px rgba(59, 130, 246, 0.4)' : 'none'
-                }}
-              >
-                {spec}
-              </button>
-            ))}
+        {/* Workspace Title & Live Connection Status */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: '#0f172a' }}>
+              Clinic Workspace
+            </h1>
+            <p style={{ margin: '3px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+              Physician schedule, Apple Watch telemetry & ambient documentation
+            </p>
           </div>
-          <span style={{ fontSize: '12px', fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Award size={16} color="#3b82f6" /> PRIME CARE AI · CLINICAL CASE STUDY
-          </span>
-        </div>
-
-        {/* Two Column Layout: Narrative Stats vs Horizontal Comparison Bars */}
-        <div className="dashboard-roi-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.5fr', gap: '40px', alignItems: 'flex-start' }}>
           
-          {/* Left Column: Bold Narrative & Stat Grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div>
-              <h3 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', lineHeight: '1.3', margin: '0 0 12px 0' }}>
-                {ROI_BENCHMARKS[selectedSpecialty].title}
-              </h3>
-              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
-                {ROI_BENCHMARKS[selectedSpecialty].subtitle}
-              </p>
-            </div>
-
-            {/* 4-Stat Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '16px 0', borderTop: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              {ROI_BENCHMARKS[selectedSpecialty].stats.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '32px', fontWeight: '900', color: item.color, letterSpacing: '-1px' }}>
-                    {item.value}
-                  </span>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'lowercase' }}>
-                    {item.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Glowing Green Success Quote */}
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#34d399', lineHeight: '1.5', display: 'flex', alignItems: 'flex-start', gap: '10px', background: 'rgba(16, 185, 129, 0.08)', padding: '14px', borderRadius: '12px', borderLeft: '4px solid #10b981' }}>
-              <Sparkles size={20} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <span>{ROI_BENCHMARKS[selectedSpecialty].quote}</span>
-            </div>
-
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '-10px' }}>
-              Observational pre/post hospital cohort sample, verified clinic practice data.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#1d4ed8',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#2563eb' }} />
+              Live EHR & Wearables Connected
             </span>
           </div>
+        </div>
 
-          {/* Right Column: Comparative Horizontal Bar Charts */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', background: 'rgba(0, 0, 0, 0.25)', padding: '28px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-            {ROI_BENCHMARKS[selectedSpecialty].bars.map((bar, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                  {bar.label}
-                </span>
-                
-                {/* Pre-AI Bar (Light Grey/Neutral) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ height: '14px', width: `${bar.preWidth}%`, background: 'rgba(255, 255, 255, 0.2)', borderRadius: '6px', transition: 'width 0.6s ease' }} />
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '500', whiteSpace: 'nowrap' }}>
-                    {bar.pre}
+        {/* 4 Clean Metric Cards (Blue & White) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+          <MetricCard title="Patients Seen" value={stats?.patients_today || 0} icon={<Users size={20} />} subtitle="Today's encounters" />
+          <MetricCard title="Automated Forms" value={stats?.forms_today || 0} icon={<FileText size={20} />} subtitle="100% Zero-Click" />
+          <MetricCard title="Pending Triage" value={stats?.pending_referrals || 0} icon={<Activity size={20} />} subtitle="Incoming referrals" />
+          <MetricCard title="Time Saved" value={`${stats?.time_saved_min || 0}m`} icon={<Clock size={20} />} subtitle="Ambient AI dictation" />
+        </div>
+
+        {/* Primary Row: Up Next Patient + Apple Watch Vitals Integration */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.6fr', gap: '18px', alignItems: 'stretch' }}>
+          
+          {/* Left: Up Next Patient Card & Schedule */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            
+            {/* Up Next Patient Hero */}
+            {upNextAppt ? (
+              <div style={{
+                background: '#ffffff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '14px',
+                padding: '20px',
+                boxShadow: '0 1px 3px rgba(37, 99, 235, 0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: '#2563eb',
+                    background: '#eff6ff',
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    border: '1px solid #dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#2563eb' }} />
+                    UP NEXT IN CLINIC
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                    {upNextAppt.time}
                   </span>
                 </div>
 
-                {/* Post-AI Bar (Electric Blue Gradient / Green if reduction) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ height: '16px', width: `${bar.postWidth}%`, background: bar.postWidth < 20 ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #3b82f6, #2563eb)', borderRadius: '6px', boxShadow: bar.postWidth < 20 ? '0 0 10px rgba(16, 185, 129, 0.4)' : '0 0 12px rgba(59, 130, 246, 0.5)', transition: 'width 0.6s ease' }} />
-                  <span style={{ fontSize: '13px', color: bar.postWidth < 20 ? '#34d399' : '#60a5fa', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                    {bar.post}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '50%',
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700',
+                    fontSize: '16px',
+                    flexShrink: 0
+                  }}>
+                    {upNextAppt.initials || 'PT'}
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: '#0f172a' }}>
+                      {upNextAppt.patient_name}
+                    </h3>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+                      {upNextAppt.type} · Room 3B
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', paddingTop: '4px' }}>
+                  <button
+                    onClick={() => startEncounter(upNextAppt)}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      background: '#2563eb',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s'
+                    }}
+                  >
+                    <Mic size={16} /> Start AI Scribe Encounter
+                  </button>
+                  <button
+                    onClick={() => {
+                      const matched = patientsList.find(p => p.id === upNextAppt.patient_id || p.name === upNextAppt.patient_name);
+                      window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: { patient: matched || upNextAppt } }));
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: '#f8fafc',
+                      color: '#0f172a',
+                      border: '1px solid #e2e8f0',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                    title="Message patient on WhatsApp"
+                  >
+                    <MessageCircle size={16} color="#059669" /> WhatsApp
+                  </button>
                 </div>
               </div>
-            ))}
+            ) : null}
 
-            {/* Legend Footer */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '24px', marginTop: '12px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '12px', fontWeight: '600' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} /> Pre Prime Care AI
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#60a5fa' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#3b82f6', boxShadow: '0 0 8px #3b82f6' }} /> Post Prime Care AI
-              </span>
+            {/* Today's Appointments List */}
+            <div style={{
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '14px',
+              padding: '20px',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+              flex: 1
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={17} color="#2563eb" /> Today's Clinical Schedule
+                </h3>
+                <span style={{ fontSize: '12px', color: '#64748b' }}>{appointments.length} scheduled</span>
+              </div>
+
+              {appointments.length === 0 ? (
+                <p style={{ color: '#64748b', fontSize: '13px', margin: '20px 0', textAlign: 'center' }}>No appointments scheduled for today.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {appointments.slice(0, 5).map(a => (
+                    <div key={a.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: '#eff6ff',
+                          color: '#2563eb',
+                          border: '1px solid #bfdbfe',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          flexShrink: 0
+                        }}>
+                          {a.initials}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {a.patient_name}
+                          </h4>
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>{a.time} · {a.type}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          onClick={() => startEncounter(a)}
+                          style={{
+                            background: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            color: '#2563eb',
+                            borderRadius: '6px',
+                            padding: '4px 10px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Encounter
+                        </button>
+                        <button
+                          onClick={() => setEditingAppt({ ...a })}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#64748b',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            padding: '4px 6px'
+                          }}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+
+          </div>
+
+          {/* Right: Apple Watch Vitals & Live Activity */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            
+            {/* Apple Watch Integration Card */}
+            <AppleWatchVitals patient={currentWatchPatient} />
+
+            {/* Live Clinical Activity Stream */}
+            <div style={{
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '14px',
+              padding: '20px',
+              boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+              flex: 1
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Activity size={17} color="#2563eb" /> Recent Clinical Activity
+                </h3>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>Click item to view attachment</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {activities.slice(0, 5).map(act => (
+                  <div
+                    key={act.id}
+                    onClick={() => setSelectedActivity(act)}
+                    style={{
+                      padding: '10px 12px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'background 0.15s, border-color 0.15s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2563eb' }} />
+                      <div>
+                        <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: '#0f172a' }}>{act.description}</p>
+                        <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
+                          {act.patient_name || "General Clinic"} · {Math.floor(act.secs_ago / 60)}m ago
+                        </p>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Paperclip size={12} /> View
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
 
         </div>
-      </div>
 
-      <div className="dashboard-split-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '24px' }}>
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>Today's Clinical Appointments</h3>
-          {appointments.length === 0 ? (
-            <p style={{ color: 'var(--text-secondary)' }}>No appointments today.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {appointments.map(a => (
-                <div key={a.id} className="appt-item-row" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: `var(--glass-bg)`, border: `1px solid var(--glass-border)`, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>
-                    {a.initials}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: 0, fontSize: '15px' }}>{a.patient_name}</h4>
-                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>{a.time} • {a.type}</p>
-                  </div>
-                  <div>
-                    <span style={{ padding: '4px 8px', borderRadius: '8px', fontSize: '12px', background: a.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)', color: a.status === 'completed' ? 'var(--accent)' : 'var(--text-secondary)', marginRight: '8px' }}>
-                      {a.status}
-                    </span>
-                    <button 
-                      style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', color: '#60a5fa', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', padding: '4px 10px', marginRight: '8px', fontWeight: '600', transition: 'all 0.2s' }} 
-                      onClick={() => startEncounter(a)}
-                    >
-                      ▶ Start Encounter
-                    </button>
-                    <button style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '12px', marginRight: '8px' }} onClick={() => setEditingAppt({...a})}>Edit</button>
-                    <button style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '12px' }} onClick={() => handleDelete(a.id)}>Cancel</button>
-                  </div>
+        {/* Collapsible Clinical Analytics & Practice Insights Section */}
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '14px',
+          overflow: 'hidden',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)'
+        }}>
+          <button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            style={{
+              width: '100%',
+              padding: '14px 20px',
+              background: '#f8fafc',
+              border: 'none',
+              borderBottom: showAnalytics ? '1px solid #e2e8f0' : 'none',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'pointer',
+              color: '#0f172a',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={18} color="#2563eb" />
+              <span>Practice Analytics & Documentation Efficiency Trends</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '12px' }}>
+              <span>{showAnalytics ? 'Hide Trends' : 'View 7-Day Trend'}</span>
+              {showAnalytics ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </div>
+          </button>
+
+          {showAnalytics && (
+            <div style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>7-Day Clinical Volume & Admin Hours Saved</h4>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>Automated telemetry & ambient voice transcription metrics</p>
                 </div>
-              ))}
+              </div>
+
+              <div style={{ width: '100%', height: '240px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={WEEKLY_TREND} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorPatients" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0284c7" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#0284c7" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="day" stroke="#94a3b8" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#94a3b8" tick={{ fill: '#64748b', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="patients" name="Patients Seen" stroke="#0284c7" strokeWidth={2} fillOpacity={1} fill="url(#colorPatients)" />
+                    <Area type="monotone" dataKey="hoursSaved" name="Admin Hours Saved" stroke="#2563eb" strokeWidth={2} fillOpacity={1} fill="url(#colorHours)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
         </div>
+
+      </div>
+      {/* ── END DESKTOP CLINIC WORKSPACE ───────────────────────────────── */}
+
+      {/* ── MOBILE CLINIC WORKSPACE ────────────────────────────────────── */}
+      <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         
-        {/* Interactive Activity Log with Attachments */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Activity size={18} color="#60a5fa" /> Live Clinical Activity Log
-            </h3>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Click item to view attachment</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {activities.slice(0, 8).map(act => (
-              <div 
-                key={act.id} 
-                onClick={() => setSelectedActivity(act)}
-                style={{ 
-                  position: 'relative', 
-                  padding: '12px 14px', 
-                  background: 'rgba(255,255,255,0.02)', 
-                  border: '1px solid rgba(255,255,255,0.07)', 
-                  borderRadius: '10px', 
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'; e.currentTarget.style.borderColor = '#3b82f6'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{ marginTop: '4px', width: '10px', height: '10px', borderRadius: '50%', background: `var(--${act.color === 'teal' ? 'accent' : act.color === 'blue' ? 'primary' : act.color})`, flexShrink: 0, boxShadow: '0 0 8px currentColor' }} />
-                  <div>
-                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{act.description}</p>
-                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-secondary)' }}>{act.patient_name || "General Clinic"} • {Math.floor(act.secs_ago / 60)}m ago</p>
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(59, 130, 246, 0.15)', padding: '5px 10px', borderRadius: '15px', color: '#60a5fa', fontSize: '11px', fontWeight: '600' }}>
-                  <Paperclip size={13} /> View
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      </div>
-      {/* ── END DESKTOP VIEW ────────────────────────────────────────────── */}
-
-      {/* ── MOBILE VIEW (Mobile-Only Native Clinical Experience) ─────────── */}
-      <div className="mobile-only mobile-home-container">
-        {/* 4 Quick Clinical Thumb Actions Dock */}
-        <div className="mobile-quick-actions">
+        {/* Simple 4 Clinical Actions (Clean Blue & White) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
           <button 
             type="button"
-            className="mobile-action-btn"
             onClick={() => {
               let stored = null;
               try { stored = JSON.parse(localStorage.getItem('active_patient_context') || 'null'); } catch(e) {}
               window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: stored } }));
             }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '12px 6px',
+              background: '#ffffff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '12px',
+              cursor: 'pointer'
+            }}
           >
-            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-              <Mic size={22} />
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Mic size={18} />
             </div>
-            <span className="mobile-action-label">AI Scribe</span>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a' }}>AI Scribe</span>
           </button>
 
           <button 
             type="button"
-            className="mobile-action-btn"
             onClick={() => window.dispatchEvent(new CustomEvent('open-scanner'))}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '12px 6px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              cursor: 'pointer'
+            }}
           >
-            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.4)' }}>
-              <Scan size={22} />
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f8fafc', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Scan size={18} />
             </div>
-            <span className="mobile-action-label">Scan OCR</span>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a' }}>OCR Scan</span>
           </button>
 
           <button 
             type="button"
-            className="mobile-action-btn"
             onClick={() => {
               const matched = patientsList.find(p => p.id === upNextAppt?.patient_id || (p.name && p.name.toLowerCase() === upNextAppt?.patient_name?.toLowerCase()));
               window.dispatchEvent(new CustomEvent('open-whatsapp', { detail: { patient: matched || upNextAppt } }));
             }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '12px 6px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              cursor: 'pointer'
+            }}
           >
-            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.25), rgba(18, 140, 126, 0.15))', color: '#25d366', borderColor: 'rgba(37, 211, 102, 0.4)' }}>
-              <MessageCircle size={22} />
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f8fafc', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MessageCircle size={18} />
             </div>
-            <span className="mobile-action-label">WhatsApp</span>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a' }}>WhatsApp</span>
           </button>
 
           <button 
             type="button"
-            className="mobile-action-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'referrals' }))}
+            onClick={() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'referral' }))}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '12px 6px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              cursor: 'pointer'
+            }}
           >
-            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))', color: '#fbbf24', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
-              <Zap size={22} />
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f8fafc', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Zap size={18} />
             </div>
-            <span className="mobile-action-label">AI Triage</span>
-          </button>
-
-          <button 
-            type="button"
-            className="mobile-action-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'inbox' }))}
-          >
-            <div className="mobile-action-icon" style={{ background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(147, 51, 234, 0.15))', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.4)' }}>
-              <MessageSquare size={22} />
-            </div>
-            <span className="mobile-action-label">AI Inbox</span>
+            <span style={{ fontSize: '11px', fontWeight: '600', color: '#0f172a' }}>AI Triage</span>
           </button>
         </div>
 
         {/* Up Next Patient Hero Card */}
-        {upNextAppt ? (
-          <div className="mobile-hero-patient-card">
-            <div className="mobile-hero-header">
-              <div className="mobile-hero-badge">
-                <span className="mobile-pulse-dot online" />
-                UP NEXT • IN CLINIC
-              </div>
-              <span className="mobile-hero-time">{upNextAppt.time}</span>
+        {upNextAppt && (
+          <div style={{
+            background: '#ffffff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '14px',
+            padding: '16px',
+            boxShadow: '0 1px 3px rgba(37, 99, 235, 0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', background: '#eff6ff', padding: '2px 8px', borderRadius: '10px' }}>
+                UP NEXT IN CLINIC
+              </span>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a' }}>{upNextAppt.time}</span>
             </div>
 
-            <div className="mobile-hero-body">
-              <div className="mobile-hero-avatar">
-                {upNextAppt.initials || upNextAppt.patient_name?.substring(0, 2).toUpperCase() || 'PT'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '15px' }}>
+                {upNextAppt.initials || 'PT'}
               </div>
-              <div className="mobile-hero-info">
-                <h3 className="mobile-hero-name">{upNextAppt.patient_name}</h3>
-                <p className="mobile-hero-detail">
-                  <Stethoscope size={13} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
-                  {upNextAppt.type || 'General Consultation'}
-                </p>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>{upNextAppt.patient_name}</h3>
+                <p style={{ margin: '1px 0 0 0', fontSize: '12px', color: '#64748b' }}>{upNextAppt.type}</p>
               </div>
             </div>
 
-            <div className="mobile-hero-actions">
-              <button 
-                type="button"
-                className="mobile-hero-start-btn"
-                onClick={() => startEncounter(upNextAppt)}
-              >
-                <Mic size={18} />
-                <span>Start Ambient AI Scribe</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mobile-hero-patient-card" style={{ textAlign: 'center', padding: '24px' }}>
-            <CheckCircle2 size={32} color="#10b981" style={{ margin: '0 auto 8px' }} />
-            <h3 style={{ margin: '0 0 4px', fontSize: '16px' }}>All Clear</h3>
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>No pending appointments for today.</p>
+            <button
+              onClick={() => startEncounter(upNextAppt)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                background: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              <Mic size={16} /> Start AI Scribe
+            </button>
           </div>
         )}
 
-        {/* 2x2 Metric Summary Grid */}
-        <div className="mobile-metric-grid">
-          <div className="mobile-metric-tile">
-            <div className="mobile-metric-tile-header">
-              <span className="mobile-metric-tile-title">Patients Seen</span>
-              <div className="mobile-metric-tile-icon" style={{ color: '#60a5fa', background: 'rgba(59, 130, 246, 0.12)' }}>
-                <Users size={16} />
-              </div>
-            </div>
-            <div className="mobile-metric-tile-value">{stats?.patients_today ?? 0}</div>
-            <span className="mobile-metric-tile-sub">Today's Total</span>
-          </div>
+        {/* Apple Watch Telemetry Card (Mobile) */}
+        <AppleWatchVitals patient={currentWatchPatient} />
 
-          <div className="mobile-metric-tile">
-            <div className="mobile-metric-tile-header">
-              <span className="mobile-metric-tile-title">Forms Automated</span>
-              <div className="mobile-metric-tile-icon" style={{ color: '#34d399', background: 'rgba(16, 185, 129, 0.12)' }}>
-                <FileText size={16} />
-              </div>
-            </div>
-            <div className="mobile-metric-tile-value">{stats?.forms_today ?? 0}</div>
-            <span className="mobile-metric-tile-sub">100% Zero-Click</span>
-          </div>
-
-          <div className="mobile-metric-tile">
-            <div className="mobile-metric-tile-header">
-              <span className="mobile-metric-tile-title">Pending Referrals</span>
-              <div className="mobile-metric-tile-icon" style={{ color: '#fbbf24', background: 'rgba(245, 158, 11, 0.12)' }}>
-                <Activity size={16} />
-              </div>
-            </div>
-            <div className="mobile-metric-tile-value">{stats?.pending_referrals ?? 0}</div>
-            <span className="mobile-metric-tile-sub">Awaiting Triage</span>
-          </div>
-
-          <div className="mobile-metric-tile">
-            <div className="mobile-metric-tile-header">
-              <span className="mobile-metric-tile-title">Time Saved</span>
-              <div className="mobile-metric-tile-icon" style={{ color: '#c084fc', background: 'rgba(168, 85, 247, 0.12)' }}>
-                <Clock size={16} />
-              </div>
-            </div>
-            <div className="mobile-metric-tile-value">{stats?.time_saved_min ?? 0}<span style={{ fontSize: '14px', fontWeight: '500', marginLeft: '2px' }}>m</span></div>
-            <span className="mobile-metric-tile-sub">Prime Care AI Boost</span>
-          </div>
-        </div>
-
-        {/* Today's Schedule Section */}
-        <div className="mobile-section">
-          <div className="mobile-section-header">
-            <div className="mobile-section-title-wrap">
-              <h3 className="mobile-section-title">Today's Schedule</h3>
-              <span className="mobile-count-badge">{appointments.length}</span>
-            </div>
-            <button 
-              type="button" 
-              className="mobile-see-all-btn"
-              onClick={() => window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'calendar' }))}
-            >
-              Calendar <ChevronRight size={14} />
-            </button>
-          </div>
-
-          {appointments.length === 0 ? (
-            <div className="mobile-empty-state">No appointments scheduled for today.</div>
-          ) : (
-            <div className="mobile-schedule-list">
-              {appointments.map((a) => (
-                <div key={a.id} className="mobile-appt-card">
-                  <div className="mobile-appt-time-col">
-                    <span className="mobile-appt-time">{a.time}</span>
-                    <span className={`mobile-appt-status-tag ${a.status === 'completed' ? 'completed' : 'pending'}`}>
-                      {a.status === 'completed' ? 'Done' : 'Pending'}
-                    </span>
-                  </div>
-
-                  <div className="mobile-appt-info-col">
-                    <h4 className="mobile-appt-name">{a.patient_name}</h4>
-                    <p className="mobile-appt-desc">{a.type}</p>
-                    
-                    <div className="mobile-appt-actions">
-                      {a.status !== 'completed' && (
-                        <button 
-                          type="button"
-                          className="mobile-appt-encounter-btn"
-                          onClick={() => startEncounter(a)}
-                        >
-                          ▶ Encounter
-                        </button>
-                      )}
-                      <button 
-                        type="button"
-                        className="mobile-appt-subtle-btn"
-                        onClick={() => setEditingAppt({ ...a })}
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        type="button"
-                        className="mobile-appt-subtle-btn danger"
-                        onClick={() => handleDelete(a.id)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
+        {/* Schedule List (Mobile) */}
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '14px',
+          padding: '16px'
+        }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+            Today's Schedule ({appointments.length})
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {appointments.map(a => (
+              <div key={a.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px'
+              }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{a.patient_name}</h4>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>{a.time} · {a.type}</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Live Clinical Activity Stream */}
-        <div className="mobile-section">
-          <div className="mobile-section-header">
-            <div className="mobile-section-title-wrap">
-              <h3 className="mobile-section-title">Clinical Activity Feed</h3>
-              <span className="mobile-live-indicator">LIVE</span>
-            </div>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tap to view</span>
-          </div>
-
-          <div className="mobile-activity-list">
-            {activities.slice(0, 6).map((act) => (
-              <div 
-                key={act.id} 
-                className="mobile-activity-card"
-                onClick={() => setSelectedActivity(act)}
-              >
-                <div 
-                  className="mobile-activity-dot" 
-                  style={{ background: act.color === 'teal' ? '#10b981' : act.color === 'blue' ? '#3b82f6' : act.color === 'orange' ? '#f59e0b' : '#a855f7' }} 
-                />
-                <div className="mobile-activity-content">
-                  <p className="mobile-activity-desc">{act.description}</p>
-                  <p className="mobile-activity-sub">
-                    {act.patient_name || "General Clinic"} • {Math.floor(act.secs_ago / 60)}m ago
-                  </p>
-                </div>
-                <div className="mobile-activity-view-pill">
-                  <Paperclip size={12} /> View
-                </div>
+                <button
+                  onClick={() => startEncounter(a)}
+                  style={{
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    color: '#2563eb',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Start
+                </button>
               </div>
             ))}
           </div>
         </div>
+
       </div>
-      {/* ── END MOBILE VIEW ──────────────────────────────────────────────── */}
-      
+      {/* ── END MOBILE CLINIC WORKSPACE ─────────────────────────────────── */}
+
       {/* Appointment Edit Modal */}
       {editingAppt && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
-          <div className="glass-panel" style={{ padding: '32px', width: '400px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ margin: 0, color: '#60a5fa' }}>Edit Appointment</h3>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '16px' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '24px', width: '420px', maxWidth: '100%', boxShadow: '0 10px 30px rgba(15, 23, 42, 0.15)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <h3 style={{ margin: 0, color: '#0f172a', fontSize: '16px', fontWeight: '700' }}>Edit Appointment</h3>
             
-            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Date</label>
-            <input type="date" className="input" value={editingAppt.appointment_date} onChange={e => setEditingAppt({...editingAppt, appointment_date: e.target.value})} />
+            <div>
+              <label style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Date</label>
+              <input type="date" className="input" value={editingAppt.appointment_date} onChange={e => setEditingAppt({...editingAppt, appointment_date: e.target.value})} />
+            </div>
             
-            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Time</label>
-            <input type="time" className="input" value={editingAppt.time} onChange={e => setEditingAppt({...editingAppt, time: e.target.value})} />
+            <div>
+              <label style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Time</label>
+              <input type="time" className="input" value={editingAppt.time} onChange={e => setEditingAppt({...editingAppt, time: e.target.value})} />
+            </div>
             
-            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Appointment Type</label>
-            <input type="text" className="input" value={editingAppt.type} onChange={e => setEditingAppt({...editingAppt, type: e.target.value})} />
+            <div>
+              <label style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Appointment Type</label>
+              <input type="text" className="input" value={editingAppt.type} onChange={e => setEditingAppt({...editingAppt, type: e.target.value})} />
+            </div>
             
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-              <button className="btn" style={{ flex: 1, background: 'rgba(255,255,255,0.1)' }} onClick={() => setEditingAppt(null)}>Cancel</button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingAppt(null)}>Cancel</button>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleUpdate}>Save Changes</button>
             </div>
           </div>
@@ -785,118 +846,133 @@ export default function Dashboard() {
 
       {/* Clinical Activity Attachment Modal */}
       {selectedActivity && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
-          <div className="glass-panel animate-fade-in" style={{ padding: '32px', width: '680px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: '20px', border: '1px solid #3b82f6', boxShadow: '0 20px 60px rgba(0,0,0,0.8)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '16px' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '24px', width: '680px', maxWidth: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 10px 40px rgba(15, 23, 42, 0.15)' }}>
             
             {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <div>
-                <h3 style={{ margin: 0, color: '#60a5fa', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: '700' }}>
-                  <Paperclip size={22} /> Clinical Record Attachment Viewer
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: '17px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Paperclip size={18} color="#2563eb" /> Clinical Record Attachment
                 </h3>
-                <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  Audit Trail ID: #{selectedActivity.id || Math.floor(100000 + Math.random() * 900000)} • Prime Care Verified Record
+                <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  Audit Trail ID: #{selectedActivity.id || '84291'} · Prime Care Verified
                 </p>
               </div>
-              <button className="ghost-btn" onClick={() => setSelectedActivity(null)} style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', padding: '4px' }}>
-                <X size={24} />
+              <button onClick={() => setSelectedActivity(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>
+                <X size={20} />
               </button>
             </div>
 
             {/* Audit Metadata Box */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', background: 'rgba(0,0,0,0.4)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', background: '#f8fafc', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block' }}>Patient Target</span>
-                <strong style={{ color: 'var(--text-primary)', fontSize: '14px' }}>{selectedActivity.patient_name || "General Clinic Account"}</strong>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', display: 'block' }}>Patient</span>
+                <strong style={{ color: '#0f172a', fontSize: '13px' }}>{selectedActivity.patient_name || "General Clinic"}</strong>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block' }}>Action Classification</span>
-                <span style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd', padding: '3px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: '600', display: 'inline-block', marginTop: '3px' }}>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', display: 'block' }}>Action</span>
+                <span style={{ background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', display: 'inline-block', marginTop: '2px' }}>
                   {selectedActivity.action || "Clinical Processing"}
                 </span>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block' }}>Verification Status</span>
-                <span style={{ color: '#34d399', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
-                  <ShieldCheck size={16} /> Cryptographically Signed
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', display: 'block' }}>Verification</span>
+                <span style={{ color: '#059669', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                  <ShieldCheck size={14} /> Signed
                 </span>
               </div>
             </div>
 
-            {/* Simulated Document Attachment Content */}
-            <div style={{ flex: 1, overflowY: 'auto', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', padding: '24px', fontFamily: 'monospace' }}>
-              <div style={{ borderBottom: '1px dashed rgba(255,255,255,0.2)', paddingBottom: '12px', marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                <span>DOCUMENT ATTACHMENT: {selectedActivity.description.toUpperCase().replace(/\s+/g, '_')}.PDF</span>
-                <span>TIMESTAMP: {new Date().toLocaleDateString()}</span>
+            {/* Attachment Content */}
+            <div style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', fontFamily: 'monospace', fontSize: '13px', color: '#334155', lineHeight: '1.6' }}>
+              <div style={{ borderBottom: '1px dashed #cbd5e1', paddingBottom: '8px', marginBottom: '12px', color: '#64748b', fontSize: '11px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>RECORD: {selectedActivity.description.toUpperCase().replace(/\s+/g, '_')}.PDF</span>
+                <span>{new Date().toLocaleDateString()}</span>
               </div>
 
-              <div style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
                 {selectedActivity.detail ? (
                   <>
-                    <p style={{ color: '#60a5fa', fontWeight: '700' }}>--- CLINICAL OBSERVATIONS & DATA ---</p>
+                    <p style={{ color: '#2563eb', fontWeight: '700' }}>--- CLINICAL OBSERVATIONS & DATA ---</p>
                     {selectedActivity.detail}
                     {"\n\n"}
-                    <p style={{ color: '#10b981' }}>[AUTOMATICALLY FILED BY PRIME CARE HEALTH SYSTEM AI CO-PILOT]</p>
+                    <p style={{ color: '#059669' }}>[AUTOMATICALLY FILED BY PRIME CARE HEALTH SYSTEM AI CO-PILOT]</p>
                   </>
                 ) : (
                   <>
-                    <p style={{ color: '#60a5fa', fontWeight: '700' }}>--- STANDARD CLINICAL ENCOUNTER ATTACHMENT ---</p>
-                    {`Patient Activity: ${selectedActivity.description}\nAssigned Medical Facility: Prime Care Central Campus\nPrimary Attending Provider: Authorized Clinician (Google SSO Verified)\n\n[RECORD SUMMARY]\nThis attachment confirms the automated diagnostic evaluations, triage rules, and structured EHR updates performed under protocol ID #${Math.floor(1000 + Math.random() * 9000)}.\n\n[CLINICAL ATTESTATION]\nAll associated data fields and lab metrics have been synchronized with the centralized hospital relational database.`}
+                    <p style={{ color: '#2563eb', fontWeight: '700' }}>--- STANDARD CLINICAL ENCOUNTER ATTACHMENT ---</p>
+                    {`Patient Activity: ${selectedActivity.description}\nMedical Facility: Prime Care Central Campus\nPrimary Attending Provider: Authorized Clinician\n\n[RECORD SUMMARY]\nThis attachment confirms the automated diagnostic evaluations, triage rules, and structured EHR updates performed under protocol ID #${Math.floor(1000 + Math.random() * 9000)}.\n\n[CLINICAL ATTESTATION]\nAll associated data fields have been synchronized with the centralized hospital database.`}
                   </>
                 )}
               </div>
             </div>
 
-            {/* Modal Footer Controls */}
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
+            {/* Footer Buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
               <button 
                 type="button"
-                className="btn" 
-                style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600' }} 
+                className="btn btn-secondary" 
                 onClick={() => triggerExport('Document print job')}
               >
-                <Printer size={16} /> Print Record
+                <Printer size={15} /> Print
               </button>
 
               <button 
                 type="button"
                 className="btn btn-primary" 
-                style={{ background: '#10b981', border: '1px solid #34d399', fontWeight: '700', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                onClick={() => triggerExport('PDF file download')}
+                onClick={() => triggerExport('PDF download')}
               >
-                <Download size={16} /> Download Clinical PDF
+                <Download size={15} /> Download PDF
               </button>
 
               <button 
                 type="button"
-                className="btn" 
-                style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', border: '1px solid #ef4444', padding: '10px 20px', fontWeight: '600' }} 
+                className="btn btn-secondary" 
                 onClick={() => setSelectedActivity(null)}
               >
                 Close
               </button>
             </div>
+
           </div>
         </div>
       )}
+
     </div>
   );
 }
 
-function MetricCard({ title, value, icon, color }) {
-  let c = 'var(--primary)';
-  if (color === 'emerald') c = 'var(--accent)';
-  if (color === 'orange') c = '#f59e0b';
-  if (color === 'purple') c = '#a855f7';
-
+function MetricCard({ title, value, icon, subtitle }) {
   return (
-    <div className="glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-      <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: `rgba(255,255,255,0.03)`, border: `1px solid ${c}30`, color: c, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{
+      background: '#ffffff',
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      padding: '16px 18px',
+      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '14px'
+    }}>
+      <div style={{
+        width: '42px',
+        height: '42px',
+        borderRadius: '10px',
+        background: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        color: '#2563eb',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0
+      }}>
         {icon}
       </div>
-      <div>
-        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '500' }}>{title}</p>
-        <h3 style={{ margin: '4px 0 0', fontSize: '28px', color: 'var(--text-primary)' }}>{value}</h3>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: '500' }}>{title}</p>
+        <h3 style={{ margin: '2px 0 0 0', fontSize: '22px', fontWeight: '800', color: '#0f172a' }}>{value}</h3>
+        {subtitle && <p style={{ margin: '1px 0 0 0', fontSize: '11px', color: '#94a3b8' }}>{subtitle}</p>}
       </div>
     </div>
   );

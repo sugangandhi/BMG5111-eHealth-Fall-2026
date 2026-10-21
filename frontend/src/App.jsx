@@ -66,9 +66,10 @@ function App() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('medoffice_user')));
   const [activeTab, setActiveTab] = useState('dashboard');
   const [badges, setBadges] = useState({ dashboard: 0, inbox: 0 });
-  const [theme, setTheme] = useState(localStorage.getItem('medoffice_theme') || 'dark');
+  const [theme, setTheme] = useState(localStorage.getItem('medoffice_theme') || 'light');
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMoreToolsOpen, setIsMoreToolsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isVoiceNavActive, setIsVoiceNavActive] = useState(false);
   const [voiceNavStatus, setVoiceNavStatus] = useState('');
@@ -511,31 +512,36 @@ function App() {
   }
 
   return (
-    <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'relative' }}>
-      <header className="glass-panel" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 20px', margin: '12px 16px', borderBottom: 'none', borderRadius: '16px', alignItems: 'center', position: 'relative', zIndex: 100 }}>
+    <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'relative', background: 'var(--bg-primary)' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 20px', margin: '12px 16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', alignItems: 'center', position: 'relative', zIndex: 100, boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
           {user?.picture ? (
             <img src={user.picture} alt={user?.name || 'User'} style={{ width: '38px', height: '38px', borderRadius: '50%', border: '1px solid var(--border)', flexShrink: 0 }} />
           ) : (
-            <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '16px', color: 'white', flexShrink: 0 }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '15px', color: 'white', flexShrink: 0 }}>
               {user?.initials || 'MD'}
             </div>
           )}
           <div style={{ minWidth: 0 }}>
             {/* Desktop header text */}
             <div className="desktop-only">
-              <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '600', color: 'var(--text-primary)' }}>Prime Care App <span style={{ fontSize: '11px', background: 'rgba(47, 129, 247, 0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', verticalAlign: 'middle', border: '1px solid rgba(47, 129, 247, 0.2)', fontWeight: '600' }}>PRO</span></h2>
-              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center' }}>
+                Prime Care App 
+                <span style={{ fontSize: '10px', background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '4px', marginLeft: '8px', border: '1px solid #bfdbfe', fontWeight: '700' }}>
+                  CLINICAL EHR
+                </span>
+              </h2>
+              <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>{user?.clinic || 'Prime Care Medical Group'} · </span>
-                <strong style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{user?.name}</strong>
+                <strong style={{ color: '#0f172a', fontWeight: '600' }}>{user?.name}</strong>
                 {user?.email && ` (${user.email})`}
                 <button
                   type="button"
                   onClick={handleLogout}
                   style={{
-                    background: 'rgba(239, 68, 68, 0.12)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#ef4444',
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    color: '#dc2626',
                     borderRadius: '6px',
                     padding: '2px 8px',
                     fontSize: '11px',
@@ -698,24 +704,24 @@ function App() {
           {/* Floating Dropdown Quick-Menu */}
           {isMenuOpen && (
             <div 
-              className="glass-panel animate-fade-in" 
+              className="animate-fade-in" 
               style={{
-                position: 'absolute', top: '54px', right: '0', width: '280px',
-                padding: '8px', borderRadius: '16px', border: '1px solid #3b82f6',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.65)', background: 'rgba(15, 23, 42, 0.95)',
+                position: 'absolute', top: '50px', right: '0', width: '280px',
+                padding: '8px', borderRadius: '12px', border: '1px solid #e2e8f0',
+                boxShadow: '0 10px 30px rgba(15, 23, 42, 0.12)', background: '#ffffff',
                 display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 500
               }}
             >
               {/* Physician Profile Card in Menu */}
-              <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--glass-border)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 {user?.picture ? (
-                  <img src={user.picture} alt="avatar" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #3b82f6' }} />
+                  <img src={user.picture} alt="avatar" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #bfdbfe' }} />
                 ) : (
-                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'white' }}>{user?.initials || 'MD'}</div>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'white' }}>{user?.initials || 'MD'}</div>
                 )}
                 <div style={{ overflow: 'hidden' }}>
-                  <div style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user?.name}</div>
-                  <div style={{ fontSize: '11px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                  <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user?.name}</div>
+                  <div style={{ fontSize: '11px', color: '#059669', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', fontWeight: '600' }}>
                     <Shield size={11} /> Verified Healthcare SSO
                   </div>
                 </div>
@@ -725,18 +731,18 @@ function App() {
               <button
                 onClick={() => { toggleTheme(); }}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px',
-                  borderRadius: '10px', border: 'none', background: 'transparent', color: 'var(--text-primary)',
-                  cursor: 'pointer', fontSize: '14px', fontWeight: '500', transition: 'background 0.2s', textAlign: 'left'
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px',
+                  borderRadius: '8px', border: 'none', background: 'transparent', color: '#0f172a',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: '500', transition: 'background 0.15s', textAlign: 'left'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {theme === 'dark' ? <Sun size={17} color="#fbbf24" /> : <Moon size={17} color="#3b82f6" />}
+                  {theme === 'dark' ? <Sun size={16} color="#2563eb" /> : <Moon size={16} color="#2563eb" />}
                   <span>Appearance Mode</span>
                 </div>
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: theme === 'dark' ? 'rgba(251, 191, 36, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: theme === 'dark' ? '#fbbf24' : '#2563eb', fontWeight: '700' }}>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', fontWeight: '700', border: '1px solid #bfdbfe' }}>
                   {theme === 'dark' ? 'Night' : 'Day'}
                 </span>
               </button>
@@ -745,18 +751,18 @@ function App() {
               <button
                 onClick={() => { setIsMenuOpen(false); launchDirectWhatsApp(activePatient); }}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px',
-                  borderRadius: '10px', border: 'none', background: 'transparent', color: 'var(--text-primary)',
-                  cursor: 'pointer', fontSize: '14px', fontWeight: '500', transition: 'background 0.2s', textAlign: 'left'
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px',
+                  borderRadius: '8px', border: 'none', background: 'transparent', color: '#0f172a',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: '500', transition: 'background 0.15s', textAlign: 'left'
                 }}
-                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
                 onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <MessageCircle size={17} color="#25D366" />
+                  <MessageCircle size={16} color="#059669" />
                   <span>Launch WhatsApp Directly</span>
                 </div>
-                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(37, 211, 102, 0.2)', color: '#25D366', fontWeight: '700' }}>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: '#ecfdf5', color: '#059669', fontWeight: '700' }}>
                   Direct
                 </span>
               </button>
@@ -876,24 +882,63 @@ function App() {
       )}
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }} onClick={() => { if (isMenuOpen) setIsMenuOpen(false); if (isNotificationsOpen) setIsNotificationsOpen(false); }}>
-        {/* Sidebar Nav */}
-        <aside className="glass-panel desktop-only" style={{ width: '250px', margin: '0 0 16px 16px', padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: '8px', border: 'none', backdropFilter: 'blur(30px)' }}>
-          <NavButton icon={<LayoutDashboard size={18} />} label="Dashboard" badge={badges.dashboard} active={activeTab === 'dashboard'} onClick={() => handleTabClick('dashboard')} />
-          <NavButton icon={<Users size={18} />} label="Patient Directory" active={activeTab === 'patients'} onClick={() => handleTabClick('patients')} />
-          <NavButton icon={<Activity size={18} />} label="Digital Twin" active={activeTab === 'twin'} onClick={() => handleTabClick('twin')} />
-          <NavButton icon={<Calendar size={18} />} label="Smart Calendar" active={activeTab === 'calendar'} onClick={() => handleTabClick('calendar')} />
-          <NavButton icon={<FileText size={18} />} label="Intake OCR Engine" badge={badges.formFiller} active={activeTab === 'formFiller'} onClick={() => handleTabClick('formFiller')} />
-          <NavButton icon={<Send size={18} />} label="Referral AI Triage" badge={badges.referral} active={activeTab === 'referral'} onClick={() => handleTabClick('referral')} />
-          <NavButton icon={<MessageSquare size={18} />} label="Inbound Summary & Chat" badge={badges.inbound} active={activeTab === 'inbound'} onClick={() => handleTabClick('inbound')} />
-          <NavButton icon={<Inbox size={18} />} label="Secure Inbox" badge={badges.inbox} active={activeTab === 'inbox'} onClick={() => handleTabClick('inbox')} />
-          <NavButton icon={<DollarSign size={18} />} label="Billing" badge={badges.billing} active={activeTab === 'billing'} onClick={() => handleTabClick('billing')} />
-          <div style={{ marginTop: 'auto' }}>
+        {/* Sidebar Nav - Clean Clinical Blue & White (4 Primary Pillars + Preserved All Modules) */}
+        <aside style={{ width: '240px', margin: '0 0 16px 16px', padding: '16px 10px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '4px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)', overflowY: 'auto' }} className="desktop-only">
+          <div style={{ padding: '4px 12px 6px 12px', fontSize: '11px', fontWeight: '700', color: '#64748b', letterSpacing: '0.5px' }}>
+            CLINICAL PILLARS
+          </div>
+
+          <NavButton icon={<LayoutDashboard size={17} />} label="Today's Clinic" badge={badges.dashboard} active={activeTab === 'dashboard'} onClick={() => handleTabClick('dashboard')} />
+          <NavButton icon={<Users size={17} />} label="Patients & Watch" active={activeTab === 'patients'} onClick={() => handleTabClick('patients')} />
+          <NavButton 
+            icon={<Mic size={17} />} 
+            label="Ambient AI Scribe" 
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: activePatient } }));
+            }} 
+          />
+          <NavButton icon={<Inbox size={17} />} label="Inbox & WhatsApp" badge={badges.inbox} active={activeTab === 'inbox'} onClick={() => handleTabClick('inbox')} />
+
+          <div style={{ height: '1px', background: '#e2e8f0', margin: '10px 6px' }} />
+
+          <div 
+            onClick={() => setIsMoreToolsOpen(!isMoreToolsOpen)}
+            style={{
+              padding: '6px 12px',
+              fontSize: '11px',
+              fontWeight: '700',
+              color: '#64748b',
+              letterSpacing: '0.5px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              borderRadius: '6px',
+              userSelect: 'none'
+            }}
+          >
+            <span>MORE MODULES</span>
+            <ChevronDown size={14} style={{ transform: isMoreToolsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: '#64748b' }} />
+          </div>
+
+          {/* Expanded or preserved tools when toggled */}
+          {isMoreToolsOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', paddingLeft: '4px' }}>
+              <NavButton icon={<FileText size={16} />} label="Intake OCR Engine" badge={badges.formFiller} active={activeTab === 'formFiller'} onClick={() => handleTabClick('formFiller')} />
+              <NavButton icon={<Send size={16} />} label="Referral AI Triage" badge={badges.referral} active={activeTab === 'referral'} onClick={() => handleTabClick('referral')} />
+              <NavButton icon={<Activity size={16} />} label="Digital Twin" active={activeTab === 'twin'} onClick={() => handleTabClick('twin')} />
+              <NavButton icon={<Calendar size={16} />} label="Smart Calendar" active={activeTab === 'calendar'} onClick={() => handleTabClick('calendar')} />
+              <NavButton icon={<DollarSign size={16} />} label="OHIP Billing" badge={badges.billing} active={activeTab === 'billing'} onClick={() => handleTabClick('billing')} />
+            </div>
+          )}
+
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
             <NavButton 
-              icon={<MessageCircle size={18} />} 
-              label="WhatsApp Patient Chat" 
+              icon={<MessageCircle size={17} color="#059669" />} 
+              label="WhatsApp Direct" 
               onClick={() => launchDirectWhatsApp(activePatient)} 
             />
-            <NavButton icon={<ScanFace size={18} />} label="iPad Kiosk Mode" onClick={() => setIsKioskMode(true)} />
+            <NavButton icon={<ScanFace size={17} />} label="iPad Kiosk Mode" onClick={() => setIsKioskMode(true)} />
           </div>
         </aside>
 
@@ -912,37 +957,40 @@ function App() {
                 {/* Desktop Layout */}
                 <div className="patient-banner-desktop">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1 }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#3b82f6', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px', flexShrink: 0 }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '13px', flexShrink: 0 }}>
                       {activePatient.initials}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{activePatient.name}</span>
-                        <span style={{ fontSize: '11px', padding: '1px 7px', borderRadius: '4px', background: activePatient.allergies === 'NKDA' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: activePatient.allergies === 'NKDA' ? '#10b981' : '#f87171', fontWeight: '700' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>{activePatient.name}</span>
+                        <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: activePatient.allergies === 'NKDA' ? '#ecfdf5' : '#fef2f2', color: activePatient.allergies === 'NKDA' ? '#059669' : '#dc2626', fontWeight: '700', border: `1px solid ${activePatient.allergies === 'NKDA' ? '#a7f3d0' : '#fecaca'}` }}>
                           {activePatient.allergies === 'NKDA' ? 'NKDA' : `Allergies: ${activePatient.allergies}`}
                         </span>
+                        <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: '#eff6ff', color: '#2563eb', fontWeight: '600', border: '1px solid #bfdbfe', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          ⌚ Apple Watch Synced · HR 71 bpm
+                        </span>
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                         <span>DOB: {activePatient.dob} • MRN: {activePatient.mrn}</span>
                         {allPatients.length > 1 && (
                           <select
                             value={activePatient.id}
                             onChange={(e) => handleSelectPatientById(e.target.value)}
                             style={{
-                              background: 'transparent',
-                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              background: '#ffffff',
+                              border: '1px solid #bfdbfe',
                               borderRadius: '4px',
-                              color: '#60a5fa',
+                              color: '#2563eb',
                               fontSize: '11px',
                               fontWeight: '600',
                               cursor: 'pointer',
-                              padding: '1px 4px',
+                              padding: '1px 6px',
                               outline: 'none'
                             }}
                             title="Switch active patient chart"
                           >
                             {allPatients.map(p => (
-                              <option key={p.id} value={p.id} style={{ background: '#161b22', color: '#e6edf3' }}>
+                              <option key={p.id} value={p.id} style={{ background: '#ffffff', color: '#0f172a' }}>
                                 Switch: {p.name}
                               </option>
                             ))}
@@ -1266,10 +1314,10 @@ function App() {
         
         {/* Prominent Center Scribe Floating Mic */}
         <div className="bottom-nav-center-action" onClick={() => window.dispatchEvent(new CustomEvent('open-scribe', { detail: { patient: activePatient } }))}>
-          <div className="bottom-nav-center-btn" title="Open Ambient Voice Scribe">
-            <Mic size={24} />
+          <div className="bottom-nav-center-btn" title="Open Ambient Voice Scribe" style={{ background: '#2563eb', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)', border: '3px solid #ffffff' }}>
+            <Mic size={22} />
           </div>
-          <span style={{ fontSize: '10px', fontWeight: '700', color: '#10b981', marginTop: '2px' }}>AI Scribe</span>
+          <span style={{ fontSize: '10px', fontWeight: '700', color: '#2563eb', marginTop: '2px' }}>AI Scribe</span>
         </div>
 
         <div className={`bottom-nav-item ${activeTab === 'inbox' ? 'active' : ''}`} onClick={() => handleTabClick('inbox')}>
@@ -1297,26 +1345,27 @@ function NavButton({ icon, label, active, onClick, badge }) {
     <button 
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', width: '100%',
-        borderRadius: '20px', border: 'none', background: active ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
-        color: active ? 'var(--primary)' : 'var(--text-secondary)',
-        cursor: 'pointer', fontSize: '14px', fontWeight: active ? '700' : '500', transition: 'all 0.2s',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', width: '100%',
+        borderRadius: '8px', border: active ? '1px solid #bfdbfe' : '1px solid transparent', 
+        background: active ? '#eff6ff' : 'transparent',
+        color: active ? '#2563eb' : '#475569',
+        cursor: 'pointer', fontSize: '13px', fontWeight: active ? '700' : '500', transition: 'all 0.15s',
         textAlign: 'left'
       }}
       onMouseOver={(e) => {
-        if(!active) { e.currentTarget.style.background = 'rgba(150,150,150,0.1)'; e.currentTarget.style.color = 'var(--text-primary)'; }
+        if(!active) { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#0f172a'; }
       }}
       onMouseOut={(e) => {
-        if(!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }
+        if(!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <span style={{ color: active ? 'var(--primary)' : 'var(--text-secondary)' }}>{icon}</span> 
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span style={{ color: active ? '#2563eb' : '#64748b' }}>{icon}</span> 
         {label}
       </div>
       {badge > 0 && (
         <span style={{ 
-          color: 'var(--primary)', fontSize: '12px', fontWeight: '700'
+          color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '1px 6px', fontSize: '11px', fontWeight: '700'
         }}>
           {badge}
         </span>
