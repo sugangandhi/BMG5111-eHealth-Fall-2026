@@ -292,31 +292,92 @@ class PatientUpdateRequest(BaseModel):
 
 @app.put("/api/patient/{patient_id}/phone")
 async def update_patient_phone_endpoint(patient_id: str, body: PatientPhoneUpdateRequest):
+    clean_phone = body.phone.strip()
+
+    if patient_id.startswith("cloud-"):
+        from integrations.central_clinical_api import update_central_patient_override, fetch_central_patients_normalized
+        update_central_patient_override(patient_id, {"phone": clean_phone})
+        cloud_list = fetch_central_patients_normalized()
+        matched = next((p for p in cloud_list if p["id"] == patient_id), None)
+        p_name = matched.get("name") if matched else f"Patient {patient_id}"
+        
+        log_activity(
+            action="patient_phone_updated",
+            description=f"Updated phone number for {p_name} to {clean_phone}",
+            patient_name=p_name,
+            patient_id=patient_id,
+            detail=f"Phone number updated on Central Cloud layer.",
+            color="green"
+        )
+        return {"status": "ok", "patient_id": patient_id, "phone": clean_phone, "patient": matched}
+
     from fhir.patient_loader import update_patient_phone
-    updated = update_patient_phone(patient_id, body.phone)
+    updated = update_patient_phone(patient_id, clean_phone)
     if not updated:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    p_name = updated.get("name", {}).get("text", f"Patient {patient_id}")
+    p_name = updated.get("name", {}).get("text", f"Patient {patient_id}") if isinstance(updated.get("name"), dict) else str(updated.get("name", f"Patient {patient_id}"))
     log_activity(
         action="patient_phone_updated",
-        description=f"Updated phone number for {p_name} to {body.phone}",
+        description=f"Updated phone number for {p_name} to {clean_phone}",
         patient_name=p_name,
         patient_id=patient_id,
-        detail=f"Phone number changed to {body.phone}. EHR and WhatsApp channels updated.",
+        detail=f"Phone number changed to {clean_phone}. EHR and WhatsApp channels updated.",
         color="green"
     )
-    return {"status": "ok", "patient_id": patient_id, "phone": body.phone, "patient": updated}
+    
+    normalized = {
+        "id": updated.get("id", patient_id),
+        "name": p_name,
+        "birthDate": updated.get("birthDate", ""),
+        "phone": clean_phone,
+        "email": updated.get("email", ""),
+        "address": updated.get("address", {}),
+        "contact": f"{clean_phone} · {updated.get('address', {}).get('city', 'Ottawa')}",
+        "allergies": ", ".join(updated.get("allergies", [])) if isinstance(updated.get("allergies"), list) else (updated.get("allergies") or "NKDA"),
+        "mrn": updated.get("ohip", f"MRN-{patient_id}"),
+        "gender": updated.get("gender", ""),
+        "notes": updated.get("notes", ""),
+        "source": "clinic_ehr"
+    }
+    return {"status": "ok", "patient_id": patient_id, "phone": clean_phone, "patient": normalized}
 
 @app.put("/api/patient/{patient_id}")
 async def update_patient_endpoint(patient_id: str, body: PatientUpdateRequest):
-    from fhir.patient_loader import update_patient_details
     data = {k: v for k, v in body.dict().items() if v is not None}
+    
+    if patient_id.startswith("cloud-"):
+        from integrations.central_clinical_api import update_central_patient_override, fetch_central_patients_normalized
+        update_central_patient_override(patient_id, data)
+        cloud_list = fetch_central_patients_normalized()
+        matched = next((p for p in cloud_list if p["id"] == patient_id), None)
+        if not matched:
+            matched = {
+                "id": patient_id,
+                "name": data.get("name") or "Cloud Patient",
+                "phone": data.get("phone") or "613-555-0192",
+                "allergies": data.get("allergies") or "NKDA",
+                "mrn": data.get("ohip") or f"AWS-{patient_id}",
+                "source": "central_cloud",
+                "contact": f"{data.get('phone', '613-555-0192')} · {data.get('city', 'Ottawa')}"
+            }
+        p_name = matched.get("name") or "Cloud Patient"
+        log_activity(
+            action="patient_details_updated",
+            description=f"Updated clinical details for {p_name} (Phone: {matched.get('phone')})",
+            patient_name=p_name,
+            patient_id=patient_id,
+            detail=f"Fields: {', '.join(data.keys())}. Updated on Central Cloud layer.",
+            color="green"
+        )
+        return {"status": "ok", "patient_id": patient_id, "patient": matched}
+
+    from fhir.patient_loader import update_patient_details
     updated = update_patient_details(patient_id, data)
     if not updated:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    p_name = updated.get("name", {}).get("text", f"Patient {patient_id}")
+    p_name = updated.get("name", {}).get("text", f"Patient {patient_id}") if isinstance(updated.get("name"), dict) else str(updated.get("name", f"Patient {patient_id}"))
     keys_str = ", ".join(data.keys())
     log_activity(
         action="patient_details_updated",
@@ -326,7 +387,22 @@ async def update_patient_endpoint(patient_id: str, body: PatientUpdateRequest):
         detail=f"Updated fields: {keys_str}. Phone: {updated.get('phone', 'N/A')}.",
         color="green"
     )
-    return {"status": "ok", "patient_id": patient_id, "patient": updated}
+
+    normalized = {
+        "id": updated.get("id", patient_id),
+        "name": p_name,
+        "birthDate": updated.get("birthDate", ""),
+        "phone": updated.get("phone", "613-555-0192"),
+        "email": updated.get("email", ""),
+        "address": updated.get("address", {}),
+        "contact": f"{updated.get('phone', '613-555-0192')} · {updated.get('address', {}).get('city', 'Ottawa')}",
+        "allergies": ", ".join(updated.get("allergies", [])) if isinstance(updated.get("allergies"), list) else (updated.get("allergies") or "NKDA"),
+        "mrn": updated.get("ohip", f"MRN-{patient_id}"),
+        "gender": updated.get("gender", ""),
+        "notes": updated.get("notes", ""),
+        "source": "clinic_ehr"
+    }
+    return {"status": "ok", "patient_id": patient_id, "patient": normalized}
 
 
 @app.get("/api/health")

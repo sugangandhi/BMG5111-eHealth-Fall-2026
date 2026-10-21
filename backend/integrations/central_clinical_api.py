@@ -48,6 +48,18 @@ def fetch_central_patients() -> List[Dict[str, Any]]:
         return []
 
 
+# In-memory overrides for Central Cloud patients edited in session
+_CLOUD_OVERRIDES: Dict[str, Dict[str, Any]] = {}
+
+def update_central_patient_override(patient_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    clean_id = str(patient_id).strip()
+    if not clean_id.startswith("cloud-") and clean_id.isdigit():
+        clean_id = f"cloud-{clean_id}"
+    current = _CLOUD_OVERRIDES.get(clean_id, {})
+    current.update(updates)
+    _CLOUD_OVERRIDES[clean_id] = current
+    return current
+
 def fetch_central_patients_normalized() -> List[Dict[str, Any]]:
     """
     Returns normalized patient records matching the EHR schema,
@@ -57,24 +69,28 @@ def fetch_central_patients_normalized() -> List[Dict[str, Any]]:
     normalized = []
     for p in raw_patients:
         p_id = p.get("patient_id")
-        name = (p.get("name") or f"Patient #{p_id}").strip()
+        cid = f"cloud-{p_id}"
+        ovr = _CLOUD_OVERRIDES.get(cid, {})
+
+        name = (ovr.get("name") or p.get("name") or f"Patient #{p_id}").strip()
         parts = [part for part in name.split() if part]
         initials = "".join([part[0].upper() for part in parts])[:2] if parts else "PT"
         
-        dob = str(p.get("dob") or "Unknown")
-        raw_phone = str(p.get("phone_number") or "").strip()
+        dob = str(ovr.get("birthDate") or p.get("dob") or "Unknown")
+        raw_phone = str(ovr.get("phone") or p.get("phone_number") or "").strip()
         clean_digits = re.sub(r'\D', '', raw_phone)
         if 7 <= len(clean_digits) <= 15:
             phone = raw_phone
         else:
             phone = "613-555-0192"
         
-        ohip = p.get("OHIP_code") or f"AWS-C{p_id}"
-        contact = p.get("contact_info") or "Ottawa Central Registry"
-        gender = (p.get("gender") or "Unspecified").capitalize()
+        ohip = ovr.get("ohip") or p.get("OHIP_code") or f"AWS-C{p_id}"
+        contact = ovr.get("contact") or p.get("contact_info") or f"{phone} · Ottawa Central Registry"
+        gender = (ovr.get("gender") or p.get("gender") or "Unspecified").capitalize()
+        allergies = ovr.get("allergies") or "NKDA"
         
         normalized.append({
-            "id": f"cloud-{p_id}",
+            "id": cid,
             "raw_id": p_id,
             "name": name,
             "initials": initials,
@@ -83,7 +99,7 @@ def fetch_central_patients_normalized() -> List[Dict[str, Any]]:
             "mrn": ohip,
             "gender": gender,
             "contact": contact,
-            "allergies": "NKDA",
+            "allergies": allergies,
             "source": "central_cloud",
             "source_label": "AWS App Runner (77 Tables)",
             "is_cloud": True

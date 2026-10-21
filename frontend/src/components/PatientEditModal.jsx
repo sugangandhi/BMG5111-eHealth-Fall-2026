@@ -99,18 +99,44 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
       };
 
       const res = await axios.put(`/api/patient/${patientId}`, payload);
-      const updated = res.data?.patient || { ...patient, ...payload, phone: payload.phone };
+      const raw = res.data?.patient;
+
+      const cleanName = typeof raw?.name === 'string'
+        ? raw.name
+        : (raw?.name?.text || formData.name.trim() || 'Patient');
+
+      const cleanPhone = formData.phone.trim();
+      const cleanAllergies = formData.allergies.trim() || 'NKDA';
+      const cleanCity = formData.city.trim() || 'Ottawa';
+      const cleanContact = `${cleanPhone} · ${cleanCity}`;
+
+      const updated = {
+        ...patient,
+        ...raw,
+        id: patientId,
+        name: cleanName,
+        phone: cleanPhone,
+        email: formData.email.trim(),
+        allergies: cleanAllergies,
+        contact: cleanContact,
+        address: {
+          line: [formData.addressLine.trim()],
+          city: cleanCity,
+          postalCode: formData.postalCode.trim(),
+          province: 'ON'
+        }
+      };
 
       setSuccessMsg('Patient details updated and synchronized with EHR chart!');
 
       // Save to localStorage so active session reflects change
       try {
-        localStorage.setItem('test_whatsapp_phone', payload.phone);
+        localStorage.setItem('test_whatsapp_phone', cleanPhone);
         const stored = localStorage.getItem('active_patient_context');
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed.id === patientId || parsed.name === formData.name) {
-            localStorage.setItem('active_patient_context', JSON.stringify({ ...parsed, phone: payload.phone, name: formData.name }));
+          if (parsed.id === patientId || parsed.name === cleanName) {
+            localStorage.setItem('active_patient_context', JSON.stringify({ ...parsed, phone: cleanPhone, name: cleanName }));
           }
         }
       } catch (err) {}
@@ -122,7 +148,7 @@ export default function PatientEditModal({ isOpen, onClose, patient, onPatientUp
 
       setTimeout(() => {
         onClose();
-      }, 1200);
+      }, 1000);
     } catch (err) {
       console.error("Save error:", err);
       setErrorMsg(err.response?.data?.detail || "Could not save patient updates. Please check the fields and try again.");

@@ -16,7 +16,7 @@ export default function AppleWatchModal({ isOpen, onClose, patient, onInsertToNo
   const [inviteStatus, setInviteStatus] = useState(null); // null | 'sending' | 'sent'
   const [syncStatusMsg, setSyncStatusMsg] = useState(null);
 
-  const patientName = patient?.name || patient?.patient_name || 'Selected Patient';
+  const patientName = typeof patient?.name === 'string' ? patient.name : (patient?.name?.text || patient?.patient_name || 'Selected Patient');
   const patientMrn = patient?.mrn || (patient?.id ? `MRN-${patient.id}` : 'MRN-4821');
   const patientPhone = patient?.phone || patient?.telecom?.[0]?.value || '+1 (613) 555-0199';
 

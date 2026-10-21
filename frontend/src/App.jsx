@@ -989,7 +989,9 @@ function App() {
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>{activePatient.name}</span>
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a' }}>
+                          {typeof activePatient.name === 'string' ? activePatient.name : (activePatient.name?.text || 'Patient')}
+                        </span>
                         <span style={{ fontSize: '11px', padding: '1px 8px', borderRadius: '4px', background: activePatient.allergies === 'NKDA' ? '#ecfdf5' : '#fef2f2', color: activePatient.allergies === 'NKDA' ? '#059669' : '#dc2626', fontWeight: '700', border: `1px solid ${activePatient.allergies === 'NKDA' ? '#a7f3d0' : '#fecaca'}` }}>
                           {activePatient.allergies === 'NKDA' ? 'NKDA' : `Allergies: ${activePatient.allergies}`}
                         </span>
@@ -1126,7 +1128,7 @@ function App() {
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {activePatient.name}
+                          {typeof activePatient.name === 'string' ? activePatient.name : (activePatient.name?.text || 'Patient')}
                         </span>
                         <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', background: activePatient.allergies === 'NKDA' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: activePatient.allergies === 'NKDA' ? '#10b981' : '#f87171', fontWeight: '700', flexShrink: 0 }}>
                           {activePatient.allergies === 'NKDA' ? 'NKDA' : 'Allergies'}
@@ -1406,8 +1408,24 @@ function App() {
         onClose={() => setIsEditPatientModalOpen(false)}
         patient={editPatientTarget || activePatient}
         onPatientUpdated={(updated) => {
-          setActivePatient(prev => ({ ...prev, ...updated, phone: updated.phone || prev.phone }));
-          setAllPatients(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+          const cleanName = typeof updated?.name === 'string' ? updated.name : (updated?.name?.text || 'Patient');
+          const cleanPhone = updated?.phone || '613-555-0192';
+          const cleanAllergies = typeof updated?.allergies === 'string' ? updated.allergies : (Array.isArray(updated?.allergies) ? updated.allergies.join(', ') : 'NKDA');
+          
+          setActivePatient(prev => ({ 
+            ...prev, 
+            ...updated, 
+            name: cleanName, 
+            phone: cleanPhone,
+            allergies: cleanAllergies 
+          }));
+          setAllPatients(prev => prev.map(p => p.id === updated.id ? { 
+            ...p, 
+            ...updated, 
+            name: cleanName, 
+            phone: cleanPhone,
+            allergies: cleanAllergies 
+          } : p));
         }}
       />
 

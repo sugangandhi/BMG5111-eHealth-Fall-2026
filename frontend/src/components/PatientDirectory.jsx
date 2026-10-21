@@ -302,7 +302,7 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {p.name}
+                        {typeof p.name === 'string' ? p.name : (p.name?.text || 'Patient')}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                         DOB: {p.birthDate} • {p.gender || 'Patient'}
@@ -597,7 +597,17 @@ export default function PatientDirectory({ onSelectPatient, onOpenWhatsApp }) {
           patient={editingPatient}
           onClose={() => setEditingPatient(null)}
           onPatientUpdated={(updated) => {
-            setPatients(prev => prev.map(pt => pt.id === updated.id ? { ...pt, ...updated, phone: updated.phone || pt.phone } : pt));
+            const cleanName = typeof updated?.name === 'string' ? updated.name : (updated?.name?.text || 'Patient');
+            const cleanPhone = updated?.phone || '613-555-0192';
+            const cleanAllergies = typeof updated?.allergies === 'string' ? updated.allergies : (Array.isArray(updated?.allergies) ? updated.allergies.join(', ') : 'NKDA');
+
+            setPatients(prev => prev.map(pt => pt.id === updated.id ? { 
+              ...pt, 
+              ...updated, 
+              name: cleanName, 
+              phone: cleanPhone, 
+              allergies: cleanAllergies 
+            } : pt));
             loadPatients();
           }}
         />
