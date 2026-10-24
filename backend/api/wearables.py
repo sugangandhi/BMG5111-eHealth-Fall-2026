@@ -195,13 +195,8 @@ async def get_patient_wearable_vitals(patient_id: str):
     resp_rate = resp_rate if resp_rate is not None else 15
     final_spo2 = spo2_val if spo2_val is not None else (98 if base_hr < 100 else 97)
 
-    # Live cardiac monitoring with organic beat-to-beat telemetry if Live Mode is ON
-    if is_live:
-        fluctuation = random.choice([-1, 0, 1, 2])
-        current_hr = max(55, min(130, int(base_hr) + fluctuation))
-    else:
-        current_hr = int(base_hr)
-
+    # Always display exact accurate heart rate from the patient's Apple Watch with zero fake variance
+    current_hr = int(base_hr)
     is_worn = True
 
     # Derived Blood Pressure estimation matching clinical scenarios
