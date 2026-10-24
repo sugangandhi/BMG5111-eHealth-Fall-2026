@@ -95,7 +95,7 @@ async def get_patient_wearable_vitals(patient_id: str):
     live_config = _doctor_live_settings.get(patient_id, {"enabled": False, "alert_high": 105, "alert_low": 50})
     is_live = live_config.get("enabled", False)
 
-    # 1. Attempt query to AWS MySQL wearable_vitals
+    # 1. Attempt query to AWS MySQL wearable_vitals (ORDER BY vital_id DESC for newest records)
     records: List[Dict[str, Any]] = []
     try:
         query_payload = {
@@ -104,8 +104,8 @@ async def get_patient_wearable_vitals(patient_id: str):
                        sleep, timestamp, recorded_on, respiratory_rate, stress_score, annotation
                 FROM wearable_vitals 
                 WHERE patient_id = :pid 
-                ORDER BY recorded_on DESC 
-                LIMIT 5
+                ORDER BY vital_id DESC 
+                LIMIT 10
             """,
             "replacements": {"pid": num_id}
         }
@@ -124,8 +124,8 @@ async def get_patient_wearable_vitals(patient_id: str):
                            sleep, timestamp, recorded_on, respiratory_rate, stress_score, annotation
                     FROM wearable_vitals 
                     WHERE patient_id = 391 
-                    ORDER BY recorded_on DESC 
-                    LIMIT 5
+                    ORDER BY vital_id DESC 
+                    LIMIT 10
                 """,
                 "replacements": {}
             }
@@ -135,25 +135,44 @@ async def get_patient_wearable_vitals(patient_id: str):
         except Exception:
             pass
 
-    # Extract primary record or construct standard baseline
-    primary = records[0] if records else {}
+    # Extract latest non-null values across recent records so single-metric updates (e.g. Heart Rate)
+    # preserve historical steps, calories, and sleep without losing context.
+    base_hr = None
+    resting_hr = None
+    steps = None
+    calories = None
+    sleep = None
+    resp_rate = None
+    latest_rec_on = None
 
-    base_hr = primary.get("heart_rate") or 74
-    resting_hr = primary.get("resting_heart_rate") or 62
-    steps = primary.get("steps") or 5840
-    calories = primary.get("calories") or 430
-    sleep = float(primary.get("sleep") or 7.2)
-    resp_rate = primary.get("respiratory_rate") or 15
+    for r in records:
+        if base_hr is None and r.get("heart_rate") is not None:
+            base_hr = r["heart_rate"]
+        if resting_hr is None and r.get("resting_heart_rate") is not None:
+            resting_hr = r["resting_heart_rate"]
+        if steps is None and r.get("steps") is not None:
+            steps = r["steps"]
+        if calories is None and r.get("calories") is not None:
+            calories = r["calories"]
+        if sleep is None and r.get("sleep") is not None:
+            try:
+                sleep = float(r["sleep"])
+            except (ValueError, TypeError):
+                pass
+        if resp_rate is None and r.get("respiratory_rate") is not None:
+            resp_rate = r["respiratory_rate"]
+        if latest_rec_on is None and r.get("recorded_on"):
+            latest_rec_on = r["recorded_on"]
 
-    # If Doctor has enabled "Live Telemetry Mode", simulate realistic micro-fluctuations (BPM variance)
-    if is_live:
-        # Organic live beat variance (-2 to +3 BPM)
-        fluctuation = random.choice([-2, -1, 0, 1, 2, 3])
-        current_hr = max(55, min(125, int(base_hr) + fluctuation))
-        steps = int(steps) + random.choice([0, 1, 3, 5])
-        calories = int(calories) + random.choice([0, 1])
-    else:
-        current_hr = int(base_hr)
+    base_hr = base_hr if base_hr is not None else 74
+    resting_hr = resting_hr if resting_hr is not None else 64
+    steps = steps if steps is not None else 5840
+    calories = calories if calories is not None else 430
+    sleep = sleep if sleep is not None else 7.2
+    resp_rate = resp_rate if resp_rate is not None else 15
+
+    # Always preserve exact accurate heart rate from the patient's Apple Watch
+    current_hr = int(base_hr)
 
     # Derived Blood Pressure estimation matching clinical scenarios
     if current_hr > 95:
