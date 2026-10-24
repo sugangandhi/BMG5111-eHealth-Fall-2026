@@ -143,6 +143,8 @@ async def get_patient_wearable_vitals(patient_id: str):
     calories = None
     sleep = None
     resp_rate = None
+    spo2_val = None
+    bp_override = None
     latest_rec_on = None
 
     for r in records:
@@ -164,12 +166,31 @@ async def get_patient_wearable_vitals(patient_id: str):
         if latest_rec_on is None and r.get("recorded_on"):
             latest_rec_on = r["recorded_on"]
 
+        # Parse potential SpO2 or Blood Pressure stored in annotation
+        ann = r.get("annotation")
+        if ann and (spo2_val is None or bp_override is None):
+            try:
+                import json
+                if isinstance(ann, str) and ann.strip().startswith("{"):
+                    meta = json.loads(ann)
+                    if spo2_val is None and "spo2" in meta:
+                        spo2_val = int(meta["spo2"])
+                    if bp_override is None and "blood_pressure" in meta:
+                        bp_override = str(meta["blood_pressure"])
+                elif isinstance(ann, str):
+                    clean_str = ann.replace("%", "").strip()
+                    if clean_str.isdigit() and 70 <= int(clean_str) <= 100:
+                        spo2_val = int(clean_str)
+            except Exception:
+                pass
+
     base_hr = base_hr if base_hr is not None else 74
     resting_hr = resting_hr if resting_hr is not None else 64
     steps = steps if steps is not None else 5840
     calories = calories if calories is not None else 430
     sleep = sleep if sleep is not None else 7.2
     resp_rate = resp_rate if resp_rate is not None else 15
+    final_spo2 = spo2_val if spo2_val is not None else (98 if base_hr < 100 else 97)
 
     # Check if watch is currently off-wrist (0 BPM indicates optical sensor is not on skin)
     is_worn = (base_hr > 0)
@@ -184,7 +205,7 @@ async def get_patient_wearable_vitals(patient_id: str):
             systolic = 120 + random.randint(-4, 4)
             diastolic = 80 + random.randint(-3, 3)
 
-        bp_string = f"{systolic}/{diastolic}"
+        bp_string = bp_override or f"{systolic}/{diastolic}"
 
         # Determine BP Stage
         if systolic >= 140 or diastolic >= 90:
@@ -253,7 +274,7 @@ async def get_patient_wearable_vitals(patient_id: str):
         "sleep_hours": round(sleep, 1),
         "sleep_score": 84 if sleep >= 7 else (72 if sleep >= 6 else 58),
         "sleep_quality": "Optimal" if sleep >= 7 else ("Fair" if sleep >= 6 else "Insufficient"),
-        "spo2": 98 if current_hr < 100 else 97,
+        "spo2": final_spo2,
         "respiratory_rate": resp_rate,
         "device_info": {
             "model": "Apple Watch Series 9",
