@@ -133,7 +133,7 @@ export default function AppleWatchVitalsCard({
   };
 
   const currentPatientName = patient?.name || allPatients.find(p => p.id === selectedPatientId)?.name || 'Active Patient';
-  const pulseDuration = vitals?.heart_rate ? (60 / vitals.heart_rate) : 0.8;
+  const pulseDuration = (vitals?.heart_rate && vitals.heart_rate > 0) ? (60 / vitals.heart_rate) : 1.0;
 
   return (
     <div 
@@ -368,10 +368,12 @@ export default function AppleWatchVitalsCard({
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', margin: '2px 0' }}>
-            <span style={{ fontSize: '26px', fontWeight: '900', color: '#ffffff' }}>
-              {vitals?.heart_rate || 74}
+            <span style={{ fontSize: '26px', fontWeight: '900', color: (vitals?.heart_rate && vitals.heart_rate > 0) ? '#ffffff' : '#94a3b8' }}>
+              {(vitals?.heart_rate && vitals.heart_rate > 0) ? vitals.heart_rate : '--'}
             </span>
-            <span style={{ fontSize: '12px', color: '#fda4af', fontWeight: '700' }}>BPM</span>
+            <span style={{ fontSize: '12px', color: (vitals?.heart_rate && vitals.heart_rate > 0) ? '#fda4af' : '#94a3b8', fontWeight: '700' }}>
+              {(vitals?.heart_rate && vitals.heart_rate > 0) ? 'BPM' : 'Off-Wrist'}
+            </span>
           </div>
           <span style={{ fontSize: '11px', color: '#94a3b8' }}>
             Resting: <strong style={{ color: '#f8fafc' }}>{vitals?.resting_heart_rate || 62} BPM</strong>

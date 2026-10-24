@@ -171,48 +171,62 @@ async def get_patient_wearable_vitals(patient_id: str):
     sleep = sleep if sleep is not None else 7.2
     resp_rate = resp_rate if resp_rate is not None else 15
 
-    # Always preserve exact accurate heart rate from the patient's Apple Watch
-    current_hr = int(base_hr)
+    # Check if watch is currently off-wrist (0 BPM indicates optical sensor is not on skin)
+    is_worn = (base_hr > 0)
+    current_hr = int(base_hr) if is_worn else 0
 
-    # Derived Blood Pressure estimation matching clinical scenarios
-    if current_hr > 95:
-        systolic = 138 + random.randint(0, 8)
-        diastolic = 88 + random.randint(0, 4)
+    # Derived Blood Pressure estimation (only active when watch is worn on wrist)
+    if is_worn:
+        if current_hr > 95:
+            systolic = 138 + random.randint(0, 8)
+            diastolic = 88 + random.randint(0, 4)
+        else:
+            systolic = 120 + random.randint(-4, 4)
+            diastolic = 80 + random.randint(-3, 3)
+
+        bp_string = f"{systolic}/{diastolic}"
+
+        # Determine BP Stage
+        if systolic >= 140 or diastolic >= 90:
+            bp_status = "Stage 2 Hypertension"
+            bp_severity = "high"
+        elif systolic >= 130 or diastolic >= 80:
+            bp_status = "Stage 1 Hypertension"
+            bp_severity = "warning"
+        elif systolic >= 120 and diastolic < 80:
+            bp_status = "Elevated"
+            bp_severity = "caution"
+        else:
+            bp_status = "Optimal"
+            bp_severity = "normal"
     else:
-        systolic = 120 + random.randint(-4, 4)
-        diastolic = 80 + random.randint(-3, 3)
-
-    bp_string = f"{systolic}/{diastolic}"
-
-    # Determine BP Stage
-    if systolic >= 140 or diastolic >= 90:
-        bp_status = "Stage 2 Hypertension"
-        bp_severity = "high"
-    elif systolic >= 130 or diastolic >= 80:
-        bp_status = "Stage 1 Hypertension"
-        bp_severity = "warning"
-    elif systolic >= 120 and diastolic < 80:
-        bp_status = "Elevated"
-        bp_severity = "caution"
-    else:
-        bp_status = "Optimal"
+        systolic = None
+        diastolic = None
+        bp_string = "--/--"
+        bp_status = "Device Off-Wrist"
         bp_severity = "normal"
 
     # Clinical Alert Trigger
     alert: Optional[Dict[str, Any]] = None
-    if current_hr >= live_config.get("alert_high", 105):
+    if not is_worn:
+        alert = {
+            "type": "device_off_wrist",
+            "level": "info",
+            "message": "Apple Watch is currently off-wrist. Wear your watch to resume live pulse monitoring."
+        }
+    elif current_hr >= live_config.get("alert_high", 105):
         alert = {
             "type": "tachycardia",
             "level": "warning",
             "message": f"Elevated Heart Rate detected ({current_hr} BPM). Sustained above doctor threshold ({live_config.get('alert_high', 105)} BPM)."
         }
-    elif current_hr <= live_config.get("alert_low", 50):
+    elif current_hr <= live_config.get("alert_low", 50) and current_hr > 0:
         alert = {
             "type": "bradycardia",
             "level": "warning",
             "message": f"Low Heart Rate detected ({current_hr} BPM). Below threshold ({live_config.get('alert_low', 50)} BPM)."
         }
-    elif systolic >= 140:
+    elif systolic and systolic >= 140:
         alert = {
             "type": "hypertension",
             "level": "caution",
@@ -245,8 +259,9 @@ async def get_patient_wearable_vitals(patient_id: str):
             "model": "Apple Watch Series 9",
             "os": "watchOS 11.2",
             "battery_level": 84,
-            "connection_state": "Connected" if is_live else "Idle",
-            "last_synced_at": now_iso
+            "connection_state": "Off-Wrist (Not Worn)" if not is_worn else ("Streaming Live" if is_live else "Connected"),
+            "is_worn": is_worn,
+            "last_synced_at": latest_rec_on or now_iso
         },
         "alert": alert,
         "live_settings": live_config,
