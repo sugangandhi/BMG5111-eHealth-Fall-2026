@@ -177,7 +177,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               const Expanded(
                 child: Text(
                   "Need doctor advice? Chat with Clinic Care Team on WhatsApp",
-                  style: TextStyle(fontSize: 12, fontWeight: '600', color: Color(0xFF166534)),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
                 ),
               ),
               ElevatedButton(
@@ -190,7 +190,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   minimumSize: const Size(60, 30),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text("WhatsApp", style: TextStyle(fontSize: 11, fontWeight: '700')),
+                child: const Text("WhatsApp", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -248,7 +248,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                   isUser ? "You" : "PrimeCare AI",
                                   style: TextStyle(
                                     fontSize: 11,
-                                    fontWeight: '700',
+                                    fontWeight: FontWeight.w700,
                                     color: isUser ? Colors.white70 : Colors.blue.shade700,
                                   ),
                                 ),
@@ -374,7 +374,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 const SizedBox(height: 16),
                 const Text(
                   "Ask about your wellness data",
-                  style: TextStyle(fontSize: 20, fontWeight: '700'),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),

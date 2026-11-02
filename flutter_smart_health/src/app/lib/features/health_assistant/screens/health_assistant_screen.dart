@@ -80,7 +80,7 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
             const SizedBox(height: 20),
             const Text(
               "Clinic WhatsApp Integration",
-              style: TextStyle(fontSize: 20, fontWeight: '700'),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             const Text(
@@ -121,7 +121,7 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
       appBar: AppBar(
         title: Text(
           isInsideModule ? _activeModule!.label : 'Choose an AI tool',
-          style: const TextStyle(fontWeight: '700', fontSize: 18),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         leading: isInsideModule
             ? IconButton(

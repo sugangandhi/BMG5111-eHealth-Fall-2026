@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+import '../../../l10n/l10n.dart';
+import '../presentation/dashboard_styles.dart';
+import '../widgets/dashboard_featured_card.dart';
+import '../widgets/dashboard_grid_card.dart';
+import '../widgets/dashboard_grid_row.dart';
+import '../widgets/dashboard_section_header.dart';
+import '../widgets/dashboard_settings_link.dart';
+import '../widgets/dashboard_welcome_header.dart';
 
 class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
@@ -10,275 +18,138 @@ class PatientDashboard extends StatefulWidget {
 }
 
 class _PatientDashboardState extends State<PatientDashboard> {
-  String _patientId = "1";
-  String _patientName = "Sugan";
+  String? _username;
 
   @override
   void initState() {
     super.initState();
-    _loadUser();
+    _loadUsername();
   }
 
-  Future<void> _loadUser() async {
+  Future<void> _loadUsername() async {
     final prefs = await SharedPreferences.getInstance();
-    final pid = prefs.getInt("patient_id") ?? prefs.getString("patient_id");
-    final name = prefs.getString("patient_name");
-    if (mounted) {
-      setState(() {
-        if (pid != null) _patientId = pid.toString();
-        if (name != null) _patientName = name;
-      });
-    }
+    final name = prefs.getString('patient_username');
+    if (mounted) setState(() => _username = name);
   }
 
-  Future<void> _launchWhatsApp() async {
-    final url = Uri.parse(
-      "https://wa.me/16132616383?text=Hi%20Doctor,%20this%20is%20$_patientName%20(ID:%20$_patientId).%20I'm%20reaching%20out%20via%20Smart%20Health%20Mobile.",
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      await launchUrl(url);
-    }
-  }
+  void _open(String routeName) => Navigator.pushNamed(context, routeName);
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final username = _username;
+    final greeting = username != null && username.isNotEmpty
+        ? l10n.dashboardHelloUser(username)
+        : l10n.dashboardWelcome;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Smart Health Dashboard", style: TextStyle(fontWeight: '700')),
+        title: Text(l10n.patientDashboardTitle),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.pushNamed(context, "/settings"),
+            icon: const Icon(Icons.emergency_outlined),
+            tooltip: l10n.emergencySosTitle,
+            onPressed: () => _open('/emergency'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.person_outlined),
+            tooltip: l10n.profileTitle,
+            onPressed: () => _open('/profile'),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: DashboardStyles.bodyPadding,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Patient Welcome Card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Theme.of(context).primaryColor, Colors.blue.shade700],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).primaryColor.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+            DashboardWelcomeHeader(
+              title: greeting,
+              subtitle: l10n.dashboardPrompt,
+            ),
+            const SizedBox(height: 28),
+            DashboardSectionHeader(title: l10n.healthMonitoringSection),
+            DashboardGridRow(
+              left: DashboardGridCard(
+                icon: Icons.watch_outlined,
+                title: l10n.wearableVitalsTitle,
+                subtitle: l10n.wearableVitalsSubtitle,
+                onTap: () => _open('/vitals'),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Welcome back,",
-                            style: TextStyle(color: Colors.white70, fontSize: 13),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _patientName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: 'bold',
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          "ID: #$_patientId",
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: '700'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.apple, color: Colors.white, size: 20),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            "Apple HealthKit & Central Cloud Synced",
-                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: '600'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              right: DashboardGridCard(
+                icon: Icons.history,
+                title: l10n.vitalsHistoryTitle,
+                subtitle: l10n.vitalsHistorySubtitle,
+                onTap: () => _open('/history'),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // WhatsApp Direct Action Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.green.shade300, width: 1.2),
+            const SizedBox(height: 14),
+            DashboardGridRow(
+              left: DashboardGridCard(
+                icon: Icons.insights,
+                title: l10n.healthInsightsTitle,
+                subtitle: l10n.healthInsightsSubtitle,
+                onTap: () => _open('/insights'),
               ),
-              color: const Color(0xFFF0FDF4),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _launchWhatsApp,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF25D366),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.chat, color: Colors.white, size: 24),
-                      ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Chat with Clinic on WhatsApp",
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: '700',
-                                color: Color(0xFF166534),
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              "Instant AI triage & direct connect with Dr. Patel",
-                              style: TextStyle(fontSize: 12, color: Color(0xFF15803D)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF166534)),
-                    ],
-                  ),
-                ),
+              right: DashboardGridCard(
+                icon: Icons.trending_up,
+                title: l10n.trendAnalysisTitle,
+                subtitle: l10n.trendAnalysisSubtitle,
+                onTap: () => _open('/trends'),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // Main Action Grid
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.3,
-              children: [
-                _buildGridCard(
-                  context,
-                  title: "AI Assistant",
-                  subtitle: "Chat & Telemetry",
-                  icon: Icons.smart_toy_rounded,
-                  color: Colors.purple.shade600,
-                  bgColor: Colors.purple.shade50,
-                  route: "/assistant",
-                ),
-                _buildGridCard(
-                  context,
-                  title: "Vitals & Apple Watch",
-                  subtitle: "Live Telemetry",
-                  icon: Icons.favorite_rounded,
-                  color: Colors.red.shade600,
-                  bgColor: Colors.red.shade50,
-                  route: "/vitals",
-                ),
-                _buildGridCard(
-                  context,
-                  title: "Medications",
-                  subtitle: "Prescription Log",
-                  icon: Icons.medication_rounded,
-                  color: Colors.blue.shade600,
-                  bgColor: Colors.blue.shade50,
-                  route: "/medications",
-                ),
-                _buildGridCard(
-                  context,
-                  title: "Urgent Care",
-                  subtitle: "Clinics & Wait Times",
-                  icon: Icons.local_hospital_rounded,
-                  color: Colors.orange.shade700,
-                  bgColor: Colors.orange.shade50,
-                  route: "/urgent-care",
-                ),
-              ],
+            const SizedBox(height: 28),
+            DashboardSectionHeader(title: l10n.healthManagementSection),
+            DashboardGridRow(
+              left: DashboardGridCard(
+                icon: Icons.medication_outlined,
+                title: l10n.medicationsTitle,
+                subtitle: l10n.medicationsSubtitle,
+                onTap: () => _open('/medications'),
+              ),
+              right: DashboardGridCard(
+                icon: Icons.sick_outlined,
+                title: l10n.symptomLogTitle,
+                subtitle: l10n.symptomLogSubtitle,
+                onTap: () => _open('/symptoms'),
+              ),
+            ),
+            const SizedBox(height: 14),
+            DashboardGridRow(
+              left: DashboardGridCard(
+                icon: Icons.flag_outlined,
+                title: l10n.healthGoalsTitle,
+                subtitle: l10n.healthGoalsSubtitle,
+                onTap: () => _open('/goals'),
+              ),
+              right: DashboardGridCard(
+                icon: Icons.monitor_weight_outlined,
+                title: l10n.bmiCalculatorTitle,
+                subtitle: l10n.bmiCalculatorSubtitle,
+                onTap: () => _open('/bmi'),
+              ),
+            ),
+            const SizedBox(height: 28),
+            DashboardFeaturedCard(
+              icon: Icons.local_hospital_outlined,
+              title: 'Urgent Care',
+              subtitle:
+                  'Check in, view queue status, and send condition updates.',
+              onTap: () => _open('/urgent-care'),
+            ),
+            const SizedBox(height: 20),
+            DashboardFeaturedCard(
+              icon: Icons.smart_toy_outlined,
+              title: l10n.aiHealthAssistantTitle,
+              subtitle: l10n.aiHealthAssistantSubtitle,
+              onTap: () => _open('/assistant'),
+            ),
+            const SizedBox(height: 20),
+            DashboardSettingsLink(
+              title: l10n.settingsTitle,
+              onTap: () => _open('/settings'),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGridCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required Color bgColor,
-    required String route,
-  }) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.pushNamed(context, route),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10)),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: '700', fontSize: 14)),
-                  Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
-                ],
-              ),
-            ],
-          ),
         ),
       ),
     );
