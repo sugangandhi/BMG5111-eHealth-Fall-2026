@@ -48,6 +48,88 @@ class _UrgentCareScreenState extends State<UrgentCareScreen> {
   bool _urgentMessage = false;
   Timer? _pollTimer;
 
+  void _triggerNotification(String title, String body, {bool isUrgent = false}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: isUrgent ? const Color(0xFFDC2626) : const Color(0xFF1E293B),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 5),
+        content: Row(
+          children: [
+            Icon(isUrgent ? Icons.notifications_active : Icons.notifications, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                  const SizedBox(height: 2),
+                  Text(body, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _simulateQueueAdvance() {
+    final status = _status;
+    if (status == null) return;
+
+    if (status.patientsAhead > 1) {
+      final updated = UrgentCarePatientStatus(
+        localPatientId: status.localPatientId,
+        patientId: status.patientId,
+        queueNumber: status.queueNumber,
+        status: 'Waiting',
+        patientsAhead: 1,
+        estimatedWaitRange: '5-10 minutes',
+        checkedInAt: status.checkedInAt,
+        serverTime: DateTime.now().toIso8601String(),
+        submittedInformation: status.submittedInformation,
+      );
+      setState(() {
+        _status = updated;
+      });
+      _triggerNotification(
+        "Urgent Care Queue Update",
+        "Ticket #${status.queueNumber}: 1 patient ahead of you! Estimated wait: 5-10 minutes. Please stay close to the triage waiting room.",
+      );
+    } else if (status.patientsAhead == 1) {
+      final updated = UrgentCarePatientStatus(
+        localPatientId: status.localPatientId,
+        patientId: status.patientId,
+        queueNumber: status.queueNumber,
+        status: 'Called',
+        patientsAhead: 0,
+        estimatedWaitRange: 'Immediate',
+        checkedInAt: status.checkedInAt,
+        serverTime: DateTime.now().toIso8601String(),
+        submittedInformation: status.submittedInformation,
+      );
+      setState(() {
+        _status = updated;
+        _urgentMessage = true;
+      });
+      _triggerNotification(
+        "🚨 TRIAGE DESK ALERT: YOU ARE CALLED",
+        "Ticket #${status.queueNumber}: Please report immediately to Triage Room 1. Clinician is ready.",
+        isUrgent: true,
+      );
+    } else {
+      _triggerNotification(
+        "Urgent Care Status",
+        "You are currently called and being seen by the triage clinician.",
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -127,6 +209,10 @@ class _UrgentCareScreenState extends State<UrgentCareScreen> {
         _tab = _UrgentCareTab.status;
         _message = result.message;
       });
+      _triggerNotification(
+        "Check-In Confirmed",
+        "Ticket #${result.patient.queueNumber ?? ''} assigned. Estimated wait: ${result.patient.estimatedWaitRange}.",
+      );
       _startPolling();
     } catch (error) {
       setState(() => _message = 'Check-in failed: $error');
@@ -465,16 +551,28 @@ class _UrgentCareScreenState extends State<UrgentCareScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        ElevatedButton.icon(
-          onPressed: _refreshing ? null : () => _refreshStatus(),
-          icon: _refreshing
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.refresh),
-          label: Text(_refreshing ? 'Refreshing...' : 'Refresh status'),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _refreshing ? null : () => _refreshStatus(),
+                icon: _refreshing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                label: Text(_refreshing ? 'Refreshing...' : 'Refresh status'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: _simulateQueueAdvance,
+              icon: const Icon(Icons.fast_forward, size: 18, color: Color(0xFF6366F1)),
+              label: const Text('Simulate Advance', style: TextStyle(color: Color(0xFF6366F1))),
+            ),
+          ],
         ),
       ],
     );

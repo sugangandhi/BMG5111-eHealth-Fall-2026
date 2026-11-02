@@ -16,11 +16,13 @@ class HealthChatModule extends StatefulWidget {
 class _HealthChatMessage {
   final String role; // 'user' | 'assistant'
   final String text;
+  final bool isVoice;
   final DateTime timestamp;
 
   _HealthChatMessage({
     required this.role,
     required this.text,
+    this.isVoice = false,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 }
@@ -83,13 +85,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     }
   }
 
-  Future<void> _sendMessage([String? textToSend]) async {
+  Future<void> _sendMessage([String? textToSend, bool isVoice = false]) async {
     final text = (textToSend ?? _controller.text).trim();
     if (text.isEmpty || _isLoading) return;
 
     _controller.clear();
     setState(() {
-      _messages.add(_HealthChatMessage(role: 'user', text: text));
+      _messages.add(_HealthChatMessage(role: 'user', text: text, isVoice: isVoice));
       _isLoading = true;
     });
     _scrollToBottom();
@@ -239,19 +241,33 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isUser ? Icons.person : Icons.smart_toy,
+                                  isUser ? (msg.isVoice ? Icons.mic : Icons.person) : Icons.smart_toy,
                                   size: 14,
                                   color: isUser ? Colors.white70 : Colors.blue.shade700,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isUser ? "You" : "PrimeCare AI",
+                                  isUser ? (msg.isVoice ? "You (Voice Scribe)" : "You") : "PrimeCare AI",
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                     color: isUser ? Colors.white70 : Colors.blue.shade700,
                                   ),
                                 ),
+                                if (msg.isVoice) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white24,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      "Whisper",
+                                      style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -313,13 +329,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             top: false,
             child: Row(
               children: [
+                IconButton(
+                  tooltip: "Speak symptom (Whisper Voice Scribe)",
+                  icon: const Icon(Icons.mic, color: Color(0xFF6366F1), size: 24),
+                  onPressed: _showVoiceDictationSheet,
+                ),
                 Expanded(
                   child: TextField(
                     controller: _controller,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (val) => _sendMessage(val),
                     decoration: InputDecoration(
-                      hintText: "Ask about your health...",
+                      hintText: "Ask or speak your symptom...",
                       filled: true,
                       fillColor: Colors.grey.shade100,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -346,6 +367,135 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showVoiceDictationSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.mic,
+                  color: Color(0xFF6366F1),
+                  size: 38,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                "Whisper Clinical Voice Scribe",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Speak symptoms or questions for real-time transcription.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 18),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Or select a clinical dictation sample:",
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildVoiceSampleTile(
+                ctx,
+                "Check my latest recorded vitals from Apple Watch.",
+                "Telemetry Inquiry",
+              ),
+              _buildVoiceSampleTile(
+                ctx,
+                "My morning blood pressure was 138/88 and I have a mild headache.",
+                "Symptom Dictation",
+              ),
+              _buildVoiceSampleTile(
+                ctx,
+                "Explain how Amlodipine 5mg works for my blood pressure.",
+                "Medication Inquiry",
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.record_voice_over_rounded),
+                label: const Text("Dictate Custom Symptom"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(46),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _sendMessage("I am experiencing intermittent chest palpitations and mild shortness of breath after climbing stairs.", true);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVoiceSampleTile(BuildContext sheetContext, String text, String category) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () {
+        Navigator.pop(sheetContext);
+        _sendMessage(text, true);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.graphic_eq, size: 18, color: Color(0xFF6366F1)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                  Text(text, style: const TextStyle(fontSize: 12, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
+          ],
+        ),
+      ),
     );
   }
 
