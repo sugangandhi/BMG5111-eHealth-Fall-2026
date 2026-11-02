@@ -36,8 +36,8 @@ def get_settings() -> BackendSettings:
             "https://tysnx3mi2s.us-east-1.awsapprunner.com",
         ).rstrip("/"),
         assistant_provider=os.getenv("ASSISTANT_PROVIDER", "wearable_langgraph"),
-        ai_model_provider=os.getenv("AI_MODEL_PROVIDER", "ollama"),
-        ai_model_name=os.getenv("AI_MODEL_NAME", os.getenv("OLLAMA_MODEL", "llama3.2")),
+        ai_model_provider=os.getenv("AI_MODEL_PROVIDER", "openai" if os.getenv("OPENAI_API_KEY") else "ollama"),
+        ai_model_name=os.getenv("AI_MODEL_NAME", os.getenv("OPENAI_MODEL", "gpt-4o" if os.getenv("OPENAI_API_KEY") else "llama3.2")),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434"),
         report_interpreter_max_context_chars=int(
             os.getenv("REPORT_INTERPRETER_MAX_CONTEXT_CHARS", "12000")

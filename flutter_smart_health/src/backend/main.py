@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+_env_file = Path(__file__).resolve().parents[3] / ".env"
+load_dotenv(_env_file)
+load_dotenv()
+
 from time import perf_counter
 
 from fastapi import FastAPI
