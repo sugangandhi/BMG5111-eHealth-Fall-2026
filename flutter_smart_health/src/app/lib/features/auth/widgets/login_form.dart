@@ -178,6 +178,39 @@ class LoginForm extends StatelessWidget {
                     : Text(l10n.signInButton, style: AppTypography.button),
               ),
             ),
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: () {
+                emailController.text = "normal@demo.com";
+                passwordController.text = "123456";
+                onIdentityChanged("Patient");
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.key_rounded, size: 16, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Demo Patient: normal@demo.com / 123456 (Tap to fill)",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

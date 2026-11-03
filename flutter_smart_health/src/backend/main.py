@@ -80,6 +80,7 @@ def create_app() -> FastAPI:
             response.status_code,
             elapsed_ms,
         )
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
         return response
 
     app.add_event_handler("startup", log_startup_ready)

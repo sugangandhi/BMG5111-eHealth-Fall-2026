@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
   static const String aiProvider = String.fromEnvironment(
     'AI_PROVIDER',
@@ -31,10 +33,17 @@ class ApiConfig {
     defaultValue: ollamaBaseUrl,
   );
 
-  static const String backendBaseUrl = String.fromEnvironment(
-    'BACKEND_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8080',
-  );
+  static String get backendBaseUrl {
+    const defined = String.fromEnvironment('BACKEND_BASE_URL');
+    if (defined.isNotEmpty) return defined;
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      if (host.isNotEmpty) {
+        return 'http://$host:8080';
+      }
+    }
+    return 'http://127.0.0.1:8080';
+  }
 
   static const String ehospitalBaseUrl = String.fromEnvironment(
     'EHOSPITAL_BASE_URL',

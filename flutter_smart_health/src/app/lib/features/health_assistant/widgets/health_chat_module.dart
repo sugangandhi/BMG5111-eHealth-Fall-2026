@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../config/api_config.dart';
 import '../../../core/services/voice_scribe_service.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/backend_api_service.dart';
@@ -550,7 +551,7 @@ class _VoiceDictationSheetContentState extends State<_VoiceDictationSheetContent
 
         try {
           final res = await http.post(
-            Uri.parse("http://127.0.0.1:8080/api/assistant/voice-transcribe"),
+            Uri.parse("${ApiConfig.backendBaseUrl}/api/assistant/voice-transcribe"),
             headers: {"Content-Type": "application/json"},
             body: jsonEncode({"audio_base64": base64Audio}),
           );
