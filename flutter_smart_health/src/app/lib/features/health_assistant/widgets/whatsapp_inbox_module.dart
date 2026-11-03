@@ -23,6 +23,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
   String _speechBufferBeforeListening = "";
   int _patientId = 391;
   String _patientName = "Patient";
+  final Set<int> _expandedSoapMessageIds = {};
 
   @override
   void initState() {
@@ -480,6 +481,40 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                                     ),
                                   ),
                                 ],
+                                if (msg['ctas_label'] != null) ...[
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 5,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blueGrey.shade50,
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: Colors.blueGrey.shade200),
+                                        ),
+                                        child: Text(
+                                          "${msg['ctas_label']} • ${((msg['confidence_score'] ?? 0.95) * 100).toInt()}% Calibrated Confidence",
+                                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800),
+                                        ),
+                                      ),
+                                      if (msg['uncertainty_flag'] == true)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFEF3C7),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: const Color(0xFFF59E0B)),
+                                          ),
+                                          child: const Text(
+                                            "Atypical / Review Flagged",
+                                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                                 const SizedBox(height: 6),
                               ],
 
@@ -554,6 +589,105 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                                       onPressed: () => _handleActionClick(actId, actLabel),
                                     );
                                   }).toList(),
+                                ),
+                              ],
+
+                              // Follow-up clinical exploration chips (SOCRATES)
+                              if ((msg['follow_up_chips'] as List<dynamic>?)?.isNotEmpty == true) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  "Clinical Exploration / Quick Details:",
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade700),
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 5,
+                                  runSpacing: 5,
+                                  children: ((msg['follow_up_chips'] as List<dynamic>?) ?? []).map<Widget>((chip) {
+                                    return ActionChip(
+                                      label: Text(chip.toString(), style: const TextStyle(fontSize: 10, color: Color(0xFF0F766E))),
+                                      backgroundColor: const Color(0xFFF0FDFA),
+                                      side: BorderSide(color: const Color(0xFF0D9488).withValues(alpha: 0.3)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () => _sendMessage(chip.toString()),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+
+                              // Clinician SOAP Triage Note (Collapsible card)
+                              if ((msg['soap_note'] as Map<String, dynamic>?)?['formatted_summary']?.toString().isNotEmpty == true) ...[
+                                const SizedBox(height: 8),
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      final id = msg['id'] as int? ?? 0;
+                                      if (_expandedSoapMessageIds.contains(id)) {
+                                        _expandedSoapMessageIds.remove(id);
+                                      } else {
+                                        _expandedSoapMessageIds.add(id);
+                                      }
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.description_outlined, size: 13, color: Color(0xFF475569)),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                "Clinician SOAP Triage Note (Dr. Patel's Desk)",
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.blueGrey.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                            Icon(
+                                              _expandedSoapMessageIds.contains(msg['id'])
+                                                  ? Icons.expand_less
+                                                  : Icons.expand_more,
+                                              size: 14,
+                                              color: const Color(0xFF475569),
+                                            ),
+                                          ],
+                                        ),
+                                        if (_expandedSoapMessageIds.contains(msg['id'])) ...[
+                                          const SizedBox(height: 6),
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            child: SelectableText(
+                                              (msg['soap_note'] as Map<String, dynamic>?)!['formatted_summary']!.toString(),
+                                              style: const TextStyle(
+                                                fontFamily: 'monospace',
+                                                fontSize: 9.5,
+                                                color: Color(0xFF1E293B),
+                                                height: 1.35,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
 

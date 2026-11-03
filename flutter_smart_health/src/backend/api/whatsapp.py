@@ -117,141 +117,11 @@ def book_appointment_in_central_cloud(patient_id: int, reason: str = "Priority C
 def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str, Any]) -> Dict[str, Any]:
     """
     Hospital clinical triage decision and action engine.
-    Assesses patient message and vitals for emergency red flags (Acuity 1/2),
-    urgent symptoms (Acuity 3), prescription renewals, and telemetry sync.
-    Returns deterministic clinical actions and urgent alerts rather than generic disclaimers.
+    Delegates to the unified clinical reasoning engine for comorbidity cross-referencing,
+    Canadian CPG guidelines, calibrated uncertainty, SOCRATES chips, and SOAP note synthesis.
     """
-    text_lower = message.lower()
-
-    # 1. Emergency Red Flags (Acuity 1/2)
-    emergency_phrases = [
-        "severe chest pain", "crushing chest", "crushing pain", "radiating to arm", "radiating to jaw",
-        "severe pain", "severe chest", "can't breathe", "cannot breathe", "gasping for breath",
-        "heavy bleeding", "stroke", "facial droop", "slurred speech", "paralysis",
-        "unconscious", "passed out", "fainted", "suicidal", "anaphylaxis"
-    ]
-    is_bp_crisis = (vitals.get("systolic") and vitals["systolic"] >= 180) or (vitals.get("diastolic") and vitals["diastolic"] >= 120)
-    is_emergency = any(p in text_lower for p in emergency_phrases) or is_bp_crisis
-
-    # 2. Urgent / Moderate Symptoms (Acuity 3)
-    urgent_phrases = [
-        "chest tightness", "chest pressure", "palpitations", "fluttering",
-        "racing heart", "dizzy", "dizziness", "lightheaded", "high blood pressure",
-        "fever", "vomiting", "blurred vision", "swollen leg", "shortness of breath", "short of breath", "migraine"
-    ]
-    is_urgent = any(p in text_lower for p in urgent_phrases)
-
-    # 3. Prescription Refill Request
-    refill_phrases = ["refill", "prescription", "rx", "renew", "amlodipine", "metformin", "atorvastatin", "medication renewal", "pill"]
-    is_refill = any(p in text_lower for p in refill_phrases)
-
-    # 4. Telemetry / Vitals Logging
-    has_vitals = bool(vitals.get("blood_pressure") or vitals.get("heart_rate"))
-
-    if is_emergency:
-        return {
-            "triage_level": "EMERGENCY",
-            "alert_doctor": True,
-            "doctor_notice": "🚨 STAT Clinical Emergency Alert Sent to Dr. Patel & On-Call Team",
-            "reply_text": (
-                "🚨 **EMERGENCY NOTICE TRANSMITTED**: An immediate STAT clinical alert has been sent directly to Dr. Patel and the clinic triage team.\n\n"
-                "Because severe chest symptoms can indicate a life-threatening cardiac event, please do not delay care. "
-                "Call 911 or proceed to the nearest Emergency Department immediately. If you are on the way to our facility, tap below to check into our Urgent Care Queue."
-            ),
-            "actions": [
-                {"id": "call_911", "label": "🚨 Call 911 / Emergency", "type": "tel"},
-                {"id": "urgent_care", "label": "🏥 Check In to Urgent Care Queue", "type": "route"},
-                {"id": "book_appointment", "label": "📅 Book Priority Consultation", "type": "book"}
-            ]
-        }
-
-    if is_urgent:
-        return {
-            "triage_level": "URGENT",
-            "alert_doctor": True,
-            "doctor_notice": "⚠️ Urgent Clinical Notice Sent to Dr. Patel's Triage Desk",
-            "reply_text": (
-                "⚠️ **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and an urgent notice has been sent to Dr. Patel's triage desk.\n\n"
-                "To ensure your symptoms are promptly evaluated, would you like me to book an urgent same-day appointment with Dr. Patel, or check you into the walk-in Urgent Care clinic queue right now?"
-            ),
-            "actions": [
-                {"id": "book_appointment", "label": "📅 Book Urgent Appointment with Dr. Patel", "type": "book"},
-                {"id": "urgent_care", "label": "🏥 Join Urgent Care Clinic Queue", "type": "route"}
-            ]
-        }
-
-    if is_refill:
-        return {
-            "triage_level": "PHARMACY_REFILL",
-            "alert_doctor": True,
-            "doctor_notice": "📋 Prescription Renewal Sent to Dr. Patel's Approval Desk",
-            "reply_text": (
-                "📋 **PRESCRIPTION REFILL QUEUED**: Your medication refill request has been submitted to Dr. Patel's clinical inbox for electronic authorization.\n\n"
-                "Standard turnaround time is 2-4 hours directly to your registered pharmacy. Would you like to schedule a medication review appointment with Dr. Patel?"
-            ),
-            "actions": [
-                {"id": "book_appointment", "label": "📅 Book Medication Review", "type": "book"}
-            ]
-        }
-
-    if has_vitals:
-        systolic = vitals.get("systolic")
-        diastolic = vitals.get("diastolic")
-        is_elevated = (systolic and systolic >= 135) or (diastolic and diastolic >= 85)
-
-        if is_elevated:
-            return {
-                "triage_level": "ELEVATED_VITALS",
-                "alert_doctor": True,
-                "doctor_notice": "⚠️ Elevated Telemetry Flagged on Patient Clinical Record",
-                "reply_text": (
-                    f"⚠️ **ELEVATED TELEMETRY NOTED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been recorded in your clinical chart. "
-                    "Your blood pressure is moderately elevated above normal target range.\n\n"
-                    "We have notified Dr. Patel's care desk. Would you like to schedule a blood pressure review appointment or check into Urgent Care?"
-                ),
-                "actions": [
-                    {"id": "book_appointment", "label": "📅 Book Blood Pressure Review", "type": "book"},
-                    {"id": "urgent_care", "label": "🏥 Check In to Urgent Care Queue", "type": "route"}
-                ]
-            }
-        else:
-            return {
-                "triage_level": "NORMAL_VITALS",
-                "alert_doctor": False,
-                "doctor_notice": "✅ Telemetry Verified & Synced with AWS Cloud Network",
-                "reply_text": (
-                    f"✅ **TELEMETRY SYNCED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been verified and recorded in your central eHospital clinical chart. "
-                    "All readings are stable within target range.\n\n"
-                    "Would you like to schedule your next routine health checkup with Dr. Patel?"
-                ),
-                "actions": [
-                    {"id": "book_appointment", "label": "📅 Book Routine Checkup", "type": "book"}
-                ]
-            }
-
-    # General clinical inquiries
-    try:
-        from src.backend.clients.model_client import invoke_model
-        prompt = (
-            f"You are the Automated Clinical Triage Assistant for Dr. Patel's Clinic (eHospital Platform).\n"
-            f"Patient query: \"{message}\".\n"
-            "Provide a concise, professional, medically accurate response (under 2 sentences). "
-            "Never use placeholders like [phone number]. Conclude by asking if they would like to book an appointment with Dr. Patel."
-        )
-        llm_reply = invoke_model(prompt=prompt, system_prompt="You are Dr. Patel's professional clinical coordinator. Keep answers concise, medically accurate, and helpful.")
-    except Exception:
-        llm_reply = "Your inquiry has been received by Dr. Patel's clinic team. Would you like to schedule a consultation with Dr. Patel to discuss this?"
-
-    return {
-        "triage_level": "ROUTINE",
-        "alert_doctor": False,
-        "doctor_notice": "ℹ️ Patient Inquiry Logged in Care Notes",
-        "reply_text": llm_reply,
-        "actions": [
-            {"id": "book_appointment", "label": "📅 Book Appointment with Dr. Patel", "type": "book"},
-            {"id": "urgent_care", "label": "🏥 Urgent Care Queue", "type": "route"}
-        ]
-    }
+    from src.backend.services.clinical_reasoning_engine import evaluate_clinical_case
+    return evaluate_clinical_case(patient_id, message, vitals)
 
 @router.get('/api/whatsapp/threads')
 @router.get('/api/whatsapp/threads/{phone}')
@@ -297,9 +167,16 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
         "sender_name": "Dr. Patel's Clinic Care Team",
         "text": triage_result["reply_text"],
         "triage_level": triage_result["triage_level"],
+        "ctas_level": triage_result.get("ctas_level"),
+        "ctas_label": triage_result.get("ctas_label"),
+        "confidence_score": triage_result.get("confidence_score"),
+        "uncertainty_flag": triage_result.get("uncertainty_flag", False),
         "alert_doctor": triage_result["alert_doctor"],
         "doctor_notice": triage_result["doctor_notice"],
         "actions": triage_result["actions"],
+        "follow_up_chips": triage_result.get("follow_up_chips", []),
+        "comorbidities": triage_result.get("comorbidities", []),
+        "soap_note": triage_result.get("soap_note", {}),
         "vitals": vitals,
         "timestamp": now_str
     }
