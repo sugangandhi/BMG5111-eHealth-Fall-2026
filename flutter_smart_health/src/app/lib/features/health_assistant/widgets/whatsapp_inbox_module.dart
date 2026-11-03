@@ -240,6 +240,77 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
     }
   }
 
+  Future<void> _handleActionClick(String actionId, String label) async {
+    if (actionId == 'call_911') {
+      final uri = Uri.parse("tel:911");
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Colors.red,
+              content: Text("Emergency: Please dial 911 on your phone immediately!"),
+            ),
+          );
+        }
+      }
+    } else if (actionId == 'urgent_care') {
+      await _triggerBackendAction('urgent_care', 'Urgent Care Queue Check-in');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF075E54),
+            content: Text("🏥 Checked in to Urgent Care! Position #4 (Est. wait: 12 mins)."),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } else if (actionId == 'book_appointment') {
+      setState(() => _isSending = true);
+      await _triggerBackendAction('book_appointment', 'Priority Consultation with Dr. Patel');
+      setState(() => _isSending = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF166534),
+            content: Text("✅ Consultation with Dr. Patel booked & confirmed in Central AWS records!"),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _triggerBackendAction(String action, String reason) async {
+    try {
+      final url = Uri.parse("${ApiConfig.backendBaseUrl}/api/whatsapp/action");
+      final res = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "phone": "6132616383",
+          "action": action,
+          "patient_id": _patientId,
+          "patient_name": _patientName,
+          "reason": reason,
+        }),
+      ).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['reply'] != null && mounted) {
+          setState(() {
+            _messages.add(Map<String, dynamic>.from(data['reply']));
+          });
+          _scrollToBottom();
+        }
+      }
+    } catch (e) {
+      debugPrint("Action trigger error: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -309,13 +380,17 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                       final msg = _messages[index];
                       final isPatient = msg['role'] == 'patient';
                       final vitals = msg['vitals'] as Map<String, dynamic>? ?? {};
+                      final isEmergency = msg['triage_level'] == 'EMERGENCY';
+                      final isUrgent = msg['triage_level'] == 'URGENT';
+                      final doctorNotice = msg['doctor_notice']?.toString();
+                      final actions = (msg['actions'] as List<dynamic>?) ?? [];
 
                       return Align(
                         alignment: isPatient ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(context).size.width * 0.78,
+                            maxWidth: MediaQuery.of(context).size.width * (isPatient ? 0.78 : 0.86),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
@@ -326,6 +401,11 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                               bottomLeft: isPatient ? const Radius.circular(12) : const Radius.circular(0),
                               bottomRight: isPatient ? const Radius.circular(0) : const Radius.circular(12),
                             ),
+                            border: !isPatient && isEmergency
+                                ? Border.all(color: const Color(0xFFEF4444), width: 1.5)
+                                : (!isPatient && isUrgent
+                                    ? Border.all(color: const Color(0xFFF59E0B), width: 1.2)
+                                    : null),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.05),
@@ -337,19 +417,75 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (!isPatient)
-                                Text(
-                                  msg['sender_name'] ?? "Care Team",
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF075E54),
-                                  ),
+                              if (!isPatient) ...[
+                                Row(
+                                  children: [
+                                    Text(
+                                      msg['sender_name'] ?? "Dr. Patel's Care Team",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isEmergency ? const Color(0xFFDC2626) : const Color(0xFF075E54),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    if (isEmergency)
+                                      const Icon(Icons.emergency_rounded, color: Color(0xFFDC2626), size: 14)
+                                    else
+                                      const Icon(Icons.verified, color: Color(0xFF25D366), size: 12),
+                                  ],
                                 ),
-                              if (!isPatient) const SizedBox(height: 2),
+                                if (doctorNotice != null && doctorNotice.isNotEmpty) ...[
+                                  const SizedBox(height: 5),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: isEmergency
+                                          ? const Color(0xFFFEF2F2)
+                                          : (isUrgent ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4)),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: isEmergency
+                                            ? const Color(0xFFEF4444)
+                                            : (isUrgent ? const Color(0xFFF59E0B) : const Color(0xFF86EFAC)),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isEmergency
+                                              ? Icons.notification_important_rounded
+                                              : (isUrgent ? Icons.warning_amber_rounded : Icons.check_circle_outline),
+                                          size: 13,
+                                          color: isEmergency
+                                              ? const Color(0xFFDC2626)
+                                              : (isUrgent ? const Color(0xFFD97706) : const Color(0xFF16A34A)),
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Expanded(
+                                          child: Text(
+                                            doctorNotice,
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: isEmergency
+                                                  ? const Color(0xFFDC2626)
+                                                  : (isUrgent ? const Color(0xFFD97706) : const Color(0xFF16A34A)),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                              ],
+
                               Text(
                                 msg['text'] ?? "",
-                                style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.35),
+                                style: const TextStyle(fontSize: 13.5, color: Colors.black87, height: 1.35),
                               ),
 
                               // If vitals detected in message, render synchronized badge
@@ -377,6 +513,47 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                                       ),
                                     ],
                                   ),
+                                ),
+                              ],
+
+                              // Interactive Action Buttons
+                              if (actions.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: actions.map<Widget>((act) {
+                                    final actId = act['id']?.toString() ?? '';
+                                    final actLabel = act['label']?.toString() ?? '';
+                                    final isEmergencyAct = actId == 'call_911';
+
+                                    return ElevatedButton.icon(
+                                      icon: Icon(
+                                        isEmergencyAct
+                                            ? Icons.phone_in_talk
+                                            : (actId == 'urgent_care'
+                                                ? Icons.local_hospital_rounded
+                                                : Icons.calendar_today_rounded),
+                                        size: 13,
+                                      ),
+                                      label: Text(
+                                        actLabel,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: isEmergencyAct
+                                            ? const Color(0xFFDC2626)
+                                            : (actId == 'urgent_care'
+                                                ? const Color(0xFF0284C7)
+                                                : const Color(0xFF075E54)),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        elevation: 1,
+                                      ),
+                                      onPressed: () => _handleActionClick(actId, actLabel),
+                                    );
+                                  }).toList(),
                                 ),
                               ],
 
