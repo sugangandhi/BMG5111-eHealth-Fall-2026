@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/services/voice_scribe_service.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/backend_api_service.dart';
 
@@ -375,126 +378,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.mic,
-                  color: Color(0xFF6366F1),
-                  size: 38,
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                "Whisper Clinical Voice Scribe",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                "Speak symptoms or questions for real-time transcription.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 18),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Or select a clinical dictation sample:",
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildVoiceSampleTile(
-                ctx,
-                "Check my latest recorded vitals from Apple Watch.",
-                "Telemetry Inquiry",
-              ),
-              _buildVoiceSampleTile(
-                ctx,
-                "My morning blood pressure was 138/88 and I have a mild headache.",
-                "Symptom Dictation",
-              ),
-              _buildVoiceSampleTile(
-                ctx,
-                "Explain how Amlodipine 5mg works for my blood pressure.",
-                "Medication Inquiry",
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.record_voice_over_rounded),
-                label: const Text("Dictate Custom Symptom"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(46),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _sendMessage("I am experiencing intermittent chest palpitations and mild shortness of breath after climbing stairs.", true);
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildVoiceSampleTile(BuildContext sheetContext, String text, String category) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: () {
-        Navigator.pop(sheetContext);
-        _sendMessage(text, true);
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.graphic_eq, size: 18, color: Color(0xFF6366F1)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
-                  Text(text, style: const TextStyle(fontSize: 12, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
-          ],
-        ),
+      builder: (ctx) => _VoiceDictationSheetContent(
+        onSend: (text, isVoice) => _sendMessage(text, isVoice),
       ),
     );
   }
@@ -552,6 +437,386 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           ),
         );
       },
+    );
+  }
+}
+
+class _VoiceDictationSheetContent extends StatefulWidget {
+  final Function(String text, bool isVoice) onSend;
+
+  const _VoiceDictationSheetContent({required this.onSend});
+
+  @override
+  State<_VoiceDictationSheetContent> createState() => _VoiceDictationSheetContentState();
+}
+
+class _VoiceDictationSheetContentState extends State<_VoiceDictationSheetContent> with SingleTickerProviderStateMixin {
+  bool _isListening = false;
+  bool _isRecordingAudio = false;
+  bool _isProcessingWhisper = false;
+  String _spokenText = "";
+  String _interimText = "";
+  String _statusMsg = "Connecting microphone...";
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startLiveListening();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    VoiceScribeService.stopListening();
+    super.dispose();
+  }
+
+  void _startLiveListening() {
+    setState(() {
+      _isListening = true;
+      _isRecordingAudio = false;
+      _statusMsg = "Listening to your microphone... Speak your symptoms now.";
+    });
+
+    VoiceScribeService.startListening(
+      onResult: (finalResult, interimResult) {
+        if (!mounted) return;
+        setState(() {
+          if (finalResult.isNotEmpty) {
+            _spokenText = finalResult;
+          }
+          _interimText = interimResult;
+        });
+      },
+      onStatus: (status, message) {
+        if (!mounted) return;
+        setState(() {
+          if (status == 'listening') {
+            _isListening = true;
+            _statusMsg = "Microphone active. Speak clearly...";
+          } else if (status == 'stopped') {
+            _isListening = false;
+            _statusMsg = _spokenText.isNotEmpty ? "Speech captured! Ready to send." : "Microphone paused.";
+          } else if (status == 'error') {
+            _isListening = false;
+            _statusMsg = "Microphone permission required. Please allow access in browser.";
+          } else if (status == 'unsupported') {
+            _isListening = false;
+            _statusMsg = message;
+          }
+        });
+      },
+    );
+  }
+
+  void _toggleListening() {
+    if (_isListening) {
+      VoiceScribeService.stopListening();
+      setState(() {
+        _isListening = false;
+        _statusMsg = "Microphone stopped.";
+      });
+    } else {
+      _startLiveListening();
+    }
+  }
+
+  Future<void> _recordOpenAIWhisper() async {
+    if (_isRecordingAudio) {
+      setState(() {
+        _isRecordingAudio = false;
+        _isProcessingWhisper = true;
+        _statusMsg = "Uploading audio to OpenAI Whisper API (whisper-1)...";
+      });
+
+      VoiceScribeService.stopRecordingAudio(onDone: (base64Audio) async {
+        if (base64Audio.isEmpty) {
+          if (mounted) {
+            setState(() {
+              _isProcessingWhisper = false;
+              _statusMsg = "No audio recorded. Please try again.";
+            });
+          }
+          return;
+        }
+
+        try {
+          final res = await http.post(
+            Uri.parse("http://127.0.0.1:8080/api/assistant/voice-transcribe"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"audio_base64": base64Audio}),
+          );
+          if (res.statusCode == 200) {
+            final data = jsonDecode(res.body);
+            final transcribed = data["transcription"]?.toString() ?? "";
+            if (mounted) {
+              setState(() {
+                _isProcessingWhisper = false;
+                _spokenText = transcribed;
+                _statusMsg = "Whisper transcription complete!";
+              });
+            }
+          } else {
+            if (mounted) {
+              setState(() {
+                _isProcessingWhisper = false;
+                _statusMsg = "Whisper transcription returned code ${res.statusCode}";
+              });
+            }
+          }
+        } catch (e) {
+          if (mounted) {
+            setState(() {
+              _isProcessingWhisper = false;
+              _statusMsg = "Whisper request error: $e";
+            });
+          }
+        }
+      });
+    } else {
+      VoiceScribeService.stopListening();
+      setState(() {
+        _isListening = false;
+        _isRecordingAudio = true;
+        _statusMsg = "Recording audio for Whisper... Speak now, then tap again.";
+      });
+      VoiceScribeService.startRecordingAudio(onStatus: (status, message) {
+        if (!mounted) return;
+        if (status == 'error') {
+          setState(() {
+            _isRecordingAudio = false;
+            _statusMsg = "Audio recording error: $message";
+          });
+        }
+      });
+    }
+  }
+
+  void _sendTranscribedText() {
+    final fullText = (_spokenText.isNotEmpty ? _spokenText : _interimText).trim();
+    if (fullText.isEmpty) return;
+    Navigator.pop(context);
+    widget.onSend(fullText, true);
+  }
+
+  Widget _buildVoiceSampleTile(BuildContext sheetContext, String text, String category) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () {
+        Navigator.pop(sheetContext);
+        widget.onSend(text, true);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.graphic_eq, size: 18, color: Color(0xFF6366F1)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                  Text(text, style: const TextStyle(fontSize: 12, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasText = _spokenText.isNotEmpty || _interimText.isNotEmpty;
+    final displayText = _spokenText.isNotEmpty ? _spokenText : _interimText;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Pulsing microphone icon
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              final isHot = _isListening || _isRecordingAudio;
+              final glow = isHot ? (8.0 + _pulseController.value * 12.0) : 0.0;
+              return GestureDetector(
+                onTap: _toggleListening,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isHot
+                        ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+                        : const Color(0xFF6366F1).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                    boxShadow: isHot
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                              blurRadius: glow,
+                              spreadRadius: 2,
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Icon(
+                    isHot ? Icons.mic : Icons.mic_none,
+                    color: isHot ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
+                    size: 38,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _isListening
+                ? "🎙️ Live Speech Detection Active"
+                : (_isRecordingAudio ? "🔴 Recording for Whisper..." : "Whisper Clinical Voice Scribe"),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _statusMsg,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: _isListening ? const Color(0xFFEF4444) : Colors.grey.shade600, fontWeight: _isListening ? FontWeight.w600 : FontWeight.normal),
+          ),
+          const SizedBox(height: 14),
+
+          // Live Speech Transcription Card
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 70, maxHeight: 130),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: hasText ? const Color(0xFFEEF2FF) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: hasText ? const Color(0xFF6366F1) : Colors.grey.shade300,
+                width: hasText ? 1.5 : 1.0,
+              ),
+            ),
+            child: SingleChildScrollView(
+              child: Text(
+                hasText ? displayText : "Your spoken words will appear here in real-time as you speak...",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: hasText ? FontWeight.w500 : FontWeight.normal,
+                  color: hasText ? const Color(0xFF1E1B4B) : Colors.grey.shade500,
+                  fontStyle: hasText ? FontStyle.normal : FontStyle.italic,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Primary Send Button
+          ElevatedButton.icon(
+            icon: const Icon(Icons.send_rounded),
+            label: Text(hasText ? "Send Spoken Query to AI" : "Speak to Dictate"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: hasText ? const Color(0xFF6366F1) : Colors.grey.shade400,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(46),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: hasText ? _sendTranscribedText : null,
+          ),
+          const SizedBox(height: 8),
+
+          // Secondary controls (Pause/Resume & OpenAI Whisper mode)
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: Icon(_isListening ? Icons.pause_circle_outline : Icons.play_circle_outline),
+                  label: Text(_isListening ? "Pause Mic" : "Resume Mic"),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: _toggleListening,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: _isProcessingWhisper
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(_isRecordingAudio ? Icons.stop_circle : Icons.graphic_eq, color: const Color(0xFF10B981)),
+                  label: Text(
+                    _isProcessingWhisper
+                        ? "Transcribing..."
+                        : (_isRecordingAudio ? "Stop & Whisper" : "OpenAI Whisper"),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: _isProcessingWhisper ? null : _recordOpenAIWhisper,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Clinical Samples
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              "Or quick-select sample dictations:",
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54),
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildVoiceSampleTile(
+            context,
+            "Check my latest recorded vitals from Apple Watch.",
+            "Telemetry Inquiry",
+          ),
+          _buildVoiceSampleTile(
+            context,
+            "My morning blood pressure was 138/88 and I have a mild headache.",
+            "Symptom Dictation",
+          ),
+          _buildVoiceSampleTile(
+            context,
+            "Explain how Amlodipine 5mg works for my blood pressure.",
+            "Medication Inquiry",
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }

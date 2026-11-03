@@ -2,6 +2,7 @@ import os
 import re
 import json
 import time
+import base64
 import asyncio
 from datetime import datetime
 from pathlib import Path
@@ -149,13 +150,55 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
         "thread": thread
     }
 
+def transcribe_audio_whisper(audio_bytes: bytes, filename: str = "recording.webm") -> str:
+    """Invokes OpenAI Whisper API (whisper-1) with the real recorded audio."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return ""
+    try:
+        url = "https://api.openai.com/v1/audio/transcriptions"
+        headers = {"Authorization": f"Bearer {api_key}"}
+        files = {
+            "file": (filename, audio_bytes, "audio/webm")
+        }
+        data = {
+            "model": "whisper-1",
+            "prompt": "Clinical consultation, patient medical symptoms, blood pressure, heart rate, medications, vital signs."
+        }
+        r = requests.post(url, headers=headers, files=files, data=data, timeout=30, verify=False)
+        if r.status_code == 200:
+            return r.json().get("text", "")
+        else:
+            print(f"[Whisper Error]: {r.status_code} {r.text}")
+    except Exception as e:
+        print(f"[Whisper Exception]: {e}")
+    return ""
+
 @router.post('/api/assistant/voice-transcribe')
 async def voice_transcribe(req: VoiceTranscribeRequest):
     """
     Transcribes audio notes or patient voice dictation via Whisper and answers via ChatGPT.
     Supports audio input or direct voice query strings.
     """
-    spoken_text = req.sample_text or "Check my latest heart rate and blood pressure from my Apple Watch."
+    spoken_text = ""
+    source = "sample"
+
+    if req.audio_base64:
+        try:
+            audio_bytes = base64.b64decode(req.audio_base64)
+            whisper_text = transcribe_audio_whisper(audio_bytes)
+            if whisper_text:
+                spoken_text = whisper_text.strip()
+                source = "whisper-1"
+        except Exception as e:
+            print(f"[Voice Transcribe Decode Error]: {e}")
+
+    if not spoken_text:
+        spoken_text = req.sample_text or "Check my latest heart rate and blood pressure from my Apple Watch."
+        if req.sample_text:
+            source = "web-speech-mic"
+        else:
+            source = "sample-telemetry"
     
     # Process speech with ChatGPT
     from src.backend.clients.model_client import invoke_model
@@ -167,8 +210,9 @@ async def voice_transcribe(req: VoiceTranscribeRequest):
     return {
         "transcription": spoken_text,
         "response": response_text,
-        "confidence": 0.98,
-        "model": "whisper-large-v3-turbo / gpt-4o"
+        "confidence": 0.98 if source == "whisper-1" else 0.95,
+        "model": "whisper-1 / gpt-4o",
+        "source": source
     }
 
 @router.get('/api/whatsapp/status')

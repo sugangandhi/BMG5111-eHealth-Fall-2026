@@ -40,7 +40,7 @@ def query_table(table_name: str, patient_id: int | str) -> List[Dict[str, Any]]:
         url = f"{settings.ehospital_base_url}/sql/select"
         clean_pid = str(patient_id).replace("cloud-", "").replace("pt-", "").strip()
         sql = f"SELECT * FROM {table_name} WHERE patient_id = {clean_pid} ORDER BY recorded_on DESC LIMIT 15"
-        r = requests.post(url, json={"sql": sql}, timeout=6)
+        r = requests.post(url, json={"sql": sql}, timeout=6, verify=False)
         if r.status_code == 200:
             return r.json().get("data", [])
     except Exception as e:

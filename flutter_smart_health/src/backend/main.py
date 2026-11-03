@@ -50,7 +50,8 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Smart Health Backend API")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=list(settings.cors_allow_origins),
+        allow_origins=list(settings.cors_allow_origins) if settings.cors_allow_origins else ["*"],
+        allow_origin_regex=r"https?://.*",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
