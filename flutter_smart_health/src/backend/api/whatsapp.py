@@ -240,7 +240,7 @@ def post_vitals_to_central_cloud(patient_id: int, vitals: Dict[str, Any], raw_me
             "recorded_on": now_str,
             "annotation": f"WhatsApp Chat: {raw_message[:80]}"
         }
-        requests.post(f"{EHOSPITAL_BASE_URL}/table/wearable_vitals", json=w_payload, timeout=5)
+        requests.post(f"{EHOSPITAL_BASE_URL}/table/wearable_vitals", json=w_payload, timeout=5, verify=False)
 
         # 2. Update vitals_history if BP exists
         if vitals.get("blood_pressure"):
@@ -251,7 +251,7 @@ def post_vitals_to_central_cloud(patient_id: int, vitals: Dict[str, Any], raw_me
                 "recorded_on": now_str,
                 "notes": f"Submitted via WhatsApp: {raw_message[:100]}"
             }
-            requests.post(f"{EHOSPITAL_BASE_URL}/table/vitals_history", json=vh_payload, timeout=5)
+            requests.post(f"{EHOSPITAL_BASE_URL}/table/vitals_history", json=vh_payload, timeout=5, verify=False)
         print(f"[WhatsApp Sync] Successfully posted vitals for Patient #{patient_id} to Central AWS")
     except Exception as e:
         print(f"[WhatsApp Sync Error]: {e}")

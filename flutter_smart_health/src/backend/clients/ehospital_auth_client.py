@@ -44,7 +44,7 @@ async def authenticate_ehospital_user(
         "selectedOption": selected_option,
     }
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, verify=False) as client:
             response = await client.post(url, json=body)
     except httpx.HTTPError as exc:
         raise HTTPException(

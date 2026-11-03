@@ -17,7 +17,7 @@ async def fetch_ehospital_table(
     params = {"patient_id": str(patient_id)} if patient_id is not None else None
     url = f"{settings.ehospital_base_url}/table/{table}"
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, verify=False) as client:
             response = await client.get(url, params=params)
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
@@ -57,7 +57,7 @@ async def fetch_ehospital_table(
 async def fetch_ehospital_tables_metadata() -> dict[str, Any]:
     url = f"{settings.ehospital_base_url}/tables"
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, verify=False) as client:
             response = await client.get(url)
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
@@ -83,7 +83,7 @@ async def fetch_ehospital_tables_metadata() -> dict[str, Any]:
 async def write_ehospital_table_row(table: str, row: dict[str, Any]) -> dict[str, Any]:
     url = f"{settings.ehospital_base_url}/table/{table}"
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, verify=False) as client:
             response = await client.post(url, json=row)
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
@@ -116,7 +116,7 @@ async def update_ehospital_table_row(
 ) -> dict[str, Any]:
     url = f"{settings.ehospital_base_url}/table/{table}/{row_id}"
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20, verify=False) as client:
             response = await client.put(url, json=row)
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
@@ -154,7 +154,7 @@ async def execute_ehospital_select(
     url = f"{settings.ehospital_base_url}/sql/select"
     body = {"sql": sql, "replacements": replacements or {}}
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=30, verify=False) as client:
             response = await client.post(url, json=body)
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
