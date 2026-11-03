@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../config/api_config.dart';
+import '../../../core/services/voice_scribe_service.dart';
 
 class WhatsAppInboxModule extends StatefulWidget {
   const WhatsAppInboxModule({super.key});
@@ -18,6 +19,8 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
+  bool _isListening = false;
+  String _speechBufferBeforeListening = "";
   int _patientId = 391;
   String _patientName = "Patient";
 
@@ -29,6 +32,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
 
   @override
   void dispose() {
+    VoiceScribeService.stopListening();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -108,7 +112,59 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
     });
   }
 
+  void _toggleListening() {
+    if (_isListening) {
+      VoiceScribeService.stopListening();
+      setState(() => _isListening = false);
+      return;
+    }
+
+    _speechBufferBeforeListening = _messageController.text;
+    setState(() {
+      _isListening = true;
+    });
+
+    VoiceScribeService.startListening(
+      onResult: (finalResult, interimResult) {
+        if (!mounted) return;
+        final recognized = (finalResult.isNotEmpty ? finalResult : interimResult).trim();
+        if (recognized.isNotEmpty) {
+          final prefix = _speechBufferBeforeListening.trim();
+          final updated = prefix.isEmpty ? recognized : "$prefix $recognized";
+          setState(() {
+            _messageController.text = updated;
+            _messageController.selection = TextSelection.fromPosition(
+              TextPosition(offset: _messageController.text.length),
+            );
+          });
+        }
+      },
+      onStatus: (status, message) {
+        if (!mounted) return;
+        if (status == 'stopped') {
+          setState(() => _isListening = false);
+        } else if (status == 'error' || status == 'unsupported') {
+          setState(() => _isListening = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                status == 'unsupported'
+                    ? "Live microphone voice dictation is supported in Google Chrome or Edge."
+                    : "Microphone note: $message. Please ensure microphone permission is allowed in your browser.",
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      },
+    );
+  }
+
   Future<void> _sendMessage([String? textToSend]) async {
+    if (_isListening) {
+      VoiceScribeService.stopListening();
+      setState(() => _isListening = false);
+    }
     final text = (textToSend ?? _messageController.text).trim();
     if (text.isEmpty || _isSending) return;
 
@@ -365,19 +421,57 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
             top: false,
             child: Row(
               children: [
+                IconButton(
+                  tooltip: _isListening ? "Listening to your voice... Tap to finish" : "Record voice to WhatsApp",
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: _isListening
+                          ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+                          : const Color(0xFF25D366).withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none,
+                      color: _isListening ? const Color(0xFFEF4444) : const Color(0xFF075E54),
+                      size: 24,
+                    ),
+                  ),
+                  onPressed: _toggleListening,
+                ),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (val) => _sendMessage(val),
                     decoration: InputDecoration(
-                      hintText: "Type WhatsApp message to clinic...",
+                      hintText: _isListening
+                          ? "🔴 Listening to your voice... Speak now"
+                          : "Type WhatsApp message to clinic...",
+                      hintStyle: TextStyle(
+                        color: _isListening ? const Color(0xFFEF4444) : Colors.grey.shade500,
+                        fontWeight: _isListening ? FontWeight.w500 : FontWeight.normal,
+                      ),
                       filled: true,
-                      fillColor: Colors.grey.shade100,
+                      fillColor: _isListening ? const Color(0xFFFEF2F2) : Colors.grey.shade100,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
+                        borderSide: _isListening
+                            ? const BorderSide(color: Color(0xFFEF4444), width: 1.5)
+                            : BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: _isListening
+                            ? const BorderSide(color: Color(0xFFEF4444), width: 1.5)
+                            : BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: _isListening
+                            ? const BorderSide(color: Color(0xFFEF4444), width: 2.0)
+                            : const BorderSide(color: Color(0xFF25D366), width: 1.5),
                       ),
                     ),
                   ),
