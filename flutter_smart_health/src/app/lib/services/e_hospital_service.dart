@@ -4,7 +4,7 @@ import '../data/repositories/ehospital_repository.dart';
 // Compatibility facade for legacy screens. EHospitalRepository owns endpoint
 // paths and response normalization for new code.
 class EHospitalService {
-  static const String baseUrl = ApiConfig.ehospitalBaseUrl;
+  static String get baseUrl => ApiConfig.ehospitalBaseUrl;
   static final EHospitalRepository _repository = EHospitalRepository();
 
   static Future<String?> getCurrentPatientId() {

@@ -9,6 +9,7 @@ import '../../../config/api_config.dart';
 import '../../../core/services/voice_scribe_service.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/backend_api_service.dart';
+import 'whatsapp_inbox_module.dart';
 
 class HealthChatModule extends StatefulWidget {
   const HealthChatModule({super.key});
@@ -29,6 +30,22 @@ class _HealthChatMessage {
     this.isVoice = false,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'text': text,
+        'isVoice': isVoice,
+        'timestamp': timestamp.toIso8601String(),
+      };
+
+  factory _HealthChatMessage.fromJson(Map<String, dynamic> json) => _HealthChatMessage(
+        role: json['role'] as String? ?? 'user',
+        text: json['text'] as String? ?? '',
+        isVoice: json['isVoice'] == true,
+        timestamp: json['timestamp'] != null
+            ? DateTime.tryParse(json['timestamp'].toString())
+            : null,
+      );
 }
 
 class _HealthChatModuleState extends State<HealthChatModule> {
@@ -50,16 +67,85 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   @override
   void initState() {
     super.initState();
-    _loadPatientId();
+    _loadPatientAndHistory();
   }
 
-  Future<void> _loadPatientId() async {
+  Future<void> _loadPatientAndHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final pid = prefs.getInt("patient_id") ?? prefs.getString("patient_id");
     if (pid != null && mounted) {
       setState(() {
         _patientId = pid.toString();
       });
+    }
+
+    // 1. First load from local SharedPreferences cache for instantaneous display
+    final cached = prefs.getString("ai_chat_cache_$_patientId");
+    if (cached != null && cached.isNotEmpty) {
+      try {
+        final List<dynamic> decoded = jsonDecode(cached);
+        final cachedList = decoded
+            .map((m) => _HealthChatMessage.fromJson(m as Map<String, dynamic>))
+            .toList();
+        if (mounted && cachedList.isNotEmpty) {
+          setState(() {
+            _messages.clear();
+            _messages.addAll(cachedList);
+          });
+          _scrollToBottom();
+        }
+      } catch (e) {
+        debugPrint("[HealthChat] Cache decode error: $e");
+      }
+    }
+
+    // 2. Sync from backend history endpoint
+    try {
+      final backendHistory = await BackendApiService.getAssistantHistory(_patientId);
+      if (backendHistory.isNotEmpty && mounted) {
+        final serverMessages = backendHistory
+            .map((m) => _HealthChatMessage(
+                  role: m['role']?.toString() ?? 'user',
+                  text: m['text']?.toString() ?? '',
+                  isVoice: m['isVoice'] == true,
+                  timestamp: m['timestamp'] != null
+                      ? DateTime.tryParse(m['timestamp'].toString())
+                      : null,
+                ))
+            .toList();
+
+        setState(() {
+          _messages.clear();
+          _messages.addAll(serverMessages);
+        });
+        _persistMessagesLocally();
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint("[HealthChat] Backend history sync error: $e");
+    }
+  }
+
+  Future<void> _persistMessagesLocally() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = _messages.map((m) => m.toJson()).toList();
+      await prefs.setString("ai_chat_cache_$_patientId", jsonEncode(list));
+    } catch (e) {
+      debugPrint("[HealthChat] Error saving cache: $e");
+    }
+  }
+
+  Future<void> _clearChatHistory() async {
+    setState(() {
+      _messages.clear();
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("ai_chat_cache_$_patientId");
+    try {
+      await BackendApiService.clearAssistantHistory(_patientId);
+    } catch (e) {
+      debugPrint("[HealthChat] Error clearing backend history: $e");
     }
   }
 
@@ -69,6 +155,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _openInternalWhatsApp() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const Scaffold(
+          body: SafeArea(
+            child: WhatsAppInboxModule(),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _launchWhatsApp([String? customMessage]) async {
@@ -153,6 +251,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       _messages.add(_HealthChatMessage(role: 'user', text: text, isVoice: isVoice));
       _isLoading = true;
     });
+    _persistMessagesLocally();
     _scrollToBottom();
 
     try {
@@ -180,6 +279,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 : "Your health records are synchronized with your EHR chart.",
           ));
         });
+        _persistMessagesLocally();
       }
     } catch (e) {
       if (mounted) {
@@ -190,6 +290,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 "### 🩺 Clinical Sync Note\nYour vitals are logged in the Central Cloud EMR. If you require immediate attention, you can tap below to connect with Dr. Patel directly on WhatsApp.",
           ));
         });
+        _persistMessagesLocally();
       }
     } finally {
       if (mounted) {
@@ -218,42 +319,71 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     return Column(
       children: [
         // Top WhatsApp Quick Connect Banner
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0FDF4),
-            border: Border(bottom: BorderSide(color: Colors.green.shade200)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF25D366),
-                  shape: BoxShape.circle,
+        InkWell(
+          onTap: _openInternalWhatsApp,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              border: Border(bottom: BorderSide(color: Colors.green.shade200)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF25D366),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.chat_bubble, size: 14, color: Colors.white),
                 ),
-                child: const Icon(Icons.chat_bubble, size: 14, color: Colors.white),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  "Need doctor advice? Chat with Clinic Care Team on WhatsApp",
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    "Need doctor advice? Chat with Clinic Care Team on WhatsApp",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+                  ),
                 ),
-              ),
-              ElevatedButton(
-                onPressed: () => _launchWhatsApp(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  minimumSize: const Size(60, 30),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ElevatedButton(
+                  onPressed: _openInternalWhatsApp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: const Size(60, 30),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text("WhatsApp", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                 ),
-                child: const Text("WhatsApp", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-              ),
-            ],
+                if (_messages.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: "Clear Chat History",
+                    icon: const Icon(Icons.refresh_rounded, size: 20, color: Color(0xFF166534)),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text("Clear Chat History?"),
+                          content: const Text("Are you sure you want to clear your current conversation history?"),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Clear")),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await _clearChatHistory();
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
 
@@ -339,11 +469,52 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                       height: 1.4,
                                     ),
                                   )
-                                : MarkdownBody(
-                                    data: msg.text,
-                                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                                      p: const TextStyle(fontSize: 14, height: 1.45, color: Colors.black87),
-                                    ),
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      MarkdownBody(
+                                        data: msg.text,
+                                        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                          p: const TextStyle(fontSize: 14, height: 1.45, color: Colors.black87),
+                                        ),
+                                      ),
+                                      if (msg.text.contains("DR. PATEL") || msg.text.contains("Dr. Patel") || msg.text.contains("STAT") || msg.text.contains("chest pain") || msg.text.contains("911")) ...[
+                                        const SizedBox(height: 10),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: [
+                                            ElevatedButton.icon(
+                                              icon: const Icon(Icons.chat_bubble, size: 13),
+                                              label: const Text("Open Dr. Patel's WhatsApp Triage", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF075E54),
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                              ),
+                                              onPressed: _openInternalWhatsApp,
+                                            ),
+                                            if (msg.text.contains("911") || msg.text.contains("STAT") || msg.text.contains("severe")) ...[
+                                              ElevatedButton.icon(
+                                                icon: const Icon(Icons.phone_in_talk, size: 13),
+                                                label: const Text("Call 911", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: const Color(0xFFDC2626),
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                                ),
+                                                onPressed: () async {
+                                                  final uri = Uri.parse("tel:911");
+                                                  if (await canLaunchUrl(uri)) await launchUrl(uri);
+                                                },
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ],
+                                    ],
                                   ),
                           ],
                         ),

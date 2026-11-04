@@ -45,10 +45,14 @@ class ApiConfig {
     return 'http://127.0.0.1:8080';
   }
 
-  static const String ehospitalBaseUrl = String.fromEnvironment(
-    'EHOSPITAL_BASE_URL',
-    defaultValue: 'https://aetab8pjmb.us-east-1.awsapprunner.com',
-  );
+  static String get ehospitalBaseUrl {
+    const defined = String.fromEnvironment('EHOSPITAL_BASE_URL');
+    if (defined.isNotEmpty) return defined;
+    if (kIsWeb) {
+      return backendBaseUrl;
+    }
+    return 'https://aetab8pjmb.us-east-1.awsapprunner.com';
+  }
 
   static const String fitbitClientId = String.fromEnvironment(
     'FITBIT_CLIENT_ID',

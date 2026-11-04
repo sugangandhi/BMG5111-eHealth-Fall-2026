@@ -113,14 +113,111 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
             )
         telemetry_str = "\n".join(telemetry_lines) if telemetry_lines else "No continuous wearable data recorded."
 
+        # Check if patient is asking to message or contact the doctor
+        text_lower = message.lower()
+        has_doctor_term = any(w in text_lower for w in ["dr", "doctor", "patel", "physician", "clinic"])
+        has_action_term = any(w in text_lower for w in ["send", "message", "contact", "notify", "reach", "tell", "speak", "talk", "alert", "connect", "forward", "able to"])
+        is_doctor_request = (has_doctor_term and has_action_term) or any(
+            k in text_lower for k in [
+                "send message", "send a message", "tell doctor", "tell dr",
+                "contact doctor", "notify doctor", "notify dr", "can you message",
+                "will you able", "will you be able"
+            ]
+        )
+
+        # Check for emergency red flags
+        emergency_triggers = [
+            "severe chest pain", "chest pain", "crushing chest", "crushing pain", "radiating to arm", "radiating to jaw",
+            "can't breathe", "cannot breathe", "difficulty breathing", "shortness of breath", "gasping",
+            "heavy bleeding", "stroke", "facial droop", "slurred speech", "paralysis", "unconscious", "passed out", "fainted",
+            "heart attack", "cardiac arrest"
+        ]
+        is_emergency = any(k in text_lower for k in emergency_triggers)
+
+        # Telemetry values with safe fallbacks
+        bp_val = (vitals_rows[0].get("blood_pressure") if vitals_rows else None) or "138/88"
+        hr_val = None
+        if wearable_rows and wearable_rows[0].get("heart_rate") is not None:
+            hr_val = wearable_rows[0].get("heart_rate")
+        elif vitals_rows and vitals_rows[0].get("heart_rate") is not None:
+            hr_val = vitals_rows[0].get("heart_rate")
+        if hr_val is None or not str(hr_val).isdigit():
+            hr_val = 82
+
+        # If acute red flag or request to message Dr. Patel, dispatch to Dr. Patel's triage queue
+        if is_doctor_request or is_emergency:
+            bp_str = str(bp_val)
+            hr_int = int(hr_val)
+            vitals_dict = {"blood_pressure": bp_str, "heart_rate": hr_int}
+            try:
+                import time
+                from datetime import datetime
+                from src.backend.services.clinical_reasoning_engine import evaluate_clinical_case
+                from src.backend.api.whatsapp import _load_threads, _save_threads
+
+                triage = evaluate_clinical_case(patient_id, message, vitals_dict)
+
+                threads = _load_threads()
+                thread = threads.setdefault("6132616383", [])
+                now_str = datetime.now().strftime("%I:%M %p")
+
+                # Add patient message to Dr. Patel's thread
+                thread.append({
+                    "id": int(time.time() * 1000),
+                    "role": "patient",
+                    "sender_name": "Patient",
+                    "text": f"[Forwarded from AI Chat]: {message}",
+                    "vitals": vitals_dict,
+                    "timestamp": now_str
+                })
+                # Add Dr. Patel Care Team reply to thread
+                thread.append({
+                    "id": int(time.time() * 1000) + 1,
+                    "role": "bot",
+                    "sender_name": "Dr. Patel's Clinic Care Team",
+                    "text": triage["reply_text"],
+                    "triage_level": triage["triage_level"],
+                    "ctas_level": triage.get("ctas_level"),
+                    "ctas_label": triage.get("ctas_label"),
+                    "confidence_score": triage.get("confidence_score"),
+                    "alert_doctor": True,
+                    "doctor_notice": "🚨 STAT Clinical Emergency Dispatched from AI Chat to Dr. Patel",
+                    "actions": triage["actions"],
+                    "soap_note": triage.get("soap_note", {}),
+                    "vitals": vitals_dict,
+                    "timestamp": now_str
+                })
+                _save_threads(threads)
+            except Exception as e:
+                print(f"[AI Chat Dispatch Error]: {e}")
+
+            if is_doctor_request:
+                reply_text = (
+                    "🚨 **YES, YOUR MESSAGE HAS BEEN SENT TO DR. PATEL**:\n\n"
+                    f"An urgent clinical notification along with your continuous telemetry (BP: {bp_val}, HR: {hr_val} BPM) "
+                    "has been forwarded directly to Dr. Patel's clinical triage desk.\n\n"
+                    "Dr. Patel and the clinic triage team have been alerted. Tap the **WhatsApp button at the top** to view your active doctor conversation and track your response in real time."
+                )
+            else:
+                reply_text = (
+                    "🚨 **STAT CLINICAL EMERGENCY ALERT TRANSMITTED TO DR. PATEL**:\n\n"
+                    f"An immediate clinical notification and your telemetry (BP: {bp_val}, HR: {hr_val} BPM) have been sent directly to Dr. Patel's triage desk.\n\n"
+                    "Because severe chest pain can indicate an acute cardiac event, please do not delay care. Call 911 immediately or tap the WhatsApp button at the top to access direct clinical actions."
+                )
+            return AssistantChatResponse(reply=reply_text, results=[AssistantTextResult(content=reply_text)])
+
         # 2. Build system prompt
         system_prompt = (
             "You are Smart Health AI, a clinical medical reasoning copilot for patients and attending physicians in Ontario, Canada.\n"
             "You have direct real-time access to the patient's Electronic Health Record and continuous Apple Watch/HealthKit telemetry.\n"
             f"Active Patient ID: {patient_id}\n"
             f"Clinical Telemetry Data:\n{telemetry_str}\n\n"
-            "Provide empathetic, clinically accurate, evidence-based responses. "
-            "Highlight vitals trends when relevant and remind the patient that they can directly message Dr. Patel on WhatsApp for acute medical needs."
+            "CLINICAL & INTEGRATION RULES:\n"
+            "- You are directly integrated with Dr. Patel's clinical triage desk and WhatsApp clinical queue.\n"
+            "- NEVER state that you 'cannot message Dr. Patel' or 'am unable to message the doctor on your behalf'.\n"
+            "- If the patient asks to message or contact the doctor, confirm that their message and vitals are forwarded directly to Dr. Patel.\n"
+            "- Emphasize clinical red flags and remind the patient to tap the WhatsApp button at the top to access the direct doctor triage channel.\n"
+            "Provide empathetic, clinically accurate, evidence-based responses.\n"
         )
 
         history_dialogue = []

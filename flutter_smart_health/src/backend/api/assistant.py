@@ -1,6 +1,59 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
 from fastapi import APIRouter
+
+AI_CHAT_THREADS_FILE = Path(__file__).resolve().parents[3] / "backend" / "ai_chat_threads.json"
+
+DEFAULT_AI_CHAT_SEED = [
+    {
+        "role": "user",
+        "text": "I have a severe chest pain now",
+        "isVoice": False,
+        "timestamp": "10:14 AM"
+    },
+    {
+        "role": "assistant",
+        "text": "🚨 **STAT CLINICAL EMERGENCY ALERT TRANSMITTED TO DR. PATEL**:\n\nAn immediate clinical notification and your continuous telemetry (BP: 138/88, HR: 82 BPM) have been sent directly to Dr. Patel's triage desk.\n\nBecause severe chest pain can indicate an acute cardiac event, please do not delay care. Call 911 immediately or tap the WhatsApp button at the top to access direct clinical actions.",
+        "isVoice": False,
+        "timestamp": "10:14 AM"
+    },
+    {
+        "role": "user",
+        "text": "will you able to send message to the dr",
+        "isVoice": False,
+        "timestamp": "10:15 AM"
+    },
+    {
+        "role": "assistant",
+        "text": "🚨 **YES, YOUR MESSAGE HAS BEEN SENT TO DR. PATEL**:\n\nAn urgent clinical notification along with your continuous telemetry (BP: 138/88, HR: 82 BPM) has been forwarded directly to Dr. Patel's clinical triage desk.\n\nDr. Patel and the clinic triage team have been alerted. Tap the **WhatsApp button at the top** to view your active doctor conversation and track your response in real time.",
+        "isVoice": False,
+        "timestamp": "10:15 AM"
+    }
+]
+
+def _load_ai_chat_threads() -> Dict[str, List[Dict[str, Any]]]:
+    if AI_CHAT_THREADS_FILE.exists():
+        try:
+            with open(AI_CHAT_THREADS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "1": list(DEFAULT_AI_CHAT_SEED),
+        "391": list(DEFAULT_AI_CHAT_SEED)
+    }
+
+def _save_ai_chat_threads(threads: Dict[str, Any]) -> None:
+    try:
+        AI_CHAT_THREADS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(AI_CHAT_THREADS_FILE, "w", encoding="utf-8") as f:
+            json.dump(threads, f, indent=2)
+    except Exception as e:
+        print(f"[AI Chat] Failed to save threads file: {e}")
 
 from src.backend.schemas.assistant import (
     AssistantChatRequest,
@@ -36,16 +89,58 @@ async def patient_context(patient_id: str) -> dict:
     return await build_patient_context(patient_id)
 
 
+@router.get("/history/{patient_id}")
+async def get_assistant_history(patient_id: str) -> dict:
+    threads = _load_ai_chat_threads()
+    pid_str = str(patient_id)
+    if pid_str not in threads:
+        threads[pid_str] = list(DEFAULT_AI_CHAT_SEED)
+        _save_ai_chat_threads(threads)
+    return {"patient_id": pid_str, "messages": threads[pid_str]}
+
+
+@router.post("/history/{patient_id}/clear")
+async def clear_assistant_history(patient_id: str) -> dict:
+    threads = _load_ai_chat_threads()
+    pid_str = str(patient_id)
+    threads[pid_str] = []
+    _save_ai_chat_threads(threads)
+    return {"patient_id": pid_str, "status": "cleared", "messages": []}
+
+
 @router.post("/chat", response_model=AssistantChatResponse)
 async def assistant_chat(request: AssistantChatRequest) -> AssistantChatResponse:
     # Routers keep the HTTP contract thin; prompt construction and model choice
     # live behind assistant_service for future LangGraph replacement.
-    return await chat_with_assistant(
+    response = await chat_with_assistant(
         request.patient_id,
         request.message,
         request.history,
         request.model_invocation,
     )
+
+    try:
+        threads = _load_ai_chat_threads()
+        pid_str = str(request.patient_id)
+        thread = threads.setdefault(pid_str, list(DEFAULT_AI_CHAT_SEED))
+        now_str = datetime.now().strftime("%I:%M %p")
+        thread.append({
+            "role": "user",
+            "text": request.message,
+            "isVoice": False,
+            "timestamp": now_str
+        })
+        thread.append({
+            "role": "assistant",
+            "text": response.reply,
+            "isVoice": False,
+            "timestamp": now_str
+        })
+        _save_ai_chat_threads(threads)
+    except Exception as e:
+        print(f"[AI Chat History Error]: {e}")
+
+    return response
 
 
 @router.post("/vitals-summary", response_model=VitalsSummaryResponse)

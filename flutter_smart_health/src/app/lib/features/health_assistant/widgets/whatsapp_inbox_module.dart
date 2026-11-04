@@ -331,6 +331,14 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
           ),
           child: Row(
             children: [
+              if (Navigator.of(context).canPop()) ...[
+                IconButton(
+                  tooltip: "Back to Chat",
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 4),
+              ],
               const CircleAvatar(
                 backgroundColor: Color(0xFF25D366),
                 radius: 20,

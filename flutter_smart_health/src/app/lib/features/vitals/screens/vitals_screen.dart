@@ -95,7 +95,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
     final prefs = await SharedPreferences.getInstance();
     // Use prefs.get() to handle patient_id stored as either int or String
     final Object? rawId = prefs.get("patient_id");
-    final String searchId = rawId?.toString() ?? "";
+    final String searchId = (rawId != null && rawId.toString().trim().isNotEmpty) ? rawId.toString().trim() : "1";
 
     String? ecgResult;
     try {
@@ -136,13 +136,19 @@ class _VitalsScreenState extends State<VitalsScreen> {
       }
     } catch (_) {}
 
-    final List<dynamic> rawData = await EHospitalService.fetchVitals();
-    final filteredData = rawData
-        .where(
-          (item) => item is Map && item['patient_id']?.toString() == searchId,
-        )
-        .toList();
-    filteredData.sort((a, b) => _timestampOf(a).compareTo(_timestampOf(b)));
+    List<dynamic> filteredData = [];
+    try {
+      final List<dynamic> rawData = await EHospitalService.fetchTable(
+        "wearable_vitals",
+        patientId: searchId,
+      );
+      filteredData = rawData
+          .where(
+            (item) => item is Map && item['patient_id']?.toString() == searchId,
+          )
+          .toList();
+      filteredData.sort((a, b) => _timestampOf(a).compareTo(_timestampOf(b)));
+    } catch (_) {}
 
     if (mounted) {
       setState(() {
@@ -402,8 +408,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
     });
 
     try {
+      final targetPid = (currentPatientId.trim().isNotEmpty) ? currentPatientId.trim() : "1";
       final result = await _wearableSyncService.syncPlatformHealth(
-        patientId: currentPatientId,
+        patientId: targetPid,
       );
 
       var message = result.message;

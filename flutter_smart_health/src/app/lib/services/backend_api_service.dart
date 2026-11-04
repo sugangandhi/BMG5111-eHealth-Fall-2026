@@ -20,6 +20,14 @@ class BackendApiService {
     );
   }
 
+  static Future<List<Map<String, dynamic>>> getAssistantHistory(String patientId) {
+    return _repository.getHistory(patientId);
+  }
+
+  static Future<void> clearAssistantHistory(String patientId) {
+    return _repository.clearHistory(patientId);
+  }
+
   static Future<String> vitalsSummary({
     required String patientId,
     required String metric,

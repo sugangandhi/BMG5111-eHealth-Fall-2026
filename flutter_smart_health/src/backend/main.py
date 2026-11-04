@@ -94,6 +94,31 @@ def create_app() -> FastAPI:
     app.include_router(urgent_care_router)
     app.include_router(wearables_router)
     app.include_router(whatsapp_router)
+
+    from src.backend.clients.ehospital_client import (
+        fetch_ehospital_table,
+        write_ehospital_table_row,
+    )
+
+    @app.get("/table/{table_name}")
+    async def proxy_get_table(table_name: str, patient_id: str | None = None):
+        try:
+            rows = await fetch_ehospital_table(table_name, patient_id=patient_id)
+            return {"table": table_name, "count": len(rows), "data": rows}
+        except Exception as e:
+            logger.error("Error proxying table %s: %s", table_name, e)
+            return {"table": table_name, "count": 0, "data": []}
+
+    @app.post("/table/{table_name}")
+    async def proxy_post_table(table_name: str, request: Request):
+        try:
+            body = await request.json()
+            result = await write_ehospital_table_row(table_name, body)
+            return result
+        except Exception as e:
+            logger.error("Error writing to table %s: %s", table_name, e)
+            return {"status": "error", "detail": str(e)}
+
     return app
 
 

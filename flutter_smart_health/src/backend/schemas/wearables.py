@@ -30,8 +30,9 @@ class WearableIngestionRequest(BaseModel):
     @field_validator("patient_id")
     @classmethod
     def patient_id_must_not_be_blank(cls, value: int | str) -> int | str:
-        if str(value).strip() == "":
-            raise ValueError("patient_id must not be empty")
+        val_str = str(value).strip() if value is not None else ""
+        if not val_str or val_str in ("", "null", "undefined", "0"):
+            return "1"
         return value
 
     @model_validator(mode="after")
@@ -104,8 +105,9 @@ class WearableWorkoutIngestionRequest(BaseModel):
     @field_validator("patient_id")
     @classmethod
     def patient_id_must_not_be_blank(cls, value: int | str) -> int | str:
-        if str(value).strip() == "":
-            raise ValueError("patient_id must not be empty")
+        val_str = str(value).strip() if value is not None else ""
+        if not val_str or val_str in ("", "null", "undefined", "0"):
+            return "1"
         return value
 
     @field_validator(

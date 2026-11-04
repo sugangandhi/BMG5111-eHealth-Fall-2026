@@ -50,6 +50,26 @@ class AssistantRepository {
     return reply;
   }
 
+  Future<List<Map<String, dynamic>>> getHistory(String patientId) async {
+    try {
+      final decoded = await _client.getJson('/assistant/history/$patientId');
+      if (decoded is Map<String, dynamic> && decoded['messages'] is List) {
+        return List<Map<String, dynamic>>.from(decoded['messages']);
+      }
+    } catch (e) {
+      debugPrint('[AssistantRepository] getHistory error: $e');
+    }
+    return [];
+  }
+
+  Future<void> clearHistory(String patientId) async {
+    try {
+      await _client.postJson('/assistant/history/$patientId/clear', {});
+    } catch (e) {
+      debugPrint('[AssistantRepository] clearHistory error: $e');
+    }
+  }
+
   Future<String> vitalsSummary({
     required String patientId,
     required String metric,
