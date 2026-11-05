@@ -47,7 +47,7 @@ def get_settings() -> BackendSettings:
         ),
         cors_allow_origins=_csv_env("CORS_ALLOW_ORIGINS", "*"),
         host=os.getenv("BACKEND_HOST", "127.0.0.1"),
-        port=int(os.getenv("BACKEND_PORT", "8000")),
+        port=int(os.getenv("PORT", os.getenv("BACKEND_PORT", "8000"))),
     )
 
 

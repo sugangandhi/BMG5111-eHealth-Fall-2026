@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: ehospital-smart-health
+    env: python
+    rootDir: flutter_smart_health
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      - key: EHOSPITAL_BASE_URL
+        value: https://aetab8pjmb.us-east-1.awsapprunner.com
+      - key: EHOSPITAL_AUTH_BASE_URL
+        value: https://tysnx3mi2s.us-east-1.awsapprunner.com
+      - key: CENTRAL_CLINICAL_API_URL
+        value: https://aetab8pjmb.us-east-1.awsapprunner.com
+      - key: CORS_ALLOW_ORIGINS
+        value: "*"

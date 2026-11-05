@@ -119,6 +119,13 @@ def create_app() -> FastAPI:
             logger.error("Error writing to table %s: %s", table_name, e)
             return {"status": "error", "detail": str(e)}
 
+    # Mount Flutter Web frontend if built (enables unified cloud deployment on Render/Docker)
+    web_dir = Path(__file__).resolve().parents[1] / "app" / "build" / "web"
+    if web_dir.exists():
+        from fastapi.staticfiles import StaticFiles
+        app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web_app")
+        logger.info("Mounted Flutter Web app from %s", web_dir)
+
     return app
 
 
