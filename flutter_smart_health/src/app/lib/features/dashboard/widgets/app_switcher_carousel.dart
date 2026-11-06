@@ -52,7 +52,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
       children: [
         // Native Apple Multitasking Card Deck (Starts immediately, zero clutter)
         SizedBox(
-          height: 450,
+          height: 490,
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(
               dragDevices: {
@@ -96,106 +96,34 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
 
-        // Apple Animated Page Indicator Dots
+        // Apple Animated Page Indicator Dots (Tap to jump)
         Center(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: List.generate(apps.length, (idx) {
               final isSelected = idx == _currentPage;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: isSelected ? 22 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF007AFF)
-                      : const Color(0xFFC7C7CC),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              );
-            }),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Apple Watch Quick Dock (Clean, intuitive 1-tap switching)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: List.generate(apps.length, (idx) {
-                final app = apps[idx];
-                final isSelected = idx == _currentPage;
-
-                return GestureDetector(
-                  onTap: () => _goToPage(idx),
+              return GestureDetector(
+                onTap: () => _goToPage(idx),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.only(right: 10),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    width: isSelected ? 24 : 7,
+                    height: 7,
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFF007AFF)
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF007AFF)
-                            : const Color(0xFFE5E5EA),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isSelected
-                              ? const Color(0x33007AFF)
-                              : const Color(0x06000000),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Colors.white.withValues(alpha: 0.25)
-                                : app.iconBg,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            app.icon,
-                            size: 14,
-                            color: isSelected ? Colors.white : app.iconColor,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          app.shortLabel,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF1C1C1E),
-                          ),
-                        ),
-                      ],
+                          : const Color(0xFFC7C7CC),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                );
-              }),
-            ),
+                ),
+              );
+            }),
           ),
         ),
       ],
