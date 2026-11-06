@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_exception.dart';
@@ -147,22 +148,113 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: Column(
+        child: Stack(
           children: [
-            const LoginHeader(),
-            LoginForm(
-              emailController: _emailController,
-              passwordController: _passwordController,
-              selectedIdentity: _selectedIdentity,
-              identityOptions: EHospitalAuthService.supportedIdentities,
-              onIdentityChanged: (value) =>
-                  setState(() => _selectedIdentity = value),
-              error: _error,
-              loading: _loading,
-              onSubmit: _handleLogin,
+            // Apple ambient gradient background
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFFF2F2F7),
+                      Color(0xFFE5E5EA),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Top ambient glow orb
+            Positioned(
+              top: -60,
+              left: -40,
+              child: Container(
+                width: 260,
+                height: 260,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                ),
+              ),
+            ),
+
+            // Bottom ambient glow orb
+            Positioned(
+              bottom: -60,
+              right: -40,
+              child: Container(
+                width: 280,
+                height: 280,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF5856D6).withValues(alpha: 0.10),
+                ),
+              ),
+            ),
+
+            // Center Frosted Glass Card
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 430),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.95),
+                              width: 1.5,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x12000000),
+                                blurRadius: 30,
+                                offset: Offset(0, 14),
+                              ),
+                              BoxShadow(
+                                color: Color(0x06000000),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const LoginHeader(),
+                              LoginForm(
+                                emailController: _emailController,
+                                passwordController: _passwordController,
+                                selectedIdentity: _selectedIdentity,
+                                identityOptions:
+                                    EHospitalAuthService.supportedIdentities,
+                                onIdentityChanged: (value) =>
+                                    setState(() => _selectedIdentity = value),
+                                error: _error,
+                                loading: _loading,
+                                onSubmit: _handleLogin,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

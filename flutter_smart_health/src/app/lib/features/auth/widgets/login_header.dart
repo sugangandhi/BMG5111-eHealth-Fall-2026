@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../l10n/l10n.dart';
-import '../../../ui/ui.dart';
 import '../presentation/login_styles.dart';
 
 class LoginHeader extends StatelessWidget {
@@ -8,36 +6,65 @@ class LoginHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
     return Container(
       width: double.infinity,
       padding: LoginStyles.headerPadding,
-      decoration: LoginStyles.headerDecoration,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Apple Squircle App Icon with soft shadow & glossy gradient
           Container(
             width: LoginStyles.heroIconSize,
             height: LoginStyles.heroIconSize,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF007AFF).withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            child: const Icon(Icons.health_and_safety, color: Colors.white, size: 32),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          Text(
-            l10n.brandName,
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
+            child: const Icon(
+              Icons.health_and_safety_rounded,
               color: Colors.white,
+              size: 36,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 14),
+          const Text(
+            "INTELLIGENT DIGITAL SOLUTION",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF007AFF),
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            "eHospital Portal",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1C1C1E),
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
           Text(
-            l10n.loginHeaderSubtitle,
-            style: const TextStyle(fontSize: 15, color: Color(0xCCFFFFFF)),
+            "Secure Clinical & Telemetry Care",
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

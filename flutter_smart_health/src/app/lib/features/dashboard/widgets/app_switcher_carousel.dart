@@ -20,8 +20,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
   @override
   void initState() {
     super.initState();
+    // 0.78 viewportFraction ensures adjacent cards are clearly visible on left & right
     _pageController = PageController(
-      viewportFraction: 0.85,
+      viewportFraction: 0.78,
       initialPage: 0,
     );
   }
@@ -80,50 +81,33 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                   ],
                 ),
               ),
-              // Apple Style Pill Indicator with Arrow Controls
+              // Subtle Apple Gesture Pill (No 1/6, no clunky arrows)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE5E5EA).withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(20),
+                  color: const Color(0xFF007AFF).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF007AFF).withValues(alpha: 0.2),
+                    width: 1,
+                  ),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                      iconSize: 13,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                      color: _currentPage > 0
-                          ? const Color(0xFF007AFF)
-                          : Colors.grey.shade400,
-                      onPressed: _currentPage > 0
-                          ? () => _goToPage(_currentPage - 1)
-                          : null,
+                    Icon(
+                      Icons.swipe_rounded,
+                      size: 14,
+                      color: Color(0xFF007AFF),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        "${_currentPage + 1}/${apps.length}",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1C1C1E),
-                        ),
+                    SizedBox(width: 5),
+                    Text(
+                      "Swipe Cards",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF007AFF),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_forward_ios_rounded),
-                      iconSize: 13,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                      color: _currentPage < apps.length - 1
-                          ? const Color(0xFF007AFF)
-                          : Colors.grey.shade400,
-                      onPressed: _currentPage < apps.length - 1
-                          ? () => _goToPage(_currentPage + 1)
-                          : null,
                     ),
                   ],
                 ),
@@ -133,9 +117,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         ),
         const SizedBox(height: 12),
 
-        // Apple-style Multitasking Carousel
+        // Native iOS Multitasking Deck (cards peeking from both sides)
         SizedBox(
-          height: 380,
+          height: 450,
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(
               dragDevices: {
@@ -162,8 +146,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                   itemBuilder: (context, index) {
                     final app = apps[index];
                     final diff = (currentPageValue - index).abs();
-                    final scale = (1.0 - (diff * 0.07)).clamp(0.92, 1.0);
-                    final opacity = (1.0 - (diff * 0.20)).clamp(0.80, 1.0);
+                    // iOS App Switcher scale & depth effect
+                    final scale = (1.0 - (diff * 0.08)).clamp(0.90, 1.0);
+                    final opacity = (1.0 - (diff * 0.22)).clamp(0.78, 1.0);
 
                     return Transform.scale(
                       scale: scale,
@@ -178,16 +163,51 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
             ),
           ),
         ),
+        const SizedBox(height: 14),
+
+        // iOS Animated Page Indicator Dots
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(apps.length, (idx) {
+              final isSelected = idx == _currentPage;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isSelected ? 22 : 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF007AFF)
+                      : const Color(0xFFC7C7CC),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Center(
+          child: Text(
+            "Swipe horizontally to switch apps • Tap to launch",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
 
-        // watchOS-Style Horizontal Quick Dock
+        // Apple Watch Quick Dock (Syncs with carousel)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "WATCHOS QUICK DOCK",
+                "QUICK ACCESS DOCK",
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -240,7 +260,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                               height: 24,
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.white.withOpacity(0.25)
+                                    ? Colors.white.withValues(alpha: 0.25)
                                     : app.iconBg,
                                 shape: BoxShape.circle,
                               ),
@@ -279,8 +299,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     return GestureDetector(
       onTap: () => widget.onSelectApp(app.route),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(26),
@@ -305,20 +325,20 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Apple App Header: Icon + Title + Live Status Pill
+            // Apple App Header: Squircle Icon + Title + Status Pill
             Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 46,
+                  height: 46,
                   decoration: BoxDecoration(
                     color: app.iconBg,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(13),
                   ),
                   child: Icon(
                     app.icon,
                     color: app.iconColor,
-                    size: 26,
+                    size: 24,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -329,7 +349,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       Text(
                         app.title,
                         style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1C1C1E),
                           letterSpacing: -0.4,
@@ -351,6 +371,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
@@ -385,7 +406,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
 
             // Apple Card Content Preview
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFF2F2F7),
                 borderRadius: BorderRadius.circular(16),
@@ -395,13 +416,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                 children: [
                   Row(
                     children: [
-                      Icon(app.highlightIcon, size: 16, color: app.iconColor),
+                      Icon(app.highlightIcon, size: 15, color: app.iconColor),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           app.highlightText,
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF1C1C1E),
                           ),
@@ -411,12 +432,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     app.description,
                     style: const TextStyle(
                       fontSize: 12,
-                      height: 1.4,
+                      height: 1.35,
                       color: Color(0xFF3A3A3C),
                     ),
                     maxLines: 2,

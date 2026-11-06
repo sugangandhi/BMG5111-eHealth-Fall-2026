@@ -39,10 +39,17 @@ class _PatientDashboardState extends State<PatientDashboard> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final username = _username;
-    final greeting = username != null && username.isNotEmpty
-        ? l10n.dashboardHelloUser(username)
-        : l10n.dashboardWelcome;
+
+    // Sanitize username to eliminate developer artifacts like "Normal LLM Demo"
+    final rawName = _username?.trim() ?? '';
+    final isDemoName = rawName.isEmpty ||
+        rawName.toLowerCase().contains('demo') ||
+        rawName.toLowerCase().contains('llm') ||
+        rawName.toLowerCase().contains('normal');
+    final displayName = isDemoName ? null : rawName;
+    final greeting = displayName != null
+        ? l10n.dashboardHelloUser(displayName)
+        : "Welcome Back";
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
@@ -111,11 +118,12 @@ class _PatientDashboardState extends State<PatientDashboard> {
         ],
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -125,7 +133,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF007AFF),
-                      letterSpacing: 1.0,
+                      letterSpacing: 1.1,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -138,14 +146,23 @@ class _PatientDashboardState extends State<PatientDashboard> {
                       letterSpacing: -0.6,
                     ),
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    "Intelligent Digital Solution Patient Portal",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
             if (_showAppSwitcher) ...[
               AppSwitcherCarousel(onSelectApp: _open),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
             ] else ...[
               DashboardSectionHeader(title: l10n.healthMonitoringSection),
               DashboardGridRow(
@@ -228,6 +245,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 title: l10n.settingsTitle,
                 onTap: () => _open('/settings'),
               ),
+              const SizedBox(height: 24),
             ],
           ],
         ),

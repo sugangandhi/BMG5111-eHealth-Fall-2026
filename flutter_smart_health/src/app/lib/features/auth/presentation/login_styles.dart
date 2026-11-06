@@ -1,30 +1,46 @@
 import 'package:flutter/material.dart';
-import '../../../ui/ui.dart';
 
 class LoginStyles {
-  static const headerPadding = EdgeInsets.fromLTRB(28, 72, 28, 40);
-  static const formPadding = EdgeInsets.fromLTRB(24, 32, 24, 24);
-  static const heroIconSize = 60.0;
+  static const headerPadding = EdgeInsets.fromLTRB(28, 36, 28, 8);
+  static const formPadding = EdgeInsets.fromLTRB(24, 8, 24, 28);
+  static const heroIconSize = 64.0;
 
-  static const headerRadius = BorderRadius.only(
-    bottomLeft: Radius.circular(AppRadii.hero),
-    bottomRight: Radius.circular(AppRadii.hero),
-  );
-
-  static BoxDecoration get headerDecoration => const BoxDecoration(
-        gradient: AppGradients.primary,
-        borderRadius: headerRadius,
+  static BoxDecoration get cardGlassDecoration => BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.95),
+          width: 1.5,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 32,
+            offset: Offset(0, 14),
+          ),
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       );
 
-  static BoxDecoration get emailFieldDecoration => BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadii.radius(AppRadii.lg),
-        boxShadow: AppShadows.primarySoft,
+  static BoxDecoration get inputFieldDecoration => BoxDecoration(
+        color: const Color(0xFFF2F2F7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFE5E5EA),
+          width: 1.2,
+        ),
       );
+
+  // Backward compatibility alias
+  static BoxDecoration get emailFieldDecoration => inputFieldDecoration;
 
   static BoxDecoration get errorDecoration => BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: AppRadii.radius(AppRadii.sm),
-        border: Border.all(color: Colors.red.shade200),
+        color: const Color(0xFFFFF1F0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFCCC7)),
       );
 }
