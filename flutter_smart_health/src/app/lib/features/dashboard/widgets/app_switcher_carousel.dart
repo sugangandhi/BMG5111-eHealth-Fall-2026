@@ -25,9 +25,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   void initState() {
     super.initState();
     _chipScrollController = ScrollController();
-    // 0.80 viewportFraction gives the perfect horizontal Apple Watch card peek
+    // 0.86 viewportFraction expands the card width to match native mobile screen proportions
     _pageController = PageController(
-      viewportFraction: 0.80,
+      viewportFraction: 0.86,
       initialPage: 0,
     );
 
@@ -86,9 +86,11 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           currentPageValue = _pageController.page!;
         }
 
-        // Keep carousel centered and proportioned
+        // Dynamically scale card dimensions to naturally fill the mobile viewport
         final isNarrow = availableWidth < 500;
         final deckWidth = isNarrow ? availableWidth : 480.0;
+        final deckHeight = (availableHeight * 0.65).clamp(430.0, 520.0);
+        final cardHeight = deckHeight - 20.0;
 
         return Container(
           width: availableWidth,
@@ -100,12 +102,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               // 1. Interactive Category / Module Quick Filter Chips Tray
               _buildCategoryFilterChips(apps, _currentPage),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // 2. Horizontal 3D Carousel Deck
+              // 2. Horizontal 3D Carousel Deck (Expanded to match mobile layout)
               SizedBox(
                 width: deckWidth,
-                height: 355,
+                height: deckHeight,
                 child: ScrollConfiguration(
                   behavior: ScrollConfiguration.of(context).copyWith(
                     dragDevices: {
@@ -146,7 +148,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                           scale: scale,
                           child: Opacity(
                             opacity: opacity,
-                            child: _buildAppleWatchCard(app),
+                            child: _buildAppleWatchCard(app, height: cardHeight),
                           ),
                         ),
                       );
@@ -155,7 +157,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
               // Simple Apple OS Pagination Dots (Zero text, interactive switching)
               Center(
@@ -290,7 +292,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   }
 
   // Authentic Apple Watch Card with Independent Floating Circular App Icon
-  Widget _buildAppleWatchCard(_AppModuleItem app) {
+  Widget _buildAppleWatchCard(_AppModuleItem app, {double? height}) {
     return Center(
       child: Stack(
         clipBehavior: Clip.none,
@@ -299,9 +301,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           GestureDetector(
             onTap: () => widget.onSelectApp(app.route),
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-              height: 330,
+              margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+              height: height ?? 440,
               decoration: BoxDecoration(
                 color: const Color(0xFF1C2436), // Frosted dusk steel-slate from reference
                 borderRadius: BorderRadius.circular(28),
@@ -316,8 +318,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                     offset: Offset(0, 10),
                   ),
                   BoxShadow(
-                    color: app.accentColor.withValues(alpha: 0.08),
-                    blurRadius: 20,
+                    color: app.accentColor.withValues(alpha: 0.10),
+                    blurRadius: 22,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -331,7 +333,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Clearance for floating circular badge
-                      const SizedBox(width: 44),
+                      const SizedBox(width: 48),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,7 +341,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                             Text(
                               app.title,
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w800,
                                 color: Colors.white,
                                 letterSpacing: -0.3,
@@ -347,14 +349,14 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 1),
+                            const SizedBox(height: 2),
                             Text(
                               app.category,
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
                                 color: app.accentColor,
-                                letterSpacing: 0.6,
+                                letterSpacing: 0.8,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -366,8 +368,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                       // watchOS Status Pill
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
+                          horizontal: 10,
+                          vertical: 5,
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF242E44),
@@ -398,7 +400,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                             Text(
                               app.statusText,
                               style: const TextStyle(
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                               ),
@@ -412,14 +414,14 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                   // Hero Glance Box: Hero Metric + Dynamic Visualizer + Description
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
+                      horizontal: 16,
+                      vertical: 14,
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF141A28).withValues(alpha: 0.90),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.06),
+                        color: Colors.white.withValues(alpha: 0.08),
                         width: 1,
                       ),
                     ),
@@ -435,29 +437,29 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                             Text(
                               app.heroMetric,
                               style: const TextStyle(
-                                fontSize: 20,
+                                fontSize: 24,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.white,
-                                letterSpacing: -0.5,
+                                letterSpacing: -0.6,
                               ),
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
+                                horizontal: 10,
+                                vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: app.accentColor.withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(8),
+                                color: app.accentColor.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: app.accentColor.withValues(alpha: 0.35),
-                                  width: 0.8,
+                                  color: app.accentColor.withValues(alpha: 0.40),
+                                  width: 1,
                                 ),
                               ),
                               child: Text(
                                 app.heroBadge,
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: app.accentColor,
                                 ),
@@ -465,21 +467,21 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 10),
 
                         // Live Complication Visualizer
                         _buildVisualizerForApp(app),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 10),
 
-                        // App summary description
+                        // App summary description (full 3 lines without clipping)
                         Text(
                           app.description,
                           style: const TextStyle(
-                            fontSize: 11.5,
-                            height: 1.3,
+                            fontSize: 12.5,
+                            height: 1.42,
                             color: Color(0xFF94A3B8),
                           ),
-                          maxLines: 2,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -498,19 +500,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                   // Apple Watch Pill Action Button
                   Container(
                     width: double.infinity,
-                    height: 38,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: const Color(0xFF242E44),
-                      borderRadius: BorderRadius.circular(19),
+                      borderRadius: BorderRadius.circular(22),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.10),
+                        color: Colors.white.withValues(alpha: 0.12),
                         width: 1,
                       ),
                     ),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(19),
+                        borderRadius: BorderRadius.circular(22),
                         onTap: () => widget.onSelectApp(app.route),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -518,7 +520,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                             Text(
                               app.actionLabel,
                               style: const TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                               ),
@@ -526,7 +528,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                             const SizedBox(width: 6),
                             Icon(
                               Icons.arrow_forward_ios_rounded,
-                              size: 11,
+                              size: 12,
                               color: app.accentColor,
                             ),
                           ],
