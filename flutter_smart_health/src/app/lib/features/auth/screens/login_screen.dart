@@ -149,14 +149,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0C1220),
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: Stack(
-          children: [
-            // Atmospheric Apple OS Glossy Bluish Twilight Gradient
+    return Theme(
+      data: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0C1220),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF007AFF),
+          surface: Color(0xFF141E33),
+          onSurface: Colors.white,
+        ),
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: Color(0xFF38BDF8),
+          selectionColor: Color(0x60007AFF),
+          selectionHandleColor: Color(0xFF007AFF),
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0C1220),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Stack(
+            children: [
+              // Atmospheric Apple OS Glossy Bluish Twilight Gradient
             Positioned.fill(
               child: Container(
                 decoration: const BoxDecoration(
@@ -279,6 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

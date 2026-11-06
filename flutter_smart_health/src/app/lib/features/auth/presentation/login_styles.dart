@@ -37,10 +37,10 @@ class LoginStyles {
       );
 
   static BoxDecoration get inputFieldDecoration => BoxDecoration(
-        color: const Color(0xFF1E2B44).withValues(alpha: 0.65),
+        color: const Color(0xFF16233B).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
+          color: Colors.white.withValues(alpha: 0.16),
           width: 1.1,
         ),
         boxShadow: const [
@@ -51,6 +51,47 @@ class LoginStyles {
           ),
         ],
       );
+
+  static InputDecoration inputDecoration({
+    required String hintText,
+    required Widget prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(
+        color: Color(0xFF94A3B8),
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+      ),
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: const Color(0xFF16233B).withValues(alpha: 0.85),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: 0.16),
+          width: 1.1,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: 0.16),
+          width: 1.1,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: Color(0xFF38BDF8),
+          width: 1.6,
+        ),
+      ),
+    );
+  }
 
   // Backward compatibility alias
   static BoxDecoration get emailFieldDecoration => inputFieldDecoration;

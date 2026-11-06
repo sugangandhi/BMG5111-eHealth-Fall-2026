@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/l10n.dart';
 import '../presentation/login_styles.dart';
 
-class LoginForm extends StatelessWidget {
+class LoginForm extends StatefulWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final String selectedIdentity;
@@ -24,8 +24,16 @@ class LoginForm extends StatelessWidget {
     required this.onSubmit,
   });
 
+  @override
+  State<LoginForm> createState() => _LoginFormState();
+}
+
+class _LoginFormState extends State<LoginForm> {
+  bool _obscurePassword = true;
+
   static const _appleBlue = Color(0xFF007AFF);
   static const _appleCyan = Color(0xFF38BDF8);
+  static const _appleAzureSoft = Color(0xFF93C5FD);
 
   @override
   Widget build(BuildContext context) {
@@ -37,131 +45,111 @@ class LoginForm extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Email Address Input (Frosted Glass Pill)
-          Container(
-            decoration: LoginStyles.inputFieldDecoration,
-            child: TextField(
-              key: const Key('login_email_field'),
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: l10n.emailAddressHint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 14,
-                ),
-                prefixIcon: const Icon(
-                  Icons.mail_rounded,
-                  color: _appleCyan,
-                  size: 20,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-              ),
+          // Email Address Input (Apple OS Frosted Glass Pill)
+          TextField(
+            key: const Key('login_email_field'),
+            controller: widget.emailController,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            cursorColor: _appleCyan,
+            cursorWidth: 2.0,
+            style: const TextStyle(
+              fontSize: 15,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
             ),
-          ),
-          const SizedBox(height: 12),
-
-          // Password Input (Frosted Glass Pill)
-          Container(
-            decoration: LoginStyles.inputFieldDecoration,
-            child: TextField(
-              key: const Key('login_password_field'),
-              controller: passwordController,
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => onSubmit(),
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: l10n.passwordHint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 14,
-                ),
-                prefixIcon: const Icon(
-                  Icons.lock_rounded,
-                  color: _appleCyan,
-                  size: 20,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Identity Dropdown Selector (Frosted Glass Pill)
-          Container(
-            decoration: LoginStyles.inputFieldDecoration,
-            child: DropdownButtonFormField<String>(
-              key: const Key('login_identity_dropdown'),
-              initialValue: selectedIdentity,
-              dropdownColor: const Color(0xFF162238),
-              borderRadius: BorderRadius.circular(16),
-              icon: const Icon(
-                Icons.unfold_more_rounded,
-                color: Color(0xFF93C5FD),
+            decoration: LoginStyles.inputDecoration(
+              hintText: l10n.emailAddressHint,
+              prefixIcon: const Icon(
+                Icons.mail_rounded,
+                color: _appleCyan,
                 size: 20,
               ),
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Password Input with Visibility Toggle (Apple OS Frosted Glass Pill)
+          TextField(
+            key: const Key('login_password_field'),
+            controller: widget.passwordController,
+            obscureText: _obscurePassword,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => widget.onSubmit(),
+            cursorColor: _appleCyan,
+            cursorWidth: 2.0,
+            style: const TextStyle(
+              fontSize: 15,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: LoginStyles.inputDecoration(
+              hintText: l10n.passwordHint,
+              prefixIcon: const Icon(
+                Icons.lock_rounded,
+                color: _appleCyan,
+                size: 20,
               ),
-              items: [
-                for (final identity in identityOptions)
-                  DropdownMenuItem(
-                    value: identity,
-                    child: Text(
-                      identity,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-              ],
-              onChanged: loading
-                  ? null
-                  : (value) {
-                      if (value != null) onIdentityChanged(value);
-                    },
-              decoration: InputDecoration(
-                hintText: l10n.roleLabel,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 14,
-                ),
-                prefixIcon: const Icon(
-                  Icons.badge_rounded,
-                  color: _appleCyan,
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  color: _appleAzureSoft,
                   size: 20,
                 ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
+                tooltip: _obscurePassword ? "Show password" : "Hide password",
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Identity Dropdown Selector (Apple OS Frosted Glass Pill)
+          DropdownButtonFormField<String>(
+            key: const Key('login_identity_dropdown'),
+            initialValue: widget.selectedIdentity,
+            dropdownColor: const Color(0xFF162238),
+            borderRadius: BorderRadius.circular(16),
+            icon: const Icon(
+              Icons.unfold_more_rounded,
+              color: _appleAzureSoft,
+              size: 20,
+            ),
+            style: const TextStyle(
+              fontSize: 15,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+            items: [
+              for (final identity in widget.identityOptions)
+                DropdownMenuItem(
+                  value: identity,
+                  child: Text(
+                    identity,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
+            ],
+            onChanged: widget.loading
+                ? null
+                : (value) {
+                    if (value != null) widget.onIdentityChanged(value);
+                  },
+            decoration: LoginStyles.inputDecoration(
+              hintText: l10n.roleLabel,
+              prefixIcon: const Icon(
+                Icons.badge_rounded,
+                color: _appleCyan,
+                size: 20,
               ),
             ),
           ),
 
           // Error Banner if present
-          if (error != null) ...[
-            const SizedBox(height: 12),
+          if (widget.error != null) ...[
+            const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: LoginStyles.errorDecoration,
@@ -175,7 +163,7 @@ class LoginForm extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      error!,
+                      widget.error!,
                       style: const TextStyle(
                         color: Color(0xFFFCA5A5),
                         fontSize: 13,
@@ -188,7 +176,7 @@ class LoginForm extends StatelessWidget {
             ),
           ],
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
 
           // Apple OS Glossy Bluish Action Button
           Container(
@@ -214,7 +202,7 @@ class LoginForm extends StatelessWidget {
               ],
             ),
             child: ElevatedButton(
-              onPressed: loading ? null : onSubmit,
+              onPressed: widget.loading ? null : widget.onSubmit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
@@ -223,7 +211,7 @@ class LoginForm extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: loading
+              child: widget.loading
                   ? const SizedBox(
                       height: 20,
                       width: 20,
@@ -245,7 +233,11 @@ class LoginForm extends StatelessWidget {
                           ),
                         ),
                         SizedBox(width: 6),
-                        Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 18,
+                          color: Colors.white,
+                        ),
                       ],
                     ),
             ),
@@ -256,9 +248,9 @@ class LoginForm extends StatelessWidget {
           // Quick Demo Account Pill (Tap to fill)
           InkWell(
             onTap: () {
-              emailController.text = "normal@demo.com";
-              passwordController.text = "123456";
-              onIdentityChanged("Patient");
+              widget.emailController.text = "normal@demo.com";
+              widget.passwordController.text = "123456";
+              widget.onIdentityChanged("Patient");
             },
             borderRadius: BorderRadius.circular(14),
             child: Container(
