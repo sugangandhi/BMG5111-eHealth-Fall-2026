@@ -50,7 +50,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Native Apple Watch / iOS Multitasking Card Deck
+        // watchOS 11 Glance Multitasking Card Deck
         SizedBox(
           height: 495,
           child: ScrollConfiguration(
@@ -79,7 +79,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                   itemBuilder: (context, index) {
                     final app = apps[index];
                     final diff = (currentPageValue - index).abs();
-                    // Apple Watch Multitasking depth and scale effect
+                    // watchOS 11 Multitasking depth and scale effect
                     final scale = (1.0 - (diff * 0.08)).clamp(0.90, 1.0);
                     final opacity = (1.0 - (diff * 0.22)).clamp(0.78, 1.0);
 
@@ -106,6 +106,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               mainAxisSize: MainAxisSize.min,
               children: List.generate(apps.length, (idx) {
                 final isSelected = idx == _currentPage;
+                final app = apps[idx];
                 return GestureDetector(
                   onTap: () => _goToPage(idx),
                   behavior: HitTestBehavior.opaque,
@@ -118,7 +119,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       height: 6,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFF007AFF)
+                            ? app.accentColor
                             : const Color(0xFFC7C7CC),
                         borderRadius: BorderRadius.circular(3),
                       ),
@@ -142,18 +143,29 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(28),
+          // watchOS 11 ambient signature color tint
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              app.accentColor.withValues(alpha: 0.08),
+              Colors.white,
+              Colors.white,
+            ],
+            stops: const [0.0, 0.45, 1.0],
+          ),
           border: Border.all(
-            color: const Color(0xFFE5E5EA),
+            color: app.accentColor.withValues(alpha: 0.22),
             width: 1.2,
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x0E000000),
-              blurRadius: 24,
-              offset: Offset(0, 10),
+              color: app.accentColor.withValues(alpha: 0.12),
+              blurRadius: 22,
+              offset: const Offset(0, 8),
             ),
-            BoxShadow(
-              color: Color(0x05000000),
+            const BoxShadow(
+              color: Color(0x06000000),
               blurRadius: 6,
               offset: Offset(0, 2),
             ),
@@ -163,20 +175,31 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Apple Watch App Header: Squircle Badge + Name + Live Status Pill
+            // watchOS App Header: Squircle Badge + Name + Complication Status Pill
             Row(
               children: [
                 Container(
-                  width: 46,
-                  height: 46,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: app.iconBg,
+                    gradient: LinearGradient(
+                      colors: [app.accentColor, app.accentColorSecondary],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     borderRadius: BorderRadius.circular(13),
+                    boxShadow: [
+                      BoxShadow(
+                        color: app.accentColor.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     app.icon,
-                    color: app.iconColor,
-                    size: 24,
+                    color: Colors.white,
+                    size: 22,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -188,21 +211,21 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                         app.title,
                         style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           color: Color(0xFF1C1C1E),
                           letterSpacing: -0.4,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         app.category,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF8E8E93),
-                          letterSpacing: 0.5,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: app.accentColor,
+                          letterSpacing: 0.6,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -214,8 +237,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: app.statusBg,
+                    color: app.accentColor.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: app.accentColor.withValues(alpha: 0.25),
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -225,7 +252,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                         height: 6,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: app.statusColor,
+                          color: app.accentColor,
                         ),
                       ),
                       const SizedBox(width: 5),
@@ -234,7 +261,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: app.statusColor,
+                          color: app.accentColor,
                         ),
                       ),
                     ],
@@ -243,80 +270,57 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               ],
             ),
 
-            // "What this specific app will do" section
+            // watchOS 11 Hero Glance Box (Hero Metric + Dynamic Visualizer + Description)
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F7),
+                color: const Color(0xFFF2F2F7).withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  width: 1,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Hero Metric Row
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Icon(app.highlightIcon, size: 15, color: app.iconColor),
-                      const SizedBox(width: 8),
-                      Expanded(
+                      Text(
+                        app.heroMetric,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: app.accentColor,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: app.accentColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         child: Text(
-                          app.highlightText,
-                          style: const TextStyle(
-                            fontSize: 12,
+                          app.heroBadge,
+                          style: TextStyle(
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1C1C1E),
+                            color: app.accentColor,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
 
-                  // Hospital-grade dynamic visual element
-                  if (app.type == _AppType.vitals) ...[
-                    const _EcgSparkline(color: Color(0xFFFF2D55)),
-                    const SizedBox(height: 4),
-                  ] else if (app.type == _AppType.urgentCare) ...[
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: const LinearProgressIndicator(
-                        value: 0.75,
-                        minHeight: 4,
-                        backgroundColor: Color(0xFFE5E5EA),
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                  ] else if (app.type == _AppType.medications) ...[
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: const LinearProgressIndicator(
-                        value: 0.50,
-                        minHeight: 4,
-                        backgroundColor: Color(0xFFE5E5EA),
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Color(0xFFAF52DE)),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                  ] else if (app.type == _AppType.goals) ...[
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: const LinearProgressIndicator(
-                        value: 0.84,
-                        minHeight: 4,
-                        backgroundColor: Color(0xFFE5E5EA),
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Color(0xFF34C759)),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                  ],
+                  // Live Complication Visualizer
+                  _buildVisualizerForApp(app),
+                  const SizedBox(height: 6),
 
                   // Clear, comprehensive description of what the specific app does
                   Text(
@@ -326,7 +330,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       height: 1.35,
                       color: Color(0xFF3A3A3C),
                     ),
-                    maxLines: 3,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -342,15 +346,30 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               ],
             ),
 
-            // Apple Action Button
-            SizedBox(
+            // watchOS Signature Themed Action Button
+            Container(
               width: double.infinity,
               height: 44,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [app.accentColor, app.accentColorSecondary],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(13),
+                boxShadow: [
+                  BoxShadow(
+                    color: app.accentColor.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
                   foregroundColor: Colors.white,
-                  elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(13),
                   ),
@@ -367,13 +386,14 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2,
+                          color: Colors.white,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.arrow_forward_rounded, size: 15),
+                    const Icon(Icons.arrow_forward_rounded, size: 15, color: Colors.white),
                   ],
                 ),
               ),
@@ -382,6 +402,70 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         ),
       ),
     );
+  }
+
+  Widget _buildVisualizerForApp(_AppModuleItem app) {
+    switch (app.type) {
+      case _AppType.vitals:
+        return _EcgSparkline(color: app.accentColor);
+      case _AppType.urgentCare:
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: 0.75,
+            minHeight: 4,
+            backgroundColor: const Color(0xFFE5E5EA),
+            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+          ),
+        );
+      case _AppType.medications:
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: 0.50,
+            minHeight: 4,
+            backgroundColor: const Color(0xFFE5E5EA),
+            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+          ),
+        );
+      case _AppType.goals:
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: 0.84,
+            minHeight: 4,
+            backgroundColor: const Color(0xFFE5E5EA),
+            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+          ),
+        );
+      case _AppType.bmi:
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: 0.65,
+            minHeight: 4,
+            backgroundColor: const Color(0xFFE5E5EA),
+            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+          ),
+        );
+      case _AppType.clinicChat:
+        return _AudioWaveformMini(color: app.accentColor);
+      case _AppType.trends:
+      case _AppType.insights:
+      case _AppType.history:
+      case _AppType.symptoms:
+      case _AppType.settings:
+      default:
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: 0.90,
+            minHeight: 4,
+            backgroundColor: const Color(0xFFE5E5EA),
+            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+          ),
+        );
+    }
   }
 
   Widget _buildAppleMiniStat(String label, String value) {
@@ -422,25 +506,22 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     );
   }
 
-  // All 11 apps matching the Grid View 1-to-1
+  // All 11 apps matching the Grid View 1-to-1 with watchOS 11 Glance theme
   List<_AppModuleItem> _getAppsList() {
     return [
-      // 1. Wearable Vitals (Health Monitoring)
+      // 1. Wearable Vitals (Health Monitoring) - Rose Crimson
       const _AppModuleItem(
         type: _AppType.vitals,
         title: "Wearable Vitals",
         category: "HEALTH MONITORING",
-        shortLabel: "Vitals",
+        heroMetric: "78 BPM",
+        heroBadge: "Sinus Rhythm",
         description:
             "Continuous live telemetry streaming heart rate, blood pressure, and SpO2 from your Apple Watch directly into the hospital EHR with automated arrhythmia alerts.",
         icon: Icons.watch_outlined,
-        iconBg: Color(0xFFFFE5E5),
-        iconColor: Color(0xFFFF2D55),
+        accentColor: Color(0xFFFF2D55),
+        accentColorSecondary: Color(0xFFFF375F),
         statusText: "Connected",
-        statusBg: Color(0xFFE8F5E9),
-        statusColor: Color(0xFF34C759),
-        highlightIcon: Icons.favorite_rounded,
-        highlightText: "Continuous Apple Watch EHR Telemetry",
         stat1Label: "HEART RATE",
         stat1Value: "78 BPM (Sinus)",
         stat2Label: "BLOOD PRESSURE",
@@ -449,22 +530,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Open Wearable Vitals",
       ),
 
-      // 2. Vitals History (Health Monitoring)
+      // 2. Vitals History (Health Monitoring) - Deep Violet
       const _AppModuleItem(
         type: _AppType.history,
         title: "Vitals History",
         category: "HEALTH MONITORING",
-        shortLabel: "History",
+        heroMetric: "142 Logs",
+        heroBadge: "Past 30 Days",
         description:
             "Browse longitudinal time-stamped archives of past physiological monitoring sessions, ECG recordings, and clinician review logs across customizable date ranges.",
         icon: Icons.history_rounded,
-        iconBg: Color(0xFFEDE9FE),
-        iconColor: Color(0xFF5856D6),
+        accentColor: Color(0xFF5856D6),
+        accentColorSecondary: Color(0xFF6E56CF),
         statusText: "142 Records",
-        statusBg: Color(0xFFEDE9FE),
-        statusColor: Color(0xFF5856D6),
-        highlightIcon: Icons.calendar_month_rounded,
-        highlightText: "Longitudinal Physiological Logs",
         stat1Label: "TOTAL SESSIONS",
         stat1Value: "142 Records",
         stat2Label: "DATE RANGE",
@@ -473,22 +551,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "View Vitals History",
       ),
 
-      // 3. Health Insights (Health Monitoring)
+      // 3. Health Insights (Health Monitoring) - Amber Coral
       const _AppModuleItem(
         type: _AppType.insights,
         title: "Health Insights",
         category: "HEALTH MONITORING",
-        shortLabel: "Insights",
+        heroMetric: "98% Normal",
+        heroBadge: "Low Risk Tier",
         description:
             "Evaluates merged wearable telemetry and hospital records with clinical reasoning algorithms to highlight early cardiovascular risks and vital anomalies.",
         icon: Icons.insights_rounded,
-        iconBg: Color(0xFFFFF4E5),
-        iconColor: Color(0xFFFF9500),
+        accentColor: Color(0xFFFF9500),
+        accentColorSecondary: Color(0xFFFF9F0A),
         statusText: "Optimal",
-        statusBg: Color(0xFFE8F5E9),
-        statusColor: Color(0xFF34C759),
-        highlightIcon: Icons.auto_graph_rounded,
-        highlightText: "Clinical Risk Stratification",
         stat1Label: "RISK PROFILE",
         stat1Value: "Low / Normal",
         stat2Label: "CRITICAL ALERTS",
@@ -497,22 +572,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Explore Health Insights",
       ),
 
-      // 4. Trend Analysis (Health Monitoring)
+      // 4. Trend Analysis (Health Monitoring) - Electric Ocean Blue
       const _AppModuleItem(
         type: _AppType.trends,
         title: "Trend Analysis",
         category: "HEALTH MONITORING",
-        shortLabel: "Trends",
+        heroMetric: "±4% Variance",
+        heroBadge: "Stable Baseline",
         description:
             "Charts multi-day blood pressure and resting heart rate trajectories benchmarked against Hypertension Canada and AHA medical guidelines.",
         icon: Icons.trending_up_rounded,
-        iconBg: Color(0xFFE5F1FF),
-        iconColor: Color(0xFF007AFF),
+        accentColor: Color(0xFF007AFF),
+        accentColorSecondary: Color(0xFF0A84FF),
         statusText: "Stable",
-        statusBg: Color(0xFFE5F1FF),
-        statusColor: Color(0xFF007AFF),
-        highlightIcon: Icons.show_chart_rounded,
-        highlightText: "Multi-Day Predictive Trajectories",
         stat1Label: "7-DAY TARGET",
         stat1Value: "Within Range",
         stat2Label: "VARIANCE",
@@ -521,22 +593,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Analyze Health Trends",
       ),
 
-      // 5. Medications & Rx (Health Management)
+      // 5. Medications & Rx (Health Management) - Orchid Purple
       const _AppModuleItem(
         type: _AppType.medications,
         title: "Medications & Rx",
         category: "HEALTH MANAGEMENT",
-        shortLabel: "Medications",
+        heroMetric: "1 of 2 Taken",
+        heroBadge: "Next: 8:00 PM",
         description:
             "Maintains your active prescription regimen with automated dose reminders, taken-dose tracking, and electronic refills with your hospital pharmacy.",
         icon: Icons.medication_outlined,
-        iconBg: Color(0xFFF3E8FF),
-        iconColor: Color(0xFFAF52DE),
+        accentColor: Color(0xFFAF52DE),
+        accentColorSecondary: Color(0xFFBF5AF2),
         statusText: "2 Active",
-        statusBg: Color(0xFFF3E8FF),
-        statusColor: Color(0xFFAF52DE),
-        highlightIcon: Icons.check_circle_rounded,
-        highlightText: "Prescription Adherence Tracker",
         stat1Label: "MORNING DOSE",
         stat1Value: "Taken 8:00 AM",
         stat2Label: "EVENING DOSE",
@@ -545,22 +614,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Manage Medications",
       ),
 
-      // 6. Symptom Logger (Health Management)
+      // 6. Symptom Logger (Health Management) - Sunset Vermilion
       const _AppModuleItem(
         type: _AppType.symptoms,
         title: "Symptom Logger",
         category: "HEALTH MANAGEMENT",
-        shortLabel: "Symptoms",
+        heroMetric: "Mild (1/10)",
+        heroBadge: "SOCRATES Intake",
         description:
             "Quickly record pain location, onset, severity, and triggers using the standardized SOCRATES clinical method to send direct updates to your physician.",
         icon: Icons.sick_outlined,
-        iconBg: Color(0xFFFFECE5),
-        iconColor: Color(0xFFFF5E3A),
+        accentColor: Color(0xFFFF3B30),
+        accentColorSecondary: Color(0xFFFF453A),
         statusText: "Ready",
-        statusBg: Color(0xFFF2F2F7),
-        statusColor: Color(0xFF8E8E93),
-        highlightIcon: Icons.healing_rounded,
-        highlightText: "SOCRATES Clinical Intake",
         stat1Label: "LAST LOG",
         stat1Value: "Yesterday",
         stat2Label: "SEVERITY",
@@ -569,22 +635,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Log New Symptom",
       ),
 
-      // 7. Health Goals (Health Management)
+      // 7. Health Goals (Health Management) - Activity Green
       const _AppModuleItem(
         type: _AppType.goals,
         title: "Health Goals",
         category: "HEALTH MANAGEMENT",
-        shortLabel: "Goals",
+        heroMetric: "8,420 Steps",
+        heroBadge: "84% of Goal",
         description:
             "Track daily step counts, active calorie burn, and restorative sleep milestones to keep your lifestyle goals aligned with your medical treatment plan.",
         icon: Icons.flag_outlined,
-        iconBg: Color(0xFFE8F8EE),
-        iconColor: Color(0xFF34C759),
+        accentColor: Color(0xFF34C759),
+        accentColorSecondary: Color(0xFF30D158),
         statusText: "84% Done",
-        statusBg: Color(0xFFE8F8EE),
-        statusColor: Color(0xFF34C759),
-        highlightIcon: Icons.emoji_events_rounded,
-        highlightText: "Daily Apple Activity Targets",
         stat1Label: "STEP TARGET",
         stat1Value: "8,420 / 10,000",
         stat2Label: "ACTIVE BURN",
@@ -593,22 +656,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Track Health Goals",
       ),
 
-      // 8. BMI Calculator (Health Management)
+      // 8. BMI Calculator (Health Management) - Mint Teal
       const _AppModuleItem(
         type: _AppType.bmi,
         title: "BMI Calculator",
         category: "HEALTH MANAGEMENT",
-        shortLabel: "BMI",
+        heroMetric: "22.4 BMI",
+        heroBadge: "Healthy Weight",
         description:
             "Calculates body mass index from height and weight, categorizing metabolic tiers and delivering tailored dietary recommendations for cardiovascular health.",
         icon: Icons.monitor_weight_outlined,
-        iconBg: Color(0xFFE0F7FA),
-        iconColor: Color(0xFF009688),
+        accentColor: Color(0xFF00C7BE),
+        accentColorSecondary: Color(0xFF30B0C7),
         statusText: "Healthy",
-        statusBg: Color(0xFFE8F5E9),
-        statusColor: Color(0xFF34C759),
-        highlightIcon: Icons.calculate_rounded,
-        highlightText: "Body Composition & Health Index",
         stat1Label: "CURRENT BMI",
         stat1Value: "22.4 (Normal)",
         stat2Label: "METABOLIC TIER",
@@ -617,22 +677,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Calculate BMI",
       ),
 
-      // 9. Urgent Care Clinic (Clinical & Urgent)
+      // 9. Urgent Care Clinic (Clinical & Urgent) - Emergency Cobalt Blue
       const _AppModuleItem(
         type: _AppType.urgentCare,
         title: "Urgent Care Clinic",
         category: "CLINICAL & URGENT",
-        shortLabel: "Urgent Care",
+        heroMetric: "#4 in Queue",
+        heroBadge: "Est. 12m Wait",
         description:
             "Check into the hospital urgent care queue before arrival, monitor live wait times, and send real-time condition updates directly to the triage nurse.",
         icon: Icons.local_hospital_outlined,
-        iconBg: Color(0xFFE5F1FF),
-        iconColor: Color(0xFF007AFF),
+        accentColor: Color(0xFF007AFF),
+        accentColorSecondary: Color(0xFF0051A8),
         statusText: "Open Now",
-        statusBg: Color(0xFFE5F1FF),
-        statusColor: Color(0xFF007AFF),
-        highlightIcon: Icons.access_time_filled_rounded,
-        highlightText: "Live Queue & Virtual Check-In",
         stat1Label: "QUEUE POSITION",
         stat1Value: "#4 in Line",
         stat2Label: "EST. WAIT",
@@ -641,22 +698,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "View Clinic Queue",
       ),
 
-      // 10. AI Health Assistant (Clinical & Urgent)
+      // 10. AI Health Assistant (Clinical & Urgent) - Care Team Emerald
       const _AppModuleItem(
         type: _AppType.clinicChat,
         title: "AI Health Assistant",
         category: "CLINICAL & URGENT",
-        shortLabel: "Clinic AI",
+        heroMetric: "CTAS Triage",
+        heroBadge: "Care Team Online",
         description:
             "Consult with Intelligent Digital Solution care team via WhatsApp-style messaging and Whisper-1 voice dictation, backed by Canadian CTAS triage protocols.",
         icon: Icons.smart_toy_outlined,
-        iconBg: Color(0xFFE8F8EE),
-        iconColor: Color(0xFF34C759),
+        accentColor: Color(0xFF25D366),
+        accentColorSecondary: Color(0xFF20BA5A),
         statusText: "Online",
-        statusBg: Color(0xFFE8F8EE),
-        statusColor: Color(0xFF34C759),
-        highlightIcon: Icons.mic_rounded,
-        highlightText: "Intelligent Digital Solution Care Team",
         stat1Label: "CARE TEAM",
         stat1Value: "IDS Clinic Online",
         stat2Label: "TRIAGE ENGINE",
@@ -665,22 +719,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Start Clinical Chat",
       ),
 
-      // 11. Settings & Telemetry (System & Telemetry)
+      // 11. Settings & Telemetry (System & Telemetry) - Titanium Slate
       const _AppModuleItem(
         type: _AppType.settings,
         title: "Settings & Telemetry",
         category: "SYSTEM & TELEMETRY",
-        shortLabel: "Settings",
+        heroMetric: "AWS Synced",
+        heroBadge: "App Runner Live",
         description:
             "Configure Apple Watch HealthKit background syncing, verify AWS App Runner connectivity, manage AI provider keys, and update profile credentials.",
         icon: Icons.settings_outlined,
-        iconBg: Color(0xFFF2F2F7),
-        iconColor: Color(0xFF8E8E93),
+        accentColor: Color(0xFF636366),
+        accentColorSecondary: Color(0xFF8E8E93),
         statusText: "Connected",
-        statusBg: Color(0xFFF2F2F7),
-        statusColor: Color(0xFF8E8E93),
-        highlightIcon: Icons.cloud_sync_rounded,
-        highlightText: "Device Connectivity & Privacy",
         stat1Label: "EHR ENDPOINT",
         stat1Value: "AWS App Runner",
         stat2Label: "SYSTEM HEALTH",
@@ -710,16 +761,13 @@ class _AppModuleItem {
   final _AppType type;
   final String title;
   final String category;
-  final String shortLabel;
+  final String heroMetric;
+  final String heroBadge;
   final String description;
   final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
+  final Color accentColor;
+  final Color accentColorSecondary;
   final String statusText;
-  final Color statusBg;
-  final Color statusColor;
-  final IconData highlightIcon;
-  final String highlightText;
   final String stat1Label;
   final String stat1Value;
   final String stat2Label;
@@ -731,16 +779,13 @@ class _AppModuleItem {
     required this.type,
     required this.title,
     required this.category,
-    required this.shortLabel,
+    required this.heroMetric,
+    required this.heroBadge,
     required this.description,
     required this.icon,
-    required this.iconBg,
-    required this.iconColor,
+    required this.accentColor,
+    required this.accentColorSecondary,
     required this.statusText,
-    required this.statusBg,
-    required this.statusColor,
-    required this.highlightIcon,
-    required this.highlightText,
     required this.stat1Label,
     required this.stat1Value,
     required this.stat2Label,
@@ -759,7 +804,7 @@ class _EcgSparkline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 24,
+      height: 20,
       width: double.infinity,
       child: CustomPaint(
         painter: _EcgPainter(color: color),
@@ -816,4 +861,34 @@ class _EcgPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Mini Audio Waveform Visualizer for Clinical AI Dictation
+class _AudioWaveformMini extends StatelessWidget {
+  final Color color;
+
+  const _AudioWaveformMini({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final heights = [6.0, 14.0, 18.0, 10.0, 16.0, 20.0, 12.0, 8.0, 16.0, 14.0, 8.0];
+
+    return SizedBox(
+      height: 20,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: heights.map((h) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            width: 3,
+            height: h,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
