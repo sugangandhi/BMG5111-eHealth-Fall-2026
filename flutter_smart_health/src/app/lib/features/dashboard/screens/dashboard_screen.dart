@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../l10n/l10n.dart';
-import '../presentation/dashboard_styles.dart';
 import '../widgets/app_switcher_carousel.dart';
 import '../widgets/dashboard_featured_card.dart';
 import '../widgets/dashboard_grid_card.dart';
 import '../widgets/dashboard_grid_row.dart';
 import '../widgets/dashboard_section_header.dart';
 import '../widgets/dashboard_settings_link.dart';
-import '../widgets/dashboard_welcome_header.dart';
 
 class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
@@ -19,37 +16,13 @@ class PatientDashboard extends StatefulWidget {
 }
 
 class _PatientDashboardState extends State<PatientDashboard> {
-  String? _username;
   bool _showAppSwitcher = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUsername();
-  }
-
-  Future<void> _loadUsername() async {
-    final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString('patient_username');
-    if (mounted) setState(() => _username = name);
-  }
 
   void _open(String routeName) => Navigator.pushNamed(context, routeName);
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-
-    // Sanitize username to eliminate developer artifacts like "Normal LLM Demo"
-    final rawName = _username?.trim() ?? '';
-    final isDemoName = rawName.isEmpty ||
-        rawName.toLowerCase().contains('demo') ||
-        rawName.toLowerCase().contains('llm') ||
-        rawName.toLowerCase().contains('normal');
-    final displayName = isDemoName ? null : rawName;
-    final greeting = displayName != null
-        ? l10n.dashboardHelloUser(displayName)
-        : "Welcome Back";
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F2F7),
@@ -58,14 +31,28 @@ class _PatientDashboardState extends State<PatientDashboard> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        title: const Text(
-          "eHospital",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1C1C1E),
-            letterSpacing: -0.5,
-          ),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "INTELLIGENT DIGITAL SOLUTION",
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF007AFF),
+                letterSpacing: 1.1,
+              ),
+            ),
+            Text(
+              "eHospital",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1C1C1E),
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
         ),
         actions: [
           Container(
@@ -122,48 +109,12 @@ class _PatientDashboardState extends State<PatientDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "INTELLIGENT DIGITAL SOLUTION",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF007AFF),
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    greeting,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1C1C1E),
-                      letterSpacing: -0.6,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    "Intelligent Digital Solution Patient Portal",
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-
             if (_showAppSwitcher) ...[
+              const SizedBox(height: 10),
               AppSwitcherCarousel(onSelectApp: _open),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
             ] else ...[
+              const SizedBox(height: 12),
               DashboardSectionHeader(title: l10n.healthMonitoringSection),
               DashboardGridRow(
                 left: DashboardGridCard(
