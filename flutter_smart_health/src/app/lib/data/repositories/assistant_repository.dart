@@ -13,7 +13,8 @@ class AssistantRepository {
   AssistantRepository({
     ApiClient? client,
     ModelInvocationSettingsStore? modelInvocationStore,
-  }) : _client = client ?? ApiClient(baseUrl: ApiConfig.backendBaseUrl),
+  }) : _client = client ??
+           ApiClient(baseUrlProvider: () => ApiConfig.backendBaseUrl),
        _modelInvocationStore =
            modelInvocationStore ?? ModelInvocationSettingsStore();
 

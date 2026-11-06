@@ -153,23 +153,66 @@ class _LoginFormState extends State<LoginForm> {
           if (widget.error != null) ...[
             const SizedBox(height: 14),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: LoginStyles.errorDecoration,
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.error_outline_rounded,
-                    color: Color(0xFFEF4444),
-                    size: 18,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: Color(0xFFEF4444),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.error!,
+                          style: const TextStyle(
+                            color: Color(0xFFFCA5A5),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.error!,
-                      style: const TextStyle(
-                        color: Color(0xFFFCA5A5),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: () => _showServerHostDialog(context),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.settings_ethernet_rounded,
+                            size: 14,
+                            color: Color(0xFF38BDF8),
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            "Tap to Change Server URL / Host",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF38BDF8),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -338,9 +381,7 @@ class _LoginFormState extends State<LoginForm> {
 
   void _showServerHostDialog(BuildContext context) {
     final controller = TextEditingController(
-      text: ApiConfig.backendBaseUrl
-          .replaceAll('http://', '')
-          .replaceAll('https://', ''),
+      text: ApiConfig.backendBaseUrl,
     );
     showDialog<void>(
       context: context,
@@ -360,10 +401,10 @@ class _LoginFormState extends State<LoginForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Enter the PC's IP address and port (e.g. 192.168.2.29:8080):",
+              "Current backend address:",
               style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             TextField(
               controller: controller,
               style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -379,6 +420,37 @@ class _LoginFormState extends State<LoginForm> {
                   borderSide: const BorderSide(color: Color(0xFF38BDF8)),
                 ),
               ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              "Quick Presets:",
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _presetButton(
+                  "Cloudflare Tunnel",
+                  "https://saskatchewan-honolulu-event-captured.trycloudflare.com",
+                  controller,
+                ),
+                _presetButton(
+                  "LAN Wi-Fi",
+                  "http://192.168.2.29:8080",
+                  controller,
+                ),
+                _presetButton(
+                  "USB Cable (adb reverse)",
+                  "http://127.0.0.1:8080",
+                  controller,
+                ),
+              ],
             ),
           ],
         ),
@@ -410,6 +482,35 @@ class _LoginFormState extends State<LoginForm> {
             child: const Text("Save", style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _presetButton(
+    String label,
+    String value,
+    TextEditingController controller,
+  ) {
+    return InkWell(
+      onTap: () => controller.text = value,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF38BDF8),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }

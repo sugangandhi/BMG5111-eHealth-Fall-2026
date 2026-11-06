@@ -19,7 +19,8 @@ class AuthRepository {
   final ApiClient _client;
 
   AuthRepository({ApiClient? client})
-    : _client = client ?? ApiClient(baseUrl: ApiConfig.backendBaseUrl);
+    : _client = client ??
+          ApiClient(baseUrlProvider: () => ApiConfig.backendBaseUrl);
 
   Future<AuthLoginResult> loginWithEmail(
     String email,

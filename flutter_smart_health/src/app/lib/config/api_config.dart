@@ -45,7 +45,14 @@ class ApiConfig {
       if (host.startsWith('http://') || host.startsWith('https://')) {
         return host;
       }
-      return 'http://$host:8080';
+      if (host.contains('.trycloudflare.com') ||
+          host.contains('.ngrok') ||
+          host.contains('.loca.lt') ||
+          (host.contains('.') && !RegExp(r'^\d+\.\d+\.\d+\.\d+').hasMatch(host))) {
+        return 'https://$host';
+      }
+      final portPart = host.contains(':') ? '' : ':8080';
+      return 'http://$host$portPart';
     }
     const defined = String.fromEnvironment('BACKEND_BASE_URL');
     if (defined.isNotEmpty) return defined;
@@ -57,16 +64,13 @@ class ApiConfig {
       }
     }
     // Default to the Cloudflare live tunnel for universal mobile & APK access
-    return 'https://campus-experimental-repository-val.trycloudflare.com';
+    return 'https://saskatchewan-honolulu-event-captured.trycloudflare.com';
   }
 
   static String get ehospitalBaseUrl {
     const defined = String.fromEnvironment('EHOSPITAL_BASE_URL');
     if (defined.isNotEmpty) return defined;
-    if (kIsWeb) {
-      return backendBaseUrl;
-    }
-    return 'https://aetab8pjmb.us-east-1.awsapprunner.com';
+    return backendBaseUrl;
   }
 
   static const String fitbitClientId = String.fromEnvironment(
