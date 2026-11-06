@@ -120,7 +120,9 @@ def create_app() -> FastAPI:
             return {"status": "error", "detail": str(e)}
 
     # Mount Flutter Web frontend if built (enables unified cloud deployment on Render/Docker)
-    web_dir = Path(__file__).resolve().parents[1] / "app" / "build" / "web"
+    web_dir = Path(__file__).resolve().parents[2] / "web_dist"
+    if not web_dir.exists():
+        web_dir = Path(__file__).resolve().parents[1] / "app" / "build" / "web"
     if web_dir.exists():
         from fastapi.staticfiles import StaticFiles
         app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web_app")

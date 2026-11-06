@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="eHospital">
+  <meta name="theme-color" content="#0C1220">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>eHospital - Intelligent Digital Solution</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <script>
+    window.clinicalVoice = {
+      recognition: null,
+      isListening: false,
+      mediaRecorder: null,
+      audioChunks: [],
+      
+      startListening: function(onResultCallback, onStatusCallback) {
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          if (onStatusCallback) onStatusCallback('unsupported', 'Web Speech API is not supported in this browser. Please use Google Chrome or Edge.');
+          return;
+        }
+        
+        try {
+          if (this.recognition) {
+            try { this.recognition.abort(); } catch (e) {}
+          }
+          var rec = new SpeechRecognition();
+          rec.continuous = true;
+          rec.interimResults = true;
+          rec.lang = 'en-US';
+          
+          rec.onstart = function() {
+            window.clinicalVoice.isListening = true;
+            if (onStatusCallback) onStatusCallback('listening', '');
+          };
+          
+          rec.onresult = function(event) {
+            var interim = '';
+            var final = '';
+            for (var i = 0; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                final += event.results[i][0].transcript + ' ';
+              } else {
+                interim += event.results[i][0].transcript;
+              }
+            }
+            if (onResultCallback) {
+              onResultCallback(final.trim(), interim.trim());
+            }
+          };
+          
+          rec.onerror = function(event) {
+            console.warn('[ClinicalVoice] Speech error:', event.error);
+            if (onStatusCallback) onStatusCallback('error', event.error || 'Speech recognition error');
+          };
+          
+          rec.onend = function() {
+            window.clinicalVoice.isListening = false;
+            if (onStatusCallback) onStatusCallback('stopped', '');
+          };
+          
+          this.recognition = rec;
+          rec.start();
+        } catch (err) {
+          console.error('[ClinicalVoice] Failed to start:', err);
+          if (onStatusCallback) onStatusCallback('error', err.toString());
+        }
+      },
+      
+      stopListening: function() {
+        if (this.recognition) {
+          try {
+            this.recognition.stop();
+          } catch (e) {}
+          this.isListening = false;
+        }
+      },
+
+      startRecordingAudio: function(onStatusCallback) {
+        var self = this;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          if (onStatusCallback) onStatusCallback('unsupported', 'Microphone not supported in this browser.');
+          return;
+        }
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(function(stream) {
+            self.audioChunks = [];
+            self.mediaRecorder = new MediaRecorder(stream);
+            self.mediaRecorder.ondataavailable = function(e) {
+              if (e.data && e.data.size > 0) {
+                self.audioChunks.push(e.data);
+              }
+            };
+            self.mediaRecorder.start();
+            if (onStatusCallback) onStatusCallback('recording', '');
+          })
+          .catch(function(err) {
+            console.error('[ClinicalVoice] MediaRecorder error:', err);
+            if (onStatusCallback) onStatusCallback('error', err.toString());
+          });
+      },
+
+      stopRecordingAudio: function(onDoneCallback) {
+        var self = this;
+        if (!this.mediaRecorder) {
+          if (onDoneCallback) onDoneCallback('');
+          return;
+        }
+        this.mediaRecorder.onstop = function() {
+          var audioBlob = new Blob(self.audioChunks, { type: 'audio/webm' });
+          var reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = function() {
+            var base64Data = (reader.result || '').toString().split(',')[1] || '';
+            if (onDoneCallback) onDoneCallback(base64Data);
+          };
+        };
+        try {
+          this.mediaRecorder.stop();
+        } catch (e) {
+          if (onDoneCallback) onDoneCallback('');
+        }
+      }
+    };
+  </script>
+  <script>
+    // Automatically purge old service worker and cached files for fresh demo
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var i = 0; i < registrations.length; i++) {
+          registrations[i].unregister();
+        }
+      });
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (var i = 0; i < names.length; i++) {
+            caches.delete(names[i]);
+          }
+        });
+      }
+    }
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
