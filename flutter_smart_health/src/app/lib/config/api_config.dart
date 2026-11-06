@@ -33,7 +33,20 @@ class ApiConfig {
     defaultValue: ollamaBaseUrl,
   );
 
+  static String? _customBackendHost;
+
+  static void setBackendHost(String host) {
+    _customBackendHost = host.trim();
+  }
+
   static String get backendBaseUrl {
+    if (_customBackendHost != null && _customBackendHost!.isNotEmpty) {
+      final host = _customBackendHost!;
+      if (host.startsWith('http://') || host.startsWith('https://')) {
+        return host;
+      }
+      return 'http://$host:8080';
+    }
     const defined = String.fromEnvironment('BACKEND_BASE_URL');
     if (defined.isNotEmpty) return defined;
     if (kIsWeb) {
@@ -42,7 +55,8 @@ class ApiConfig {
         return 'http://$host:8080';
       }
     }
-    return 'http://127.0.0.1:8080';
+    // Default to the developer PC local Wi-Fi IP for native Android/iOS builds
+    return 'http://192.168.2.29:8080';
   }
 
   static String get ehospitalBaseUrl {

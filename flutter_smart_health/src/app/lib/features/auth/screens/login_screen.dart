@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../config/api_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../data/models/ehospital_models.dart';
 import '../../../l10n/l10n.dart';
@@ -29,6 +30,12 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      final savedHost = prefs.getString('custom_backend_host');
+      if (savedHost != null && savedHost.isNotEmpty) {
+        ApiConfig.setBackendHost(savedHost);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkPrivacyConsent();
       if (mounted) await _checkMedicalDisclaimer();
