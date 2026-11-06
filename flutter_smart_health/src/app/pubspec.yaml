@@ -55,3 +55,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sample_reports/blood_report_sample.txt
+    - assets/images/

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
 import '../widgets/app_switcher_carousel.dart';
+import '../widgets/now_brief_view.dart';
 import '../widgets/dashboard_featured_card.dart';
 import '../widgets/dashboard_grid_card.dart';
 import '../widgets/dashboard_grid_row.dart';
@@ -15,8 +16,14 @@ class PatientDashboard extends StatefulWidget {
   State<PatientDashboard> createState() => _PatientDashboardState();
 }
 
+enum DashboardViewMode {
+  nowBrief,
+  appSwitcher,
+  grid,
+}
+
 class _PatientDashboardState extends State<PatientDashboard> {
-  bool _showAppSwitcher = true;
+  DashboardViewMode _viewMode = DashboardViewMode.nowBrief;
 
   void _open(String routeName) => Navigator.pushNamed(context, routeName);
 
@@ -66,17 +73,30 @@ class _PatientDashboardState extends State<PatientDashboard> {
             ),
             child: IconButton(
               icon: Icon(
-                _showAppSwitcher
-                    ? Icons.grid_view_rounded
-                    : Icons.view_carousel_rounded,
+                _viewMode == DashboardViewMode.nowBrief
+                    ? Icons.view_carousel_rounded
+                    : _viewMode == DashboardViewMode.appSwitcher
+                        ? Icons.grid_view_rounded
+                        : Icons.auto_awesome_mosaic_rounded,
                 size: 18,
               ),
               color: Colors.white,
-              tooltip: _showAppSwitcher
-                  ? "Switch to Grid View"
-                  : "Switch to App Switcher",
-              onPressed: () =>
-                  setState(() => _showAppSwitcher = !_showAppSwitcher),
+              tooltip: _viewMode == DashboardViewMode.nowBrief
+                  ? "Switch to Apple Watch Switcher"
+                  : _viewMode == DashboardViewMode.appSwitcher
+                      ? "Switch to Grid View"
+                      : "Switch to Now Brief",
+              onPressed: () {
+                setState(() {
+                  if (_viewMode == DashboardViewMode.nowBrief) {
+                    _viewMode = DashboardViewMode.appSwitcher;
+                  } else if (_viewMode == DashboardViewMode.appSwitcher) {
+                    _viewMode = DashboardViewMode.grid;
+                  } else {
+                    _viewMode = DashboardViewMode.nowBrief;
+                  }
+                });
+              },
             ),
           ),
           Container(
@@ -113,13 +133,15 @@ class _PatientDashboardState extends State<PatientDashboard> {
           ),
         ],
       ),
-      body: _showAppSwitcher
-          ? AppSwitcherCarousel(onSelectApp: _open)
-          : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      body: _viewMode == DashboardViewMode.nowBrief
+          ? NowBriefView(onOpenApp: _open)
+          : _viewMode == DashboardViewMode.appSwitcher
+              ? AppSwitcherCarousel(onSelectApp: _open)
+              : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
               const SizedBox(height: 12),
               DashboardSectionHeader(title: l10n.healthMonitoringSection),
               DashboardGridRow(
