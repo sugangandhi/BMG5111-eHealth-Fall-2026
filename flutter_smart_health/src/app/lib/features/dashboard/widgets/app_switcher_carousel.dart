@@ -23,9 +23,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   @override
   void initState() {
     super.initState();
-    // 0.80 viewportFraction gives the perfect horizontal Apple Watch card peek
+    // 0.58 viewportFraction allows cards above and below to peek in vertically with 3D rolodex depth
     _pageController = PageController(
-      viewportFraction: 0.80,
+      viewportFraction: 0.58,
       initialPage: 0,
     );
 
@@ -46,16 +46,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     super.dispose();
   }
 
-  void _goToPage(int page) {
-    if (_pageController.hasClients) {
-      _pageController.animateToPage(
-        page,
-        duration: const Duration(milliseconds: 360),
-        curve: Curves.easeOutCubic,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final apps = _getAppsList();
@@ -70,179 +60,127 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           currentPageValue = _pageController.page!;
         }
 
-        // Keep carousel centered and beautifully proportioned
-        final isNarrow = availableWidth < 500;
-        final deckWidth = isNarrow ? availableWidth : 480.0;
-
         return Container(
           width: availableWidth,
           height: availableHeight,
           color: const Color(0xFF000000), // OLED pitch black Apple Watch backdrop
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              // Horizontal 3D Carousel Deck
-              SizedBox(
-                width: deckWidth,
-                height: 330,
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context).copyWith(
-                    dragDevices: {
-                      PointerDeviceKind.touch,
-                      PointerDeviceKind.mouse,
-                      PointerDeviceKind.trackpad,
-                      PointerDeviceKind.stylus,
-                    },
-                    scrollbars: false,
-                  ),
-                  child: PageView.builder(
-                    controller: _pageController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: apps.length,
-                    onPageChanged: (idx) {
-                      setState(() => _currentPage = idx);
-                    },
-                    itemBuilder: (context, index) {
-                      final app = apps[index];
-                      final delta = currentPageValue - index;
+              // Centered 3D Vertical Rolodex Deck (Constrained to authentic watch proportions)
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      dragDevices: {
+                        PointerDeviceKind.touch,
+                        PointerDeviceKind.mouse,
+                        PointerDeviceKind.trackpad,
+                        PointerDeviceKind.stylus,
+                      },
+                      scrollbars: false,
+                    ),
+                    child: PageView.builder(
+                      controller: _pageController,
+                      scrollDirection: Axis.vertical,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: apps.length,
+                      onPageChanged: (idx) {
+                        setState(() => _currentPage = idx);
+                      },
+                      itemBuilder: (context, index) {
+                        final app = apps[index];
+                        final delta = currentPageValue - index;
 
-                      // 3D Horizontal Cylindrical Carousel Transform
-                      final absDelta = delta.abs();
-                      final scale = (1.0 - (absDelta * 0.08)).clamp(0.88, 1.0);
-                      final opacity = (1.0 - (absDelta * 0.22)).clamp(0.70, 1.0);
-                      final rotateY = (-delta * 0.12).clamp(-0.35, 0.35);
+                        // 3D Rolodex Stack Transform calculations
+                        double scale;
+                        double opacity;
+                        double rotateX;
+                        double translateY;
 
-                      final transformMatrix = Matrix4.identity()
-                        ..setEntry(3, 2, 0.0012) // 3D depth perspective
-                        ..rotateY(rotateY);
+                        if (delta > 0) {
+                          // Card rolling UP and tucking into the distance
+                          scale = (1.0 - (delta * 0.12)).clamp(0.84, 1.0);
+                          opacity = (1.0 - (delta * 0.32)).clamp(0.55, 1.0);
+                          rotateX = -delta * 0.12;
+                          translateY = delta * 18.0;
+                        } else {
+                          // Card coming UP from bottom into center
+                          final absDelta = delta.abs();
+                          scale = (1.0 - (absDelta * 0.08)).clamp(0.88, 1.0);
+                          opacity = (1.0 - (absDelta * 0.22)).clamp(0.68, 1.0);
+                          rotateX = absDelta * 0.08;
+                          translateY = -absDelta * 8.0;
+                        }
 
-                      return Transform(
-                        transform: transformMatrix,
-                        alignment: Alignment.center,
-                        child: Transform.scale(
-                          scale: scale,
-                          child: Opacity(
-                            opacity: opacity,
-                            child: _buildAppleWatchCard(app),
+                        final transformMatrix = Matrix4.identity()
+                          ..setEntry(3, 2, 0.0014) // 3D depth perspective
+                          ..setTranslationRaw(0.0, translateY, 0.0)
+                          ..rotateX(rotateX.clamp(-0.35, 0.35));
+
+                        return Transform(
+                          transform: transformMatrix,
+                          alignment: Alignment.center,
+                          child: Transform.scale(
+                            scale: scale,
+                            child: Opacity(
+                              opacity: opacity,
+                              child: _buildAppleWatchCard(app),
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 18),
+              // Apple Watch Vertical Scroll Indicator Track & Thumb (Right edge)
+              Positioned(
+                right: 8,
+                top: 40,
+                bottom: 40,
+                child: Container(
+                  width: 3.5,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, trackConstraints) {
+                      final trackHeight = trackConstraints.maxHeight;
+                      final thumbHeight =
+                          (trackHeight / apps.length).clamp(24.0, 52.0);
+                      final progress = apps.length > 1
+                          ? (currentPageValue / (apps.length - 1)).clamp(0.0, 1.0)
+                          : 0.0;
+                      final topOffset = progress * (trackHeight - thumbHeight);
 
-              // Horizontal Apple Watch Capsule Progress Track & Controls
-              SizedBox(
-                width: deckWidth,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF141416).withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Previous Arrow Button
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(
-                            Icons.arrow_back_ios_rounded,
-                            size: 15,
-                            color: Colors.white70,
-                          ),
-                          onPressed: _currentPage > 0
-                              ? () => _goToPage(_currentPage - 1)
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-
-                        // Sliding Capsule Track
-                        Container(
-                          width: 130,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                          child: LayoutBuilder(
-                            builder: (context, trackConstraints) {
-                              final trackWidth = trackConstraints.maxWidth;
-                              const thumbWidth = 28.0;
-                              final progress = apps.length > 1
-                                  ? (currentPageValue / (apps.length - 1))
-                                      .clamp(0.0, 1.0)
-                                  : 0.0;
-                              final leftOffset =
-                                  progress * (trackWidth - thumbWidth);
-
-                              return Stack(
-                                children: [
-                                  Positioned(
-                                    left: leftOffset,
-                                    top: 0,
-                                    bottom: 0,
-                                    width: thumbWidth,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.90),
-                                        borderRadius: BorderRadius.circular(2),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.white.withValues(alpha: 0.4),
-                                            blurRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                      return Stack(
+                        children: [
+                          Positioned(
+                            top: topOffset,
+                            left: 0,
+                            right: 0,
+                            height: thumbHeight,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.white.withValues(alpha: 0.35),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
                                   ),
                                 ],
-                              );
-                            },
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-
-                        // App Index Label
-                        Text(
-                          "${_currentPage + 1}/${apps.length}",
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF94A3B8),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-
-                        // Next Arrow Button
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 15,
-                            color: Colors.white70,
-                          ),
-                          onPressed: _currentPage < apps.length - 1
-                              ? () => _goToPage(_currentPage + 1)
-                              : null,
-                        ),
-                      ],
-                    ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -263,9 +201,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           GestureDetector(
             onTap: () => widget.onSelectApp(app.route),
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-              height: 310,
+              height: 295,
               decoration: BoxDecoration(
                 color: const Color(0xFF141416),
                 borderRadius: BorderRadius.circular(28),
@@ -294,7 +232,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Clearance for floating circular badge
+                      // Clearance for floating circular icon badge
                       const SizedBox(width: 44),
                       Expanded(
                         child: Column(
@@ -505,8 +443,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
           // Independent Floating Circular App Icon (Signature 60fps Design Detail)
           Positioned(
-            top: -2,
-            left: 20,
+            top: 2,
+            left: 28,
             child: Container(
               width: 44,
               height: 44,
