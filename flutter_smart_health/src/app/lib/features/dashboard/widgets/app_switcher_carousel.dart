@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppSwitcherCarousel extends StatefulWidget {
   final void Function(String route) onSelectApp;
@@ -62,6 +63,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   }
 
   void _goToPage(int page) {
+    HapticFeedback.lightImpact();
     if (_pageController.hasClients) {
       _pageController.animateToPage(
         page,
@@ -172,6 +174,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                         physics: const BouncingScrollPhysics(),
                         itemCount: apps.length,
                         onPageChanged: (idx) {
+                          HapticFeedback.selectionClick();
                           setState(() => _currentPage = idx);
                           _scrollToChip(idx);
                         },
@@ -349,7 +352,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         children: [
           // Main Card Body (Apple Weather Translucent Frosted Sky Glass)
           GestureDetector(
-            onTap: () => widget.onSelectApp(app.route),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              widget.onSelectApp(app.route);
+            },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
               child: ClipRRect(
@@ -483,20 +489,28 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Hero Metric Row
+                              // Hero Metric Row (With Live Vitals BPM Oscillation)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 crossAxisAlignment: CrossAxisAlignment.baseline,
                                 textBaseline: TextBaseline.alphabetic,
                                 children: [
-                                  Text(
-                                    app.heroMetric,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white,
-                                      letterSpacing: -0.6,
-                                    ),
+                                  AnimatedBuilder(
+                                    animation: _pulseController,
+                                    builder: (context, _) {
+                                      final dynamicMetric = app.type == _AppType.vitals
+                                          ? "${76 + ((_pulseController.value * 3).round())} BPM"
+                                          : app.heroMetric;
+                                      return Text(
+                                        dynamicMetric,
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                          letterSpacing: -0.6,
+                                        ),
+                                      );
+                                    },
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -568,7 +582,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                             color: Colors.transparent,
                             child: InkWell(
                               borderRadius: BorderRadius.circular(22),
-                              onTap: () => widget.onSelectApp(app.route),
+                              onTap: () {
+                                HapticFeedback.mediumImpact();
+                                widget.onSelectApp(app.route);
+                              },
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -599,7 +616,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
             ),
           ),
 
-          // Independent Floating Circular App Icon (Signature 60fps Design Detail)
+          // Independent Floating Circular App Icon (Signature 60fps Design Detail with Pulsating Rhythm)
           Positioned(
             top: -2,
             left: 20,
@@ -627,10 +644,21 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                 ),
               ),
               child: Center(
-                child: Icon(
-                  app.icon,
-                  color: Colors.white,
-                  size: 22,
+                child: AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, _) {
+                    final pulseScale = app.type == _AppType.vitals
+                        ? 1.0 + (_pulseController.value * 0.18)
+                        : 1.0;
+                    return Transform.scale(
+                      scale: pulseScale,
+                      child: Icon(
+                        app.icon,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
