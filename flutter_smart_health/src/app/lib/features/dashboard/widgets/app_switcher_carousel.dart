@@ -77,7 +77,18 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         return Container(
           width: availableWidth,
           height: availableHeight,
-          color: const Color(0xFF000000), // OLED pitch black Apple Watch backdrop
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF0B0F19), // Apple OS deep space midnight
+                Color(0xFF111728), // Subtle Apple ambient slate glow
+                Color(0xFF090D16), // Grounded space navy
+              ],
+              stops: [0.0, 0.50, 1.0],
+            ),
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

@@ -25,9 +25,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final l10n = context.l10n;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: const Color(0xFF0B0F19),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: const Color(0xFF0B0F19),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
