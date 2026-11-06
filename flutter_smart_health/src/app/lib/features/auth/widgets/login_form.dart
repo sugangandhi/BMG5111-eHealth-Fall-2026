@@ -24,8 +24,8 @@ class LoginForm extends StatelessWidget {
     required this.onSubmit,
   });
 
-  static const _emeraldPrimary = Color(0xFF10B981);
-  static const _emeraldSecondary = Color(0xFF059669);
+  static const _appleBlue = Color(0xFF007AFF);
+  static const _appleCyan = Color(0xFF38BDF8);
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +37,9 @@ class LoginForm extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Email Address Input
+          // Email Address Input (Frosted Glass Pill)
           Container(
-            decoration: LoginStyles.emailFieldDecoration,
+            decoration: LoginStyles.inputFieldDecoration,
             child: TextField(
               key: const Key('login_email_field'),
               controller: emailController,
@@ -53,12 +53,12 @@ class LoginForm extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: l10n.emailAddressHint,
                 hintStyle: const TextStyle(
-                  color: Color(0xFF64748B),
+                  color: Color(0xFF94A3B8),
                   fontSize: 14,
                 ),
                 prefixIcon: const Icon(
                   Icons.mail_rounded,
-                  color: _emeraldPrimary,
+                  color: _appleCyan,
                   size: 20,
                 ),
                 border: InputBorder.none,
@@ -71,9 +71,9 @@ class LoginForm extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Password Input
+          // Password Input (Frosted Glass Pill)
           Container(
-            decoration: LoginStyles.emailFieldDecoration,
+            decoration: LoginStyles.inputFieldDecoration,
             child: TextField(
               key: const Key('login_password_field'),
               controller: passwordController,
@@ -88,12 +88,12 @@ class LoginForm extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: l10n.passwordHint,
                 hintStyle: const TextStyle(
-                  color: Color(0xFF64748B),
+                  color: Color(0xFF94A3B8),
                   fontSize: 14,
                 ),
                 prefixIcon: const Icon(
                   Icons.lock_rounded,
-                  color: _emeraldPrimary,
+                  color: _appleCyan,
                   size: 20,
                 ),
                 border: InputBorder.none,
@@ -106,17 +106,17 @@ class LoginForm extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Identity Dropdown Selector
+          // Identity Dropdown Selector (Frosted Glass Pill)
           Container(
-            decoration: LoginStyles.emailFieldDecoration,
+            decoration: LoginStyles.inputFieldDecoration,
             child: DropdownButtonFormField<String>(
               key: const Key('login_identity_dropdown'),
               initialValue: selectedIdentity,
-              dropdownColor: const Color(0xFF1E293B),
+              dropdownColor: const Color(0xFF162238),
               borderRadius: BorderRadius.circular(16),
               icon: const Icon(
                 Icons.unfold_more_rounded,
-                color: Color(0xFF94A3B8),
+                color: Color(0xFF93C5FD),
                 size: 20,
               ),
               style: const TextStyle(
@@ -142,12 +142,12 @@ class LoginForm extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: l10n.roleLabel,
                 hintStyle: const TextStyle(
-                  color: Color(0xFF64748B),
+                  color: Color(0xFF94A3B8),
                   fontSize: 14,
                 ),
                 prefixIcon: const Icon(
                   Icons.badge_rounded,
-                  color: _emeraldPrimary,
+                  color: _appleCyan,
                   size: 20,
                 ),
                 border: InputBorder.none,
@@ -190,22 +190,26 @@ class LoginForm extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // Emerald Action Button
+          // Apple OS Glossy Bluish Action Button
           Container(
             width: double.infinity,
             height: 50,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [_emeraldSecondary, _emeraldPrimary],
+                colors: [Color(0xFF007AFF), Color(0xFF0284C7)],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.28),
+                width: 1,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: _emeraldPrimary.withValues(alpha: 0.35),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
+                  color: _appleBlue.withValues(alpha: 0.45),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
@@ -216,7 +220,7 @@ class LoginForm extends StatelessWidget {
                 shadowColor: Colors.transparent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               child: loading
@@ -256,14 +260,14 @@ class LoginForm extends StatelessWidget {
               passwordController.text = "123456";
               onIdentityChanged("Patient");
             },
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: _emeraldPrimary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: _emeraldPrimary.withValues(alpha: 0.30),
+                  color: _appleCyan.withValues(alpha: 0.35),
                   width: 1.1,
                 ),
               ),
@@ -272,7 +276,7 @@ class LoginForm extends StatelessWidget {
                   Icon(
                     Icons.touch_app_rounded,
                     size: 16,
-                    color: _emeraldPrimary,
+                    color: _appleCyan,
                   ),
                   SizedBox(width: 8),
                   Expanded(
@@ -280,7 +284,7 @@ class LoginForm extends StatelessWidget {
                       "Demo Patient: normal@demo.com / 123456 (Tap to fill)",
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF34D399),
+                        color: _appleCyan,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

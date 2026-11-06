@@ -12,22 +12,31 @@ class LoginHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Emerald Squircle Badge with glowing shadow
+          // Apple OS Glossy Bluish Squircle Badge with luminous glow
           Container(
             width: LoginStyles.heroIconSize,
             height: LoginStyles.heroIconSize,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF059669), Color(0xFF10B981)],
+                colors: [Color(0xFF007AFF), Color(0xFF00C7BE)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.30),
+                width: 1.2,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.35),
-                  blurRadius: 16,
+                  color: const Color(0xFF007AFF).withValues(alpha: 0.45),
+                  blurRadius: 20,
                   offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: const Color(0xFF00C7BE).withValues(alpha: 0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -37,21 +46,21 @@ class LoginHeader extends StatelessWidget {
               size: 36,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           const Text(
             "INTELLIGENT DIGITAL SOLUTION",
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF10B981),
-              letterSpacing: 1.2,
+              color: Color(0xFF38BDF8),
+              letterSpacing: 1.3,
             ),
           ),
           const SizedBox(height: 4),
           const Text(
             "eHospital Portal",
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 25,
               fontWeight: FontWeight.w800,
               color: Colors.white,
               letterSpacing: -0.5,
@@ -62,7 +71,7 @@ class LoginHeader extends StatelessWidget {
             "Secure Clinical & Telemetry Care",
             style: TextStyle(
               fontSize: 13,
-              color: Color(0xFF94A3B8),
+              color: Color(0xFF93C5FD),
               fontWeight: FontWeight.w500,
             ),
           ),

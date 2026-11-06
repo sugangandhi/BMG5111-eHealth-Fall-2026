@@ -5,47 +5,61 @@ class LoginStyles {
   static const formPadding = EdgeInsets.fromLTRB(24, 8, 24, 28);
   static const heroIconSize = 64.0;
 
-  static const emeraldPrimary = Color(0xFF10B981);
-  static const emeraldSecondary = Color(0xFF059669);
+  // Apple OS Glossy Bluish Palette
+  static const appleBluePrimary = Color(0xFF007AFF);
+  static const appleBlueSecondary = Color(0xFF0284C7);
+  static const appleCyanGlow = Color(0xFF38BDF8);
+  static const appleAzureSoft = Color(0xFF93C5FD);
+
+  // Backward compatibility aliases
+  static const emeraldPrimary = appleBluePrimary;
+  static const emeraldSecondary = appleBlueSecondary;
 
   static BoxDecoration get cardGlassDecoration => BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.90),
-        borderRadius: BorderRadius.circular(28),
+        color: const Color(0xFF141E33).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(
-          color: emeraldPrimary.withValues(alpha: 0.28),
+          color: Colors.white.withValues(alpha: 0.22),
           width: 1.2,
         ),
         boxShadow: [
-          BoxShadow(
-            color: emeraldPrimary.withValues(alpha: 0.12),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
           const BoxShadow(
-            color: Color(0x60000000),
-            blurRadius: 16,
-            offset: Offset(0, 4),
+            color: Color(0x65060C1A),
+            blurRadius: 36,
+            offset: Offset(0, 16),
+          ),
+          BoxShadow(
+            color: appleBluePrimary.withValues(alpha: 0.18),
+            blurRadius: 28,
+            offset: const Offset(0, 4),
           ),
         ],
       );
 
   static BoxDecoration get inputFieldDecoration => BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF1E2B44).withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF334155),
-          width: 1.2,
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 1.1,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x18000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       );
 
   // Backward compatibility alias
   static BoxDecoration get emailFieldDecoration => inputFieldDecoration;
 
   static BoxDecoration get errorDecoration => BoxDecoration(
-        color: const Color(0xFF450A0A),
+        color: const Color(0xFF450A0A).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+          color: const Color(0xFFEF4444).withValues(alpha: 0.45),
         ),
       );
 }

@@ -5,7 +5,6 @@ import '../../../core/network/api_exception.dart';
 import '../../../data/models/ehospital_models.dart';
 import '../../../l10n/l10n.dart';
 import '../../../services/e_hospital_auth_service.dart';
-import '../../../ui/app_theme.dart';
 import '../presentation/login_styles.dart';
 import '../widgets/auth_notice_dialog.dart';
 import '../widgets/login_form.dart';
@@ -151,13 +150,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0F19),
+      backgroundColor: const Color(0xFF0C1220),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Stack(
           children: [
-            // Obsidian background
+            // Atmospheric Apple OS Glossy Bluish Twilight Gradient
             Positioned.fill(
               child: Container(
                 decoration: const BoxDecoration(
@@ -165,54 +164,91 @@ class _LoginScreenState extends State<LoginScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color(0xFF0B0F19),
-                      Color(0xFF111827),
+                      Color(0xFF1E2E4A), // Luminous twilight steel blue
+                      Color(0xFF16233B), // Deep atmospheric navy
+                      Color(0xFF111A2D), // Twilight slate
+                      Color(0xFF0C1220), // Deep nocturnal foundation
                     ],
+                    stops: [0.0, 0.35, 0.70, 1.0],
                   ),
                 ),
               ),
             ),
 
-            // Ambient Emerald glow orb (Top-left)
+            // Luminous Apple Sapphire Orb (Top-left)
             Positioned(
-              top: -60,
-              left: -40,
+              top: -80,
+              left: -60,
               child: Container(
-                width: 260,
-                height: 260,
+                width: 320,
+                height: 320,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _emeraldPrimary.withValues(alpha: 0.12),
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF007AFF).withValues(alpha: 0.35),
+                      const Color(0xFF0284C7).withValues(alpha: 0.15),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
+                  ),
                 ),
               ),
             ),
 
-            // Ambient Emerald glow orb (Bottom-right)
+            // Luminous Apple Cyan / Electric Azure Orb (Top-right)
             Positioned(
-              bottom: -60,
-              right: -40,
+              top: 100,
+              right: -80,
               child: Container(
-                width: 280,
-                height: 280,
+                width: 340,
+                height: 340,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _emeraldPrimary.withValues(alpha: 0.08),
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF06B6D4).withValues(alpha: 0.28),
+                      const Color(0xFF38BDF8).withValues(alpha: 0.10),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.50, 1.0],
+                  ),
                 ),
               ),
             ),
 
-            // Center Frosted Obsidian Glass Card
+            // Subtle Deep Cobalt Ambient Glow (Bottom-center)
+            Positioned(
+              bottom: -100,
+              left: 40,
+              right: 40,
+              child: Container(
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF1D4ED8).withValues(alpha: 0.25),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.65],
+                  ),
+                ),
+              ),
+            ),
+
+            // Center Frosted Glossy Bluish Glass Card
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                   physics: const BouncingScrollPhysics(),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 430),
+                    constraints: const BoxConstraints(maxWidth: 440),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius: BorderRadius.circular(30),
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
                         child: Container(
                           decoration: LoginStyles.cardGlassDecoration,
                           child: Column(
