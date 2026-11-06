@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../../ui/app_colors.dart';
 
 class AppSwitcherCarousel extends StatefulWidget {
   final void Function(String route) onSelectApp;
@@ -22,7 +21,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
   void initState() {
     super.initState();
     _pageController = PageController(
-      viewportFraction: 0.84,
+      viewportFraction: 0.85,
       initialPage: 0,
     );
   }
@@ -37,7 +36,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     if (_pageController.hasClients) {
       _pageController.animateToPage(
         page,
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
       );
     }
@@ -50,78 +49,93 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Top Header with indicator and arrow buttons
+        // Apple-style Section Header
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(2),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "APP SWITCHER",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade500,
+                        letterSpacing: 1.1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    "Browse Sub-Apps",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.2,
+                    const SizedBox(height: 2),
+                    const Text(
+                      "Sub-Applications",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1C1C1E),
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              Row(
-                children: [
-                  // Left Arrow
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left_rounded),
-                    iconSize: 24,
-                    color: _currentPage > 0
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFCBD5E1),
-                    splashRadius: 18,
-                    onPressed: _currentPage > 0
-                        ? () => _goToPage(_currentPage - 1)
-                        : null,
-                  ),
-                  Text(
-                    "${_currentPage + 1} / ${apps.length}",
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF64748B),
+              // Apple Style Pill Indicator with Arrow Controls
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5E5EA).withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                      iconSize: 13,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      color: _currentPage > 0
+                          ? const Color(0xFF007AFF)
+                          : Colors.grey.shade400,
+                      onPressed: _currentPage > 0
+                          ? () => _goToPage(_currentPage - 1)
+                          : null,
                     ),
-                  ),
-                  // Right Arrow
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right_rounded),
-                    iconSize: 24,
-                    color: _currentPage < apps.length - 1
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFCBD5E1),
-                    splashRadius: 18,
-                    onPressed: _currentPage < apps.length - 1
-                        ? () => _goToPage(_currentPage + 1)
-                        : null,
-                  ),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        "${_currentPage + 1}/${apps.length}",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1C1C1E),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios_rounded),
+                      iconSize: 13,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      color: _currentPage < apps.length - 1
+                          ? const Color(0xFF007AFF)
+                          : Colors.grey.shade400,
+                      onPressed: _currentPage < apps.length - 1
+                          ? () => _goToPage(_currentPage + 1)
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 12),
 
-        // Carousel with mouse drag enabled
+        // Apple-style Multitasking Carousel
         SizedBox(
-          height: 330,
+          height: 380,
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(
               dragDevices: {
@@ -134,8 +148,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               animation: _pageController,
               builder: (context, _) {
                 double currentPageValue = _currentPage.toDouble();
-                if (_pageController.position.haveDimensions &&
-                    _pageController.page != null) {
+                if (_pageController.hasClients && _pageController.page != null) {
                   currentPageValue = _pageController.page!;
                 }
 
@@ -149,14 +162,14 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                   itemBuilder: (context, index) {
                     final app = apps[index];
                     final diff = (currentPageValue - index).abs();
-                    final scale = (1.0 - (diff * 0.08)).clamp(0.92, 1.0);
-                    final opacity = (1.0 - (diff * 0.25)).clamp(0.80, 1.0);
+                    final scale = (1.0 - (diff * 0.07)).clamp(0.92, 1.0);
+                    final opacity = (1.0 - (diff * 0.20)).clamp(0.80, 1.0);
 
                     return Transform.scale(
                       scale: scale,
                       child: Opacity(
                         opacity: opacity,
-                        child: _buildAppCard(app),
+                        child: _buildAppleCard(app),
                       ),
                     );
                   },
@@ -165,20 +178,21 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
 
-        // Apple Watch Style Row Widget (Horizontal Dock)
+        // watchOS-Style Horizontal Quick Dock
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Quick Dock • Tap to Select",
+              Text(
+                "WATCHOS QUICK DOCK",
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade500,
+                  letterSpacing: 1.0,
                 ),
               ),
               const SizedBox(height: 10),
@@ -191,28 +205,27 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                     final isSelected = idx == _currentPage;
 
                     return GestureDetector(
-                      onTap: () {
-                        _goToPage(idx);
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 12),
+                      onTap: () => _goToPage(idx),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(right: 10),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                            horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppColors.primary
+                              ? const Color(0xFF007AFF)
                               : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: isSelected
-                                ? AppColors.primary
-                                : const Color(0xFFE2E8F0),
+                                ? const Color(0xFF007AFF)
+                                : const Color(0xFFE5E5EA),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
                               color: isSelected
-                                  ? AppColors.primary.withOpacity(0.25)
+                                  ? const Color(0x33007AFF)
                                   : const Color(0x06000000),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
@@ -223,17 +236,17 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: 28,
-                              height: 28,
+                              width: 24,
+                              height: 24,
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.white.withOpacity(0.2)
+                                    ? Colors.white.withOpacity(0.25)
                                     : app.iconBg,
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 app.icon,
-                                size: 16,
+                                size: 14,
                                 color: isSelected ? Colors.white : app.iconColor,
                               ),
                             ),
@@ -245,7 +258,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                                 fontWeight: FontWeight.w700,
                                 color: isSelected
                                     ? Colors.white
-                                    : const Color(0xFF334155),
+                                    : const Color(0xFF1C1C1E),
                               ),
                             ),
                           ],
@@ -262,24 +275,29 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     );
   }
 
-  Widget _buildAppCard(_AppModuleItem app) {
+  Widget _buildAppleCard(_AppModuleItem app) {
     return GestureDetector(
       onTap: () => widget.onSelectApp(app.route),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(26),
           border: Border.all(
-            color: const Color(0xFFE2E8F0),
+            color: const Color(0xFFE5E5EA),
             width: 1.2,
           ),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x0C000000),
-              blurRadius: 16,
-              offset: Offset(0, 6),
+              color: Color(0x0E000000),
+              blurRadius: 22,
+              offset: Offset(0, 10),
+            ),
+            BoxShadow(
+              color: Color(0x06000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
             ),
           ],
         ),
@@ -287,16 +305,15 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Top Row: App Icon + Status Badge
+            // Apple App Header: Icon + Title + Live Status Pill
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
                     color: app.iconBg,
-                    borderRadius: BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     app.icon,
@@ -304,12 +321,41 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                     size: 26,
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        app.title,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1C1C1E),
+                          letterSpacing: -0.4,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        app.category,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF8E8E93),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
                     color: app.statusBg,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -337,93 +383,86 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               ],
             ),
 
-            // App Identity
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  app.category.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  app.title,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  app.description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.4,
-                    color: Color(0xFF64748B),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-
-            // Key Highlights Bar
+            // Apple Card Content Preview
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                color: const Color(0xFFF2F2F7),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(app.highlightIcon, size: 15, color: app.iconColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      app.highlightText,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF334155),
+                  Row(
+                    children: [
+                      Icon(app.highlightIcon, size: 16, color: app.iconColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          app.highlightText,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1C1C1E),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    app.description,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: Color(0xFF3A3A3C),
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
 
-            // Action Button
+            // Metrics / Stats Row inside Card
+            Row(
+              children: [
+                _buildAppleMiniStat(app.stat1Label, app.stat1Value),
+                const SizedBox(width: 8),
+                _buildAppleMiniStat(app.stat2Label, app.stat2Value),
+              ],
+            ),
+
+            // Apple Action Button
             SizedBox(
               width: double.infinity,
-              height: 42,
+              height: 44,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: const Color(0xFF007AFF),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(13),
                   ),
                 ),
                 onPressed: () => widget.onSelectApp(app.route),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      app.actionLabel,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        app.actionLabel,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -438,61 +477,111 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     );
   }
 
+  Widget _buildAppleMiniStat(String label, String value) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F2F7),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF8E8E93),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1C1C1E),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<_AppModuleItem> _getAppsList() {
     return [
       // 1. Apple Health Vitals
       const _AppModuleItem(
         title: "Apple Health Vitals",
-        category: "Wearable Telemetry",
+        category: "Apple Watch Telemetry",
         shortLabel: "Vitals",
         description:
-            "Continuous heart rate, blood pressure, steps, and sleep synchronized directly with AWS EHR.",
+            "Live streaming telemetry from Apple Watch synced directly to Central AWS App Runner EHR.",
         icon: Icons.favorite_rounded,
-        iconBg: Color(0xFFFEE2E2),
-        iconColor: Color(0xFFDC2626),
-        statusText: "AWS Synced",
-        statusBg: Color(0xFFDCFCE7),
-        statusColor: Color(0xFF16A34A),
+        iconBg: Color(0xFFFFE5E5),
+        iconColor: Color(0xFFFF2D55),
+        statusText: "AWS Live",
+        statusBg: Color(0xFFE8F5E9),
+        statusColor: Color(0xFF34C759),
         highlightIcon: Icons.cloud_done_rounded,
-        highlightText: "HR: 78 bpm • BP: 120/80 • 55 AWS Records",
+        highlightText: "55 Live AWS Cloud Telemetry Records",
+        stat1Label: "HEART RATE",
+        stat1Value: "78 BPM (Sinus)",
+        stat2Label: "BLOOD PRESSURE",
+        stat2Value: "120/80 mmHg",
         route: "/vitals",
-        actionLabel: "Open Vitals Dashboard",
+        actionLabel: "Open Health Telemetry",
       ),
 
       // 2. WhatsApp Clinical AI (Intelligent Digital Solution)
       const _AppModuleItem(
-        title: "WhatsApp Clinical AI",
-        category: "Intelligent Digital Solution",
+        title: "Intelligent Digital Solution",
+        category: "Clinical WhatsApp & Voice",
         shortLabel: "Clinic AI",
         description:
-            "Direct conversational triage, Whisper-1 voice dictation, and Canadian CTAS clinical assessment.",
+            "Conversational clinical triage with OpenAI Whisper-1 mic dictation & Canadian CTAS guidance.",
         icon: Icons.chat_bubble_rounded,
-        iconBg: Color(0xFFDCFCE7),
-        iconColor: Color(0xFF16A34A),
-        statusText: "Triage Active",
-        statusBg: Color(0xFFDCFCE7),
-        statusColor: Color(0xFF16A34A),
+        iconBg: Color(0xFFE8F8EE),
+        iconColor: Color(0xFF34C759),
+        statusText: "Triage Ready",
+        statusBg: Color(0xFFE8F8EE),
+        statusColor: Color(0xFF34C759),
         highlightIcon: Icons.mic_rounded,
-        highlightText: "Whisper Voice Scribe • CTAS SOAP Notes",
+        highlightText: "Whisper-1 Mic • CTAS Decision Engine",
+        stat1Label: "CARE TEAM",
+        stat1Value: "IDS Clinic Online",
+        stat2Label: "TRIAGE PROTOCOL",
+        stat2Value: "CTAS Level 1-5",
         route: "/assistant",
-        actionLabel: "Launch Clinical Chat",
+        actionLabel: "Open Clinical Chat",
       ),
 
-      // 3. Urgent Care Queue
+      // 3. Urgent Care Clinic
       const _AppModuleItem(
-        title: "Urgent Care & ER",
-        category: "Priority Walk-In Queue",
+        title: "Urgent Care Clinic",
+        category: "Emergency & Walk-In",
         shortLabel: "Urgent Care",
         description:
             "Live clinic queue tracker with remote check-in and automated emergency physician alerts.",
         icon: Icons.local_hospital_rounded,
-        iconBg: Color(0xFFE0F2FE),
-        iconColor: Color(0xFF0284C7),
+        iconBg: Color(0xFFE5F1FF),
+        iconColor: Color(0xFF007AFF),
         statusText: "Open Now",
-        statusBg: Color(0xFFE0F2FE),
-        statusColor: Color(0xFF0284C7),
+        statusBg: Color(0xFFE5F1FF),
+        statusColor: Color(0xFF007AFF),
         highlightIcon: Icons.access_time_filled_rounded,
-        highlightText: "Queue: Position #4 • Est. Wait 12 min",
+        highlightText: "Queue Position #4 • 12 Min Wait",
+        stat1Label: "QUEUE POSITION",
+        stat1Value: "#4 in Queue",
+        stat2Label: "EST. WAIT",
+        stat2Value: "12 Minutes",
         route: "/urgent-care",
         actionLabel: "View Clinic Queue",
       ),
@@ -500,18 +589,22 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
       // 4. Medications & Prescriptions
       const _AppModuleItem(
         title: "Medications & Rx",
-        category: "Daily Adherence",
+        category: "Prescription Adherence",
         shortLabel: "Medications",
         description:
-            "Prescription tracker with dose reminders and automated electronic pharmacy renewals.",
+            "Active medications schedule with automatic dose logging and electronic pharmacy renewals.",
         icon: Icons.medication_rounded,
         iconBg: Color(0xFFF3E8FF),
-        iconColor: Color(0xFF9333EA),
+        iconColor: Color(0xFFAF52DE),
         statusText: "2 Active",
         statusBg: Color(0xFFF3E8FF),
-        statusColor: Color(0xFF9333EA),
+        statusColor: Color(0xFFAF52DE),
         highlightIcon: Icons.check_circle_rounded,
         highlightText: "Metoprolol 50mg • Amlodipine 5mg",
+        stat1Label: "MORNING DOSE",
+        stat1Value: "Taken 8:00 AM",
+        stat2Label: "EVENING DOSE",
+        stat2Value: "Due 8:00 PM",
         route: "/medications",
         actionLabel: "Manage Prescriptions",
       ),
@@ -522,15 +615,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         category: "Longitudinal Analytics",
         shortLabel: "Trends",
         description:
-            "Multiday telemetry graphs cross-referenced with Hypertension Canada Clinical Practice Guidelines.",
+            "Multi-day physiological trajectories cross-referenced with Hypertension Canada guidelines.",
         icon: Icons.insights_rounded,
-        iconBg: Color(0xFFFEF3C7),
-        iconColor: Color(0xFFD97706),
+        iconBg: Color(0xFFFFF4E5),
+        iconColor: Color(0xFFFF9500),
         statusText: "Optimal",
-        statusBg: Color(0xFFDCFCE7),
-        statusColor: Color(0xFF16A34A),
+        statusBg: Color(0xFFE8F5E9),
+        statusColor: Color(0xFF34C759),
         highlightIcon: Icons.show_chart_rounded,
-        highlightText: "Resting HR baseline: 72 bpm (Normal Sinus)",
+        highlightText: "Resting HR Baseline: 72 BPM Normal",
+        stat1Label: "7-DAY STABILITY",
+        stat1Value: "Optimal Target",
+        stat2Label: "RISK PROFILE",
+        stat2Value: "Low Variance",
         route: "/trends",
         actionLabel: "Analyze Health Trends",
       ),
@@ -543,13 +640,17 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Rapid SOCRATES symptom recording and triage classification for physician review.",
         icon: Icons.healing_rounded,
-        iconBg: Color(0xFFFFEDD5),
-        iconColor: Color(0xFFEA580C),
+        iconBg: Color(0xFFFFECE5),
+        iconColor: Color(0xFFFF5E3A),
         statusText: "Ready",
-        statusBg: Color(0xFFF1F5F9),
-        statusColor: Color(0xFF64748B),
+        statusBg: Color(0xFFF2F2F7),
+        statusColor: Color(0xFF8E8E93),
         highlightIcon: Icons.assignment_rounded,
         highlightText: "SOCRATES Intake • Severity Scoring",
+        stat1Label: "LAST LOG",
+        stat1Value: "Yesterday",
+        stat2Label: "SEVERITY",
+        stat2Value: "Mild (1/10)",
         route: "/symptoms",
         actionLabel: "Log New Symptom",
       ),
@@ -570,6 +671,10 @@ class _AppModuleItem {
   final Color statusColor;
   final IconData highlightIcon;
   final String highlightText;
+  final String stat1Label;
+  final String stat1Value;
+  final String stat2Label;
+  final String stat2Value;
   final String route;
   final String actionLabel;
 
@@ -586,6 +691,10 @@ class _AppModuleItem {
     required this.statusColor,
     required this.highlightIcon,
     required this.highlightText,
+    required this.stat1Label,
+    required this.stat1Value,
+    required this.stat2Label,
+    required this.stat2Value,
     required this.route,
     required this.actionLabel,
   });

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -79,6 +80,7 @@ class _HealthAlertCoordinatorState extends State<HealthAlertCoordinator>
   }
 
   Future<void> _startForPatient(String patientId) async {
+    if (kIsWeb) return;
     if (_starting) return;
     _starting = true;
     _showDebugBubble('Syncing Apple Health alerts for patient $patientId...');

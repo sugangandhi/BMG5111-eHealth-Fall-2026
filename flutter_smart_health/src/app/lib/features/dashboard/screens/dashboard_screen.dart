@@ -45,42 +45,107 @@ class _PatientDashboardState extends State<PatientDashboard> {
         : l10n.dashboardWelcome;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
       appBar: AppBar(
-        title: Text(l10n.patientDashboardTitle),
+        backgroundColor: const Color(0xFFF2F2F7),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        title: const Text(
+          "eHospital",
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1C1C1E),
+            letterSpacing: -0.5,
+          ),
+        ),
         actions: [
-          IconButton(
-            icon: Icon(
-              _showAppSwitcher ? Icons.grid_view_rounded : Icons.view_carousel_rounded,
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE5E5EA),
+              shape: BoxShape.circle,
             ),
-            tooltip: _showAppSwitcher ? "Switch to Grid View" : "Switch to App Switcher",
-            onPressed: () => setState(() => _showAppSwitcher = !_showAppSwitcher),
+            child: IconButton(
+              icon: Icon(
+                _showAppSwitcher
+                    ? Icons.grid_view_rounded
+                    : Icons.view_carousel_rounded,
+                size: 18,
+              ),
+              color: const Color(0xFF1C1C1E),
+              tooltip: _showAppSwitcher
+                  ? "Switch to Grid View"
+                  : "Switch to App Switcher",
+              onPressed: () =>
+                  setState(() => _showAppSwitcher = !_showAppSwitcher),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.emergency_outlined),
-            tooltip: l10n.emergencySosTitle,
-            onPressed: () => _open('/emergency'),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFEE2E2),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.emergency_rounded, size: 18),
+              color: const Color(0xFFDC2626),
+              tooltip: l10n.emergencySosTitle,
+              onPressed: () => _open('/emergency'),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.person_outlined),
-            tooltip: l10n.profileTitle,
-            onPressed: () => _open('/profile'),
+          Container(
+            margin: const EdgeInsets.only(left: 4, right: 14),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE5E5EA),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.person_rounded, size: 18),
+              color: const Color(0xFF1C1C1E),
+              tooltip: l10n.profileTitle,
+              onPressed: () => _open('/profile'),
+            ),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: DashboardStyles.bodyPadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DashboardWelcomeHeader(
-              title: greeting,
-              subtitle: l10n.dashboardPrompt,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "INTELLIGENT DIGITAL SOLUTION",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF007AFF),
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    greeting,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1C1C1E),
+                      letterSpacing: -0.6,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
 
             if (_showAppSwitcher) ...[
               AppSwitcherCarousel(onSelectApp: _open),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
             ] else ...[
               DashboardSectionHeader(title: l10n.healthMonitoringSection),
               DashboardGridRow(
