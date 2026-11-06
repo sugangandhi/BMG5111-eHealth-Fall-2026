@@ -80,36 +80,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
             if (_showAppSwitcher) ...[
               AppSwitcherCarousel(onSelectApp: _open),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildQuickActionTile(
-                        icon: Icons.emergency_rounded,
-                        title: "Emergency SOS",
-                        subtitle: "Direct 911 dispatch",
-                        color: const Color(0xFFDC2626),
-                        bgColor: const Color(0xFFFEE2E2),
-                        onTap: () => _open('/emergency'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildQuickActionTile(
-                        icon: Icons.settings_rounded,
-                        title: "Settings",
-                        subtitle: "Telemetry & profile",
-                        color: const Color(0xFF64748B),
-                        bgColor: const Color(0xFFF1F5F9),
-                        onTap: () => _open('/settings'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
             ] else ...[
               DashboardSectionHeader(title: l10n.healthMonitoringSection),
               DashboardGridRow(
@@ -193,74 +164,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 onTap: () => _open('/settings'),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickActionTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required Color bgColor,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x06000000),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 18),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E293B),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
