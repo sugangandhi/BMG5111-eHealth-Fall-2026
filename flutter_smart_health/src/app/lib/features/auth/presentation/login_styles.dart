@@ -5,32 +5,35 @@ class LoginStyles {
   static const formPadding = EdgeInsets.fromLTRB(24, 8, 24, 28);
   static const heroIconSize = 64.0;
 
+  static const emeraldPrimary = Color(0xFF10B981);
+  static const emeraldSecondary = Color(0xFF059669);
+
   static BoxDecoration get cardGlassDecoration => BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
+        color: const Color(0xFF111827).withValues(alpha: 0.90),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.95),
-          width: 1.5,
+          color: emeraldPrimary.withValues(alpha: 0.28),
+          width: 1.2,
         ),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x14000000),
+            color: emeraldPrimary.withValues(alpha: 0.12),
             blurRadius: 32,
-            offset: Offset(0, 14),
+            offset: const Offset(0, 12),
           ),
-          BoxShadow(
-            color: Color(0x06000000),
-            blurRadius: 10,
+          const BoxShadow(
+            color: Color(0x60000000),
+            blurRadius: 16,
             offset: Offset(0, 4),
           ),
         ],
       );
 
   static BoxDecoration get inputFieldDecoration => BoxDecoration(
-        color: const Color(0xFFF2F2F7),
+        color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFFE5E5EA),
+          color: const Color(0xFF334155),
           width: 1.2,
         ),
       );
@@ -39,8 +42,10 @@ class LoginStyles {
   static BoxDecoration get emailFieldDecoration => inputFieldDecoration;
 
   static BoxDecoration get errorDecoration => BoxDecoration(
-        color: const Color(0xFFFFF1F0),
+        color: const Color(0xFF450A0A),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFCCC7)),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+        ),
       );
 }

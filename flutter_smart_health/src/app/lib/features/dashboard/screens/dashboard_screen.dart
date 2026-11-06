@@ -25,9 +25,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final l10n = context.l10n;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: const Color(0xFF0B0F19),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF2F2F7),
+        backgroundColor: const Color(0xFF0B0F19),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
@@ -39,7 +39,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF007AFF),
+                color: Color(0xFF10B981),
                 letterSpacing: 1.1,
               ),
             ),
@@ -48,7 +48,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1C1C1E),
+                color: Colors.white,
                 letterSpacing: -0.5,
               ),
             ),
@@ -57,9 +57,12 @@ class _PatientDashboardState extends State<PatientDashboard> {
         actions: [
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: const BoxDecoration(
-              color: Color(0xFFE5E5EA),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
             ),
             child: IconButton(
               icon: Icon(
@@ -68,7 +71,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     : Icons.view_carousel_rounded,
                 size: 18,
               ),
-              color: const Color(0xFF1C1C1E),
+              color: Colors.white,
               tooltip: _showAppSwitcher
                   ? "Switch to Grid View"
                   : "Switch to App Switcher",
@@ -78,26 +81,32 @@ class _PatientDashboardState extends State<PatientDashboard> {
           ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFEE2E2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF450A0A),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+              ),
             ),
             child: IconButton(
               icon: const Icon(Icons.emergency_rounded, size: 18),
-              color: const Color(0xFFDC2626),
+              color: const Color(0xFFEF4444),
               tooltip: l10n.emergencySosTitle,
               onPressed: () => _open('/emergency'),
             ),
           ),
           Container(
             margin: const EdgeInsets.only(left: 4, right: 14),
-            decoration: const BoxDecoration(
-              color: Color(0xFFE5E5EA),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
             ),
             child: IconButton(
               icon: const Icon(Icons.person_rounded, size: 18),
-              color: const Color(0xFF1C1C1E),
+              color: Colors.white,
               tooltip: l10n.profileTitle,
               onPressed: () => _open('/profile'),
             ),

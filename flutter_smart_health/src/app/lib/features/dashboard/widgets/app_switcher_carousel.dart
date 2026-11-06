@@ -17,6 +17,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
   late final PageController _pageController;
   int _currentPage = 0;
 
+  static const _emeraldPrimary = Color(0xFF10B981);
+  static const _emeraldSecondary = Color(0xFF059669);
+  static const _emeraldGlow = Color(0xFF34D399);
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +54,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // watchOS 11 Glance Multitasking Card Deck
+        // Obsidian & Emerald Multitasking Card Deck
         SizedBox(
           height: 495,
           child: ScrollConfiguration(
@@ -79,7 +83,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                   itemBuilder: (context, index) {
                     final app = apps[index];
                     final diff = (currentPageValue - index).abs();
-                    // watchOS 11 Multitasking depth and scale effect
+                    // Multitasking depth and scale effect
                     final scale = (1.0 - (diff * 0.08)).clamp(0.90, 1.0);
                     final opacity = (1.0 - (diff * 0.22)).clamp(0.78, 1.0);
 
@@ -98,7 +102,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         ),
         const SizedBox(height: 16),
 
-        // Apple Animated Page Indicator Dots (Tap to jump directly to any card)
+        // Animated Page Indicator Dots (Tap to jump directly to any card)
         Center(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -106,7 +110,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               mainAxisSize: MainAxisSize.min,
               children: List.generate(apps.length, (idx) {
                 final isSelected = idx == _currentPage;
-                final app = apps[idx];
                 return GestureDetector(
                   onTap: () => _goToPage(idx),
                   behavior: HitTestBehavior.opaque,
@@ -119,9 +122,18 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       height: 6,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? app.accentColor
-                            : const Color(0xFFC7C7CC),
+                            ? _emeraldPrimary
+                            : const Color(0xFF334155),
                         borderRadius: BorderRadius.circular(3),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: _emeraldPrimary.withValues(alpha: 0.5),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ]
+                            : null,
                       ),
                     ),
                   ),
@@ -141,33 +153,33 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFF111827),
           borderRadius: BorderRadius.circular(28),
-          // watchOS 11 ambient signature color tint
+          // Obsidian black with subtle emerald ambient lighting
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              app.accentColor.withValues(alpha: 0.08),
-              Colors.white,
-              Colors.white,
+              _emeraldPrimary.withValues(alpha: 0.12),
+              const Color(0xFF111827),
+              const Color(0xFF0F172A),
             ],
-            stops: const [0.0, 0.45, 1.0],
+            stops: const [0.0, 0.40, 1.0],
           ),
           border: Border.all(
-            color: app.accentColor.withValues(alpha: 0.22),
+            color: _emeraldPrimary.withValues(alpha: 0.28),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: app.accentColor.withValues(alpha: 0.12),
-              blurRadius: 22,
+              color: _emeraldPrimary.withValues(alpha: 0.14),
+              blurRadius: 24,
               offset: const Offset(0, 8),
             ),
             const BoxShadow(
-              color: Color(0x06000000),
-              blurRadius: 6,
-              offset: Offset(0, 2),
+              color: Color(0x60000000),
+              blurRadius: 16,
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -175,22 +187,22 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // watchOS App Header: Squircle Badge + Name + Complication Status Pill
+            // Top App Bar: Emerald Squircle Badge + White App Name + Status Pill
             Row(
               children: [
                 Container(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [app.accentColor, app.accentColorSecondary],
+                    gradient: const LinearGradient(
+                      colors: [_emeraldSecondary, _emeraldPrimary],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(13),
                     boxShadow: [
                       BoxShadow(
-                        color: app.accentColor.withValues(alpha: 0.35),
+                        color: _emeraldPrimary.withValues(alpha: 0.35),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -212,7 +224,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF1C1C1E),
+                          color: Colors.white,
                           letterSpacing: -0.4,
                         ),
                         maxLines: 1,
@@ -221,11 +233,11 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       const SizedBox(height: 1),
                       Text(
                         app.category,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: app.accentColor,
-                          letterSpacing: 0.6,
+                          color: _emeraldPrimary,
+                          letterSpacing: 0.8,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -237,10 +249,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: app.accentColor.withValues(alpha: 0.10),
+                    color: _emeraldPrimary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: app.accentColor.withValues(alpha: 0.25),
+                      color: _emeraldPrimary.withValues(alpha: 0.35),
                       width: 1,
                     ),
                   ),
@@ -252,16 +264,22 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                         height: 6,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: app.accentColor,
+                          color: _emeraldPrimary,
+                          boxShadow: [
+                            BoxShadow(
+                              color: _emeraldPrimary.withValues(alpha: 0.6),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 5),
                       Text(
                         app.statusText,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: app.accentColor,
+                          color: _emeraldPrimary,
                         ),
                       ),
                     ],
@@ -270,14 +288,14 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               ],
             ),
 
-            // watchOS 11 Hero Glance Box (Hero Metric + Dynamic Visualizer + Description)
+            // Hero Glance Box: Hero Metric + Dynamic Visualizer + Description
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F7).withValues(alpha: 0.85),
+                color: const Color(0xFF1E293B).withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: Colors.white.withValues(alpha: 0.08),
                   width: 1,
                 ),
               ),
@@ -292,25 +310,29 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                     children: [
                       Text(
                         app.heroMetric,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          color: app.accentColor,
+                          color: _emeraldGlow,
                           letterSpacing: -0.5,
                         ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: app.accentColor.withValues(alpha: 0.12),
+                          color: _emeraldPrimary.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _emeraldPrimary.withValues(alpha: 0.3),
+                            width: 0.8,
+                          ),
                         ),
                         child: Text(
                           app.heroBadge,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: app.accentColor,
+                            color: _emeraldGlow,
                           ),
                         ),
                       ),
@@ -318,17 +340,17 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                   ),
                   const SizedBox(height: 6),
 
-                  // Live Complication Visualizer
+                  // Live Complication Visualizer in Emerald Green
                   _buildVisualizerForApp(app),
                   const SizedBox(height: 6),
 
-                  // Clear, comprehensive description of what the specific app does
+                  // Clear description of what the specific app does
                   Text(
                     app.description,
                     style: const TextStyle(
                       fontSize: 12,
                       height: 1.35,
-                      color: Color(0xFF3A3A3C),
+                      color: Color(0xFFCBD5E1),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -346,20 +368,20 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               ],
             ),
 
-            // watchOS Signature Themed Action Button
+            // Full-Width Emerald Gradient Action Button
             Container(
               width: double.infinity,
               height: 44,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [app.accentColor, app.accentColorSecondary],
+                gradient: const LinearGradient(
+                  colors: [_emeraldSecondary, _emeraldPrimary],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
                 borderRadius: BorderRadius.circular(13),
                 boxShadow: [
                   BoxShadow(
-                    color: app.accentColor.withValues(alpha: 0.35),
+                    color: _emeraldPrimary.withValues(alpha: 0.35),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -407,49 +429,49 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
   Widget _buildVisualizerForApp(_AppModuleItem app) {
     switch (app.type) {
       case _AppType.vitals:
-        return _EcgSparkline(color: app.accentColor);
+        return const _EcgSparkline(color: _emeraldPrimary);
       case _AppType.urgentCare:
         return ClipRRect(
           borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
+          child: const LinearProgressIndicator(
             value: 0.75,
             minHeight: 4,
-            backgroundColor: const Color(0xFFE5E5EA),
-            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+            backgroundColor: Color(0xFF334155),
+            valueColor: AlwaysStoppedAnimation<Color>(_emeraldPrimary),
           ),
         );
       case _AppType.medications:
         return ClipRRect(
           borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
+          child: const LinearProgressIndicator(
             value: 0.50,
             minHeight: 4,
-            backgroundColor: const Color(0xFFE5E5EA),
-            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+            backgroundColor: Color(0xFF334155),
+            valueColor: AlwaysStoppedAnimation<Color>(_emeraldPrimary),
           ),
         );
       case _AppType.goals:
         return ClipRRect(
           borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
+          child: const LinearProgressIndicator(
             value: 0.84,
             minHeight: 4,
-            backgroundColor: const Color(0xFFE5E5EA),
-            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+            backgroundColor: Color(0xFF334155),
+            valueColor: AlwaysStoppedAnimation<Color>(_emeraldPrimary),
           ),
         );
       case _AppType.bmi:
         return ClipRRect(
           borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
+          child: const LinearProgressIndicator(
             value: 0.65,
             minHeight: 4,
-            backgroundColor: const Color(0xFFE5E5EA),
-            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+            backgroundColor: Color(0xFF334155),
+            valueColor: AlwaysStoppedAnimation<Color>(_emeraldPrimary),
           ),
         );
       case _AppType.clinicChat:
-        return _AudioWaveformMini(color: app.accentColor);
+        return const _AudioWaveformMini(color: _emeraldPrimary);
       case _AppType.trends:
       case _AppType.insights:
       case _AppType.history:
@@ -458,11 +480,11 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
       default:
         return ClipRRect(
           borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
+          child: const LinearProgressIndicator(
             value: 0.90,
             minHeight: 4,
-            backgroundColor: const Color(0xFFE5E5EA),
-            valueColor: AlwaysStoppedAnimation<Color>(app.accentColor),
+            backgroundColor: Color(0xFF334155),
+            valueColor: AlwaysStoppedAnimation<Color>(_emeraldPrimary),
           ),
         );
     }
@@ -473,8 +495,11 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F2F7),
+          color: const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.06),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,7 +509,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF8E8E93),
+                color: Color(0xFF94A3B8),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -495,7 +520,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1C1C1E),
+                color: Colors.white,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -506,10 +531,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     );
   }
 
-  // All 11 apps matching the Grid View 1-to-1 with watchOS 11 Glance theme
+  // All 11 apps matching the Grid View in Unified Obsidian & Emerald Palette
   List<_AppModuleItem> _getAppsList() {
     return [
-      // 1. Wearable Vitals (Health Monitoring) - Rose Crimson
+      // 1. Wearable Vitals
       const _AppModuleItem(
         type: _AppType.vitals,
         title: "Wearable Vitals",
@@ -519,8 +544,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Continuous live telemetry streaming heart rate, blood pressure, and SpO2 from your Apple Watch directly into the hospital EHR with automated arrhythmia alerts.",
         icon: Icons.watch_outlined,
-        accentColor: Color(0xFFFF2D55),
-        accentColorSecondary: Color(0xFFFF375F),
         statusText: "Connected",
         stat1Label: "HEART RATE",
         stat1Value: "78 BPM (Sinus)",
@@ -530,7 +553,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Open Wearable Vitals",
       ),
 
-      // 2. Vitals History (Health Monitoring) - Deep Violet
+      // 2. Vitals History
       const _AppModuleItem(
         type: _AppType.history,
         title: "Vitals History",
@@ -540,8 +563,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Browse longitudinal time-stamped archives of past physiological monitoring sessions, ECG recordings, and clinician review logs across customizable date ranges.",
         icon: Icons.history_rounded,
-        accentColor: Color(0xFF5856D6),
-        accentColorSecondary: Color(0xFF6E56CF),
         statusText: "142 Records",
         stat1Label: "TOTAL SESSIONS",
         stat1Value: "142 Records",
@@ -551,7 +572,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "View Vitals History",
       ),
 
-      // 3. Health Insights (Health Monitoring) - Amber Coral
+      // 3. Health Insights
       const _AppModuleItem(
         type: _AppType.insights,
         title: "Health Insights",
@@ -561,8 +582,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Evaluates merged wearable telemetry and hospital records with clinical reasoning algorithms to highlight early cardiovascular risks and vital anomalies.",
         icon: Icons.insights_rounded,
-        accentColor: Color(0xFFFF9500),
-        accentColorSecondary: Color(0xFFFF9F0A),
         statusText: "Optimal",
         stat1Label: "RISK PROFILE",
         stat1Value: "Low / Normal",
@@ -572,7 +591,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Explore Health Insights",
       ),
 
-      // 4. Trend Analysis (Health Monitoring) - Electric Ocean Blue
+      // 4. Trend Analysis
       const _AppModuleItem(
         type: _AppType.trends,
         title: "Trend Analysis",
@@ -582,8 +601,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Charts multi-day blood pressure and resting heart rate trajectories benchmarked against Hypertension Canada and AHA medical guidelines.",
         icon: Icons.trending_up_rounded,
-        accentColor: Color(0xFF007AFF),
-        accentColorSecondary: Color(0xFF0A84FF),
         statusText: "Stable",
         stat1Label: "7-DAY TARGET",
         stat1Value: "Within Range",
@@ -593,7 +610,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Analyze Health Trends",
       ),
 
-      // 5. Medications & Rx (Health Management) - Orchid Purple
+      // 5. Medications & Rx
       const _AppModuleItem(
         type: _AppType.medications,
         title: "Medications & Rx",
@@ -603,8 +620,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Maintains your active prescription regimen with automated dose reminders, taken-dose tracking, and electronic refills with your hospital pharmacy.",
         icon: Icons.medication_outlined,
-        accentColor: Color(0xFFAF52DE),
-        accentColorSecondary: Color(0xFFBF5AF2),
         statusText: "2 Active",
         stat1Label: "MORNING DOSE",
         stat1Value: "Taken 8:00 AM",
@@ -614,7 +629,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Manage Medications",
       ),
 
-      // 6. Symptom Logger (Health Management) - Sunset Vermilion
+      // 6. Symptom Logger
       const _AppModuleItem(
         type: _AppType.symptoms,
         title: "Symptom Logger",
@@ -624,8 +639,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Quickly record pain location, onset, severity, and triggers using the standardized SOCRATES clinical method to send direct updates to your physician.",
         icon: Icons.sick_outlined,
-        accentColor: Color(0xFFFF3B30),
-        accentColorSecondary: Color(0xFFFF453A),
         statusText: "Ready",
         stat1Label: "LAST LOG",
         stat1Value: "Yesterday",
@@ -635,7 +648,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Log New Symptom",
       ),
 
-      // 7. Health Goals (Health Management) - Activity Green
+      // 7. Health Goals
       const _AppModuleItem(
         type: _AppType.goals,
         title: "Health Goals",
@@ -645,8 +658,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Track daily step counts, active calorie burn, and restorative sleep milestones to keep your lifestyle goals aligned with your medical treatment plan.",
         icon: Icons.flag_outlined,
-        accentColor: Color(0xFF34C759),
-        accentColorSecondary: Color(0xFF30D158),
         statusText: "84% Done",
         stat1Label: "STEP TARGET",
         stat1Value: "8,420 / 10,000",
@@ -656,7 +667,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Track Health Goals",
       ),
 
-      // 8. BMI Calculator (Health Management) - Mint Teal
+      // 8. BMI Calculator
       const _AppModuleItem(
         type: _AppType.bmi,
         title: "BMI Calculator",
@@ -666,8 +677,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Calculates body mass index from height and weight, categorizing metabolic tiers and delivering tailored dietary recommendations for cardiovascular health.",
         icon: Icons.monitor_weight_outlined,
-        accentColor: Color(0xFF00C7BE),
-        accentColorSecondary: Color(0xFF30B0C7),
         statusText: "Healthy",
         stat1Label: "CURRENT BMI",
         stat1Value: "22.4 (Normal)",
@@ -677,7 +686,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Calculate BMI",
       ),
 
-      // 9. Urgent Care Clinic (Clinical & Urgent) - Emergency Cobalt Blue
+      // 9. Urgent Care Clinic
       const _AppModuleItem(
         type: _AppType.urgentCare,
         title: "Urgent Care Clinic",
@@ -687,8 +696,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Check into the hospital urgent care queue before arrival, monitor live wait times, and send real-time condition updates directly to the triage nurse.",
         icon: Icons.local_hospital_outlined,
-        accentColor: Color(0xFF007AFF),
-        accentColorSecondary: Color(0xFF0051A8),
         statusText: "Open Now",
         stat1Label: "QUEUE POSITION",
         stat1Value: "#4 in Line",
@@ -698,7 +705,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "View Clinic Queue",
       ),
 
-      // 10. AI Health Assistant (Clinical & Urgent) - Care Team Emerald
+      // 10. AI Health Assistant
       const _AppModuleItem(
         type: _AppType.clinicChat,
         title: "AI Health Assistant",
@@ -708,8 +715,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Consult with Intelligent Digital Solution care team via WhatsApp-style messaging and Whisper-1 voice dictation, backed by Canadian CTAS triage protocols.",
         icon: Icons.smart_toy_outlined,
-        accentColor: Color(0xFF25D366),
-        accentColorSecondary: Color(0xFF20BA5A),
         statusText: "Online",
         stat1Label: "CARE TEAM",
         stat1Value: "IDS Clinic Online",
@@ -719,7 +724,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         actionLabel: "Start Clinical Chat",
       ),
 
-      // 11. Settings & Telemetry (System & Telemetry) - Titanium Slate
+      // 11. Settings & Telemetry
       const _AppModuleItem(
         type: _AppType.settings,
         title: "Settings & Telemetry",
@@ -729,8 +734,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         description:
             "Configure Apple Watch HealthKit background syncing, verify AWS App Runner connectivity, manage AI provider keys, and update profile credentials.",
         icon: Icons.settings_outlined,
-        accentColor: Color(0xFF636366),
-        accentColorSecondary: Color(0xFF8E8E93),
         statusText: "Connected",
         stat1Label: "EHR ENDPOINT",
         stat1Value: "AWS App Runner",
@@ -765,8 +768,6 @@ class _AppModuleItem {
   final String heroBadge;
   final String description;
   final IconData icon;
-  final Color accentColor;
-  final Color accentColorSecondary;
   final String statusText;
   final String stat1Label;
   final String stat1Value;
@@ -783,8 +784,6 @@ class _AppModuleItem {
     required this.heroBadge,
     required this.description,
     required this.icon,
-    required this.accentColor,
-    required this.accentColorSecondary,
     required this.statusText,
     required this.stat1Label,
     required this.stat1Value,

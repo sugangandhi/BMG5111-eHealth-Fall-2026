@@ -12,20 +12,20 @@ class LoginHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Apple Squircle App Icon with soft shadow & glossy gradient
+          // Emerald Squircle Badge with glowing shadow
           Container(
             width: LoginStyles.heroIconSize,
             height: LoginStyles.heroIconSize,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF007AFF), Color(0xFF5856D6)],
+                colors: [Color(0xFF059669), Color(0xFF10B981)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF007AFF).withValues(alpha: 0.35),
+                  color: const Color(0xFF10B981).withValues(alpha: 0.35),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 ),
@@ -43,7 +43,7 @@ class LoginHeader extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF007AFF),
+              color: Color(0xFF10B981),
               letterSpacing: 1.2,
             ),
           ),
@@ -53,16 +53,16 @@ class LoginHeader extends StatelessWidget {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF1C1C1E),
+              color: Colors.white,
               letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 4),
-          Text(
+          const Text(
             "Secure Clinical & Telemetry Care",
             style: TextStyle(
               fontSize: 13,
-              color: Colors.grey.shade600,
+              color: Color(0xFF94A3B8),
               fontWeight: FontWeight.w500,
             ),
           ),

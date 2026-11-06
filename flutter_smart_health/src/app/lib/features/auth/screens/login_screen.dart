@@ -6,6 +6,7 @@ import '../../../data/models/ehospital_models.dart';
 import '../../../l10n/l10n.dart';
 import '../../../services/e_hospital_auth_service.dart';
 import '../../../ui/app_theme.dart';
+import '../presentation/login_styles.dart';
 import '../widgets/auth_notice_dialog.dart';
 import '../widgets/login_form.dart';
 import '../widgets/login_header.dart';
@@ -23,6 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
   String _selectedIdentity = 'Patient';
   bool _loading = false;
   String? _error;
+
+  static const _emeraldPrimary = Color(0xFF10B981);
 
   @override
   void initState() {
@@ -51,12 +54,12 @@ class _LoginScreenState extends State<LoginScreen> {
       barrierDismissible: false,
       builder: (ctx) => AuthNoticeDialog(
         icon: Icons.privacy_tip_outlined,
-        iconColor: AppColors.primary,
-        iconBackground: AppColors.primarySoft,
+        iconColor: _emeraldPrimary,
+        iconBackground: _emeraldPrimary.withValues(alpha: 0.15),
         title: ctx.l10n.privacyNoticeTitle,
         body: ctx.l10n.privacyNoticeBody,
         actionLabel: ctx.l10n.privacyAgreeButton,
-        actionColor: AppColors.primary,
+        actionColor: _emeraldPrimary,
         onAccepted: () async {
           await prefs.setBool('local_ai_privacy_consent', true);
           if (ctx.mounted) Navigator.of(ctx).pop();
@@ -148,13 +151,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: const Color(0xFF0B0F19),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Stack(
           children: [
-            // Apple ambient gradient background
+            // Obsidian background
             Positioned.fill(
               child: Container(
                 decoration: const BoxDecoration(
@@ -162,15 +165,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color(0xFFF2F2F7),
-                      Color(0xFFE5E5EA),
+                      Color(0xFF0B0F19),
+                      Color(0xFF111827),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // Top ambient glow orb
+            // Ambient Emerald glow orb (Top-left)
             Positioned(
               top: -60,
               left: -40,
@@ -179,12 +182,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 260,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF007AFF).withValues(alpha: 0.12),
+                  color: _emeraldPrimary.withValues(alpha: 0.12),
                 ),
               ),
             ),
 
-            // Bottom ambient glow orb
+            // Ambient Emerald glow orb (Bottom-right)
             Positioned(
               bottom: -60,
               right: -40,
@@ -193,12 +196,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 height: 280,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF5856D6).withValues(alpha: 0.10),
+                  color: _emeraldPrimary.withValues(alpha: 0.08),
                 ),
               ),
             ),
 
-            // Center Frosted Glass Card
+            // Center Frosted Obsidian Glass Card
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
@@ -211,26 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                         child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.95),
-                              width: 1.5,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x12000000),
-                                blurRadius: 30,
-                                offset: Offset(0, 14),
-                              ),
-                              BoxShadow(
-                                color: Color(0x06000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
+                          decoration: LoginStyles.cardGlassDecoration,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [

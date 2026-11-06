@@ -24,6 +24,9 @@ class LoginForm extends StatelessWidget {
     required this.onSubmit,
   });
 
+  static const _emeraldPrimary = Color(0xFF10B981);
+  static const _emeraldSecondary = Color(0xFF059669);
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -44,18 +47,18 @@ class LoginForm extends StatelessWidget {
               textInputAction: TextInputAction.next,
               style: const TextStyle(
                 fontSize: 15,
-                color: Color(0xFF1C1C1E),
+                color: Colors.white,
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
                 hintText: l10n.emailAddressHint,
-                hintStyle: TextStyle(
-                  color: Colors.grey.shade400,
+                hintStyle: const TextStyle(
+                  color: Color(0xFF64748B),
                   fontSize: 14,
                 ),
                 prefixIcon: const Icon(
                   Icons.mail_rounded,
-                  color: Color(0xFF007AFF),
+                  color: _emeraldPrimary,
                   size: 20,
                 ),
                 border: InputBorder.none,
@@ -79,18 +82,18 @@ class LoginForm extends StatelessWidget {
               onSubmitted: (_) => onSubmit(),
               style: const TextStyle(
                 fontSize: 15,
-                color: Color(0xFF1C1C1E),
+                color: Colors.white,
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
                 hintText: l10n.passwordHint,
-                hintStyle: TextStyle(
-                  color: Colors.grey.shade400,
+                hintStyle: const TextStyle(
+                  color: Color(0xFF64748B),
                   fontSize: 14,
                 ),
                 prefixIcon: const Icon(
                   Icons.lock_rounded,
-                  color: Color(0xFF007AFF),
+                  color: _emeraldPrimary,
                   size: 20,
                 ),
                 border: InputBorder.none,
@@ -109,23 +112,26 @@ class LoginForm extends StatelessWidget {
             child: DropdownButtonFormField<String>(
               key: const Key('login_identity_dropdown'),
               initialValue: selectedIdentity,
-              dropdownColor: Colors.white,
+              dropdownColor: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(16),
               icon: const Icon(
                 Icons.unfold_more_rounded,
-                color: Color(0xFF8E8E93),
+                color: Color(0xFF94A3B8),
                 size: 20,
               ),
               style: const TextStyle(
                 fontSize: 15,
-                color: Color(0xFF1C1C1E),
+                color: Colors.white,
                 fontWeight: FontWeight.w600,
               ),
               items: [
                 for (final identity in identityOptions)
                   DropdownMenuItem(
                     value: identity,
-                    child: Text(identity),
+                    child: Text(
+                      identity,
+                      style: const TextStyle(color: Colors.white),
+                    ),
                   ),
               ],
               onChanged: loading
@@ -135,13 +141,13 @@ class LoginForm extends StatelessWidget {
                     },
               decoration: InputDecoration(
                 hintText: l10n.roleLabel,
-                hintStyle: TextStyle(
-                  color: Colors.grey.shade400,
+                hintStyle: const TextStyle(
+                  color: Color(0xFF64748B),
                   fontSize: 14,
                 ),
                 prefixIcon: const Icon(
                   Icons.badge_rounded,
-                  color: Color(0xFF007AFF),
+                  color: _emeraldPrimary,
                   size: 20,
                 ),
                 border: InputBorder.none,
@@ -163,7 +169,7 @@ class LoginForm extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.error_outline_rounded,
-                    color: Color(0xFFFF3B30),
+                    color: Color(0xFFEF4444),
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -171,7 +177,7 @@ class LoginForm extends StatelessWidget {
                     child: Text(
                       error!,
                       style: const TextStyle(
-                        color: Color(0xFFFF3B30),
+                        color: Color(0xFFFCA5A5),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -184,20 +190,34 @@ class LoginForm extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // Apple Primary Action Button
-          SizedBox(
+          // Emerald Action Button
+          Container(
             width: double.infinity,
             height: 50,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_emeraldSecondary, _emeraldPrimary],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: _emeraldPrimary.withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ElevatedButton(
               onPressed: loading ? null : onSubmit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF007AFF),
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
                 foregroundColor: Colors.white,
-                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                shadowColor: const Color(0x33007AFF),
               ),
               child: loading
                   ? const SizedBox(
@@ -217,10 +237,11 @@ class LoginForm extends StatelessWidget {
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.3,
+                            color: Colors.white,
                           ),
                         ),
                         SizedBox(width: 6),
-                        Icon(Icons.arrow_forward_rounded, size: 18),
+                        Icon(Icons.arrow_forward_rounded, size: 18, color: Colors.white),
                       ],
                     ),
             ),
@@ -239,10 +260,10 @@ class LoginForm extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF).withValues(alpha: 0.08),
+                color: _emeraldPrimary.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF007AFF).withValues(alpha: 0.25),
+                  color: _emeraldPrimary.withValues(alpha: 0.30),
                   width: 1.1,
                 ),
               ),
@@ -251,7 +272,7 @@ class LoginForm extends StatelessWidget {
                   Icon(
                     Icons.touch_app_rounded,
                     size: 16,
-                    color: Color(0xFF007AFF),
+                    color: _emeraldPrimary,
                   ),
                   SizedBox(width: 8),
                   Expanded(
@@ -259,7 +280,7 @@ class LoginForm extends StatelessWidget {
                       "Demo Patient: normal@demo.com / 123456 (Tap to fill)",
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF007AFF),
+                        color: Color(0xFF34D399),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
