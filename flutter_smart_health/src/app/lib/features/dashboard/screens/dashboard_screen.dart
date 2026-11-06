@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/l10n.dart';
 import '../widgets/app_switcher_carousel.dart';
-import '../widgets/now_brief_view.dart';
 import '../widgets/dashboard_featured_card.dart';
 import '../widgets/dashboard_grid_card.dart';
 import '../widgets/dashboard_grid_row.dart';
@@ -16,14 +15,8 @@ class PatientDashboard extends StatefulWidget {
   State<PatientDashboard> createState() => _PatientDashboardState();
 }
 
-enum DashboardViewMode {
-  nowBrief,
-  appSwitcher,
-  grid,
-}
-
 class _PatientDashboardState extends State<PatientDashboard> {
-  DashboardViewMode _viewMode = DashboardViewMode.nowBrief;
+  bool _showAppSwitcher = true;
 
   void _open(String routeName) => Navigator.pushNamed(context, routeName);
 
@@ -31,12 +24,51 @@ class _PatientDashboardState extends State<PatientDashboard> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0F19),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B0F19),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF243044), // Atmospheric twilight steel slate
+            Color(0xFF1F2536), // Soft dusk indigo-slate
+            Color(0xFF191E2C), // Deep twilight
+            Color(0xFF121622), // Grounded nocturnal base
+          ],
+          stops: [0.0, 0.32, 0.70, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Ambient Dusk Radial Glow at the top (from user reference template)
+          Positioned(
+            top: -100,
+            left: -60,
+            right: -60,
+            height: 380,
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 0.75,
+                    colors: [
+                      const Color(0xFF3B4E6D).withValues(alpha: 0.40),
+                      const Color(0xFF2A3650).withValues(alpha: 0.15),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
         centerTitle: false,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,30 +105,17 @@ class _PatientDashboardState extends State<PatientDashboard> {
             ),
             child: IconButton(
               icon: Icon(
-                _viewMode == DashboardViewMode.nowBrief
-                    ? Icons.view_carousel_rounded
-                    : _viewMode == DashboardViewMode.appSwitcher
-                        ? Icons.grid_view_rounded
-                        : Icons.auto_awesome_mosaic_rounded,
+                _showAppSwitcher
+                    ? Icons.grid_view_rounded
+                    : Icons.view_carousel_rounded,
                 size: 18,
               ),
               color: Colors.white,
-              tooltip: _viewMode == DashboardViewMode.nowBrief
-                  ? "Switch to Apple Watch Switcher"
-                  : _viewMode == DashboardViewMode.appSwitcher
-                      ? "Switch to Grid View"
-                      : "Switch to Now Brief",
-              onPressed: () {
-                setState(() {
-                  if (_viewMode == DashboardViewMode.nowBrief) {
-                    _viewMode = DashboardViewMode.appSwitcher;
-                  } else if (_viewMode == DashboardViewMode.appSwitcher) {
-                    _viewMode = DashboardViewMode.grid;
-                  } else {
-                    _viewMode = DashboardViewMode.nowBrief;
-                  }
-                });
-              },
+              tooltip: _showAppSwitcher
+                  ? "Switch to Grid View"
+                  : "Switch to App Switcher",
+              onPressed: () =>
+                  setState(() => _showAppSwitcher = !_showAppSwitcher),
             ),
           ),
           Container(
@@ -133,15 +152,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
           ),
         ],
       ),
-      body: _viewMode == DashboardViewMode.nowBrief
-          ? NowBriefView(onOpenApp: _open)
-          : _viewMode == DashboardViewMode.appSwitcher
-              ? AppSwitcherCarousel(onSelectApp: _open)
-              : SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+      body: _showAppSwitcher
+          ? AppSwitcherCarousel(onSelectApp: _open)
+          : SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               const SizedBox(height: 12),
               DashboardSectionHeader(title: l10n.healthMonitoringSection),
               DashboardGridRow(
@@ -228,6 +245,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
             ],
           ),
         ),
+      ),
+        ],
+      ),
     );
   }
 }

@@ -77,18 +77,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         return Container(
           width: availableWidth,
           height: availableHeight,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF0B0F19), // Apple OS deep space midnight
-                Color(0xFF111728), // Subtle Apple ambient slate glow
-                Color(0xFF090D16), // Grounded space navy
-              ],
-              stops: [0.0, 0.50, 1.0],
-            ),
-          ),
+          color: Colors.transparent, // Seamlessly inherits the atmospheric dusk template
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -148,46 +137,56 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
               // Simple Apple OS Pagination Dots (Zero text, interactive switching)
               Center(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(apps.length, (idx) {
-                      final isSelected = idx == _currentPage;
-                      final app = apps[idx];
-                      return GestureDetector(
-                        onTap: () => _goToPage(idx),
-                        behavior: HitTestBehavior.opaque,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 8,
-                          ),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 240),
-                            curve: Curves.easeOutCubic,
-                            width: isSelected ? 22 : 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? app.accentColor
-                                  : Colors.white.withValues(alpha: 0.22),
-                              borderRadius: BorderRadius.circular(3),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: app.accentColor
-                                            .withValues(alpha: 0.55),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ]
-                                  : null,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141A28).withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(apps.length, (idx) {
+                        final isSelected = idx == _currentPage;
+                        final app = apps[idx];
+                        return GestureDetector(
+                          onTap: () => _goToPage(idx),
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 6,
+                            ),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 240),
+                              curve: Curves.easeOutCubic,
+                              width: isSelected ? 22 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? app.accentColor
+                                    : Colors.white.withValues(alpha: 0.28),
+                                borderRadius: BorderRadius.circular(3),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: app.accentColor
+                                              .withValues(alpha: 0.55),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }),
+                        );
+                      }),
+                    ),
                   ),
                 ),
               ),
@@ -212,20 +211,20 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
               height: 310,
               decoration: BoxDecoration(
-                color: const Color(0xFF141416),
+                color: const Color(0xFF1C2436), // Frosted dusk steel-slate from reference
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.09),
+                  color: Colors.white.withValues(alpha: 0.12),
                   width: 1.1,
                 ),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.8),
-                    blurRadius: 22,
-                    offset: const Offset(0, 10),
+                  const BoxShadow(
+                    color: Color(0x60070A14),
+                    blurRadius: 24,
+                    offset: Offset(0, 10),
                   ),
                   BoxShadow(
-                    color: app.accentColor.withValues(alpha: 0.05),
+                    color: app.accentColor.withValues(alpha: 0.08),
                     blurRadius: 20,
                     offset: const Offset(0, 2),
                   ),
@@ -279,7 +278,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF222225),
+                          color: const Color(0xFF242E44),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.08),
@@ -325,7 +324,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1C1C1E),
+                      color: const Color(0xFF141A28).withValues(alpha: 0.90),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.06),
@@ -409,10 +408,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                     width: double.infinity,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF242426),
+                      color: const Color(0xFF242E44),
                       borderRadius: BorderRadius.circular(19),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.09),
+                        color: Colors.white.withValues(alpha: 0.10),
                         width: 1,
                       ),
                     ),
@@ -495,7 +494,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: const Color(0xFF141A28).withValues(alpha: 0.70),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.05),
