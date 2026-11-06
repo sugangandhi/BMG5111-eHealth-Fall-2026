@@ -50,13 +50,14 @@ class ApiConfig {
     const defined = String.fromEnvironment('BACKEND_BASE_URL');
     if (defined.isNotEmpty) return defined;
     if (kIsWeb) {
-      final host = Uri.base.host;
-      if (host.isNotEmpty) {
-        return 'http://$host:8080';
+      final uri = Uri.base;
+      if (uri.host.isNotEmpty) {
+        final portPart = (uri.hasPort && uri.port != 80 && uri.port != 443) ? ':${uri.port}' : '';
+        return '${uri.scheme}://${uri.host}$portPart';
       }
     }
-    // Default to the developer PC local Wi-Fi IP for native Android/iOS builds
-    return 'http://192.168.2.29:8080';
+    // Default to the Cloudflare live tunnel for universal mobile & APK access
+    return 'https://campus-experimental-repository-val.trycloudflare.com';
   }
 
   static String get ehospitalBaseUrl {
