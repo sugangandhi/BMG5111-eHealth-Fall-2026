@@ -95,60 +95,46 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         return Container(
           width: availableWidth,
           height: availableHeight,
-          color: Colors.transparent, // Seamlessly inherits the atmospheric dusk template
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          color: Colors.transparent, // Seamlessly inherits the Apple Weather sky gradient
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              // 1. Interactive Category / Module Quick Filter Chips Tray
-              _buildCategoryFilterChips(apps, _currentPage),
+              // Dynamic Atmospheric Accent Cloud Glow (Apple Weather Watch interactive ambient sky light)
+              Positioned(
+                top: (availableHeight - deckHeight) / 2 - 30,
+                left: -30,
+                right: -30,
+                height: deckHeight + 60,
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _pageController,
+                    builder: (context, _) {
+                      double page = 0.0;
+                      if (_pageController.hasClients && _pageController.page != null) {
+                        page = _pageController.page!;
+                      } else {
+                        page = _currentPage.toDouble();
+                      }
+                      final prevIdx = page.floor().clamp(0, apps.length - 1);
+                      final nextIdx = page.ceil().clamp(0, apps.length - 1);
+                      final fraction = page - page.floor();
+                      final activeAccent = Color.lerp(
+                        apps[prevIdx].accentColor,
+                        apps[nextIdx].accentColor,
+                        fraction,
+                      ) ?? apps[prevIdx].accentColor;
 
-              const SizedBox(height: 12),
-
-              // 2. Horizontal 3D Carousel Deck (Expanded to match mobile layout)
-              SizedBox(
-                width: deckWidth,
-                height: deckHeight,
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context).copyWith(
-                    dragDevices: {
-                      PointerDeviceKind.touch,
-                      PointerDeviceKind.mouse,
-                      PointerDeviceKind.trackpad,
-                      PointerDeviceKind.stylus,
-                    },
-                    scrollbars: false,
-                  ),
-                  child: PageView.builder(
-                    controller: _pageController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: apps.length,
-                    onPageChanged: (idx) {
-                      setState(() => _currentPage = idx);
-                      _scrollToChip(idx);
-                    },
-                    itemBuilder: (context, index) {
-                      final app = apps[index];
-                      final delta = currentPageValue - index;
-
-                      // 3D Horizontal Cylindrical Carousel Transform
-                      final absDelta = delta.abs();
-                      final scale = (1.0 - (absDelta * 0.08)).clamp(0.88, 1.0);
-                      final opacity = (1.0 - (absDelta * 0.22)).clamp(0.70, 1.0);
-                      final rotateY = (-delta * 0.12).clamp(-0.35, 0.35);
-
-                      final transformMatrix = Matrix4.identity()
-                        ..setEntry(3, 2, 0.0012) // 3D depth perspective
-                        ..rotateY(rotateY);
-
-                      return Transform(
-                        transform: transformMatrix,
-                        alignment: Alignment.center,
-                        child: Transform.scale(
-                          scale: scale,
-                          child: Opacity(
-                            opacity: opacity,
-                            child: _buildAppleWatchCard(app, height: cardHeight),
+                      return Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            center: Alignment.center,
+                            radius: 0.72,
+                            colors: [
+                              activeAccent.withValues(alpha: 0.32),
+                              activeAccent.withValues(alpha: 0.08),
+                              Colors.transparent,
+                            ],
                           ),
                         ),
                       );
@@ -157,62 +143,126 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                 ),
               ),
 
-              const SizedBox(height: 18),
+              // Main Interactive Carousel Interface
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 1. Interactive Category / Module Quick Filter Chips Tray
+                  _buildCategoryFilterChips(apps, _currentPage),
 
-              // Simple Apple OS Pagination Dots (Zero text, interactive switching)
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF141A28).withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: List.generate(apps.length, (idx) {
-                        final isSelected = idx == _currentPage;
-                        final app = apps[idx];
-                        return GestureDetector(
-                          onTap: () => _goToPage(idx),
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 6,
-                            ),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 240),
-                              curve: Curves.easeOutCubic,
-                              width: isSelected ? 22 : 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? app.accentColor
-                                    : Colors.white.withValues(alpha: 0.28),
-                                borderRadius: BorderRadius.circular(3),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: app.accentColor
-                                              .withValues(alpha: 0.55),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ]
-                                    : null,
+                  const SizedBox(height: 12),
+
+                  // 2. Horizontal 3D Carousel Deck (Expanded to match mobile layout)
+                  SizedBox(
+                    width: deckWidth,
+                    height: deckHeight,
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(
+                        dragDevices: {
+                          PointerDeviceKind.touch,
+                          PointerDeviceKind.mouse,
+                          PointerDeviceKind.trackpad,
+                          PointerDeviceKind.stylus,
+                        },
+                        scrollbars: false,
+                      ),
+                      child: PageView.builder(
+                        controller: _pageController,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: apps.length,
+                        onPageChanged: (idx) {
+                          setState(() => _currentPage = idx);
+                          _scrollToChip(idx);
+                        },
+                        itemBuilder: (context, index) {
+                          final app = apps[index];
+                          final delta = currentPageValue - index;
+
+                          // 3D Horizontal Cylindrical Carousel Transform
+                          final absDelta = delta.abs();
+                          final scale = (1.0 - (absDelta * 0.08)).clamp(0.88, 1.0);
+                          final opacity = (1.0 - (absDelta * 0.20)).clamp(0.72, 1.0);
+                          final rotateY = (-delta * 0.12).clamp(-0.35, 0.35);
+
+                          final transformMatrix = Matrix4.identity()
+                            ..setEntry(3, 2, 0.0012) // 3D depth perspective
+                            ..rotateY(rotateY);
+
+                          return Transform(
+                            transform: transformMatrix,
+                            alignment: Alignment.center,
+                            child: Transform.scale(
+                              scale: scale,
+                              child: Opacity(
+                                opacity: opacity,
+                                child: _buildAppleWatchCard(app, height: cardHeight),
                               ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
+
+                  const SizedBox(height: 18),
+
+                  // Simple Apple OS Pagination Dots (Zero text, interactive switching)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0C244D).withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(apps.length, (idx) {
+                            final isSelected = idx == _currentPage;
+                            final app = apps[idx];
+                            return GestureDetector(
+                              onTap: () => _goToPage(idx),
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 6,
+                                ),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 240),
+                                  curve: Curves.easeOutCubic,
+                                  width: isSelected ? 22 : 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? app.accentColor
+                                        : Colors.white.withValues(alpha: 0.35),
+                                    borderRadius: BorderRadius.circular(3),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: app.accentColor
+                                                  .withValues(alpha: 0.65),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 1),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -245,20 +295,20 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? app.accentColor.withValues(alpha: 0.22)
-                    : const Color(0xFF162032).withValues(alpha: 0.70),
+                    ? app.accentColor.withValues(alpha: 0.30)
+                    : const Color(0xFF0C244D).withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected
-                      ? app.accentColor.withValues(alpha: 0.85)
-                      : Colors.white.withValues(alpha: 0.08),
+                      ? app.accentColor.withValues(alpha: 0.90)
+                      : Colors.white.withValues(alpha: 0.18),
                   width: isSelected ? 1.4 : 1.0,
                 ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: app.accentColor.withValues(alpha: 0.40),
-                          blurRadius: 10,
+                          color: app.accentColor.withValues(alpha: 0.45),
+                          blurRadius: 12,
                           offset: const Offset(0, 2),
                         ),
                       ]
@@ -270,7 +320,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                   Icon(
                     app.icon,
                     size: 14,
-                    color: isSelected ? app.accentColor : const Color(0xFF94A3B8),
+                    color: isSelected ? app.accentColor : Colors.white.withValues(alpha: 0.85),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -278,7 +328,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.85),
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -291,252 +341,260 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     );
   }
 
-  // Authentic Apple Watch Card with Independent Floating Circular App Icon
+  // Authentic Apple Watch Card with Independent Floating Circular App Icon (Apple Weather Glassmorphism)
   Widget _buildAppleWatchCard(_AppModuleItem app, {double? height}) {
     return Center(
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Main Card Body (Deep Obsidian watchOS Material)
+          // Main Card Body (Apple Weather Translucent Frosted Sky Glass)
           GestureDetector(
             onTap: () => widget.onSelectApp(app.route),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-              height: height ?? 440,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C2436), // Frosted dusk steel-slate from reference
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  width: 1.1,
-                ),
-                boxShadow: [
-                  const BoxShadow(
-                    color: Color(0x60070A14),
-                    blurRadius: 24,
-                    offset: Offset(0, 10),
-                  ),
-                  BoxShadow(
-                    color: app.accentColor.withValues(alpha: 0.10),
-                    blurRadius: 22,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Top Row: Clearance for Floating Icon + App Title + Category + Status Pill
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Clearance for floating circular badge
-                      const SizedBox(width: 48),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              app.title,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.3,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              app.category,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: app.accentColor,
-                                letterSpacing: 0.8,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                    height: height ?? 440,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0E2856).withValues(alpha: 0.48), // Apple Weather translucent frosted sky glass
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22), // Specular Apple glass reflection edge
+                        width: 1.2,
                       ),
-                      const SizedBox(width: 8),
-                      // watchOS Status Pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF041029).withValues(alpha: 0.35),
+                          blurRadius: 28,
+                          offset: const Offset(0, 12),
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF242E44),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            width: 1,
-                          ),
+                        BoxShadow(
+                          color: app.accentColor.withValues(alpha: 0.16),
+                          blurRadius: 22,
+                          offset: const Offset(0, 2),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Top Row: Clearance for Floating Icon + App Title + Category + Status Pill
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: app.accentColor,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: app.accentColor.withValues(alpha: 0.6),
-                                    blurRadius: 4,
+                            // Clearance for floating circular badge
+                            const SizedBox(width: 48),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    app.title,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                      letterSpacing: -0.3,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    app.category,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: app.accentColor,
+                                      letterSpacing: 0.8,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              app.statusText,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Hero Glance Box: Hero Metric + Dynamic Visualizer + Description
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF141A28).withValues(alpha: 0.90),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Hero Metric Row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              app.heroMetric,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: -0.6,
-                              ),
-                            ),
+                            const SizedBox(width: 8),
+                            // watchOS Frosted Status Pill
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
-                                vertical: 4,
+                                vertical: 5,
                               ),
                               decoration: BoxDecoration(
-                                color: app.accentColor.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(10),
+                                color: const Color(0xFF0C244D).withValues(alpha: 0.52),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: app.accentColor.withValues(alpha: 0.40),
+                                  color: Colors.white.withValues(alpha: 0.18),
                                   width: 1,
                                 ),
                               ),
-                              child: Text(
-                                app.heroBadge,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: app.accentColor,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: app.accentColor,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: app.accentColor.withValues(alpha: 0.6),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    app.statusText,
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
 
-                        // Live Complication Visualizer
-                        _buildVisualizerForApp(app),
-                        const SizedBox(height: 10),
-
-                        // App summary description (full 3 lines without clipping)
-                        Text(
-                          app.description,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            height: 1.42,
-                            color: Color(0xFF94A3B8),
+                        // Hero Glance Box: Hero Metric + Dynamic Visualizer + Description
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF071938).withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.16),
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Hero Metric Row
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
+                                children: [
+                                  Text(
+                                    app.heroMetric,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                      letterSpacing: -0.6,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: app.accentColor.withValues(alpha: 0.22),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: app.accentColor.withValues(alpha: 0.50),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      app.heroBadge,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: app.accentColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Live Complication Visualizer
+                              _buildVisualizerForApp(app),
+                              const SizedBox(height: 10),
+
+                              // App summary description (full 3 lines with high readability)
+                              Text(
+                                app.description,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.42,
+                                  color: Colors.white.withValues(alpha: 0.88),
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Mini Clinical Stats Row
+                        Row(
+                          children: [
+                            _buildAppleMiniStat(app.stat1Label, app.stat1Value),
+                            const SizedBox(width: 8),
+                            _buildAppleMiniStat(app.stat2Label, app.stat2Value),
+                          ],
+                        ),
+
+                        // Apple Watch Pill Action Button
+                        Container(
+                          width: double.infinity,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1D4ED8).withValues(alpha: 0.38),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              width: 1.1,
+                            ),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(22),
+                              onTap: () => widget.onSelectApp(app.route),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    app.actionLabel,
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    size: 12,
+                                    color: app.accentColor,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-
-                  // Mini Clinical Stats Row
-                  Row(
-                    children: [
-                      _buildAppleMiniStat(app.stat1Label, app.stat1Value),
-                      const SizedBox(width: 8),
-                      _buildAppleMiniStat(app.stat2Label, app.stat2Value),
-                    ],
-                  ),
-
-                  // Apple Watch Pill Action Button
-                  Container(
-                    width: double.infinity,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF242E44),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        width: 1,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(22),
-                        onTap: () => widget.onSelectApp(app.route),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              app.actionLabel,
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 12,
-                              color: app.accentColor,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -553,18 +611,18 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                 color: app.accentColor,
                 boxShadow: [
                   BoxShadow(
-                    color: app.accentColor.withValues(alpha: 0.45),
+                    color: app.accentColor.withValues(alpha: 0.50),
                     blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.7),
+                    color: const Color(0xFF041029).withValues(alpha: 0.6),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.28),
+                  color: Colors.white.withValues(alpha: 0.35),
                   width: 1.5,
                 ),
               ),
@@ -588,10 +646,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFF141A28).withValues(alpha: 0.70),
+          color: const Color(0xFF071938).withValues(alpha: 0.40),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: Colors.white.withValues(alpha: 0.14),
           ),
         ),
         child: Column(
@@ -660,8 +718,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F0F11),
+            color: const Color(0xFF06152F).withValues(alpha: 0.42),
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 0.8,
+            ),
           ),
           child: CustomPaint(
             painter: _EcgPainter(
@@ -681,8 +743,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         children: [
@@ -693,7 +759,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: 0.65,
-                backgroundColor: const Color(0xFF262628),
+                backgroundColor: Colors.white.withValues(alpha: 0.12),
                 valueColor: AlwaysStoppedAnimation<Color>(accent),
                 minHeight: 6,
               ),
@@ -713,8 +779,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -736,7 +806,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.18),
+              color: accent.withValues(alpha: 0.22),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -760,8 +830,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -788,8 +862,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         children: [
@@ -799,7 +877,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
             child: CircularProgressIndicator(
               value: 0.98,
               strokeWidth: 3,
-              backgroundColor: const Color(0xFF262628),
+              backgroundColor: Colors.white.withValues(alpha: 0.12),
               valueColor: AlwaysStoppedAnimation<Color>(accent),
             ),
           ),
@@ -828,8 +906,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -868,8 +950,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         children: [
@@ -880,7 +966,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: 0.84,
-                backgroundColor: const Color(0xFF262628),
+                backgroundColor: Colors.white.withValues(alpha: 0.12),
                 valueColor: AlwaysStoppedAnimation<Color>(accent),
                 minHeight: 6,
               ),
@@ -907,8 +993,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         children: [
@@ -938,8 +1028,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         children: [
@@ -977,8 +1071,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F0F11),
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
       ),
       child: Row(
         children: [
@@ -989,7 +1087,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: 0.1,
-                backgroundColor: const Color(0xFF262628),
+                backgroundColor: Colors.white.withValues(alpha: 0.12),
                 valueColor: AlwaysStoppedAnimation<Color>(accent),
                 minHeight: 6,
               ),

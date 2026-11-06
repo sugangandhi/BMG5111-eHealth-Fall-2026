@@ -26,36 +26,59 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
     return Container(
       decoration: const BoxDecoration(
+        // Authentic Apple Weather living sky gradient - vibrant azure, sapphire, and twilight cobalt (zero pitch black)
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFF243044), // Atmospheric twilight steel slate
-            Color(0xFF1F2536), // Soft dusk indigo-slate
-            Color(0xFF191E2C), // Deep twilight
-            Color(0xFF121622), // Grounded nocturnal base
+            Color(0xFF1B5ED9), // Vibrant Apple Weather Royal Sky Blue
+            Color(0xFF1342A8), // Azure Cobalt
+            Color(0xFF0E2F7D), // Deep Celestial Sapphire
+            Color(0xFF091F56), // Rich Midnight Blue base (completely vibrant, zero black)
           ],
           stops: [0.0, 0.32, 0.70, 1.0],
         ),
       ),
       child: Stack(
         children: [
-          // Ambient Dusk Radial Glow at the top (from user reference template)
+          // Apple Weather Horizon Sunburst / Upper Sky Dome Radiance
           Positioned(
-            top: -100,
-            left: -60,
-            right: -60,
-            height: 380,
+            top: -120,
+            left: -80,
+            right: -80,
+            height: 420,
             child: IgnorePointer(
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
-                    center: Alignment.center,
-                    radius: 0.75,
+                    center: const Alignment(0.0, -0.2),
+                    radius: 0.85,
                     colors: [
-                      const Color(0xFF3B4E6D).withValues(alpha: 0.40),
-                      const Color(0xFF2A3650).withValues(alpha: 0.15),
+                      const Color(0xFF38BDF8).withValues(alpha: 0.48), // Sun-bleached sky light
+                      const Color(0xFF1D4ED8).withValues(alpha: 0.25),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Ambient Atmospheric Cloud Light Layer (Apple Weather Depth)
+          Positioned(
+            bottom: -100,
+            left: -60,
+            right: -60,
+            height: 400,
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    center: Alignment.bottomCenter,
+                    radius: 0.80,
+                    colors: [
+                      const Color(0xFF0284C7).withValues(alpha: 0.35),
                       Colors.transparent,
                     ],
                   ),
@@ -78,7 +101,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF10B981),
+                color: Color(0xFF6EE7B7), // Bright mint sky accent
                 letterSpacing: 1.1,
               ),
             ),
@@ -97,10 +120,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
+              color: Colors.white.withValues(alpha: 0.14), // Apple frosted glass button
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withValues(alpha: 0.20),
               ),
             ),
             child: IconButton(
@@ -121,15 +144,15 @@ class _PatientDashboardState extends State<PatientDashboard> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF3F1116),
+              color: const Color(0xFFEF4444).withValues(alpha: 0.25),
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                color: const Color(0xFFEF4444).withValues(alpha: 0.50),
               ),
             ),
             child: IconButton(
               icon: const Icon(Icons.emergency_rounded, size: 18),
-              color: const Color(0xFFEF4444),
+              color: const Color(0xFFFF6B6B),
               tooltip: l10n.emergencySosTitle,
               onPressed: () => _open('/emergency'),
             ),
@@ -137,10 +160,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
           Container(
             margin: const EdgeInsets.only(left: 4, right: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
+              color: Colors.white.withValues(alpha: 0.14), // Apple frosted glass button
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withValues(alpha: 0.20),
               ),
             ),
             child: IconButton(
