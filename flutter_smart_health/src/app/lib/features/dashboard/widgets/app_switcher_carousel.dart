@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 
 class AppSwitcherCarousel extends StatefulWidget {
   final void Function(String route) onSelectApp;
+  final void Function(Color accentColor)? onActiveAccentChanged;
 
   const AppSwitcherCarousel({
     super.key,
     required this.onSelectApp,
+    this.onActiveAccentChanged,
   });
 
   @override
@@ -40,6 +42,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final apps = _getAppsList();
+      if (apps.isNotEmpty) {
+        widget.onActiveAccentChanged?.call(apps[0].accentColor);
+      }
+    });
   }
 
   @override
@@ -72,6 +81,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       );
     }
     _scrollToChip(page);
+    final apps = _getAppsList();
+    if (page >= 0 && page < apps.length) {
+      widget.onActiveAccentChanged?.call(apps[page].accentColor);
+    }
   }
 
   @override
@@ -177,6 +190,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                           HapticFeedback.selectionClick();
                           setState(() => _currentPage = idx);
                           _scrollToChip(idx);
+                          widget.onActiveAccentChanged?.call(apps[idx].accentColor);
                         },
                         itemBuilder: (context, index) {
                           final app = apps[index];

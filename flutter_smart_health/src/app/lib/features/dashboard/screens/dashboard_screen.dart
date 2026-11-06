@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../../l10n/l10n.dart';
 import '../widgets/app_switcher_carousel.dart';
+import '../widgets/atmospheric_sky_background.dart';
 import '../widgets/dashboard_featured_card.dart';
 import '../widgets/dashboard_grid_card.dart';
 import '../widgets/dashboard_grid_row.dart';
@@ -20,20 +21,21 @@ class PatientDashboard extends StatefulWidget {
 class _PatientDashboardState extends State<PatientDashboard>
     with SingleTickerProviderStateMixin {
   bool _showAppSwitcher = true;
-  late final AnimationController _skyController;
+  Color _ambientAccent = const Color(0xFF00E5FF);
+  late final AnimationController _heartTicker;
 
   @override
   void initState() {
     super.initState();
-    _skyController = AnimationController(
+    _heartTicker = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 16),
+      duration: const Duration(seconds: 12),
     )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _skyController.dispose();
+    _heartTicker.dispose();
     super.dispose();
   }
 
@@ -43,229 +45,177 @@ class _PatientDashboardState extends State<PatientDashboard>
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
-    return Container(
-      decoration: const BoxDecoration(
-        // Authentic Apple Weather living sky gradient - vibrant azure, sapphire, and twilight cobalt (zero pitch black)
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF1B5ED9), // Vibrant Apple Weather Royal Sky Blue
-            Color(0xFF1342A8), // Azure Cobalt
-            Color(0xFF0E2F7D), // Deep Celestial Sapphire
-            Color(0xFF091F56), // Rich Midnight Blue base (completely vibrant, zero black)
-          ],
-          stops: [0.0, 0.32, 0.70, 1.0],
+    return Stack(
+      children: [
+        // Photorealistic Living Atmospheric Sky (Sunburst, Crepuscular Light Beams, Multi-Octave Parallax Clouds, Air Motes)
+        AtmosphericSkyBackground(
+          ambientAccent: _ambientAccent,
         ),
-      ),
-      child: Stack(
-        children: [
-          // Apple Weather Horizon Sunburst / Upper Sky Dome Radiance (Gentle Living Drift)
-          AnimatedBuilder(
-            animation: _skyController,
-            builder: (context, _) {
-              final driftX = math.sin(_skyController.value * math.pi * 2) * 25.0;
-              final pulseRadius = 0.82 + (_skyController.value * 0.08);
-              return Positioned(
-                top: -120,
-                left: -80 + driftX,
-                right: -80 - driftX,
-                height: 420,
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        center: const Alignment(0.0, -0.2),
-                        radius: pulseRadius,
-                        colors: [
-                          const Color(0xFF38BDF8).withValues(alpha: 0.48), // Sun-bleached sky light
-                          const Color(0xFF1D4ED8).withValues(alpha: 0.25),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          // Ambient Atmospheric Cloud Light Layer (Apple Weather Depth Drift)
-          AnimatedBuilder(
-            animation: _skyController,
-            builder: (context, _) {
-              final driftY = math.cos(_skyController.value * math.pi * 2) * 15.0;
-              return Positioned(
-                bottom: -100 + driftY,
-                left: -60,
-                right: -60,
-                height: 400,
-                child: IgnorePointer(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        center: Alignment.bottomCenter,
-                        radius: 0.80,
-                        colors: [
-                          const Color(0xFF0284C7).withValues(alpha: 0.35),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          Scaffold(
+
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
             backgroundColor: Colors.transparent,
-            appBar: AppBar(
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-        centerTitle: false,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "INTELLIGENT DIGITAL SOLUTION",
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF6EE7B7), // Bright mint sky accent
-                letterSpacing: 1.1,
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: false,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "eHospital",
+                  "INTELLIGENT DIGITAL SOLUTION",
                   style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF6EE7B7), // Bright mint sky accent
+                    letterSpacing: 1.1,
                   ),
                 ),
-                const SizedBox(width: 8),
-                // Live physiological telemetry badge with real-time heartbeat animation
-                AnimatedBuilder(
-                  animation: _skyController,
-                  builder: (context, _) {
-                    final bpm = 74 + ((math.sin(_skyController.value * math.pi * 8) + 1.0) * 1.8).round();
-                    final pulseScale = 1.0 + ((math.sin(_skyController.value * math.pi * 16) + 1.0) * 0.10);
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.40),
-                          width: 0.8,
-                        ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "eHospital",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Transform.scale(
-                            scale: pulseScale,
-                            child: const Icon(
-                              Icons.favorite_rounded,
-                              size: 11,
-                              color: Color(0xFF10B981),
+                    ),
+                    const SizedBox(width: 8),
+                    // Live physiological telemetry badge with real-time heartbeat animation
+                    AnimatedBuilder(
+                      animation: _heartTicker,
+                      builder: (context, _) {
+                        final bpm = 74 +
+                            ((math.sin(_heartTicker.value * math.pi * 8) + 1.0) *
+                                    1.8)
+                                .round();
+                        final pulseScale = 1.0 +
+                            ((math.sin(_heartTicker.value * math.pi * 16) +
+                                    1.0) *
+                                0.10);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981)
+                                .withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.40),
+                              width: 0.8,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "$bpm BPM",
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF10B981),
-                              letterSpacing: 0.2,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Transform.scale(
+                                scale: pulseScale,
+                                child: const Icon(
+                                  Icons.favorite_rounded,
+                                  size: 11,
+                                  color: Color(0xFF10B981),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                "$bpm BPM",
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF10B981),
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14), // Apple frosted glass button
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.20),
+            actions: [
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14), // Apple frosted glass button
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.20),
+                  ),
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    _showAppSwitcher
+                        ? Icons.grid_view_rounded
+                        : Icons.view_carousel_rounded,
+                    size: 18,
+                  ),
+                  color: Colors.white,
+                  tooltip: _showAppSwitcher
+                      ? "Switch to Grid View"
+                      : "Switch to App Switcher",
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    setState(() => _showAppSwitcher = !_showAppSwitcher);
+                  },
+                ),
               ),
-            ),
-            child: IconButton(
-              icon: Icon(
-                _showAppSwitcher
-                    ? Icons.grid_view_rounded
-                    : Icons.view_carousel_rounded,
-                size: 18,
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.50),
+                  ),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.emergency_rounded, size: 18),
+                  color: const Color(0xFFFF6B6B),
+                  tooltip: l10n.emergencySosTitle,
+                  onPressed: () {
+                    HapticFeedback.heavyImpact();
+                    _open('/emergency');
+                  },
+                ),
               ),
-              color: Colors.white,
-              tooltip: _showAppSwitcher
-                  ? "Switch to Grid View"
-                  : "Switch to App Switcher",
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                setState(() => _showAppSwitcher = !_showAppSwitcher);
-              },
-            ),
+              Container(
+                margin: const EdgeInsets.only(left: 4, right: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14), // Apple frosted glass button
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.20),
+                  ),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.person_rounded, size: 18),
+                  color: Colors.white,
+                  tooltip: l10n.profileTitle,
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    _open('/profile');
+                  },
+                ),
+              ),
+            ],
           ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.50),
-              ),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.emergency_rounded, size: 18),
-              color: const Color(0xFFFF6B6B),
-              tooltip: l10n.emergencySosTitle,
-              onPressed: () {
-                HapticFeedback.heavyImpact();
-                _open('/emergency');
-              },
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(left: 4, right: 14),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14), // Apple frosted glass button
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.20),
-              ),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.person_rounded, size: 18),
-              color: Colors.white,
-              tooltip: l10n.profileTitle,
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                _open('/profile');
-              },
-            ),
-          ),
-        ],
-      ),
-      body: _showAppSwitcher
-          ? AppSwitcherCarousel(onSelectApp: _open)
-          : SingleChildScrollView(
+          body: _showAppSwitcher
+              ? AppSwitcherCarousel(
+                  onSelectApp: _open,
+                  onActiveAccentChanged: (accent) {
+                    if (_ambientAccent != accent) {
+                      setState(() => _ambientAccent = accent);
+                    }
+                  },
+                )
+              : SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -357,8 +307,7 @@ class _PatientDashboardState extends State<PatientDashboard>
           ),
         ),
       ),
-        ],
-      ),
-    );
-  }
+    ],
+  );
+}
 }
