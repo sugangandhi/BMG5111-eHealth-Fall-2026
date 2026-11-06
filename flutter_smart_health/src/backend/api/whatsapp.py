@@ -164,7 +164,7 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
     care_reply = {
         "id": int(time.time() * 1000) + 1,
         "role": "bot",
-        "sender_name": "Dr. Patel's Clinic Care Team",
+        "sender_name": "Intelligent Digital Solution Care Team",
         "text": triage_result["reply_text"],
         "triage_level": triage_result["triage_level"],
         "ctas_level": triage_result.get("ctas_level"),
@@ -210,11 +210,11 @@ async def handle_whatsapp_action(req: WhatsAppActionRequest):
         reply_msg = {
             "id": int(time.time() * 1000) + 1,
             "role": "bot",
-            "sender_name": "Dr. Patel's Clinic Care Team",
+            "sender_name": "Intelligent Digital Solution Care Team",
             "text": (
-                f"✅ **APPOINTMENT CONFIRMED**: You are scheduled for an urgent consultation with Dr. Patel for "
+                f"✅ **APPOINTMENT CONFIRMED**: You are scheduled for an urgent consultation with Intelligent Digital Solution for "
                 f"**Today at 03:00 PM** (Ref: #APT-{apt_id}).\n\n"
-                f"Your patient chart #{patient_id} and recent vitals telemetry have been prioritized for Dr. Patel's arrival."
+                f"Your patient chart #{patient_id} and recent vitals telemetry have been prioritized for Intelligent Digital Solution's arrival."
             ),
             "triage_level": "APPOINTMENT_CONFIRMED",
             "alert_doctor": True,
@@ -232,7 +232,7 @@ async def handle_whatsapp_action(req: WhatsAppActionRequest):
         reply_msg = {
             "id": int(time.time() * 1000) + 1,
             "role": "bot",
-            "sender_name": "Dr. Patel's Clinic Care Team",
+            "sender_name": "Intelligent Digital Solution Care Team",
             "text": (
                 "🏥 **URGENT CARE REGISTRATION CONFIRMED**: You have been checked in to the Urgent Care clinic queue.\n\n"
                 "• **Queue Position**: #4\n"

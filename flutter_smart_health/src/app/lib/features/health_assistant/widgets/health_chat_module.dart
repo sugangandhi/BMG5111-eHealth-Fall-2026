@@ -287,7 +287,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           _messages.add(_HealthChatMessage(
             role: 'assistant',
             text:
-                "### 🩺 Clinical Sync Note\nYour vitals are logged in the Central Cloud EMR. If you require immediate attention, you can tap below to connect with Dr. Patel directly on WhatsApp.",
+                "### 🩺 Clinical Sync Note\nYour vitals are logged in the Central Cloud EMR. If you require immediate attention, you can tap below to connect with Intelligent Digital Solution directly on WhatsApp.",
           ));
         });
         _persistMessagesLocally();
@@ -478,7 +478,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                           p: const TextStyle(fontSize: 14, height: 1.45, color: Colors.black87),
                                         ),
                                       ),
-                                      if (msg.text.contains("DR. PATEL") || msg.text.contains("Dr. Patel") || msg.text.contains("STAT") || msg.text.contains("chest pain") || msg.text.contains("911")) ...[
+                                      if (msg.text.contains("INTELLIGENT DIGITAL SOLUTION") || msg.text.contains("Intelligent Digital Solution") || msg.text.contains("STAT") || msg.text.contains("chest pain") || msg.text.contains("911")) ...[
                                         const SizedBox(height: 10),
                                         Wrap(
                                           spacing: 6,
@@ -486,7 +486,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                           children: [
                                             ElevatedButton.icon(
                                               icon: const Icon(Icons.chat_bubble, size: 13),
-                                              label: const Text("Open Dr. Patel's WhatsApp Triage", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                              label: const Text("Open Intelligent Digital Solution's WhatsApp Triage", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: const Color(0xFF075E54),
                                                 foregroundColor: Colors.white,

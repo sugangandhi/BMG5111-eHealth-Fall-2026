@@ -74,7 +74,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
         {
           "id": 1,
           "role": "bot",
-          "sender_name": "Dr. Patel's Clinic Care Team",
+          "sender_name": "Intelligent Digital Solution Care Team",
           "text": "Hello! Welcome to the PrimeCare WhatsApp Clinic channel. You can message us your symptoms, query your care plan, or log daily vitals here.",
           "vitals": {},
           "timestamp": "09:00 AM"
@@ -90,7 +90,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
         {
           "id": 3,
           "role": "bot",
-          "sender_name": "Dr. Patel's Clinic Care Team",
+          "sender_name": "Intelligent Digital Solution Care Team",
           "text": "Thank you! Your telemetry readings (BP: 125/82, HR: 72 BPM) have been recorded directly into your patient chart and synced with the Central AWS Clinical Network.",
           "vitals": {},
           "timestamp": "09:16 AM"
@@ -211,8 +211,8 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
         _messages.add({
           "id": DateTime.now().millisecondsSinceEpoch + 1,
           "role": "bot",
-          "sender_name": "Dr. Patel's Clinic Care Team",
-          "text": "Message received and synced to Central EHR chart. Dr. Patel's team will follow up if vitals require immediate review.",
+          "sender_name": "Intelligent Digital Solution Care Team",
+          "text": "Message received and synced to Central EHR chart. Intelligent Digital Solution's team will follow up if vitals require immediate review.",
           "vitals": {},
           "timestamp": "Just now"
         });
@@ -233,7 +233,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
   }
 
   Future<void> _launchExternalWhatsApp() async {
-    final uri = Uri.parse("https://wa.me/16132616383?text=Hi%20Doctor%20Patel,%20checking%20in%20from%20Smart%20Health%20Mobile%20App");
+    final uri = Uri.parse("https://wa.me/16132616383?text=Hi%20Intelligent%20Digital%20Solution,%20checking%20in%20from%20Smart%20Health%20Mobile%20App");
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
@@ -269,13 +269,13 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
       }
     } else if (actionId == 'book_appointment') {
       setState(() => _isSending = true);
-      await _triggerBackendAction('book_appointment', 'Priority Consultation with Dr. Patel');
+      await _triggerBackendAction('book_appointment', 'Priority Consultation with Intelligent Digital Solution');
       setState(() => _isSending = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: Color(0xFF166534),
-            content: Text("✅ Consultation with Dr. Patel booked & confirmed in Central AWS records!"),
+            content: Text("✅ Consultation with Intelligent Digital Solution booked & confirmed in Central AWS records!"),
             duration: Duration(seconds: 4),
           ),
         );
@@ -352,7 +352,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                     Row(
                       children: [
                         Text(
-                          "Dr. Patel's Clinic Team",
+                          "Intelligent Digital Solution Care Team",
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                         SizedBox(width: 4),
@@ -430,7 +430,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                                 Row(
                                   children: [
                                     Text(
-                                      msg['sender_name'] ?? "Dr. Patel's Care Team",
+                                      msg['sender_name'] ?? "Intelligent Digital Solution's Care Team",
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -656,7 +656,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                                             const SizedBox(width: 4),
                                             Expanded(
                                               child: Text(
-                                                "Clinician SOAP Triage Note (Dr. Patel's Desk)",
+                                                "Clinician SOAP Triage Note (Intelligent Digital Solution's Desk)",
                                                 style: TextStyle(
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.bold,

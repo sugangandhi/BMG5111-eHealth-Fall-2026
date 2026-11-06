@@ -115,7 +115,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
 
         # Check if patient is asking to message or contact the doctor
         text_lower = message.lower()
-        has_doctor_term = any(w in text_lower for w in ["dr", "doctor", "patel", "physician", "clinic"])
+        has_doctor_term = any(w in text_lower for w in ["dr", "doctor", "physician", "clinic", "intelligent digital solution", "ids"])
         has_action_term = any(w in text_lower for w in ["send", "message", "contact", "notify", "reach", "tell", "speak", "talk", "alert", "connect", "forward", "able to"])
         is_doctor_request = (has_doctor_term and has_action_term) or any(
             k in text_lower for k in [
@@ -144,7 +144,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
         if hr_val is None or not str(hr_val).isdigit():
             hr_val = 82
 
-        # If acute red flag or request to message Dr. Patel, dispatch to Dr. Patel's triage queue
+        # If acute red flag or request to message Intelligent Digital Solution, dispatch to Intelligent Digital Solution's triage queue
         if is_doctor_request or is_emergency:
             bp_str = str(bp_val)
             hr_int = int(hr_val)
@@ -161,7 +161,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 thread = threads.setdefault("6132616383", [])
                 now_str = datetime.now().strftime("%I:%M %p")
 
-                # Add patient message to Dr. Patel's thread
+                # Add patient message to Intelligent Digital Solution's thread
                 thread.append({
                     "id": int(time.time() * 1000),
                     "role": "patient",
@@ -170,18 +170,18 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                     "vitals": vitals_dict,
                     "timestamp": now_str
                 })
-                # Add Dr. Patel Care Team reply to thread
+                # Add Intelligent Digital Solution Care Team reply to thread
                 thread.append({
                     "id": int(time.time() * 1000) + 1,
                     "role": "bot",
-                    "sender_name": "Dr. Patel's Clinic Care Team",
+                    "sender_name": "Intelligent Digital Solution Care Team",
                     "text": triage["reply_text"],
                     "triage_level": triage["triage_level"],
                     "ctas_level": triage.get("ctas_level"),
                     "ctas_label": triage.get("ctas_label"),
                     "confidence_score": triage.get("confidence_score"),
                     "alert_doctor": True,
-                    "doctor_notice": "🚨 STAT Clinical Emergency Dispatched from AI Chat to Dr. Patel",
+                    "doctor_notice": "🚨 STAT Clinical Emergency Dispatched from AI Chat to Intelligent Digital Solution",
                     "actions": triage["actions"],
                     "soap_note": triage.get("soap_note", {}),
                     "vitals": vitals_dict,
@@ -193,15 +193,15 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
 
             if is_doctor_request:
                 reply_text = (
-                    "🚨 **YES, YOUR MESSAGE HAS BEEN SENT TO DR. PATEL**:\n\n"
+                    "🚨 **YES, YOUR MESSAGE HAS BEEN SENT TO INTELLIGENT DIGITAL SOLUTION**:\n\n"
                     f"An urgent clinical notification along with your continuous telemetry (BP: {bp_val}, HR: {hr_val} BPM) "
-                    "has been forwarded directly to Dr. Patel's clinical triage desk.\n\n"
-                    "Dr. Patel and the clinic triage team have been alerted. Tap the **WhatsApp button at the top** to view your active doctor conversation and track your response in real time."
+                    "has been forwarded directly to Intelligent Digital Solution's clinical triage desk.\n\n"
+                    "Intelligent Digital Solution and the clinic triage team have been alerted. Tap the **WhatsApp button at the top** to view your active doctor conversation and track your response in real time."
                 )
             else:
                 reply_text = (
-                    "🚨 **STAT CLINICAL EMERGENCY ALERT TRANSMITTED TO DR. PATEL**:\n\n"
-                    f"An immediate clinical notification and your telemetry (BP: {bp_val}, HR: {hr_val} BPM) have been sent directly to Dr. Patel's triage desk.\n\n"
+                    "🚨 **STAT CLINICAL EMERGENCY ALERT TRANSMITTED TO INTELLIGENT DIGITAL SOLUTION**:\n\n"
+                    f"An immediate clinical notification and your telemetry (BP: {bp_val}, HR: {hr_val} BPM) have been sent directly to Intelligent Digital Solution triage desk.\n\n"
                     "Because severe chest pain can indicate an acute cardiac event, please do not delay care. Call 911 immediately or tap the WhatsApp button at the top to access direct clinical actions."
                 )
             return AssistantChatResponse(reply=reply_text, results=[AssistantTextResult(content=reply_text)])
@@ -213,9 +213,9 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
             f"Active Patient ID: {patient_id}\n"
             f"Clinical Telemetry Data:\n{telemetry_str}\n\n"
             "CLINICAL & INTEGRATION RULES:\n"
-            "- You are directly integrated with Dr. Patel's clinical triage desk and WhatsApp clinical queue.\n"
-            "- NEVER state that you 'cannot message Dr. Patel' or 'am unable to message the doctor on your behalf'.\n"
-            "- If the patient asks to message or contact the doctor, confirm that their message and vitals are forwarded directly to Dr. Patel.\n"
+            "- You are directly integrated with Intelligent Digital Solution's clinical triage desk and WhatsApp clinical queue.\n"
+            "- NEVER state that you 'cannot message Intelligent Digital Solution' or 'am unable to message the doctor on your behalf'.\n"
+            "- If the patient asks to message or contact the doctor, confirm that their message and vitals are forwarded directly to Intelligent Digital Solution.\n"
             "- Emphasize clinical red flags and remind the patient to tap the WhatsApp button at the top to access the direct doctor triage channel.\n"
             "Provide empathetic, clinically accurate, evidence-based responses.\n"
         )

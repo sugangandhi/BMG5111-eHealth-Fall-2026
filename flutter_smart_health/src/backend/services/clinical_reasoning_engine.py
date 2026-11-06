@@ -179,9 +179,9 @@ def evaluate_clinical_case(
         ctas_level = 1 if ("unconscious" in text_lower or "cannot breathe" in text_lower or "cardiac arrest" in text_lower) else 2
         confidence_score = 0.98
         triage_level = "EMERGENCY"
-        doctor_notice = "🚨 STAT Emergency Clinical Alert Sent to Dr. Patel & On-Call ER Team"
+        doctor_notice = "🚨 STAT Emergency Clinical Alert Sent to Intelligent Digital Solution ER Triage Team"
         reply_text = (
-            "🚨 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Dr. Patel and the clinic's urgent triage team.\n\n"
+            "🚨 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Intelligent Digital Solution and the clinic's urgent triage team.\n\n"
             "Because severe chest symptoms can indicate an acute coronary syndrome or critical cardiac event, please do not wait. "
             "Call 911 or proceed to the nearest emergency department immediately. You may also check into our walk-in Urgent Care queue below if you are currently en route."
         )
@@ -202,13 +202,13 @@ def evaluate_clinical_case(
         elif has_diabetes:
             comorbid_context_note = " Atypical cardiovascular symptoms are frequent in diabetic patients; an objective evaluation is indicated."
 
-        doctor_notice = "⚠️ Urgent Clinical Notice Sent to Dr. Patel's Triage Desk"
+        doctor_notice = "⚠️ Urgent Clinical Notice Sent to Intelligent Digital Solution Triage Desk"
         reply_text = (
-            f"⚠️ **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and flagged for Dr. Patel's triage desk.{comorbid_context_note}\n\n"
-            "Would you like me to book a same-day urgent appointment with Dr. Patel, or check you into the walk-in Urgent Care clinic queue right now?"
+            f"⚠️ **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and flagged for Intelligent Digital Solution triage desk.{comorbid_context_note}\n\n"
+            "Would you like me to book a same-day urgent appointment with Intelligent Digital Solution, or check you into the walk-in Urgent Care clinic queue right now?"
         )
         actions = [
-            {"id": "book_appointment", "label": "📅 Book Urgent Appointment with Dr. Patel", "type": "book"},
+            {"id": "book_appointment", "label": "📅 Book Urgent Appointment with Intelligent Digital Solution", "type": "book"},
             {"id": "urgent_care", "label": "🏥 Join Urgent Care Clinic Queue", "type": "route"}
         ]
         # Provide SOCRATES interactive symptom exploration chips
@@ -223,10 +223,10 @@ def evaluate_clinical_case(
         ctas_level = 4
         confidence_score = 0.96
         triage_level = "PHARMACY_REFILL"
-        doctor_notice = "📋 Prescription Renewal Sent to Dr. Patel's Approval Desk"
+        doctor_notice = "📋 Prescription Renewal Sent to Intelligent Digital Solution Approval Desk"
         reply_text = (
-            "📋 **PRESCRIPTION REFILL QUEUED**: Your medication refill request has been logged and submitted to Dr. Patel's clinical inbox for electronic authorization.\n\n"
-            "Standard turnaround time is 2-4 hours directly to your registered pharmacy. Would you like to schedule a routine medication review with Dr. Patel?"
+            "📋 **PRESCRIPTION REFILL QUEUED**: Your medication refill request has been logged and submitted to Intelligent Digital Solution clinical inbox for electronic authorization.\n\n"
+            "Standard turnaround time is 2-4 hours directly to your registered pharmacy. Would you like to schedule a routine medication review with Intelligent Digital Solution?"
         )
         actions = [
             {"id": "book_appointment", "label": "📅 Book Medication Review", "type": "book"}
@@ -241,7 +241,7 @@ def evaluate_clinical_case(
             reply_text = (
                 f"⚠️ **ELEVATED TELEMETRY NOTED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been recorded in your clinical chart. "
                 f"{htn_eval.get('guideline')}\n\n"
-                "We have notified Dr. Patel's care desk. Would you like to schedule a blood pressure review appointment or check into Urgent Care?"
+                "We have notified Intelligent Digital Solution care desk. Would you like to schedule a blood pressure review appointment or check into Urgent Care?"
             )
             actions = [
                 {"id": "book_appointment", "label": "📅 Book Blood Pressure Review", "type": "book"},
@@ -267,7 +267,7 @@ def evaluate_clinical_case(
             reply_text = (
                 f"✅ **TELEMETRY SYNCED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been verified and recorded in your central eHospital clinical chart. "
                 "All readings are stable within target range under Canadian clinical guidelines.\n\n"
-                "Would you like to schedule your next routine health checkup with Dr. Patel?"
+                "Would you like to schedule your next routine health checkup with Intelligent Digital Solution?"
             )
             actions = [
                 {"id": "book_appointment", "label": "📅 Book Routine Checkup", "type": "book"}
@@ -283,7 +283,7 @@ def evaluate_clinical_case(
             doctor_notice = "🔍 Atypical Presentation: Physician Review Flagged"
             reply_text = (
                 "🔍 **CLINICAL INQUIRY LOGGED**: Your symptoms have been logged into your chart. Because generalized or non-specific symptoms can stem from various causes, "
-                "Dr. Patel's triage desk has been notified. Please share if you have any fever, chest discomfort, or pain, or tap below to schedule a consultation."
+                "Intelligent Digital Solution triage desk has been notified. Please share if you have any fever, chest discomfort, or pain, or tap below to schedule a consultation."
             )
             follow_up_chips = [
                 "Symptoms include fatigue / body aches",
@@ -292,7 +292,7 @@ def evaluate_clinical_case(
                 "Started within the last 24 hours"
             ]
             actions = [
-                {"id": "book_appointment", "label": "📅 Book Consultation with Dr. Patel", "type": "book"},
+                {"id": "book_appointment", "label": "📅 Book Consultation with Intelligent Digital Solution", "type": "book"},
                 {"id": "urgent_care", "label": "🏥 Walk-In Urgent Care Queue", "type": "route"}
             ]
         else:
@@ -300,9 +300,9 @@ def evaluate_clinical_case(
             confidence_score = 0.92
             triage_level = "ROUTINE"
             doctor_notice = "ℹ️ Patient Inquiry Logged in Care Notes"
-            reply_text = "Your inquiry has been received by Dr. Patel's clinic team. Would you like to schedule a consultation with Dr. Patel to discuss this?"
+            reply_text = "Your inquiry has been received by Intelligent Digital Solution care team. Would you like to schedule a consultation with Intelligent Digital Solution to discuss this?"
             actions = [
-                {"id": "book_appointment", "label": "📅 Book Appointment with Dr. Patel", "type": "book"},
+                {"id": "book_appointment", "label": "📅 Book Appointment with Intelligent Digital Solution", "type": "book"},
                 {"id": "urgent_care", "label": "🏥 Urgent Care Queue", "type": "route"}
             ]
 
@@ -344,7 +344,7 @@ def generate_clinician_soap_note(
     confidence_score: float
 ) -> Dict[str, str]:
     """
-    Synthesizes an automated, structured physician SOAP note for Dr. Patel's EHR intake desk.
+    Synthesizes an automated, structured physician SOAP note for Intelligent Digital Solution EHR intake desk.
     """
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M EST")
     bp = vitals.get("blood_pressure", "Not reported")
@@ -379,14 +379,14 @@ def generate_clinician_soap_note(
     if ctas_level <= 2:
         plan = "STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved."
     elif ctas_level == 3:
-        plan = "Priority Review: Scheduled for urgent outpatient clinical evaluation with Dr. Patel / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist."
+        plan = "Priority Review: Scheduled for urgent outpatient clinical evaluation with Intelligent Digital Solution / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist."
     elif ctas_level == 4:
         plan = "Ambulatory Follow-up: Electronic medication refill queue / scheduled routine review within 1-2 weeks. Continue daily home telemetry."
     else:
         plan = "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
 
     summary = (
-        f"--- CLINICAL SOAP NOTE (Dr. Patel's Clinic Desk) ---\n"
+        f"--- CLINICAL SOAP NOTE (Intelligent Digital Solution Clinic Desk) ---\n"
         f"Timestamp: {timestamp} | Patient ID: #{patient_id}\n\n"
         f"S (Subjective): {subjective}\n"
         f"O (Objective): {objective}\n"

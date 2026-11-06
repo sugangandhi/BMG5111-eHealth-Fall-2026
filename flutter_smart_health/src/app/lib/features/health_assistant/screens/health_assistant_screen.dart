@@ -56,7 +56,7 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
       AiAssistantModuleDefinition(
         id: 'whatsapp-care',
         label: 'WhatsApp Care Team',
-        description: 'Direct communication with Dr. Patel and clinic triage on WhatsApp.',
+        description: 'Direct communication with Intelligent Digital Solution and clinic triage on WhatsApp.',
         icon: Icons.message_rounded,
         builder: (_) => const WhatsAppInboxModule(),
       ),

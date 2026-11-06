@@ -17,7 +17,7 @@ DEFAULT_AI_CHAT_SEED = [
     },
     {
         "role": "assistant",
-        "text": "🚨 **STAT CLINICAL EMERGENCY ALERT TRANSMITTED TO DR. PATEL**:\n\nAn immediate clinical notification and your continuous telemetry (BP: 138/88, HR: 82 BPM) have been sent directly to Dr. Patel's triage desk.\n\nBecause severe chest pain can indicate an acute cardiac event, please do not delay care. Call 911 immediately or tap the WhatsApp button at the top to access direct clinical actions.",
+        "text": "🚨 **STAT CLINICAL EMERGENCY ALERT TRANSMITTED TO INTELLIGENT DIGITAL SOLUTION**:\n\nAn immediate clinical notification and your continuous telemetry (BP: 138/88, HR: 82 BPM) have been sent directly to Intelligent Digital Solution triage desk.\n\nBecause severe chest pain can indicate an acute cardiac event, please do not delay care. Call 911 immediately or tap the WhatsApp button at the top to access direct clinical actions.",
         "isVoice": False,
         "timestamp": "10:14 AM"
     },
@@ -29,7 +29,7 @@ DEFAULT_AI_CHAT_SEED = [
     },
     {
         "role": "assistant",
-        "text": "🚨 **YES, YOUR MESSAGE HAS BEEN SENT TO DR. PATEL**:\n\nAn urgent clinical notification along with your continuous telemetry (BP: 138/88, HR: 82 BPM) has been forwarded directly to Dr. Patel's clinical triage desk.\n\nDr. Patel and the clinic triage team have been alerted. Tap the **WhatsApp button at the top** to view your active doctor conversation and track your response in real time.",
+        "text": "🚨 **YES, YOUR MESSAGE HAS BEEN SENT TO INTELLIGENT DIGITAL SOLUTION**:\n\nAn urgent clinical notification along with your continuous telemetry (BP: 138/88, HR: 82 BPM) has been forwarded directly to Intelligent Digital Solution's clinical triage desk.\n\nIntelligent Digital Solution and the clinic triage team have been alerted. Tap the **WhatsApp button at the top** to view your active doctor conversation and track your response in real time.",
         "isVoice": False,
         "timestamp": "10:15 AM"
     }

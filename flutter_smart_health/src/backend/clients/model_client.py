@@ -90,7 +90,7 @@ def invoke_model(
     return (
         "Your clinical records, vitals, and longitudinal health metrics have been analyzed. "
         "All readings are safely archived in the e-Hospital database. For immediate clinical advice, "
-        "you can connect with Dr. Patel directly via the WhatsApp Care Team tab."
+        "you can connect with Intelligent Digital Solution directly via the WhatsApp Care Team tab."
     )
 
 
