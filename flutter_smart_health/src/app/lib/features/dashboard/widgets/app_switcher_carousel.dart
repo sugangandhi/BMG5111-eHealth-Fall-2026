@@ -20,7 +20,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
   @override
   void initState() {
     super.initState();
-    // 0.78 viewportFraction guarantees adjacent cards visibly peek in from left & right
+    // 0.78 viewportFraction guarantees adjacent cards visibly peek in on left & right
     _pageController = PageController(
       viewportFraction: 0.78,
       initialPage: 0,
@@ -50,9 +50,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Native Apple Multitasking Card Deck (Starts immediately, zero clutter)
+        // Native Apple Watch / iOS Multitasking Card Deck
         SizedBox(
-          height: 490,
+          height: 495,
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(
               dragDevices: {
@@ -79,7 +79,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                   itemBuilder: (context, index) {
                     final app = apps[index];
                     final diff = (currentPageValue - index).abs();
-                    // Apple Multitasking depth and scale effect
+                    // Apple Watch Multitasking depth and scale effect
                     final scale = (1.0 - (diff * 0.08)).clamp(0.90, 1.0);
                     final opacity = (1.0 - (diff * 0.22)).clamp(0.78, 1.0);
 
@@ -96,34 +96,37 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
 
-        // Apple Animated Page Indicator Dots (Tap to jump)
+        // Apple Animated Page Indicator Dots (Tap to jump directly to any card)
         Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(apps.length, (idx) {
-              final isSelected = idx == _currentPage;
-              return GestureDetector(
-                onTap: () => _goToPage(idx),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                    width: isSelected ? 24 : 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF007AFF)
-                          : const Color(0xFFC7C7CC),
-                      borderRadius: BorderRadius.circular(4),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(apps.length, (idx) {
+                final isSelected = idx == _currentPage;
+                return GestureDetector(
+                  onTap: () => _goToPage(idx),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      width: isSelected ? 22 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF007AFF)
+                            : const Color(0xFFC7C7CC),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                     ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ),
         ),
       ],
@@ -160,7 +163,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Apple App Header: Squircle Icon + App Title + Live Status Pill
+            // Apple Watch App Header: Squircle Badge + Name + Live Status Pill
             Row(
               children: [
                 Container(
@@ -196,9 +199,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       Text(
                         app.category,
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFF8E8E93),
+                          letterSpacing: 0.5,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -239,7 +243,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
               ],
             ),
 
-            // Apple Card Content Preview (with live visualizers)
+            // "What this specific app will do" section
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -269,7 +273,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                   ),
                   const SizedBox(height: 6),
 
-                  // Hospital-grade dynamic visualizer
+                  // Hospital-grade dynamic visual element
                   if (app.type == _AppType.vitals) ...[
                     const _EcgSparkline(color: Color(0xFFFF2D55)),
                     const SizedBox(height: 4),
@@ -299,8 +303,22 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       ),
                     ),
                     const SizedBox(height: 6),
+                  ] else if (app.type == _AppType.goals) ...[
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: const LinearProgressIndicator(
+                        value: 0.84,
+                        minHeight: 4,
+                        backgroundColor: Color(0xFFE5E5EA),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFF34C759)),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                   ],
 
+                  // Clear, comprehensive description of what the specific app does
                   Text(
                     app.description,
                     style: const TextStyle(
@@ -308,14 +326,14 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
                       height: 1.35,
                       color: Color(0xFF3A3A3C),
                     ),
-                    maxLines: 2,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
 
-            // Metrics / Stats Row inside Card
+            // Clinical metrics / Key features row
             Row(
               children: [
                 _buildAppleMiniStat(app.stat1Label, app.stat1Value),
@@ -404,144 +422,145 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
     );
   }
 
+  // All 11 apps matching the Grid View 1-to-1
   List<_AppModuleItem> _getAppsList() {
     return [
-      // 1. Apple Health Vitals
+      // 1. Wearable Vitals (Health Monitoring)
       const _AppModuleItem(
         type: _AppType.vitals,
-        title: "Apple Health Vitals",
-        category: "Apple Watch Telemetry",
+        title: "Wearable Vitals",
+        category: "HEALTH MONITORING",
         shortLabel: "Vitals",
         description:
-            "Live streaming telemetry from Apple Watch synced directly to Central AWS App Runner EHR.",
-        icon: Icons.favorite_rounded,
+            "Continuous live telemetry streaming heart rate, blood pressure, and SpO2 from your Apple Watch directly into the hospital EHR with automated arrhythmia alerts.",
+        icon: Icons.watch_outlined,
         iconBg: Color(0xFFFFE5E5),
         iconColor: Color(0xFFFF2D55),
-        statusText: "AWS Live",
+        statusText: "Connected",
         statusBg: Color(0xFFE8F5E9),
         statusColor: Color(0xFF34C759),
-        highlightIcon: Icons.cloud_done_rounded,
-        highlightText: "55 Live AWS Cloud Telemetry Records",
+        highlightIcon: Icons.favorite_rounded,
+        highlightText: "Continuous Apple Watch EHR Telemetry",
         stat1Label: "HEART RATE",
         stat1Value: "78 BPM (Sinus)",
         stat2Label: "BLOOD PRESSURE",
         stat2Value: "120/80 mmHg",
         route: "/vitals",
-        actionLabel: "Open Health Telemetry",
+        actionLabel: "Open Wearable Vitals",
       ),
 
-      // 2. WhatsApp Clinical AI (Intelligent Digital Solution)
+      // 2. Vitals History (Health Monitoring)
       const _AppModuleItem(
-        type: _AppType.clinicChat,
-        title: "Intelligent Digital Solution",
-        category: "Clinical WhatsApp & Voice",
-        shortLabel: "Clinic AI",
+        type: _AppType.history,
+        title: "Vitals History",
+        category: "HEALTH MONITORING",
+        shortLabel: "History",
         description:
-            "Conversational clinical triage with OpenAI Whisper-1 mic dictation & Canadian CTAS guidance.",
-        icon: Icons.chat_bubble_rounded,
-        iconBg: Color(0xFFE8F8EE),
-        iconColor: Color(0xFF34C759),
-        statusText: "Triage Ready",
-        statusBg: Color(0xFFE8F8EE),
-        statusColor: Color(0xFF34C759),
-        highlightIcon: Icons.mic_rounded,
-        highlightText: "Whisper-1 Mic • CTAS Decision Engine",
-        stat1Label: "CARE TEAM",
-        stat1Value: "IDS Clinic Online",
-        stat2Label: "TRIAGE PROTOCOL",
-        stat2Value: "CTAS Level 1-5",
-        route: "/assistant",
-        actionLabel: "Open Clinical Chat",
+            "Browse longitudinal time-stamped archives of past physiological monitoring sessions, ECG recordings, and clinician review logs across customizable date ranges.",
+        icon: Icons.history_rounded,
+        iconBg: Color(0xFFEDE9FE),
+        iconColor: Color(0xFF5856D6),
+        statusText: "142 Records",
+        statusBg: Color(0xFFEDE9FE),
+        statusColor: Color(0xFF5856D6),
+        highlightIcon: Icons.calendar_month_rounded,
+        highlightText: "Longitudinal Physiological Logs",
+        stat1Label: "TOTAL SESSIONS",
+        stat1Value: "142 Records",
+        stat2Label: "DATE RANGE",
+        stat2Value: "Past 30 Days",
+        route: "/history",
+        actionLabel: "View Vitals History",
       ),
 
-      // 3. Urgent Care Clinic
+      // 3. Health Insights (Health Monitoring)
       const _AppModuleItem(
-        type: _AppType.urgentCare,
-        title: "Urgent Care Clinic",
-        category: "Emergency & Walk-In",
-        shortLabel: "Urgent Care",
+        type: _AppType.insights,
+        title: "Health Insights",
+        category: "HEALTH MONITORING",
+        shortLabel: "Insights",
         description:
-            "Live clinic queue tracker with remote check-in and automated emergency physician alerts.",
-        icon: Icons.local_hospital_rounded,
-        iconBg: Color(0xFFE5F1FF),
-        iconColor: Color(0xFF007AFF),
-        statusText: "Open Now",
-        statusBg: Color(0xFFE5F1FF),
-        statusColor: Color(0xFF007AFF),
-        highlightIcon: Icons.access_time_filled_rounded,
-        highlightText: "Queue Position #4 • 12 Min Wait",
-        stat1Label: "QUEUE POSITION",
-        stat1Value: "#4 in Queue",
-        stat2Label: "EST. WAIT",
-        stat2Value: "12 Minutes",
-        route: "/urgent-care",
-        actionLabel: "View Clinic Queue",
-      ),
-
-      // 4. Medications & Prescriptions
-      const _AppModuleItem(
-        type: _AppType.medications,
-        title: "Medications & Rx",
-        category: "Prescription Adherence",
-        shortLabel: "Medications",
-        description:
-            "Active medications schedule with automatic dose logging and electronic pharmacy renewals.",
-        icon: Icons.medication_rounded,
-        iconBg: Color(0xFFF3E8FF),
-        iconColor: Color(0xFFAF52DE),
-        statusText: "2 Active",
-        statusBg: Color(0xFFF3E8FF),
-        statusColor: Color(0xFFAF52DE),
-        highlightIcon: Icons.check_circle_rounded,
-        highlightText: "Metoprolol 50mg • Amlodipine 5mg",
-        stat1Label: "MORNING DOSE",
-        stat1Value: "Taken 8:00 AM",
-        stat2Label: "EVENING DOSE",
-        stat2Value: "Due 8:00 PM",
-        route: "/medications",
-        actionLabel: "Manage Prescriptions",
-      ),
-
-      // 5. Health Trends & Analytics
-      const _AppModuleItem(
-        type: _AppType.trends,
-        title: "Health Trends",
-        category: "Longitudinal Analytics",
-        shortLabel: "Trends",
-        description:
-            "Multi-day physiological trajectories cross-referenced with Hypertension Canada guidelines.",
+            "Evaluates merged wearable telemetry and hospital records with clinical reasoning algorithms to highlight early cardiovascular risks and vital anomalies.",
         icon: Icons.insights_rounded,
         iconBg: Color(0xFFFFF4E5),
         iconColor: Color(0xFFFF9500),
         statusText: "Optimal",
         statusBg: Color(0xFFE8F5E9),
         statusColor: Color(0xFF34C759),
+        highlightIcon: Icons.auto_graph_rounded,
+        highlightText: "Clinical Risk Stratification",
+        stat1Label: "RISK PROFILE",
+        stat1Value: "Low / Normal",
+        stat2Label: "CRITICAL ALERTS",
+        stat2Value: "0 Flags",
+        route: "/insights",
+        actionLabel: "Explore Health Insights",
+      ),
+
+      // 4. Trend Analysis (Health Monitoring)
+      const _AppModuleItem(
+        type: _AppType.trends,
+        title: "Trend Analysis",
+        category: "HEALTH MONITORING",
+        shortLabel: "Trends",
+        description:
+            "Charts multi-day blood pressure and resting heart rate trajectories benchmarked against Hypertension Canada and AHA medical guidelines.",
+        icon: Icons.trending_up_rounded,
+        iconBg: Color(0xFFE5F1FF),
+        iconColor: Color(0xFF007AFF),
+        statusText: "Stable",
+        statusBg: Color(0xFFE5F1FF),
+        statusColor: Color(0xFF007AFF),
         highlightIcon: Icons.show_chart_rounded,
-        highlightText: "Resting HR Baseline: 72 BPM Normal",
-        stat1Label: "7-DAY STABILITY",
-        stat1Value: "Optimal Target",
-        stat2Label: "RISK PROFILE",
-        stat2Value: "Low Variance",
+        highlightText: "Multi-Day Predictive Trajectories",
+        stat1Label: "7-DAY TARGET",
+        stat1Value: "Within Range",
+        stat2Label: "VARIANCE",
+        stat2Value: "±4% Normal",
         route: "/trends",
         actionLabel: "Analyze Health Trends",
       ),
 
-      // 6. Symptom Logger
+      // 5. Medications & Rx (Health Management)
+      const _AppModuleItem(
+        type: _AppType.medications,
+        title: "Medications & Rx",
+        category: "HEALTH MANAGEMENT",
+        shortLabel: "Medications",
+        description:
+            "Maintains your active prescription regimen with automated dose reminders, taken-dose tracking, and electronic refills with your hospital pharmacy.",
+        icon: Icons.medication_outlined,
+        iconBg: Color(0xFFF3E8FF),
+        iconColor: Color(0xFFAF52DE),
+        statusText: "2 Active",
+        statusBg: Color(0xFFF3E8FF),
+        statusColor: Color(0xFFAF52DE),
+        highlightIcon: Icons.check_circle_rounded,
+        highlightText: "Prescription Adherence Tracker",
+        stat1Label: "MORNING DOSE",
+        stat1Value: "Taken 8:00 AM",
+        stat2Label: "EVENING DOSE",
+        stat2Value: "Due 8:00 PM",
+        route: "/medications",
+        actionLabel: "Manage Medications",
+      ),
+
+      // 6. Symptom Logger (Health Management)
       const _AppModuleItem(
         type: _AppType.symptoms,
         title: "Symptom Logger",
-        category: "Clinical Assessment",
+        category: "HEALTH MANAGEMENT",
         shortLabel: "Symptoms",
         description:
-            "Rapid SOCRATES symptom recording and triage classification for physician review.",
-        icon: Icons.healing_rounded,
+            "Quickly record pain location, onset, severity, and triggers using the standardized SOCRATES clinical method to send direct updates to your physician.",
+        icon: Icons.sick_outlined,
         iconBg: Color(0xFFFFECE5),
         iconColor: Color(0xFFFF5E3A),
         statusText: "Ready",
         statusBg: Color(0xFFF2F2F7),
         statusColor: Color(0xFF8E8E93),
-        highlightIcon: Icons.assignment_rounded,
-        highlightText: "SOCRATES Intake • Severity Scoring",
+        highlightIcon: Icons.healing_rounded,
+        highlightText: "SOCRATES Clinical Intake",
         stat1Label: "LAST LOG",
         stat1Value: "Yesterday",
         stat2Label: "SEVERITY",
@@ -549,11 +568,143 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel> {
         route: "/symptoms",
         actionLabel: "Log New Symptom",
       ),
+
+      // 7. Health Goals (Health Management)
+      const _AppModuleItem(
+        type: _AppType.goals,
+        title: "Health Goals",
+        category: "HEALTH MANAGEMENT",
+        shortLabel: "Goals",
+        description:
+            "Track daily step counts, active calorie burn, and restorative sleep milestones to keep your lifestyle goals aligned with your medical treatment plan.",
+        icon: Icons.flag_outlined,
+        iconBg: Color(0xFFE8F8EE),
+        iconColor: Color(0xFF34C759),
+        statusText: "84% Done",
+        statusBg: Color(0xFFE8F8EE),
+        statusColor: Color(0xFF34C759),
+        highlightIcon: Icons.emoji_events_rounded,
+        highlightText: "Daily Apple Activity Targets",
+        stat1Label: "STEP TARGET",
+        stat1Value: "8,420 / 10,000",
+        stat2Label: "ACTIVE BURN",
+        stat2Value: "480 kcal",
+        route: "/goals",
+        actionLabel: "Track Health Goals",
+      ),
+
+      // 8. BMI Calculator (Health Management)
+      const _AppModuleItem(
+        type: _AppType.bmi,
+        title: "BMI Calculator",
+        category: "HEALTH MANAGEMENT",
+        shortLabel: "BMI",
+        description:
+            "Calculates body mass index from height and weight, categorizing metabolic tiers and delivering tailored dietary recommendations for cardiovascular health.",
+        icon: Icons.monitor_weight_outlined,
+        iconBg: Color(0xFFE0F7FA),
+        iconColor: Color(0xFF009688),
+        statusText: "Healthy",
+        statusBg: Color(0xFFE8F5E9),
+        statusColor: Color(0xFF34C759),
+        highlightIcon: Icons.calculate_rounded,
+        highlightText: "Body Composition & Health Index",
+        stat1Label: "CURRENT BMI",
+        stat1Value: "22.4 (Normal)",
+        stat2Label: "METABOLIC TIER",
+        stat2Value: "Optimal Range",
+        route: "/bmi",
+        actionLabel: "Calculate BMI",
+      ),
+
+      // 9. Urgent Care Clinic (Clinical & Urgent)
+      const _AppModuleItem(
+        type: _AppType.urgentCare,
+        title: "Urgent Care Clinic",
+        category: "CLINICAL & URGENT",
+        shortLabel: "Urgent Care",
+        description:
+            "Check into the hospital urgent care queue before arrival, monitor live wait times, and send real-time condition updates directly to the triage nurse.",
+        icon: Icons.local_hospital_outlined,
+        iconBg: Color(0xFFE5F1FF),
+        iconColor: Color(0xFF007AFF),
+        statusText: "Open Now",
+        statusBg: Color(0xFFE5F1FF),
+        statusColor: Color(0xFF007AFF),
+        highlightIcon: Icons.access_time_filled_rounded,
+        highlightText: "Live Queue & Virtual Check-In",
+        stat1Label: "QUEUE POSITION",
+        stat1Value: "#4 in Line",
+        stat2Label: "EST. WAIT",
+        stat2Value: "12 Minutes",
+        route: "/urgent-care",
+        actionLabel: "View Clinic Queue",
+      ),
+
+      // 10. AI Health Assistant (Clinical & Urgent)
+      const _AppModuleItem(
+        type: _AppType.clinicChat,
+        title: "AI Health Assistant",
+        category: "CLINICAL & URGENT",
+        shortLabel: "Clinic AI",
+        description:
+            "Consult with Intelligent Digital Solution care team via WhatsApp-style messaging and Whisper-1 voice dictation, backed by Canadian CTAS triage protocols.",
+        icon: Icons.smart_toy_outlined,
+        iconBg: Color(0xFFE8F8EE),
+        iconColor: Color(0xFF34C759),
+        statusText: "Online",
+        statusBg: Color(0xFFE8F8EE),
+        statusColor: Color(0xFF34C759),
+        highlightIcon: Icons.mic_rounded,
+        highlightText: "Intelligent Digital Solution Care Team",
+        stat1Label: "CARE TEAM",
+        stat1Value: "IDS Clinic Online",
+        stat2Label: "TRIAGE ENGINE",
+        stat2Value: "CTAS Level 1-5",
+        route: "/assistant",
+        actionLabel: "Start Clinical Chat",
+      ),
+
+      // 11. Settings & Telemetry (System & Telemetry)
+      const _AppModuleItem(
+        type: _AppType.settings,
+        title: "Settings & Telemetry",
+        category: "SYSTEM & TELEMETRY",
+        shortLabel: "Settings",
+        description:
+            "Configure Apple Watch HealthKit background syncing, verify AWS App Runner connectivity, manage AI provider keys, and update profile credentials.",
+        icon: Icons.settings_outlined,
+        iconBg: Color(0xFFF2F2F7),
+        iconColor: Color(0xFF8E8E93),
+        statusText: "Connected",
+        statusBg: Color(0xFFF2F2F7),
+        statusColor: Color(0xFF8E8E93),
+        highlightIcon: Icons.cloud_sync_rounded,
+        highlightText: "Device Connectivity & Privacy",
+        stat1Label: "EHR ENDPOINT",
+        stat1Value: "AWS App Runner",
+        stat2Label: "SYSTEM HEALTH",
+        stat2Value: "All Systems 100%",
+        route: "/settings",
+        actionLabel: "Open App Settings",
+      ),
     ];
   }
 }
 
-enum _AppType { vitals, clinicChat, urgentCare, medications, trends, symptoms }
+enum _AppType {
+  vitals,
+  history,
+  insights,
+  trends,
+  medications,
+  symptoms,
+  goals,
+  bmi,
+  urgentCare,
+  clinicChat,
+  settings,
+}
 
 class _AppModuleItem {
   final _AppType type;
