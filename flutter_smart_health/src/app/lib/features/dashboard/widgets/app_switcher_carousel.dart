@@ -18,11 +18,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     with SingleTickerProviderStateMixin {
   late final PageController _pageController;
   late final AnimationController _pulseController;
+  late final ScrollController _chipScrollController;
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
+    _chipScrollController = ScrollController();
     // 0.80 viewportFraction gives the perfect horizontal Apple Watch card peek
     _pageController = PageController(
       viewportFraction: 0.80,
@@ -41,9 +43,22 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   @override
   void dispose() {
+    _chipScrollController.dispose();
     _pageController.dispose();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  void _scrollToChip(int index) {
+    if (_chipScrollController.hasClients) {
+      const chipApproxWidth = 145.0;
+      final targetOffset = (index * chipApproxWidth) - 80.0;
+      _chipScrollController.animateTo(
+        targetOffset.clamp(0.0, _chipScrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   void _goToPage(int page) {
@@ -54,6 +69,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         curve: Curves.easeOutCubic,
       );
     }
+    _scrollToChip(page);
   }
 
   @override
@@ -81,10 +97,15 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Horizontal 3D Carousel Deck
+              // 1. Interactive Category / Module Quick Filter Chips Tray
+              _buildCategoryFilterChips(apps, _currentPage),
+
+              const SizedBox(height: 10),
+
+              // 2. Horizontal 3D Carousel Deck
               SizedBox(
                 width: deckWidth,
-                height: 335,
+                height: 355,
                 child: ScrollConfiguration(
                   behavior: ScrollConfiguration.of(context).copyWith(
                     dragDevices: {
@@ -102,6 +123,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                     itemCount: apps.length,
                     onPageChanged: (idx) {
                       setState(() => _currentPage = idx);
+                      _scrollToChip(idx);
                     },
                     itemBuilder: (context, index) {
                       final app = apps[index];
@@ -197,6 +219,76 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     );
   }
 
+  // Horizontal Apple-style Frosted Pill Filter Tray
+  Widget _buildCategoryFilterChips(List<_AppModuleItem> apps, int currentIndex) {
+    return Container(
+      height: 40,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListView.separated(
+        controller: _chipScrollController,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        physics: const BouncingScrollPhysics(),
+        itemCount: apps.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final app = apps[index];
+          final isSelected = index == currentIndex;
+          return GestureDetector(
+            onTap: () => _goToPage(index),
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? app.accentColor.withValues(alpha: 0.22)
+                    : const Color(0xFF162032).withValues(alpha: 0.70),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected
+                      ? app.accentColor.withValues(alpha: 0.85)
+                      : Colors.white.withValues(alpha: 0.08),
+                  width: isSelected ? 1.4 : 1.0,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: app.accentColor.withValues(alpha: 0.40),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    app.icon,
+                    size: 14,
+                    color: isSelected ? app.accentColor : const Color(0xFF94A3B8),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    app.title,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   // Authentic Apple Watch Card with Independent Floating Circular App Icon
   Widget _buildAppleWatchCard(_AppModuleItem app) {
     return Center(
@@ -209,7 +301,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-              height: 310,
+              height: 330,
               decoration: BoxDecoration(
                 color: const Color(0xFF1C2436), // Frosted dusk steel-slate from reference
                 borderRadius: BorderRadius.circular(28),
@@ -714,7 +806,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
             child: Text(
               "Normal Sinus Rhythm • 0 Clinical Alerts",
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10.2,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
