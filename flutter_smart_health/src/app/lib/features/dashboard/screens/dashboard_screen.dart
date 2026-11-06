@@ -25,9 +25,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final l10n = context.l10n;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0F19),
+      backgroundColor: const Color(0xFF000000),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B0F19),
+        backgroundColor: const Color(0xFF000000),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
@@ -58,7 +58,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: const Color(0xFF1C1C1E),
               shape: BoxShape.circle,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.08),
@@ -82,10 +82,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF450A0A),
+              color: const Color(0xFF3F1116),
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                color: const Color(0xFFEF4444).withValues(alpha: 0.35),
               ),
             ),
             child: IconButton(
@@ -98,7 +98,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
           Container(
             margin: const EdgeInsets.only(left: 4, right: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: const Color(0xFF1C1C1E),
               shape: BoxShape.circle,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.08),
@@ -113,16 +113,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_showAppSwitcher) ...[
-              const SizedBox(height: 10),
-              AppSwitcherCarousel(onSelectApp: _open),
-              const SizedBox(height: 24),
-            ] else ...[
+      body: _showAppSwitcher
+          ? AppSwitcherCarousel(onSelectApp: _open)
+          : SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               const SizedBox(height: 12),
               DashboardSectionHeader(title: l10n.healthMonitoringSection),
               DashboardGridRow(
@@ -207,9 +204,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
               ),
               const SizedBox(height: 24),
             ],
-          ],
+          ),
         ),
-      ),
     );
   }
 }
