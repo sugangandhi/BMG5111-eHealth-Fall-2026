@@ -8,6 +8,7 @@ load_dotenv(_env_file)
 load_dotenv()
 
 from time import perf_counter
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,7 +48,12 @@ def log_startup_ready() -> None:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Smart Health Backend API")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        log_startup_ready()
+        yield
+
+    app = FastAPI(title="Smart Health Backend API", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_allow_origins) if settings.cors_allow_origins else ["*"],
@@ -83,7 +89,6 @@ def create_app() -> FastAPI:
         response.headers["Access-Control-Allow-Private-Network"] = "true"
         return response
 
-    app.add_event_handler("startup", log_startup_ready)
     app.include_router(auth_router)
     app.include_router(assistant_router)
     app.include_router(query_tools_router)
