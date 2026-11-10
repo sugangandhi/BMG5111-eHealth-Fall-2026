@@ -3,18 +3,38 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/widgets/atmospheric_sky_background.dart';
+import '../data/dashboard_summary_service.dart';
+
 class AppSwitcherCarousel extends StatefulWidget {
   final void Function(String route) onSelectApp;
   final void Function(Color accentColor)? onActiveAccentChanged;
+  final DashboardLiveSummary? summary;
+  final SkyMood skyMood;
+  final VoidCallback? onCycleSkyMood;
 
   const AppSwitcherCarousel({
     super.key,
     required this.onSelectApp,
     this.onActiveAccentChanged,
+    this.summary,
+    this.skyMood = SkyMood.daylight,
+    this.onCycleSkyMood,
   });
 
   @override
   State<AppSwitcherCarousel> createState() => _AppSwitcherCarouselState();
+}
+
+enum _CarouselFilter {
+  all('All', Icons.apps_rounded),
+  monitoring('Monitoring', Icons.monitor_heart_rounded),
+  management('Management', Icons.fact_check_rounded),
+  clinical('Care & AI', Icons.local_hospital_rounded);
+
+  const _CarouselFilter(this.label, this.icon);
+  final String label;
+  final IconData icon;
 }
 
 class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
@@ -23,6 +43,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   late final AnimationController _pulseController;
   late final ScrollController _chipScrollController;
   int _currentPage = 0;
+  _CarouselFilter _selectedFilter = _CarouselFilter.all;
 
   @override
   void initState() {
@@ -44,7 +65,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     )..repeat(reverse: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final apps = _getAppsList();
+      final apps = _getFilteredApps();
       if (apps.isNotEmpty) {
         widget.onActiveAccentChanged?.call(apps[0].accentColor);
       }
@@ -59,15 +80,25 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     super.dispose();
   }
 
-  void _scrollToChip(int index) {
-    if (_chipScrollController.hasClients) {
-      const chipApproxWidth = 145.0;
-      final targetOffset = (index * chipApproxWidth) - 80.0;
-      _chipScrollController.animateTo(
-        targetOffset.clamp(0.0, _chipScrollController.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-      );
+  List<_AppModuleItem> _getFilteredApps() {
+    final all = _getAppsList();
+    if (_selectedFilter == _CarouselFilter.all) return all;
+    return all.where((app) => app.filterGroup == _selectedFilter).toList();
+  }
+
+  void _selectFilter(_CarouselFilter filter) {
+    if (_selectedFilter == filter) return;
+    HapticFeedback.lightImpact();
+    setState(() {
+      _selectedFilter = filter;
+      _currentPage = 0;
+    });
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
+    final filtered = _getFilteredApps();
+    if (filtered.isNotEmpty) {
+      widget.onActiveAccentChanged?.call(filtered[0].accentColor);
     }
   }
 
@@ -80,8 +111,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         curve: Curves.easeOutCubic,
       );
     }
-    _scrollToChip(page);
-    final apps = _getAppsList();
+    final apps = _getFilteredApps();
     if (page >= 0 && page < apps.length) {
       widget.onActiveAccentChanged?.call(apps[page].accentColor);
     }
@@ -89,14 +119,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   @override
   Widget build(BuildContext context) {
-    final apps = _getAppsList();
+    final allApps = _getAppsList();
+    final apps = _selectedFilter == _CarouselFilter.all
+        ? allApps
+        : allApps.where((app) => app.filterGroup == _selectedFilter).toList();
+    final safeCurrentPage =
+        apps.isEmpty ? 0 : _currentPage.clamp(0, apps.length - 1);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight;
         final availableWidth = constraints.maxWidth;
 
-        double currentPageValue = _currentPage.toDouble();
+        double currentPageValue = safeCurrentPage.toDouble();
         if (_pageController.hasClients && _pageController.page != null) {
           currentPageValue = _pageController.page!;
         }
@@ -128,7 +163,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                       if (_pageController.hasClients && _pageController.page != null) {
                         page = _pageController.page!;
                       } else {
-                        page = _currentPage.toDouble();
+                        page = safeCurrentPage.toDouble();
                       }
                       final prevIdx = page.floor().clamp(0, apps.length - 1);
                       final nextIdx = page.ceil().clamp(0, apps.length - 1);
@@ -162,8 +197,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // 1. Interactive Category / Module Quick Filter Chips Tray
-                  _buildCategoryFilterChips(apps, _currentPage),
+                  // 1. Clinical Category Filter Chips + Sky Mood Toggle
+                  _buildCategoryFilterChips(allApps),
 
                   const SizedBox(height: 12),
 
@@ -189,8 +224,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                         onPageChanged: (idx) {
                           HapticFeedback.selectionClick();
                           setState(() => _currentPage = idx);
-                          _scrollToChip(idx);
-                          widget.onActiveAccentChanged?.call(apps[idx].accentColor);
+                          if (idx < apps.length) {
+                            widget.onActiveAccentChanged
+                                ?.call(apps[idx].accentColor);
+                          }
                         },
                         itemBuilder: (context, index) {
                           final app = apps[index];
@@ -224,7 +261,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
                   const SizedBox(height: 18),
 
-                  // Simple Apple OS Pagination Dots (Zero text, interactive switching)
+                  // Simple Apple OS Pagination Dots (Interactive switching)
                   Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -240,7 +277,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: List.generate(apps.length, (idx) {
-                            final isSelected = idx == _currentPage;
+                            final isSelected = idx == safeCurrentPage;
                             final app = apps[idx];
                             return GestureDetector(
                               onTap: () => _goToPage(idx),
@@ -288,8 +325,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     );
   }
 
-  // Horizontal Apple-style Frosted Pill Filter Tray
-  Widget _buildCategoryFilterChips(List<_AppModuleItem> apps, int currentIndex) {
+  // Horizontal Apple-style Frosted Pill Clinical Filter Tray + Sky Mood Switcher
+  Widget _buildCategoryFilterChips(List<_AppModuleItem> allApps) {
+    final filters = _CarouselFilter.values;
+    final hasSkyToggle = widget.onCycleSkyMood != null;
+    final totalItems = filters.length + (hasSkyToggle ? 1 : 0);
+
     return Container(
       height: 40,
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -298,34 +339,80 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         physics: const BouncingScrollPhysics(),
-        itemCount: apps.length,
+        itemCount: totalItems,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final app = apps[index];
-          final isSelected = index == currentIndex;
+          if (hasSkyToggle && index == filters.length) {
+            return GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                widget.onCycleSkyMood!();
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.50),
+                    width: 1.0,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.skyMood.icon,
+                      size: 14,
+                      color: const Color(0xFFBAE6FD),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.skyMood.label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          final filter = filters[index];
+          final count = filter == _CarouselFilter.all
+              ? allApps.length
+              : allApps.where((a) => a.filterGroup == filter).length;
+          final isSelected = _selectedFilter == filter;
+          const activeColor = Color(0xFF38BDF8);
+
           return GestureDetector(
-            onTap: () => _goToPage(index),
+            onTap: () => _selectFilter(filter),
             behavior: HitTestBehavior.opaque,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
+              duration: const Duration(milliseconds: 240),
               curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? app.accentColor.withValues(alpha: 0.30)
+                    ? activeColor.withValues(alpha: 0.28)
                     : const Color(0xFF0C244D).withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected
-                      ? app.accentColor.withValues(alpha: 0.90)
+                      ? activeColor.withValues(alpha: 0.90)
                       : Colors.white.withValues(alpha: 0.18),
                   width: isSelected ? 1.4 : 1.0,
                 ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: app.accentColor.withValues(alpha: 0.45),
-                          blurRadius: 12,
+                          color: activeColor.withValues(alpha: 0.40),
+                          blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
                       ]
@@ -335,17 +422,21 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    app.icon,
+                    filter.icon,
                     size: 14,
-                    color: isSelected ? app.accentColor : Colors.white.withValues(alpha: 0.85),
+                    color: isSelected
+                        ? const Color(0xFFBAE6FD)
+                        : Colors.white.withValues(alpha: 0.85),
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    app.title,
+                    '${filter.label} ($count)',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.85),
+                      color: isSelected
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.85),
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -506,45 +597,56 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                               // Hero Metric Row (With Live Vitals BPM Oscillation)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  AnimatedBuilder(
-                                    animation: _pulseController,
-                                    builder: (context, _) {
-                                      final dynamicMetric = app.type == _AppType.vitals
-                                          ? "${76 + ((_pulseController.value * 3).round())} BPM"
-                                          : app.heroMetric;
-                                      return Text(
-                                        dynamicMetric,
-                                        style: const TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w900,
-                                          color: Colors.white,
-                                          letterSpacing: -0.6,
-                                        ),
-                                      );
-                                    },
+                                  Expanded(
+                                    child: AnimatedBuilder(
+                                      animation: _pulseController,
+                                      builder: (context, _) {
+                                        final liveHr = widget.summary?.heartRateBpm;
+                                        final dynamicMetric = app.type == _AppType.vitals
+                                            ? (liveHr != null
+                                                ? "$liveHr BPM"
+                                                : "${76 + ((_pulseController.value * 3).round())} BPM")
+                                            : app.heroMetric;
+                                        return Text(
+                                          dynamicMetric,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                            letterSpacing: -0.6,
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: app.accentColor.withValues(alpha: 0.22),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: app.accentColor.withValues(alpha: 0.50),
-                                        width: 1,
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
                                       ),
-                                    ),
-                                    child: Text(
-                                      app.heroBadge,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: app.accentColor,
+                                      decoration: BoxDecoration(
+                                        color: app.accentColor.withValues(alpha: 0.22),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: app.accentColor.withValues(alpha: 0.50),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        app.heroBadge,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: app.accentColor,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -600,24 +702,31 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                                 HapticFeedback.mediumImpact();
                                 widget.onSelectApp(app.route);
                               },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    app.actionLabel,
-                                    style: const TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        app.actionLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    size: 12,
-                                    color: app.accentColor,
-                                  ),
-                                ],
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      size: 12,
+                                      color: app.accentColor,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -724,6 +833,26 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     );
   }
 
+  Widget _buildComplicationWell({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 10),
+  }) {
+    return Container(
+      height: 34,
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: const Color(0xFF06152F).withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
+      ),
+      child: child,
+    );
+  }
+
   // Live Complication Visualizer per App
   Widget _buildVisualizerForApp(_AppModuleItem app) {
     switch (app.type) {
@@ -743,10 +872,14 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         return _buildGoalsActivityBar(app.accentColor);
       case _AppType.bmi:
         return _buildBmiGauge(app.accentColor);
+      case _AppType.sleep:
+        return _buildSleepStagesBar(app.accentColor);
       case _AppType.clinicChat:
         return _buildClinicalChatSnippet(app.accentColor);
       case _AppType.symptoms:
         return _buildSymptomSeverityBar(app.accentColor);
+      case _AppType.devices:
+        return _buildDevicesSyncBar(app.accentColor);
     }
   }
 
@@ -755,18 +888,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     return AnimatedBuilder(
       animation: _pulseController,
       builder: (context, _) {
-        return Container(
-          height: 34,
-          width: double.infinity,
+        return _buildComplicationWell(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF06152F).withValues(alpha: 0.42),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
-              width: 0.8,
-            ),
-          ),
           child: CustomPaint(
             painter: _EcgPainter(
               color: accent,
@@ -780,18 +903,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   // 2. Urgent Care Queue Visualizer
   Widget _buildUrgentCareQueue(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
+    final pos = widget.summary?.urgentCareQueuePosition;
+    final progress = pos != null ? (1.0 / pos.clamp(1, 10)).clamp(0.2, 0.95) : 0.85;
+    return _buildComplicationWell(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
-      ),
       child: Row(
         children: [
           Icon(Icons.directions_walk_rounded, size: 16, color: accent),
@@ -800,7 +915,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: 0.65,
+                value: progress,
                 backgroundColor: Colors.white.withValues(alpha: 0.12),
                 valueColor: AlwaysStoppedAnimation<Color>(accent),
                 minHeight: 6,
@@ -816,35 +931,39 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   // 3. Medication Doses
   Widget _buildMedicationDoses(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
-      ),
+    final s = widget.summary;
+    final total = s?.medicationsTotal ?? 0;
+    final taken = s?.medicationsTaken ?? 0;
+    final label = total > 0
+        ? (s?.nextMedicationLabel ?? 'All $total prescriptions completed')
+        : 'Tap to add prescriptions & reminders';
+    final badgeText = total > 0 ? '$taken/$total' : 'Setup';
+
+    return _buildComplicationWell(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Icon(Icons.check_circle_rounded, size: 15, color: accent),
-              const SizedBox(width: 6),
-              const Text(
-                "Metformin 500mg (8 AM)",
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+          Expanded(
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, size: 15, color: accent),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
@@ -852,7 +971,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              "Taken",
+              badgeText,
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -867,18 +986,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   // 4. Vitals History Timeline
   Widget _buildHistoryTimeline(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
+    return _buildComplicationWell(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
-      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -899,35 +1008,25 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   // 5. Health Insights Ring
   Widget _buildInsightsRing(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
-      ),
+    final ecg = widget.summary?.ecgStatus ?? 'Normal Sinus Rhythm';
+    return _buildComplicationWell(
       child: Row(
         children: [
           SizedBox(
             width: 20,
             height: 20,
             child: CircularProgressIndicator(
-              value: 0.98,
+              value: ecg.toLowerCase().contains('abnormal') ? 0.68 : 0.98,
               strokeWidth: 3,
               backgroundColor: Colors.white.withValues(alpha: 0.12),
               valueColor: AlwaysStoppedAnimation<Color>(accent),
             ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
-              "Normal Sinus Rhythm • 0 Clinical Alerts",
-              style: TextStyle(
+              '$ecg • Clinical Insights Ready',
+              style: const TextStyle(
                 fontSize: 10.2,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
@@ -943,18 +1042,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   // 6. Trend Trajectory
   Widget _buildTrendTrajectory(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
+    return _buildComplicationWell(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
-      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -987,18 +1076,11 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   // 7. Goals Activity Bar
   Widget _buildGoalsActivityBar(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
+    final steps = widget.summary?.stepsCount ?? 8420;
+    final ratio = (steps / 10000).clamp(0.05, 1.0);
+    final pct = (ratio * 100).round();
+    return _buildComplicationWell(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
-      ),
       child: Row(
         children: [
           Icon(Icons.directions_run_rounded, size: 16, color: accent),
@@ -1007,7 +1089,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: 0.84,
+                value: ratio,
                 backgroundColor: Colors.white.withValues(alpha: 0.12),
                 valueColor: AlwaysStoppedAnimation<Color>(accent),
                 minHeight: 6,
@@ -1016,7 +1098,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           ),
           const SizedBox(width: 8),
           Text(
-            "84%",
+            '$pct%',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -1030,26 +1112,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   // 8. BMI Scale Gauge
   Widget _buildBmiGauge(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
-      ),
+    final bmi = widget.summary?.latestBmi;
+    final label = bmi != null
+        ? 'Recorded BMI: ${bmi.toStringAsFixed(1)} (${widget.summary?.latestBmiCategory ?? 'Tracked'})'
+        : 'Optimal Body Mass Index Range (18.5 - 24.9)';
+    return _buildComplicationWell(
       child: Row(
         children: [
           Icon(Icons.fitness_center_rounded, size: 15, color: accent),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
-              "Optimal Body Mass Index Range (18.5 - 24.9)",
-              style: TextStyle(
+              label,
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
@@ -1063,20 +1138,44 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     );
   }
 
-  // 9. Clinical Chat Snippet
-  Widget _buildClinicalChatSnippet(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
+  // 9. Sleep Stages Bar
+  Widget _buildSleepStagesBar(Color accent) {
+    return _buildComplicationWell(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.bedtime_rounded, size: 15, color: accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: const Row(
+                children: [
+                  Expanded(flex: 25, child: ColoredBox(color: Color(0xFF4F46E5))),
+                  Expanded(flex: 22, child: ColoredBox(color: Color(0xFF06B6D4))),
+                  Expanded(flex: 45, child: ColoredBox(color: Color(0xFF3B82F6))),
+                  Expanded(flex: 8, child: ColoredBox(color: Color(0xFFF59E0B))),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Deep • REM',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: accent,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  // 10. Clinical Chat Snippet
+  Widget _buildClinicalChatSnippet(Color accent) {
+    return _buildComplicationWell(
       child: Row(
         children: [
           Icon(Icons.chat_bubble_outline_rounded, size: 15, color: accent),
@@ -1106,20 +1205,15 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     );
   }
 
-  // 10. Symptom Severity Bar
+  // 11. Symptom Severity Bar (Matches SymptomLoggerScreen 1-5 scale)
   Widget _buildSymptomSeverityBar(Color accent) {
-    return Container(
-      height: 34,
-      width: double.infinity,
+    final severity = widget.summary?.latestSymptomSeverity ?? 0;
+    final hasLogs = (widget.summary?.symptomsCount ?? 0) > 0;
+    final ratio = hasLogs ? (severity / 5.0).clamp(0.15, 1.0) : 0.08;
+    final label = hasLogs ? '${widget.summary?.latestSymptomName ?? 'Logged'} ($severity/5)' : 'Clear (0/5)';
+
+    return _buildComplicationWell(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06152F).withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
-      ),
       child: Row(
         children: [
           Icon(Icons.sentiment_satisfied_rounded, size: 16, color: accent),
@@ -1128,7 +1222,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: 0.1,
+                value: ratio,
                 backgroundColor: Colors.white.withValues(alpha: 0.12),
                 valueColor: AlwaysStoppedAnimation<Color>(accent),
                 minHeight: 6,
@@ -1137,9 +1231,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           ),
           const SizedBox(width: 8),
           Text(
-            "Mild (1/10)",
+            label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: FontWeight.w700,
               color: accent,
             ),
@@ -1149,72 +1243,119 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     );
   }
 
-  // 10 apps matching the Grid View (Settings tab removed per user request)
+  // 12. Wearable Devices Sync Bar
+  Widget _buildDevicesSyncBar(Color accent) {
+    final synced = widget.summary?.isLiveSynced ?? false;
+    return _buildComplicationWell(
+      child: Row(
+        children: [
+          Icon(Icons.watch_rounded, size: 15, color: accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              synced
+                  ? 'Apple Health & Fitbit telemetry connected'
+                  : 'Pair wearable sensor or simulate stream',
+              style: const TextStyle(
+                fontSize: 10.8,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<_AppModuleItem> _getAppsList() {
+    final s = widget.summary;
+    final synced = s?.isLiveSynced ?? false;
+    final hrText = s?.heartRateBpm != null ? '${s!.heartRateBpm} BPM' : '78 BPM';
+    final bpText = s?.bloodPressure ?? '120/80 mmHg';
+    final ecgText = s?.ecgStatus ?? 'Sinus Rhythm';
+    final histCount = s?.vitalsHistoryCount ?? 0;
+    final steps = s?.stepsCount ?? 8420;
+    final calories = s?.caloriesCount ?? 480;
+    final stepPct = ((steps / 10000) * 100).round().clamp(0, 100);
+    final medsTotal = s?.medicationsTotal ?? 0;
+    final medsTaken = s?.medicationsTaken ?? 0;
+    final symptomsCount = s?.symptomsCount ?? 0;
+    final symptomSeverity = s?.latestSymptomSeverity ?? 0;
+    final sleepHours = s?.sleepHours;
+    final bmi = s?.latestBmi;
+    final queuePos = s?.urgentCareQueuePosition;
+
     return [
-      // 1. Wearable Vitals (Apple Health Crimson Red)
-      const _AppModuleItem(
+      // 1. Wearable Vitals
+      _AppModuleItem(
         type: _AppType.vitals,
+        filterGroup: _CarouselFilter.monitoring,
         title: "Wearable Vitals",
         category: "HEALTH MONITORING",
-        heroMetric: "78 BPM",
-        heroBadge: "Sinus Rhythm",
+        heroMetric: hrText,
+        heroBadge: ecgText,
         description:
-            "Continuous live telemetry streaming heart rate, blood pressure, and SpO2 from your Apple Watch directly into the hospital EHR with automated arrhythmia alerts.",
+            "Continuous live telemetry streaming heart rate, blood pressure, and SpO2 from your wearable directly into the hospital EHR with arrhythmia alerts.",
         icon: Icons.favorite_rounded,
-        statusText: "Live Sync",
+        statusText: synced ? "Live Sync" : "Monitor",
         stat1Label: "HEART RATE",
-        stat1Value: "78 BPM (Sinus)",
+        stat1Value: "$hrText ($ecgText)",
         stat2Label: "BLOOD PRESSURE",
-        stat2Value: "120/80 mmHg",
+        stat2Value: bpText,
         route: "/vitals",
         actionLabel: "Open Wearable Vitals",
-        accentColor: Color(0xFFEF4444),
+        accentColor: const Color(0xFFEF4444),
       ),
 
-      // 2. Vitals History (Apple Sky Blue)
-      const _AppModuleItem(
+      // 2. Vitals History
+      _AppModuleItem(
         type: _AppType.history,
+        filterGroup: _CarouselFilter.monitoring,
         title: "Vitals History",
         category: "HEALTH MONITORING",
-        heroMetric: "142 Logs",
-        heroBadge: "Past 30 Days",
+        heroMetric: synced ? "$histCount Logs" : "Archive Ready",
+        heroBadge: synced ? "EHR Synced" : "Tap to Sync",
         description:
-            "Browse longitudinal time-stamped archives of past physiological monitoring sessions, ECG recordings, and clinician review logs across customizable date ranges.",
+            "Browse longitudinal time-stamped archives of past physiological monitoring sessions, ECG recordings, and clinician review logs across date ranges.",
         icon: Icons.history_rounded,
-        statusText: "142 Records",
+        statusText: synced ? "$histCount Records" : "Ready",
         stat1Label: "TOTAL SESSIONS",
-        stat1Value: "142 Records",
+        stat1Value: synced ? "$histCount Records" : "Cloud EHR",
         stat2Label: "DATE RANGE",
         stat2Value: "Past 30 Days",
         route: "/history",
         actionLabel: "View Vitals History",
-        accentColor: Color(0xFF38BDF8),
+        accentColor: const Color(0xFF38BDF8),
       ),
 
-      // 3. Health Insights (Apple Cyan)
-      const _AppModuleItem(
+      // 3. Health Insights
+      _AppModuleItem(
         type: _AppType.insights,
+        filterGroup: _CarouselFilter.monitoring,
         title: "Health Insights",
         category: "HEALTH MONITORING",
-        heroMetric: "98% Normal",
-        heroBadge: "Low Risk Tier",
+        heroMetric: ecgText.toLowerCase().contains('abnormal') ? "Review Needed" : "Optimal Tier",
+        heroBadge: ecgText,
         description:
             "Evaluates merged wearable telemetry and hospital records with clinical reasoning algorithms to highlight early cardiovascular risks and vital anomalies.",
         icon: Icons.insights_rounded,
-        statusText: "Optimal",
-        stat1Label: "RISK PROFILE",
-        stat1Value: "Low / Normal",
-        stat2Label: "CRITICAL ALERTS",
-        stat2Value: "0 Flags",
+        statusText: ecgText.toLowerCase().contains('abnormal') ? "Alert" : "Optimal",
+        stat1Label: "ECG STATUS",
+        stat1Value: ecgText,
+        stat2Label: "BLOOD PRESSURE",
+        stat2Value: bpText,
         route: "/insights",
         actionLabel: "Explore Health Insights",
-        accentColor: Color(0xFF06B6D4),
+        accentColor: const Color(0xFF06B6D4),
       ),
 
-      // 4. Trend Analysis (Apple Teal)
+      // 4. Trend Analysis
       const _AppModuleItem(
         type: _AppType.trends,
+        filterGroup: _CarouselFilter.monitoring,
         title: "Trend Analysis",
         category: "HEALTH MONITORING",
         heroMetric: "±4% Variance",
@@ -1232,115 +1373,144 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         accentColor: Color(0xFF14B8A6),
       ),
 
-      // 5. Medications & Rx (Apple Purple)
-      const _AppModuleItem(
+      // 5. Sleep Analysis (newly exposed in carousel!)
+      _AppModuleItem(
+        type: _AppType.sleep,
+        filterGroup: _CarouselFilter.monitoring,
+        title: "Sleep Analysis",
+        category: "HEALTH MONITORING",
+        heroMetric: sleepHours != null ? "${sleepHours.toStringAsFixed(1)} hrs" : "7.5 hrs",
+        heroBadge: "Stage Breakdown",
+        description:
+            "Review nightly Deep, REM, and Core sleep architecture alongside nocturnal SpO2 oxygen dips and resting heart rate recovery trends.",
+        icon: Icons.bedtime_rounded,
+        statusText: sleepHours != null ? "Synced" : "Tracked",
+        stat1Label: "NIGHTLY SLEEP",
+        stat1Value: sleepHours != null ? "${sleepHours.toStringAsFixed(1)} Hours" : "7.5h Target",
+        stat2Label: "AI FEEDBACK",
+        stat2Value: "Sleep Coach",
+        route: "/sleep",
+        actionLabel: "Open Sleep Analysis",
+        accentColor: const Color(0xFF6366F1),
+      ),
+
+      // 6. Medications & Rx
+      _AppModuleItem(
         type: _AppType.medications,
+        filterGroup: _CarouselFilter.management,
         title: "Medications & Rx",
         category: "HEALTH MANAGEMENT",
-        heroMetric: "1 of 2 Taken",
-        heroBadge: "Next: 8:00 PM",
+        heroMetric: medsTotal > 0 ? "$medsTaken of $medsTotal Taken" : "No Rx Added",
+        heroBadge: medsTotal > 0
+            ? (s?.nextMedicationLabel ?? "Completed Today")
+            : "Tap to Schedule",
         description:
-            "Maintains your active prescription regimen with automated dose reminders, taken-dose tracking, and electronic refills with your hospital pharmacy.",
+            "Maintains your active prescription regimen with automated daily dose reset, taken-dose tracking, and medication reminders.",
         icon: Icons.medication_rounded,
-        statusText: "2 Active",
-        stat1Label: "MORNING DOSE",
-        stat1Value: "Taken 8:00 AM",
-        stat2Label: "EVENING DOSE",
-        stat2Value: "Due 8:00 PM",
+        statusText: "$medsTotal Active",
+        stat1Label: "TAKEN TODAY",
+        stat1Value: "$medsTaken / $medsTotal Doses",
+        stat2Label: "NEXT DOSE",
+        stat2Value: s?.nextMedicationLabel ?? (medsTotal > 0 ? "All Done" : "Not Set"),
         route: "/medications",
         actionLabel: "Manage Medications",
-        accentColor: Color(0xFF8B5CF6),
+        accentColor: const Color(0xFF8B5CF6),
       ),
 
-      // 6. Symptom Logger (Apple Rose)
-      const _AppModuleItem(
+      // 7. Symptom Logger
+      _AppModuleItem(
         type: _AppType.symptoms,
+        filterGroup: _CarouselFilter.management,
         title: "Symptom Logger",
         category: "HEALTH MANAGEMENT",
-        heroMetric: "Mild (1/10)",
-        heroBadge: "SOCRATES Intake",
+        heroMetric: symptomsCount > 0 ? "Severity $symptomSeverity/5" : "All Clear",
+        heroBadge: s?.latestSymptomName ?? "SOCRATES Intake",
         description:
-            "Quickly record pain location, onset, severity, and triggers using the standardized SOCRATES clinical method to send direct updates to your physician.",
+            "Quickly record symptoms, severity (1–5 scale), and onset notes so you can share accurate clinical timelines during telehealth consults.",
         icon: Icons.sick_rounded,
-        statusText: "Ready",
-        stat1Label: "LAST LOG",
-        stat1Value: "Yesterday",
-        stat2Label: "SEVERITY",
-        stat2Value: "Mild (1/10)",
+        statusText: "$symptomsCount Logs",
+        stat1Label: "LATEST ENTRY",
+        stat1Value: s?.latestSymptomName ?? "None Logged",
+        stat2Label: "TOTAL LOGS",
+        stat2Value: "$symptomsCount Recorded",
         route: "/symptoms",
         actionLabel: "Log New Symptom",
-        accentColor: Color(0xFFF43F5E),
+        accentColor: const Color(0xFFF43F5E),
       ),
 
-      // 7. Health Goals (Apple Amber Activity)
-      const _AppModuleItem(
+      // 8. Health Goals
+      _AppModuleItem(
         type: _AppType.goals,
+        filterGroup: _CarouselFilter.management,
         title: "Health Goals",
         category: "HEALTH MANAGEMENT",
-        heroMetric: "8,420 Steps",
-        heroBadge: "84% of Goal",
+        heroMetric: "$steps Steps",
+        heroBadge: "$stepPct% of Goal",
         description:
-            "Track daily step counts, active calorie burn, and restorative sleep milestones to keep your lifestyle goals aligned with your medical treatment plan.",
+            "Track daily step counts, active calorie burn, and training milestones to keep lifestyle habits aligned with your care plan.",
         icon: Icons.flag_rounded,
-        statusText: "84% Done",
+        statusText: "$stepPct% Done",
         stat1Label: "STEP TARGET",
-        stat1Value: "8,420 / 10,000",
+        stat1Value: "$steps / 10,000",
         stat2Label: "ACTIVE BURN",
-        stat2Value: "480 kcal",
+        stat2Value: "$calories kcal",
         route: "/goals",
         actionLabel: "Track Health Goals",
-        accentColor: Color(0xFFF59E0B),
+        accentColor: const Color(0xFFF59E0B),
       ),
 
-      // 8. BMI Calculator (Apple Violet)
-      const _AppModuleItem(
+      // 9. BMI Calculator
+      _AppModuleItem(
         type: _AppType.bmi,
+        filterGroup: _CarouselFilter.management,
         title: "BMI Calculator",
         category: "HEALTH MANAGEMENT",
-        heroMetric: "22.4 BMI",
-        heroBadge: "Healthy Weight",
+        heroMetric: bmi != null ? "${bmi.toStringAsFixed(1)} BMI" : "Calculate BMI",
+        heroBadge: s?.latestBmiCategory ?? "Metabolic Check",
         description:
-            "Calculates body mass index from height and weight, categorizing metabolic tiers and delivering tailored dietary recommendations for cardiovascular health.",
+            "Calculates body mass index from height and weight, categorizing metabolic tiers and saving your latest measurement for quick clinical reference.",
         icon: Icons.monitor_weight_rounded,
-        statusText: "Healthy",
-        stat1Label: "CURRENT BMI",
-        stat1Value: "22.4 (Normal)",
-        stat2Label: "METABOLIC TIER",
-        stat2Value: "Optimal Range",
+        statusText: s?.latestBmiCategory ?? "Ready",
+        stat1Label: "LAST BMI",
+        stat1Value: bmi != null ? "${bmi.toStringAsFixed(1)} kg/m²" : "Not Measured",
+        stat2Label: "CATEGORY",
+        stat2Value: s?.latestBmiCategory ?? "18.5 - 24.9",
         route: "/bmi",
         actionLabel: "Calculate BMI",
-        accentColor: Color(0xFFA855F7),
+        accentColor: const Color(0xFFA855F7),
       ),
 
-      // 9. Urgent Care Clinic (Apple Hospital Blue)
-      const _AppModuleItem(
+      // 10. Urgent Care Clinic
+      _AppModuleItem(
         type: _AppType.urgentCare,
+        filterGroup: _CarouselFilter.clinical,
         title: "Urgent Care Clinic",
         category: "CLINICAL & URGENT",
-        heroMetric: "#4 in Queue",
-        heroBadge: "Est. 12m Wait",
+        heroMetric: queuePos != null ? "#$queuePos in Queue" : "Walk-In Ready",
+        heroBadge: s?.urgentCareWaitRange ?? "Instant Check-In",
         description:
-            "Check into the hospital urgent care queue before arrival, monitor live wait times, and send real-time condition updates directly to the triage nurse.",
+            "Check into the hospital urgent care queue before arrival, monitor live wait times, and send real-time condition updates to triage.",
         icon: Icons.local_hospital_rounded,
-        statusText: "Open Now",
-        stat1Label: "QUEUE POSITION",
-        stat1Value: "#4 in Line",
+        statusText: s?.urgentCareStatus ?? "Open Now",
+        stat1Label: "QUEUE STATUS",
+        stat1Value: queuePos != null ? "#$queuePos in Line" : "Not Checked In",
         stat2Label: "EST. WAIT",
-        stat2Value: "12 Minutes",
+        stat2Value: s?.urgentCareWaitRange ?? "Fast Check-In",
         route: "/urgent-care",
         actionLabel: "View Clinic Queue",
-        accentColor: Color(0xFF3B82F6),
+        accentColor: const Color(0xFF3B82F6),
       ),
 
-      // 10. AI Health Assistant (Apple Emerald / Mint)
+      // 11. AI Health Assistant
       const _AppModuleItem(
         type: _AppType.clinicChat,
+        filterGroup: _CarouselFilter.clinical,
         title: "AI Health Assistant",
         category: "CLINICAL & URGENT",
         heroMetric: "CTAS Triage",
         heroBadge: "Care Team Online",
         description:
-            "Consult with Intelligent Digital Solution care team via WhatsApp-style messaging and Whisper-1 voice dictation, backed by Canadian CTAS triage protocols.",
+            "Consult with Intelligent Digital Solution care team via WhatsApp messaging, lab report analysis, nutrition monitor, and Whisper voice dictation.",
         icon: Icons.smart_toy_rounded,
         statusText: "Online",
         stat1Label: "CARE TEAM",
@@ -1351,6 +1521,27 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         actionLabel: "Start Clinical Chat",
         accentColor: Color(0xFF10B981),
       ),
+
+      // 12. Wearable Devices (newly exposed in carousel!)
+      _AppModuleItem(
+        type: _AppType.devices,
+        filterGroup: _CarouselFilter.clinical,
+        title: "Wearable Devices",
+        category: "HARDWARE & SYNC",
+        heroMetric: synced ? "Connected" : "Pair Sensor",
+        heroBadge: "HealthKit • Fitbit",
+        description:
+            "Manage wearable Bluetooth/HealthKit connections, sync historical sensor packets, or simulate real-time bedside telemetry streams.",
+        icon: Icons.watch_rounded,
+        statusText: synced ? "Active" : "Standby",
+        stat1Label: "DATA SOURCE",
+        stat1Value: "Apple Watch / Fit",
+        stat2Label: "TELEMETRY SYNC",
+        stat2Value: synced ? "Up to Date" : "Tap to Sync",
+        route: "/devices",
+        actionLabel: "Manage Wearables",
+        accentColor: const Color(0xFF0EA5E9),
+      ),
     ];
   }
 }
@@ -1360,16 +1551,19 @@ enum _AppType {
   history,
   insights,
   trends,
+  sleep,
   medications,
   symptoms,
   goals,
   bmi,
   urgentCare,
   clinicChat,
+  devices,
 }
 
 class _AppModuleItem {
   final _AppType type;
+  final _CarouselFilter filterGroup;
   final String title;
   final String category;
   final String heroMetric;
@@ -1387,6 +1581,7 @@ class _AppModuleItem {
 
   const _AppModuleItem({
     required this.type,
+    required this.filterGroup,
     required this.title,
     required this.category,
     required this.heroMetric,

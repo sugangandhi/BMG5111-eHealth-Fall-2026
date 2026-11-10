@@ -74,7 +74,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
     VitalsMetricTabData(
       icon: Icons.bedtime_outlined,
       label: "Sleep",
-      color: Color(0xFF6A1B9A),
+      color: Color(0xFF4F46E5),
     ),
     VitalsMetricTabData(
       icon: Icons.psychology_outlined,

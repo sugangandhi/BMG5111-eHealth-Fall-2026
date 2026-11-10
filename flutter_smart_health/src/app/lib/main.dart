@@ -9,6 +9,7 @@ import 'package:smart_health_app/features/insights/insights.dart';
 import 'package:smart_health_app/features/medications/medications.dart';
 import 'package:smart_health_app/features/profile/profile.dart';
 import 'package:smart_health_app/features/settings/settings.dart';
+import 'package:smart_health_app/features/sleep/sleep.dart';
 import 'package:smart_health_app/features/symptoms/symptoms.dart';
 import 'package:smart_health_app/features/tools/tools.dart';
 import 'package:smart_health_app/features/trends/trends.dart';
@@ -47,6 +48,7 @@ class SmartHealthApp extends StatelessWidget {
         "/symptoms": (_) => const SymptomLoggerScreen(),
         "/goals": (_) => const HealthGoalsScreen(),
         "/bmi": (_) => const BmiCalculatorScreen(),
+        "/sleep": (_) => const SleepScreen(),
         "/trends": (_) => const TrendComparisonScreen(),
         "/emergency": (_) => const EmergencySosScreen(),
         "/urgent-care": (_) => const UrgentCareScreen(),

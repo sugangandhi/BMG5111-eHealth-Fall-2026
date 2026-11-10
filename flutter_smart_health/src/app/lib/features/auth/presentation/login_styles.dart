@@ -16,31 +16,31 @@ class LoginStyles {
   static const emeraldSecondary = appleBlueSecondary;
 
   static BoxDecoration get cardGlassDecoration => BoxDecoration(
-        color: const Color(0xFF141E33).withValues(alpha: 0.78),
+        color: const Color(0xFF0E2856).withValues(alpha: 0.48),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.22),
+          color: Colors.white.withValues(alpha: 0.24),
           width: 1.2,
         ),
         boxShadow: [
-          const BoxShadow(
-            color: Color(0x65060C1A),
-            blurRadius: 36,
-            offset: Offset(0, 16),
+          BoxShadow(
+            color: const Color(0xFF041029).withValues(alpha: 0.38),
+            blurRadius: 34,
+            offset: const Offset(0, 14),
           ),
           BoxShadow(
-            color: appleBluePrimary.withValues(alpha: 0.18),
-            blurRadius: 28,
+            color: appleBluePrimary.withValues(alpha: 0.20),
+            blurRadius: 26,
             offset: const Offset(0, 4),
           ),
         ],
       );
 
   static BoxDecoration get inputFieldDecoration => BoxDecoration(
-        color: const Color(0xFF16233B).withValues(alpha: 0.85),
+        color: const Color(0xFF071938).withValues(alpha: 0.48),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
+          color: Colors.white.withValues(alpha: 0.18),
           width: 1.1,
         ),
         boxShadow: const [
@@ -60,14 +60,14 @@ class LoginStyles {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(
-        color: Color(0xFF94A3B8),
+        color: Color(0xFFCBD5E1),
         fontSize: 14,
         fontWeight: FontWeight.w400,
       ),
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: const Color(0xFF16233B).withValues(alpha: 0.85),
+      fillColor: const Color(0xFF071938).withValues(alpha: 0.48),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),

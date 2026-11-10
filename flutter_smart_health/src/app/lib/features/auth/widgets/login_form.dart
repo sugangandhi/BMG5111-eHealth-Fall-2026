@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/api_config.dart';
+import '../../../core/network/api_client.dart';
 import '../../../l10n/l10n.dart';
 import '../presentation/login_styles.dart';
 
@@ -340,10 +341,10 @@ class _LoginFormState extends State<LoginForm> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: Colors.white.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: Colors.white.withValues(alpha: 0.14),
                   ),
                 ),
                 child: Row(
@@ -352,22 +353,26 @@ class _LoginFormState extends State<LoginForm> {
                     const Icon(
                       Icons.wifi_rounded,
                       size: 13,
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF93C5FD),
                     ),
                     const SizedBox(width: 5),
-                    Text(
-                      "Server: ${ApiConfig.backendBaseUrl.replaceAll('http://', '').replaceAll('https://', '')}",
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        "Server: ${ApiConfig.backendBaseUrl.replaceAll('http://', '').replaceAll('https://', '')}",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFCBD5E1),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 4),
                     const Icon(
                       Icons.edit_rounded,
                       size: 11,
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF93C5FD),
                     ),
                   ],
                 ),
@@ -383,105 +388,208 @@ class _LoginFormState extends State<LoginForm> {
     final controller = TextEditingController(
       text: ApiConfig.backendBaseUrl,
     );
+    bool checking = false;
+    String? pingStatus;
+    bool pingSuccess = false;
+
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF16233B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          "Backend Server Host",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Current backend address:",
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> testConnection() async {
+            final normalized = ApiConfig.normalizeBaseUrl(controller.text);
+            if (normalized.isEmpty) return;
+            setDialogState(() {
+              checking = true;
+              pingStatus = null;
+            });
+            try {
+              final client = ApiClient(baseUrl: normalized);
+              await client
+                  .getJson('/urgent-care/health')
+                  .timeout(const Duration(seconds: 6));
+              if (!ctx.mounted) return;
+              setDialogState(() {
+                checking = false;
+                pingSuccess = true;
+                pingStatus = 'Connected to $normalized';
+              });
+            } catch (e) {
+              if (!ctx.mounted) return;
+              setDialogState(() {
+                checking = false;
+                pingSuccess = false;
+                pingStatus = 'Unreachable: $e';
+              });
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF0E2856),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFF0F172A),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF38BDF8)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              "Quick Presets:",
+            title: const Text(
+              "Backend Server Host",
               style: TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _presetButton(
-                  "Cloudflare Tunnel",
-                  "https://saskatchewan-honolulu-event-captured.trycloudflare.com",
-                  controller,
-                ),
-                _presetButton(
-                  "LAN Wi-Fi",
-                  "http://192.168.2.29:8080",
-                  controller,
-                ),
-                _presetButton(
-                  "USB Cable (adb reverse)",
-                  "http://127.0.0.1:8080",
-                  controller,
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              "Cancel",
-              style: TextStyle(color: Color(0xFF94A3B8)),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007AFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Enter your Render HTTPS URL or local host:",
+                    style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: controller,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFF071938),
+                      hintText: 'https://your-service.onrender.com',
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 13,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: checking ? null : testConnection,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF38BDF8),
+                          side: BorderSide(
+                            color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: checking
+                            ? const SizedBox(
+                                width: 13,
+                                height: 13,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF38BDF8),
+                                ),
+                              )
+                            : const Icon(Icons.network_check_rounded, size: 16),
+                        label: Text(
+                          checking ? 'Checking...' : 'Test Connection',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (pingStatus != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      pingStatus!,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: pingSuccess
+                            ? const Color(0xFF34D399)
+                            : const Color(0xFFFCA5A5),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  const Text(
+                    "Quick Presets:",
+                    style: TextStyle(
+                      color: Color(0xFF93C5FD),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _presetButton(
+                        "Render HTTPS",
+                        "https://",
+                        controller,
+                      ),
+                      _presetButton(
+                        "LAN Wi-Fi",
+                        "http://192.168.2.29:8080",
+                        controller,
+                      ),
+                      _presetButton(
+                        "USB Cable (adb reverse)",
+                        "http://127.0.0.1:8080",
+                        controller,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            onPressed: () async {
-              final newHost = controller.text.trim();
-              if (newHost.isNotEmpty) {
-                ApiConfig.setBackendHost(newHost);
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('custom_backend_host', newHost);
-                if (mounted) setState(() {});
-              }
-              if (ctx.mounted) Navigator.of(ctx).pop();
-            },
-            child: const Text("Save", style: TextStyle(color: Colors.white)),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text(
+                  "Cancel",
+                  style: TextStyle(color: Color(0xFF94A3B8)),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007AFF),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () async {
+                  final newHost = controller.text.trim();
+                  if (newHost.isNotEmpty) {
+                    ApiConfig.setBackendHost(newHost);
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('custom_backend_host', newHost);
+                    if (mounted) setState(() {});
+                  }
+                  if (ctx.mounted) Navigator.of(ctx).pop();
+                },
+                child: const Text(
+                  "Save",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -492,7 +600,12 @@ class _LoginFormState extends State<LoginForm> {
     TextEditingController controller,
   ) {
     return InkWell(
-      onTap: () => controller.text = value,
+      onTap: () {
+        controller.text = value;
+        controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: controller.text.length),
+        );
+      },
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),

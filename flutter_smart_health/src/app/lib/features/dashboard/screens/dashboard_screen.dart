@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../l10n/l10n.dart';
+import '../data/dashboard_summary_service.dart';
+import '../presentation/dashboard_styles.dart';
 import '../widgets/app_switcher_carousel.dart';
 import '../widgets/atmospheric_sky_background.dart';
 import '../widgets/dashboard_featured_card.dart';
@@ -22,6 +24,10 @@ class _PatientDashboardState extends State<PatientDashboard>
     with SingleTickerProviderStateMixin {
   bool _showAppSwitcher = true;
   Color _ambientAccent = const Color(0xFF00E5FF);
+  SkyMood _skyMood = SkyMood.daylight;
+  DashboardLiveSummary _summary = const DashboardLiveSummary();
+  bool _syncingSummary = false;
+  final DashboardSummaryService _summaryService = DashboardSummaryService();
   late final AnimationController _heartTicker;
 
   @override
@@ -31,6 +37,7 @@ class _PatientDashboardState extends State<PatientDashboard>
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat(reverse: true);
+    _loadSummary();
   }
 
   @override
@@ -39,7 +46,27 @@ class _PatientDashboardState extends State<PatientDashboard>
     super.dispose();
   }
 
-  void _open(String routeName) => Navigator.pushNamed(context, routeName);
+  Future<void> _loadSummary() async {
+    if (_syncingSummary) return;
+    setState(() => _syncingSummary = true);
+    final loaded = await _summaryService.load();
+    if (!mounted) return;
+    setState(() {
+      _summary = loaded;
+      _syncingSummary = false;
+    });
+  }
+
+  Future<void> _open(String routeName) async {
+    await Navigator.pushNamed(context, routeName);
+    if (mounted) {
+      await _loadSummary();
+    }
+  }
+
+  void _cycleSkyMood() {
+    setState(() => _skyMood = _skyMood.next());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +76,7 @@ class _PatientDashboardState extends State<PatientDashboard>
       children: [
         // Photorealistic Living Atmospheric Sky (Sunburst, Crepuscular Light Beams, Multi-Octave Parallax Clouds, Air Motes)
         AtmosphericSkyBackground(
+          mood: _skyMood,
           ambientAccent: _ambientAccent,
         ),
 
@@ -84,56 +112,75 @@ class _PatientDashboardState extends State<PatientDashboard>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Live physiological telemetry badge with real-time heartbeat animation
-                    AnimatedBuilder(
-                      animation: _heartTicker,
-                      builder: (context, _) {
-                        final bpm = 74 +
-                            ((math.sin(_heartTicker.value * math.pi * 8) + 1.0) *
-                                    1.8)
-                                .round();
-                        final pulseScale = 1.0 +
-                            ((math.sin(_heartTicker.value * math.pi * 16) +
-                                    1.0) *
-                                0.10);
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981)
-                                .withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFF10B981)
-                                  .withValues(alpha: 0.40),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Transform.scale(
-                                scale: pulseScale,
-                                child: const Icon(
-                                  Icons.favorite_rounded,
-                                  size: 11,
-                                  color: Color(0xFF10B981),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                "$bpm BPM",
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF10B981),
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
+                    // Live physiological telemetry badge (tap to refresh backend summary)
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _loadSummary();
                       },
+                      child: AnimatedBuilder(
+                        animation: _heartTicker,
+                        builder: (context, _) {
+                          final liveHr = _summary.heartRateBpm;
+                          final bpm = liveHr ??
+                              (74 +
+                                  ((math.sin(_heartTicker.value * math.pi * 8) +
+                                              1.0) *
+                                          1.8)
+                                      .round());
+                          final pulseScale = 1.0 +
+                              ((math.sin(_heartTicker.value * math.pi * 16) +
+                                      1.0) *
+                                  0.10);
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFF10B981)
+                                    .withValues(alpha: 0.40),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_syncingSummary)
+                                  const SizedBox(
+                                    width: 10,
+                                    height: 10,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.6,
+                                      color: Color(0xFF10B981),
+                                    ),
+                                  )
+                                else
+                                  Transform.scale(
+                                    scale: pulseScale,
+                                    child: const Icon(
+                                      Icons.favorite_rounded,
+                                      size: 11,
+                                      color: Color(0xFF10B981),
+                                    ),
+                                  ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "$bpm BPM",
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF10B981),
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -208,6 +255,9 @@ class _PatientDashboardState extends State<PatientDashboard>
           ),
           body: _showAppSwitcher
               ? AppSwitcherCarousel(
+                  summary: _summary,
+                  skyMood: _skyMood,
+                  onCycleSkyMood: _cycleSkyMood,
                   onSelectApp: _open,
                   onActiveAccentChanged: (accent) {
                     if (_ambientAccent != accent) {
@@ -216,8 +266,9 @@ class _PatientDashboardState extends State<PatientDashboard>
                   },
                 )
               : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
+                  padding: DashboardStyles.bodyPadding,
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
               const SizedBox(height: 12),

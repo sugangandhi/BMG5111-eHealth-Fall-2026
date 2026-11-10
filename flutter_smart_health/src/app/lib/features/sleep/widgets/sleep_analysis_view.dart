@@ -295,14 +295,14 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
                   const Icon(
                     Icons.watch_outlined,
                     size: 15,
-                    color: Color(0xFF6A1B9A),
+                    color: Color(0xFF1550C4),
                   ),
                   const SizedBox(width: 4),
                   const Text(
                     'Apple Health',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF6A1B9A),
+                      color: Color(0xFF1550C4),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -389,7 +389,7 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
               Icon(
                 Icons.smart_toy_outlined,
                 size: 18,
-                color: Color(0xFF6A1B9A),
+                color: Color(0xFF1550C4),
               ),
               SizedBox(width: 6),
               Text('Sleep Assistant', style: SleepStyles.cardTitle),
@@ -444,7 +444,7 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
           maxWidth: MediaQuery.of(context).size.width * 0.72,
         ),
         decoration: BoxDecoration(
-          color: isUser ? const Color(0xFF6A1B9A) : const Color(0xFFEDE7F6),
+          color: isUser ? const Color(0xFF1550C4) : const Color(0xFFE0F2FE),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(14),
             topRight: const Radius.circular(14),
@@ -494,7 +494,7 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
         ),
         const SizedBox(width: 8),
         Material(
-          color: const Color(0xFF6A1B9A),
+          color: const Color(0xFF1550C4),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),

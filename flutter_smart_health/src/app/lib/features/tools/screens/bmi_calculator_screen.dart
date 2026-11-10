@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../l10n/l10n.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -47,6 +48,17 @@ class _BmiCalculatorScreenState extends State<BmiCalculatorScreen> {
       _category = category;
       _categoryColor = color;
     });
+    _persistLatestBmi(bmi, category);
+  }
+
+  Future<void> _persistLatestBmi(double bmi, String category) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawId = prefs.get('patient_id')?.toString().trim();
+      final patientId = (rawId != null && rawId.isNotEmpty) ? rawId : '1';
+      await prefs.setDouble('latest_bmi_$patientId', bmi);
+      await prefs.setString('latest_bmi_category_$patientId', category);
+    } catch (_) {}
   }
 
   (String, Color) _classifyBmi(AppLocalizations l10n, double bmi) {

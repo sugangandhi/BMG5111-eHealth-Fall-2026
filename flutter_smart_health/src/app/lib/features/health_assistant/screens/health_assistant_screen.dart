@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 
 import '../models/ai_assistant_module_definition.dart';
 import '../widgets/ai_assistant_module_picker.dart';

@@ -35,24 +35,35 @@ class ApiConfig {
 
   static String? _customBackendHost;
 
+  static String normalizeBaseUrl(String host) {
+    final trimmed = host.trim();
+    if (trimmed.isEmpty) return '';
+    final withoutTrailingSlash = trimmed.endsWith('/')
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
+    if (withoutTrailingSlash.startsWith('http://') ||
+        withoutTrailingSlash.startsWith('https://')) {
+      return withoutTrailingSlash;
+    }
+    if (withoutTrailingSlash.contains('.trycloudflare.com') ||
+        withoutTrailingSlash.contains('.onrender.com') ||
+        withoutTrailingSlash.contains('.ngrok') ||
+        withoutTrailingSlash.contains('.loca.lt') ||
+        (withoutTrailingSlash.contains('.') &&
+            !RegExp(r'^\d+\.\d+\.\d+\.\d+').hasMatch(withoutTrailingSlash))) {
+      return 'https://$withoutTrailingSlash';
+    }
+    final portPart = withoutTrailingSlash.contains(':') ? '' : ':8080';
+    return 'http://$withoutTrailingSlash$portPart';
+  }
+
   static void setBackendHost(String host) {
     _customBackendHost = host.trim();
   }
 
   static String get backendBaseUrl {
     if (_customBackendHost != null && _customBackendHost!.isNotEmpty) {
-      final host = _customBackendHost!;
-      if (host.startsWith('http://') || host.startsWith('https://')) {
-        return host;
-      }
-      if (host.contains('.trycloudflare.com') ||
-          host.contains('.ngrok') ||
-          host.contains('.loca.lt') ||
-          (host.contains('.') && !RegExp(r'^\d+\.\d+\.\d+\.\d+').hasMatch(host))) {
-        return 'https://$host';
-      }
-      final portPart = host.contains(':') ? '' : ':8080';
-      return 'http://$host$portPart';
+      return normalizeBaseUrl(_customBackendHost!);
     }
     const defined = String.fromEnvironment('BACKEND_BASE_URL');
     if (defined.isNotEmpty) return defined;

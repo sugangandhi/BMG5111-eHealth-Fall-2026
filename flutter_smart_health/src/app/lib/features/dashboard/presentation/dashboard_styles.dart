@@ -24,7 +24,7 @@ class DashboardStyles {
         borderRadius: BorderRadius.all(Radius.circular(AppRadii.dialog)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x596A1B9A),
+            color: Color(0x591550C4),
             blurRadius: 14,
             offset: Offset(0, 6),
           ),
@@ -41,7 +41,7 @@ class DashboardStyles {
         borderRadius: BorderRadius.all(Radius.circular(AppRadii.xl)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x0F6A1B9A),
+            color: Color(0x121550C4),
             blurRadius: 8,
             offset: Offset(0, 3),
           ),

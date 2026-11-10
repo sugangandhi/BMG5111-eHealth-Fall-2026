@@ -18,7 +18,7 @@ class VitalsHistoryStyles {
     borderRadius: BorderRadius.all(Radius.circular(AppRadii.dialog)),
     boxShadow: [
       BoxShadow(
-        color: Color(0x4D6A1B9A),
+        color: Color(0x4D1550C4),
         blurRadius: 14,
         offset: Offset(0, 6),
       ),
@@ -34,7 +34,7 @@ class VitalsHistoryStyles {
         color: Colors.white,
         borderRadius: BorderRadius.all(Radius.circular(AppRadii.dialog)),
         boxShadow: [
-          BoxShadow(color: Color(0x126A1B9A), blurRadius: 10),
+          BoxShadow(color: Color(0x141550C4), blurRadius: 10),
         ],
       );
 

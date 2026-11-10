@@ -12,7 +12,7 @@ class DeviceStyles {
   static BoxDecoration get bannerDecoration => BoxDecoration(
         color: AppColors.primarySoft,
         borderRadius: AppRadii.radius(AppRadii.lg),
-        border: Border.all(color: const Color(0x406A1B9A)),
+        border: Border.all(color: const Color(0x401550C4)),
       );
 
   static const patientCardDecoration = BoxDecoration(
@@ -20,7 +20,7 @@ class DeviceStyles {
     borderRadius: BorderRadius.all(Radius.circular(AppRadii.dialog)),
     boxShadow: [
       BoxShadow(
-        color: Color(0x126A1B9A),
+        color: Color(0x141550C4),
         blurRadius: 10,
         offset: Offset(0, 4),
       ),
