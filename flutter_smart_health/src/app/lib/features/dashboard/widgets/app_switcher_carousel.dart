@@ -1163,7 +1163,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           Expanded(
             child: Text(
               synced
-                  ? 'Samsung Health, Health Connect & Fitbit synced'
+                  ? 'Mobile health & wearable telemetry synced'
                   : 'Connect mobile health app or import CSV/XML',
               style: const TextStyle(
                 fontSize: 10.8,
@@ -1426,13 +1426,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         title: "Health App Hub",
         category: "MOBILE HEALTH & SYNC",
         heroMetric: synced ? "Connected" : "Connect App",
-        heroBadge: "Samsung • Health Connect • iOS",
+        heroBadge: "Android • iOS • Wearables",
         description:
-            "Auto-detect Samsung Health, Health Connect, Google Fit, Apple Health, Fitbit, Garmin & more, or import health export files cleanly.",
+            "Auto-detect Health Connect, Google Fit, Samsung Health, Apple Health, Fitbit, Garmin & more, or import health export files cleanly.",
         icon: Icons.watch_rounded,
         statusText: synced ? "Active" : "Standby",
         stat1Label: "COMPATIBLE APPS",
-        stat1Value: "Samsung / Fit / iOS",
+        stat1Value: "Multi-App Sync",
         stat2Label: "TELEMETRY SYNC",
         stat2Value: synced ? "Up to Date" : "Tap to Connect",
         route: "/devices",

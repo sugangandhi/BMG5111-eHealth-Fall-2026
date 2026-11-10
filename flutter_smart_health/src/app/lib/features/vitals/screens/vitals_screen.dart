@@ -549,16 +549,42 @@ class _VitalsScreenState extends State<VitalsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Select any detected app or import a real Samsung Health / Apple Health / Fitbit export file.',
+                'Sync from any health app detected on your phone or import real CSV / XML / JSON / ZIP exports.',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
-              const SizedBox(height: 12),
-              if (apps.isNotEmpty)
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const CircleAvatar(
+                  backgroundColor: AppColors.primarySoft,
+                  child: Icon(Icons.sync_rounded, color: AppColors.primary, size: 20),
+                ),
+                title: const Text(
+                  'Auto-Sync All Detected Apps',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text(
+                  'Reads the active source from Health Connect / HealthKit',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                trailing: TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _syncFromMobileHealth();
+                  },
+                  child: const Text('Sync All'),
+                ),
+              ),
+              if (apps.isNotEmpty) ...[
+                const Divider(height: 8),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
+                  constraints: const BoxConstraints(maxHeight: 220),
                   child: ListView(
                     shrinkWrap: true,
-                    children: apps.map((app) {
+                    children: (apps.any((a) => a.installed)
+                            ? apps.where((a) => a.installed)
+                            : apps)
+                        .map((app) {
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
@@ -597,16 +623,17 @@ class _VitalsScreenState extends State<VitalsScreen> {
                     }).toList(),
                   ),
                 ),
+              ],
               const Divider(),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.upload_file_rounded, color: AppColors.primary),
                 title: const Text(
-                  'Import Samsung / Apple / Fitbit Export',
+                  'Import Health Data Export',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
                 subtitle: const Text(
-                  'Upload .csv, .xml, .json, or .zip from your phone',
+                  'Samsung Health, Google Fit, Apple Health or Fitbit (.csv, .xml, .json, .zip)',
                   style: TextStyle(fontSize: 11.5),
                 ),
                 onTap: () {
@@ -864,7 +891,6 @@ class _VitalsScreenState extends State<VitalsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final primaryApp = _detectedApps.where((a) => a.installed).firstOrNull;
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.vitalSignsTitle),
@@ -875,7 +901,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
             tooltip: l10n.deviceManagerTooltip,
             onPressed: () => Navigator.pushNamed(context, "/devices"),
           ),
-          // One-tap sync using primary detected health app
+          // Open detected health apps sync sheet or sync active platform hub
           _syncingHealth
               ? const Padding(
                   padding: EdgeInsets.all(14),
@@ -889,13 +915,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                   ),
                 )
               : IconButton(
-                  icon: const Icon(Icons.watch_outlined),
-                  tooltip: primaryApp != null
-                      ? 'Sync ${primaryApp.name}'
-                      : l10n.syncFromAppleWatchTooltip,
-                  onPressed: () => _syncFromMobileHealth(
-                    preferredSourceKey: primaryApp?.sourceKey,
-                  ),
+                  icon: const Icon(Icons.sync_rounded),
+                  tooltip: l10n.syncFromAppleWatchTooltip,
+                  onPressed: _showHealthAppSyncSheet,
                 ),
           IconButton(
             icon: const Icon(Icons.edit_outlined),
@@ -918,9 +940,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
               )
             : const Icon(Icons.health_and_safety_rounded, color: Colors.white),
         label: Text(
-          _syncingHealth
-              ? l10n.syncingShort
-              : (primaryApp != null ? 'Sync ${primaryApp.name}' : l10n.syncAppleWatchButton),
+          _syncingHealth ? l10n.syncingShort : l10n.syncAppleWatchButton,
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,

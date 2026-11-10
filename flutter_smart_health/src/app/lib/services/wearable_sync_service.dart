@@ -145,8 +145,6 @@ class WearableSyncService {
         preferredSourceKey ??
         (defaultTargetPlatform == TargetPlatform.iOS
             ? WearableSource.appleHealth
-            : defaultTargetPlatform == TargetPlatform.android
-            ? WearableSource.samsungHealth
             : WearableSource.healthConnect);
     final label = WearableSource.labelFor(resolvedSource);
 
@@ -646,12 +644,14 @@ Future<WearableSourceReadResult> _readHealthSample({
   // Discover all contributing health apps in this fetch.
   final contributingLabels = <String>{};
   final contributingSourceKeys = <String>{};
+  final sourcePointCounts = <String, int>{};
   for (final point in unique) {
     final key = WearableSource.fromSourceIdentifier(
       '${point.sourceId} ${point.sourceName}',
       fallback: source,
     );
     contributingSourceKeys.add(key);
+    sourcePointCounts[key] = (sourcePointCounts[key] ?? 0) + 1;
     final label = point.sourceName.trim().isNotEmpty
         ? point.sourceName.trim()
         : WearableSource.labelFor(key);
@@ -739,19 +739,15 @@ Future<WearableSourceReadResult> _readHealthSample({
     );
   }
 
-  // Pick resolved canonical source from detected data points if present
+  // Pick resolved canonical source from actual dominant contributing app.
   var resolvedSource = source;
   if (preferredSourceKey != null &&
       contributingSourceKeys.contains(preferredSourceKey)) {
     resolvedSource = preferredSourceKey;
-  } else if (contributingSourceKeys.isNotEmpty) {
-    if (contributingSourceKeys.contains(WearableSource.samsungHealth)) {
-      resolvedSource = WearableSource.samsungHealth;
-    } else if (contributingSourceKeys.contains(WearableSource.appleHealth)) {
-      resolvedSource = WearableSource.appleHealth;
-    } else {
-      resolvedSource = contributingSourceKeys.first;
-    }
+  } else if (sourcePointCounts.isNotEmpty) {
+    final sorted = sourcePointCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    resolvedSource = sorted.first.key;
   }
 
   return WearableSourceReadResult.success(

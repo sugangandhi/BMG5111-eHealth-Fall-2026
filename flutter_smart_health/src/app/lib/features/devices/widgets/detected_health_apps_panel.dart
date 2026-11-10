@@ -124,7 +124,7 @@ class DetectedHealthAppsPanel extends StatelessWidget {
               ),
               icon: const Icon(Icons.upload_file_rounded, size: 18),
               label: const Text(
-                'Import Samsung / Apple / Fitbit Export (CSV, XML, ZIP)',
+                'Import Health Export (CSV, XML, JSON, ZIP)',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
@@ -133,22 +133,71 @@ class DetectedHealthAppsPanel extends StatelessWidget {
           ),
           if (apps.isNotEmpty) ...[
             const SizedBox(height: 14),
-            ...apps.map(
-              (app) => _DetectedAppTile(
-                app: app,
-                isWebMode: snap?.isWebMode ?? false,
-                targetPlatform: snap?.targetPlatform ?? TargetPlatform.android,
-                busy: busy,
-                isActiveSync: activeSyncSource == app.sourceKey,
-                onSync: () => onSyncApp(app),
-                onOpen: () => onOpenApp(app),
-                onConnectFitbit: onConnectFitbit,
-              ),
+            ..._buildCategorizedAppTiles(
+              apps: apps,
+              snap: snap,
             ),
           ],
         ],
       ),
     );
+  }
+
+  List<Widget> _buildCategorizedAppTiles({
+    required List<DetectedHealthApp> apps,
+    required MobileHealthScanSnapshot? snap,
+  }) {
+    final isWebMode = snap?.isWebMode ?? false;
+    final platform = snap?.targetPlatform ?? TargetPlatform.android;
+
+    Widget buildTile(DetectedHealthApp app) => _DetectedAppTile(
+      app: app,
+      isWebMode: isWebMode,
+      targetPlatform: platform,
+      busy: busy,
+      isActiveSync: activeSyncSource == app.sourceKey,
+      onSync: () => onSyncApp(app),
+      onOpen: () => onOpenApp(app),
+      onConnectFitbit: onConnectFitbit,
+    );
+
+    if (isWebMode) {
+      return apps.map(buildTile).toList();
+    }
+
+    final installed = apps.where((a) => a.installed).toList();
+    final other = apps.where((a) => !a.installed).toList();
+
+    return [
+      if (installed.isNotEmpty) ...[
+        Text(
+          'INSTALLED ON THIS PHONE (${installed.length})',
+          style: DeviceStyles.patientMeta.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...installed.map(buildTile),
+      ],
+      if (other.isNotEmpty)
+        Theme(
+          data: ThemeData(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(top: 4),
+            initiallyExpanded: installed.isEmpty,
+            title: Text(
+              'Other Compatible Apps (${other.length})',
+              style: DeviceStyles.patientMeta.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            children: other.map(buildTile).toList(),
+          ),
+        ),
+    ];
   }
 
   String _subtitleText(MobileHealthScanSnapshot? snap, int installedCount) {
@@ -160,7 +209,7 @@ class DetectedHealthAppsPanel extends StatelessWidget {
       return 'iOS HealthKit bridge + cloud wearables ready';
     }
     if (snap.targetPlatform == TargetPlatform.android) {
-      return 'Android browser detected • Samsung Health, Health Connect & Fitbit supported';
+      return 'Android browser detected • Health Connect, Google Fit, Samsung Health & Fitbit supported';
     }
     if (snap.targetPlatform == TargetPlatform.iOS) {
       return 'iPhone browser detected • Apple Health export & Fitbit Cloud supported';

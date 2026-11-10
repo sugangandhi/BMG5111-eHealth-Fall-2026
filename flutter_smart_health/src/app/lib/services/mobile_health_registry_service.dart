@@ -292,18 +292,6 @@ class MobileHealthRegistryService {
 
     final list = <DetectedHealthApp>[
       DetectedHealthApp(
-        id: 'samsung_health',
-        sourceKey: WearableSource.samsungHealth,
-        name: 'Samsung Health',
-        packageName: 'com.sec.android.app.shealth',
-        installed: isAndroidBrowser,
-        connected: syncedSet.contains(WearableSource.samsungHealth),
-        supportsHealthConnect: true,
-        statusNote: isAndroidBrowser
-            ? 'Android browser detected • Upload CSV/ZIP export here or use Android APK for 1-tap Health Connect sync'
-            : 'Upload Samsung Health CSV/ZIP export into your EHR',
-      ),
-      DetectedHealthApp(
         id: 'health_connect',
         sourceKey: WearableSource.healthConnect,
         name: 'Health Connect',
@@ -312,8 +300,32 @@ class MobileHealthRegistryService {
         connected: syncedSet.contains(WearableSource.healthConnect),
         supportsHealthConnect: true,
         statusNote: isAndroidBrowser
-            ? 'Bridges Samsung Health, Google Fit, Garmin, Oura, WHOOP & Strava on Android APK'
-            : 'Android system hub (native Android app) or JSON export upload',
+            ? 'Android health hub connecting Google Fit, Samsung Health, Garmin, Fitbit & more (via APK)'
+            : 'Android system health hub (native Android app) or JSON export upload',
+      ),
+      DetectedHealthApp(
+        id: 'google_fit',
+        sourceKey: WearableSource.googleHealth,
+        name: 'Google Fit',
+        packageName: 'com.google.android.apps.fitness',
+        installed: isAndroidBrowser,
+        connected: syncedSet.contains(WearableSource.googleHealth),
+        supportsHealthConnect: true,
+        statusNote: isAndroidBrowser
+            ? 'Syncs via Android Health Connect APK or Google Takeout CSV/JSON upload'
+            : 'Upload Google Fit / Health Connect CSV or JSON export',
+      ),
+      DetectedHealthApp(
+        id: 'samsung_health',
+        sourceKey: WearableSource.samsungHealth,
+        name: 'Samsung Health',
+        packageName: 'com.sec.android.app.shealth',
+        installed: isAndroidBrowser,
+        connected: syncedSet.contains(WearableSource.samsungHealth),
+        supportsHealthConnect: true,
+        statusNote: isAndroidBrowser
+            ? 'Syncs via Android Health Connect APK or Samsung CSV/ZIP export upload'
+            : 'Upload Samsung Health CSV/ZIP export into your EHR',
       ),
       DetectedHealthApp(
         id: 'apple_health',

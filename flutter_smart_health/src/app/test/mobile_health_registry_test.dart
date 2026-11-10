@@ -117,10 +117,14 @@ void main() {
     expect(snapshot.isWebMode, isTrue);
     expect(
       snapshot.apps.first.sourceKey,
-      WearableSource.samsungHealth,
+      WearableSource.healthConnect,
     );
     expect(
-      snapshot.apps.any((a) => a.sourceKey == WearableSource.healthConnect),
+      snapshot.apps.any((a) => a.sourceKey == WearableSource.googleHealth),
+      isTrue,
+    );
+    expect(
+      snapshot.apps.any((a) => a.sourceKey == WearableSource.samsungHealth),
       isTrue,
     );
   });
@@ -186,7 +190,7 @@ void main() {
     expect(syncedApp?.sourceKey, WearableSource.samsungHealth);
 
     await tester.tap(
-      find.text('Import Samsung / Apple / Fitbit Export (CSV, XML, ZIP)'),
+      find.text('Import Health Export (CSV, XML, JSON, ZIP)'),
     );
     await tester.pump();
     expect(importTapped, isTrue);
