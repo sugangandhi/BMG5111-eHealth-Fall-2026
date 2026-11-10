@@ -26,32 +26,18 @@ class AppSwitcherCarousel extends StatefulWidget {
   State<AppSwitcherCarousel> createState() => _AppSwitcherCarouselState();
 }
 
-enum _CarouselFilter {
-  all('All', Icons.apps_rounded),
-  monitoring('Monitoring', Icons.monitor_heart_rounded),
-  management('Management', Icons.fact_check_rounded),
-  clinical('Care & AI', Icons.local_hospital_rounded);
-
-  const _CarouselFilter(this.label, this.icon);
-  final String label;
-  final IconData icon;
-}
-
 class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     with SingleTickerProviderStateMixin {
   late final PageController _pageController;
   late final AnimationController _pulseController;
-  late final ScrollController _chipScrollController;
   int _currentPage = 0;
-  _CarouselFilter _selectedFilter = _CarouselFilter.all;
 
   @override
   void initState() {
     super.initState();
-    _chipScrollController = ScrollController();
-    // 0.86 viewportFraction expands the card width to match native mobile screen proportions
+    // 0.90 viewportFraction maximizes card width to match native mobile screen proportions
     _pageController = PageController(
-      viewportFraction: 0.86,
+      viewportFraction: 0.90,
       initialPage: 0,
     );
 
@@ -65,7 +51,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     )..repeat(reverse: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final apps = _getFilteredApps();
+      final apps = _getAppsList();
       if (apps.isNotEmpty) {
         widget.onActiveAccentChanged?.call(apps[0].accentColor);
       }
@@ -74,32 +60,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   @override
   void dispose() {
-    _chipScrollController.dispose();
     _pageController.dispose();
     _pulseController.dispose();
     super.dispose();
-  }
-
-  List<_AppModuleItem> _getFilteredApps() {
-    final all = _getAppsList();
-    if (_selectedFilter == _CarouselFilter.all) return all;
-    return all.where((app) => app.filterGroup == _selectedFilter).toList();
-  }
-
-  void _selectFilter(_CarouselFilter filter) {
-    if (_selectedFilter == filter) return;
-    HapticFeedback.lightImpact();
-    setState(() {
-      _selectedFilter = filter;
-      _currentPage = 0;
-    });
-    if (_pageController.hasClients) {
-      _pageController.jumpToPage(0);
-    }
-    final filtered = _getFilteredApps();
-    if (filtered.isNotEmpty) {
-      widget.onActiveAccentChanged?.call(filtered[0].accentColor);
-    }
   }
 
   void _goToPage(int page) {
@@ -111,7 +74,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         curve: Curves.easeOutCubic,
       );
     }
-    final apps = _getFilteredApps();
+    final apps = _getAppsList();
     if (page >= 0 && page < apps.length) {
       widget.onActiveAccentChanged?.call(apps[page].accentColor);
     }
@@ -119,10 +82,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   @override
   Widget build(BuildContext context) {
-    final allApps = _getAppsList();
-    final apps = _selectedFilter == _CarouselFilter.all
-        ? allApps
-        : allApps.where((app) => app.filterGroup == _selectedFilter).toList();
+    final apps = _getAppsList();
     final safeCurrentPage =
         apps.isEmpty ? 0 : _currentPage.clamp(0, apps.length - 1);
 
@@ -136,10 +96,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           currentPageValue = _pageController.page!;
         }
 
-        // Dynamically scale card dimensions to naturally fill the mobile viewport
+        // Maximize card dimensions cleanly without a top name-tag/filter row
         final isNarrow = availableWidth < 500;
         final deckWidth = isNarrow ? availableWidth : 480.0;
-        final deckHeight = (availableHeight * 0.65).clamp(430.0, 520.0);
+        final deckHeight = (availableHeight - 72.0).clamp(440.0, 660.0);
         final cardHeight = deckHeight - 20.0;
 
         return Container(
@@ -193,16 +153,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                 ),
               ),
 
-              // Main Interactive Carousel Interface
+              // Main Expanded Carousel Interface (No name-tag bar above card)
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // 1. Clinical Category Filter Chips + Sky Mood Toggle
-                  _buildCategoryFilterChips(allApps),
+                  const SizedBox(height: 6),
 
-                  const SizedBox(height: 12),
-
-                  // 2. Horizontal 3D Carousel Deck (Expanded to match mobile layout)
+                  // Horizontal 3D Carousel Deck
                   SizedBox(
                     width: deckWidth,
                     height: deckHeight,
@@ -235,9 +192,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
                           // 3D Horizontal Cylindrical Carousel Transform
                           final absDelta = delta.abs();
-                          final scale = (1.0 - (absDelta * 0.08)).clamp(0.88, 1.0);
-                          final opacity = (1.0 - (absDelta * 0.20)).clamp(0.72, 1.0);
-                          final rotateY = (-delta * 0.12).clamp(-0.35, 0.35);
+                          final scale = (1.0 - (absDelta * 0.07)).clamp(0.89, 1.0);
+                          final opacity = (1.0 - (absDelta * 0.20)).clamp(0.74, 1.0);
+                          final rotateY = (-delta * 0.11).clamp(-0.32, 0.32);
 
                           final transformMatrix = Matrix4.identity()
                             ..setEntry(3, 2, 0.0012) // 3D depth perspective
@@ -259,60 +216,109 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                     ),
                   ),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
 
-                  // Simple Apple OS Pagination Dots (Interactive switching)
+                  // Bottom Row: Pagination Dots + Compact Sky Mood Toggle
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0C244D).withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.15),
-                        ),
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(apps.length, (idx) {
-                            final isSelected = idx == safeCurrentPage;
-                            final app = apps[idx];
-                            return GestureDetector(
-                              onTap: () => _goToPage(idx),
-                              behavior: HitTestBehavior.opaque,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 6,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0C244D)
+                                    .withValues(alpha: 0.45),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
                                 ),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 240),
-                                  curve: Curves.easeOutCubic,
-                                  width: isSelected ? 22 : 6,
-                                  height: 6,
+                              ),
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: List.generate(apps.length, (idx) {
+                                    final isSelected = idx == safeCurrentPage;
+                                    final app = apps[idx];
+                                    return GestureDetector(
+                                      onTap: () => _goToPage(idx),
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                          vertical: 6,
+                                        ),
+                                        child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 240),
+                                          curve: Curves.easeOutCubic,
+                                          width: isSelected ? 22 : 6,
+                                          height: 6,
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? app.accentColor
+                                                : Colors.white
+                                                    .withValues(alpha: 0.35),
+                                            borderRadius:
+                                                BorderRadius.circular(3),
+                                            boxShadow: isSelected
+                                                ? [
+                                                    BoxShadow(
+                                                      color: app.accentColor
+                                                          .withValues(
+                                                              alpha: 0.65),
+                                                      blurRadius: 8,
+                                                      offset:
+                                                          const Offset(0, 1),
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (widget.onCycleSkyMood != null) ...[
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: widget.skyMood.label,
+                              child: GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  widget.onCycleSkyMood!();
+                                },
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
                                   decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? app.accentColor
-                                        : Colors.white.withValues(alpha: 0.35),
-                                    borderRadius: BorderRadius.circular(3),
-                                    boxShadow: isSelected
-                                        ? [
-                                            BoxShadow(
-                                              color: app.accentColor
-                                                  .withValues(alpha: 0.65),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 1),
-                                            ),
-                                          ]
-                                        : null,
+                                    color: const Color(0xFF0C244D)
+                                        .withValues(alpha: 0.48),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFF38BDF8)
+                                          .withValues(alpha: 0.50),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    widget.skyMood.icon,
+                                    size: 15,
+                                    color: const Color(0xFFBAE6FD),
                                   ),
                                 ),
                               ),
-                            );
-                          }),
-                        ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -325,132 +331,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     );
   }
 
-  // Horizontal Apple-style Frosted Pill Clinical Filter Tray + Sky Mood Switcher
-  Widget _buildCategoryFilterChips(List<_AppModuleItem> allApps) {
-    final filters = _CarouselFilter.values;
-    final hasSkyToggle = widget.onCycleSkyMood != null;
-    final totalItems = filters.length + (hasSkyToggle ? 1 : 0);
-
-    return Container(
-      height: 40,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ListView.separated(
-        controller: _chipScrollController,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        physics: const BouncingScrollPhysics(),
-        itemCount: totalItems,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          if (hasSkyToggle && index == filters.length) {
-            return GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                widget.onCycleSkyMood!();
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF38BDF8).withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF38BDF8).withValues(alpha: 0.50),
-                    width: 1.0,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      widget.skyMood.icon,
-                      size: 14,
-                      color: const Color(0xFFBAE6FD),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      widget.skyMood.label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final filter = filters[index];
-          final count = filter == _CarouselFilter.all
-              ? allApps.length
-              : allApps.where((a) => a.filterGroup == filter).length;
-          final isSelected = _selectedFilter == filter;
-          const activeColor = Color(0xFF38BDF8);
-
-          return GestureDetector(
-            onTap: () => _selectFilter(filter),
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? activeColor.withValues(alpha: 0.28)
-                    : const Color(0xFF0C244D).withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isSelected
-                      ? activeColor.withValues(alpha: 0.90)
-                      : Colors.white.withValues(alpha: 0.18),
-                  width: isSelected ? 1.4 : 1.0,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: activeColor.withValues(alpha: 0.40),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    filter.icon,
-                    size: 14,
-                    color: isSelected
-                        ? const Color(0xFFBAE6FD)
-                        : Colors.white.withValues(alpha: 0.85),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${filter.label} ($count)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.85),
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   // Authentic Apple Watch Card with Independent Floating Circular App Icon (Apple Weather Glassmorphism)
   Widget _buildAppleWatchCard(_AppModuleItem app, {double? height}) {
+    final cardHeight = height ?? 440.0;
+    final isTall = cardHeight >= 520.0;
     return Center(
       child: Stack(
         clipBehavior: Clip.none,
@@ -462,14 +346,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               widget.onSelectApp(app.route);
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: isTall ? 4 : 6,
+                vertical: 6,
+              ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(28),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                   child: Container(
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-                    height: height ?? 440,
+                    padding: isTall
+                        ? const EdgeInsets.fromLTRB(20, 22, 20, 20)
+                        : const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                    height: cardHeight,
                     decoration: BoxDecoration(
                       color: const Color(0xFF0E2856).withValues(alpha: 0.48), // Apple Weather translucent frosted sky glass
                       borderRadius: BorderRadius.circular(28),
@@ -499,15 +388,15 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             // Clearance for floating circular badge
-                            const SizedBox(width: 48),
+                            SizedBox(width: isTall ? 54 : 48),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     app.title,
-                                    style: const TextStyle(
-                                      fontSize: 18,
+                                    style: TextStyle(
+                                      fontSize: isTall ? 20.5 : 18,
                                       fontWeight: FontWeight.w800,
                                       color: Colors.white,
                                       letterSpacing: -0.3,
@@ -579,9 +468,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
                         // Hero Glance Box: Hero Metric + Dynamic Visualizer + Description
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isTall ? 18 : 16,
+                            vertical: isTall ? 24 : 14,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF071938).withValues(alpha: 0.45),
@@ -613,8 +502,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                                           dynamicMetric,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 22,
+                                          style: TextStyle(
+                                            fontSize: isTall ? 29 : 22,
                                             fontWeight: FontWeight.w900,
                                             color: Colors.white,
                                             letterSpacing: -0.6,
@@ -652,21 +541,21 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 10),
+                              SizedBox(height: isTall ? 16 : 10),
 
                               // Live Complication Visualizer
                               _buildVisualizerForApp(app),
-                              const SizedBox(height: 10),
+                              SizedBox(height: isTall ? 16 : 10),
 
-                              // App summary description (full 3 lines with high readability)
+                              // App summary description (full 3-4 lines with high readability)
                               Text(
                                 app.description,
                                 style: TextStyle(
-                                  fontSize: 12.5,
-                                  height: 1.42,
+                                  fontSize: isTall ? 14.0 : 12.5,
+                                  height: isTall ? 1.48 : 1.42,
                                   color: Colors.white.withValues(alpha: 0.88),
                                 ),
-                                maxLines: 3,
+                                maxLines: isTall ? 4 : 3,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ],
@@ -676,16 +565,24 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                         // Mini Clinical Stats Row
                         Row(
                           children: [
-                            _buildAppleMiniStat(app.stat1Label, app.stat1Value),
+                            _buildAppleMiniStat(
+                              app.stat1Label,
+                              app.stat1Value,
+                              isTall: isTall,
+                            ),
                             const SizedBox(width: 8),
-                            _buildAppleMiniStat(app.stat2Label, app.stat2Value),
+                            _buildAppleMiniStat(
+                              app.stat2Label,
+                              app.stat2Value,
+                              isTall: isTall,
+                            ),
                           ],
                         ),
 
                         // Apple Watch Pill Action Button
                         Container(
                           width: double.infinity,
-                          height: 44,
+                          height: isTall ? 50 : 44,
                           decoration: BoxDecoration(
                             color: const Color(0xFF1D4ED8).withValues(alpha: 0.38),
                             borderRadius: BorderRadius.circular(22),
@@ -742,10 +639,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           // Independent Floating Circular App Icon (Signature 60fps Design Detail with Pulsating Rhythm)
           Positioned(
             top: -2,
-            left: 20,
+            left: isTall ? 22 : 20,
             child: Container(
-              width: 44,
-              height: 44,
+              width: isTall ? 48 : 44,
+              height: isTall ? 48 : 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: app.accentColor,
@@ -792,10 +689,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   }
 
   // Mini stat pill
-  Widget _buildAppleMiniStat(String label, String value) {
+  Widget _buildAppleMiniStat(String label, String value, {bool isTall = false}) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: EdgeInsets.symmetric(
+          horizontal: isTall ? 12 : 10,
+          vertical: isTall ? 10 : 5,
+        ),
         decoration: BoxDecoration(
           color: const Color(0xFF071938).withValues(alpha: 0.40),
           borderRadius: BorderRadius.circular(10),
@@ -837,8 +737,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
     required Widget child,
     EdgeInsetsGeometry padding = const EdgeInsets.symmetric(horizontal: 10),
   }) {
+    final wellHeight = MediaQuery.sizeOf(context).height >= 700 ? 54.0 : 38.0;
     return Container(
-      height: 34,
+      height: wellHeight,
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
@@ -987,21 +888,26 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   // 4. Vitals History Timeline
   Widget _buildHistoryTimeline(Color accent) {
     return _buildComplicationWell(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(12, (index) {
-          final heights = [14.0, 18.0, 22.0, 16.0, 26.0, 20.0, 28.0, 24.0, 19.0, 22.0, 25.0, 21.0];
-          return Container(
-            width: 8,
-            height: heights[index % heights.length],
-            decoration: BoxDecoration(
-              color: index >= 9 ? accent : accent.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(2),
-            ),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 2),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxBarH = (constraints.maxHeight - 2).clamp(24.0, 52.0);
+          final ratios = [0.45, 0.58, 0.72, 0.52, 0.86, 0.65, 0.94, 0.80, 0.62, 0.72, 0.84, 0.68];
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: List.generate(12, (index) {
+              return Container(
+                width: 8,
+                height: maxBarH * ratios[index % ratios.length],
+                decoration: BoxDecoration(
+                  color: index >= 9 ? accent : accent.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              );
+            }),
           );
-        }),
+        },
       ),
     );
   }
@@ -1141,21 +1047,24 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   // 9. Sleep Stages Bar
   Widget _buildSleepStagesBar(Color accent) {
     return _buildComplicationWell(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         children: [
           Icon(Icons.bedtime_rounded, size: 15, color: accent),
           const SizedBox(width: 8),
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: const Row(
-                children: [
-                  Expanded(flex: 25, child: ColoredBox(color: Color(0xFF4F46E5))),
-                  Expanded(flex: 22, child: ColoredBox(color: Color(0xFF06B6D4))),
-                  Expanded(flex: 45, child: ColoredBox(color: Color(0xFF3B82F6))),
-                  Expanded(flex: 8, child: ColoredBox(color: Color(0xFFF59E0B))),
-                ],
+            child: SizedBox(
+              height: 12,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: const Row(
+                  children: [
+                    Expanded(flex: 25, child: ColoredBox(color: Color(0xFF4F46E5))),
+                    Expanded(flex: 22, child: ColoredBox(color: Color(0xFF06B6D4))),
+                    Expanded(flex: 45, child: ColoredBox(color: Color(0xFF3B82F6))),
+                    Expanded(flex: 8, child: ColoredBox(color: Color(0xFFF59E0B))),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1292,7 +1201,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 1. Wearable Vitals
       _AppModuleItem(
         type: _AppType.vitals,
-        filterGroup: _CarouselFilter.monitoring,
         title: "Wearable Vitals",
         category: "HEALTH MONITORING",
         heroMetric: hrText,
@@ -1313,7 +1221,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 2. Vitals History
       _AppModuleItem(
         type: _AppType.history,
-        filterGroup: _CarouselFilter.monitoring,
         title: "Vitals History",
         category: "HEALTH MONITORING",
         heroMetric: synced ? "$histCount Logs" : "Archive Ready",
@@ -1334,7 +1241,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 3. Health Insights
       _AppModuleItem(
         type: _AppType.insights,
-        filterGroup: _CarouselFilter.monitoring,
         title: "Health Insights",
         category: "HEALTH MONITORING",
         heroMetric: ecgText.toLowerCase().contains('abnormal') ? "Review Needed" : "Optimal Tier",
@@ -1355,7 +1261,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 4. Trend Analysis
       const _AppModuleItem(
         type: _AppType.trends,
-        filterGroup: _CarouselFilter.monitoring,
         title: "Trend Analysis",
         category: "HEALTH MONITORING",
         heroMetric: "±4% Variance",
@@ -1376,7 +1281,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 5. Sleep Analysis (newly exposed in carousel!)
       _AppModuleItem(
         type: _AppType.sleep,
-        filterGroup: _CarouselFilter.monitoring,
         title: "Sleep Analysis",
         category: "HEALTH MONITORING",
         heroMetric: sleepHours != null ? "${sleepHours.toStringAsFixed(1)} hrs" : "7.5 hrs",
@@ -1397,7 +1301,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 6. Medications & Rx
       _AppModuleItem(
         type: _AppType.medications,
-        filterGroup: _CarouselFilter.management,
         title: "Medications & Rx",
         category: "HEALTH MANAGEMENT",
         heroMetric: medsTotal > 0 ? "$medsTaken of $medsTotal Taken" : "No Rx Added",
@@ -1420,7 +1323,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 7. Symptom Logger
       _AppModuleItem(
         type: _AppType.symptoms,
-        filterGroup: _CarouselFilter.management,
         title: "Symptom Logger",
         category: "HEALTH MANAGEMENT",
         heroMetric: symptomsCount > 0 ? "Severity $symptomSeverity/5" : "All Clear",
@@ -1441,7 +1343,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 8. Health Goals
       _AppModuleItem(
         type: _AppType.goals,
-        filterGroup: _CarouselFilter.management,
         title: "Health Goals",
         category: "HEALTH MANAGEMENT",
         heroMetric: "$steps Steps",
@@ -1462,7 +1363,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 9. BMI Calculator
       _AppModuleItem(
         type: _AppType.bmi,
-        filterGroup: _CarouselFilter.management,
         title: "BMI Calculator",
         category: "HEALTH MANAGEMENT",
         heroMetric: bmi != null ? "${bmi.toStringAsFixed(1)} BMI" : "Calculate BMI",
@@ -1483,7 +1383,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 10. Urgent Care Clinic
       _AppModuleItem(
         type: _AppType.urgentCare,
-        filterGroup: _CarouselFilter.clinical,
         title: "Urgent Care Clinic",
         category: "CLINICAL & URGENT",
         heroMetric: queuePos != null ? "#$queuePos in Queue" : "Walk-In Ready",
@@ -1504,7 +1403,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 11. AI Health Assistant
       const _AppModuleItem(
         type: _AppType.clinicChat,
-        filterGroup: _CarouselFilter.clinical,
         title: "AI Health Assistant",
         category: "CLINICAL & URGENT",
         heroMetric: "CTAS Triage",
@@ -1525,7 +1423,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 12. Wearable Devices (newly exposed in carousel!)
       _AppModuleItem(
         type: _AppType.devices,
-        filterGroup: _CarouselFilter.clinical,
         title: "Wearable Devices",
         category: "HARDWARE & SYNC",
         heroMetric: synced ? "Connected" : "Pair Sensor",
@@ -1563,7 +1460,6 @@ enum _AppType {
 
 class _AppModuleItem {
   final _AppType type;
-  final _CarouselFilter filterGroup;
   final String title;
   final String category;
   final String heroMetric;
@@ -1581,7 +1477,6 @@ class _AppModuleItem {
 
   const _AppModuleItem({
     required this.type,
-    required this.filterGroup,
     required this.title,
     required this.category,
     required this.heroMetric,

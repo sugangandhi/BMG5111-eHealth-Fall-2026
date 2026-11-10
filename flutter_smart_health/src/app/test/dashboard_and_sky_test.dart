@@ -101,84 +101,93 @@ void main() {
     expect(summary.latestBmiCategory, 'Normal');
   });
 
-  testWidgets('AppSwitcherCarousel binds live metrics, filters groups, and cycles sky mood', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'AppSwitcherCarousel removes top tag bar, expands card for mobile, binds live metrics, and cycles sky mood',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    var moodCycles = 0;
-    String? openedRoute;
+      var moodCycles = 0;
+      String? openedRoute;
 
-    const summary = DashboardLiveSummary(
-      isLiveSynced: true,
-      heartRateBpm: 72,
-      bloodPressure: '118/76',
-      ecgStatus: 'Sinus Rhythm',
-      vitalsHistoryCount: 15,
-      stepsCount: 9200,
-      caloriesCount: 510,
-      sleepHours: 7.8,
-      medicationsTotal: 3,
-      medicationsTaken: 2,
-      nextMedicationLabel: 'Lisinopril (9:00 PM)',
-      symptomsCount: 1,
-      latestSymptomName: 'Fatigue',
-      latestSymptomSeverity: 2,
-      latestBmi: 22.8,
-      latestBmiCategory: 'Normal',
-    );
+      const summary = DashboardLiveSummary(
+        isLiveSynced: true,
+        heartRateBpm: 72,
+        bloodPressure: '118/76',
+        ecgStatus: 'Sinus Rhythm',
+        vitalsHistoryCount: 15,
+        stepsCount: 9200,
+        caloriesCount: 510,
+        sleepHours: 7.8,
+        medicationsTotal: 3,
+        medicationsTaken: 2,
+        nextMedicationLabel: 'Lisinopril (9:00 PM)',
+        symptomsCount: 1,
+        latestSymptomName: 'Fatigue',
+        latestSymptomSeverity: 2,
+        latestBmi: 22.8,
+        latestBmiCategory: 'Normal',
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Stack(
-            children: [
-              const AtmosphericSkyBackground(mood: SkyMood.daylight),
-              AppSwitcherCarousel(
-                summary: summary,
-                skyMood: SkyMood.daylight,
-                onCycleSkyMood: () => moodCycles++,
-                onSelectApp: (route) => openedRoute = route,
-              ),
-            ],
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                const AtmosphericSkyBackground(mood: SkyMood.daylight),
+                AppSwitcherCarousel(
+                  summary: summary,
+                  skyMood: SkyMood.daylight,
+                  onCycleSkyMood: () => moodCycles++,
+                  onSelectApp: (route) => openedRoute = route,
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(find.text('All (12)'), findsOneWidget);
-    expect(find.text('72 BPM'), findsOneWidget);
-    expect(find.text('118/76'), findsOneWidget);
+      // Category filter name-tag chips are completely removed.
+      expect(find.text('All (12)'), findsNothing);
+      expect(find.text('Management (4)'), findsNothing);
+      expect(find.text('Care & AI (3)'), findsNothing);
+      expect(find.text('Daylight Sky'), findsNothing);
 
-    await tester.ensureVisible(find.text('Management (4)'));
-    await tester.pump();
-    await tester.tap(find.text('Management (4)'));
-    await tester.pump();
-    expect(find.text('Medications & Rx'), findsOneWidget);
-    expect(find.text('2 of 3 Taken'), findsOneWidget);
+      // Card expands cleanly to fill the mobile viewport without overflowing.
+      final cardSize = tester.getSize(
+        find.descendant(
+          of: find.byType(PageView),
+          matching: find.byType(ClipRRect),
+        ).first,
+      );
+      expect(cardSize.height, greaterThan(540));
+      expect(tester.takeException(), isNull);
 
-    await tester.drag(find.byType(ListView).first, const Offset(-260, 0));
-    await tester.pump();
-    await tester.ensureVisible(find.text('Care & AI (3)'));
-    await tester.pump();
-    await tester.tap(find.text('Care & AI (3)'));
-    await tester.pump();
-    expect(find.text('Urgent Care Clinic'), findsOneWidget);
+      // Live summary telemetry renders on the initial card.
+      expect(find.text('Wearable Vitals'), findsOneWidget);
+      expect(find.text('72 BPM'), findsOneWidget);
+      expect(find.text('118/76'), findsOneWidget);
 
-    await tester.tap(find.text('View Clinic Queue'));
-    await tester.pump();
-    expect(openedRoute, '/urgent-care');
+      await tester.tap(find.text('Wearable Vitals'));
+      await tester.pump();
+      expect(openedRoute, isNotNull);
+      expect(openedRoute, isNotEmpty);
 
-    await tester.drag(find.byType(ListView).first, const Offset(-260, 0));
-    await tester.pump();
-    await tester.ensureVisible(find.text('Daylight Sky'));
-    await tester.pump();
-    await tester.tap(find.text('Daylight Sky'));
-    await tester.pump();
-    expect(moodCycles, 1);
-  });
+      // Horizontal swipe advances smoothly to the next module card.
+      await tester.drag(find.byType(PageView), const Offset(-340, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(tester.takeException(), isNull);
+
+      // Compact bottom-right SkyMood toggle cycles atmospheric themes.
+      final skyToggle = find.byTooltip('Daylight Sky');
+      expect(skyToggle, findsOneWidget);
+      await tester.tap(skyToggle);
+      await tester.pump();
+      expect(moodCycles, 1);
+    },
+  );
 }
