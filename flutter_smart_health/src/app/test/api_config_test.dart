@@ -18,4 +18,11 @@ void main() {
       expect(ApiConfig.requireGeminiConfig, returnsNormally);
     }
   });
+
+  test('default native backend URL targets live Render HTTPS service', () {
+    expect(
+      ApiConfig.backendBaseUrl,
+      'https://bmg5111-ehealth-fall-2026-1.onrender.com',
+    );
+  });
 }

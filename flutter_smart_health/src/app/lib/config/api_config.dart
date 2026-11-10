@@ -74,8 +74,8 @@ class ApiConfig {
         return '${uri.scheme}://${uri.host}$portPart';
       }
     }
-    // Default to the Cloudflare live tunnel for universal mobile & APK access
-    return 'https://saskatchewan-honolulu-event-captured.trycloudflare.com';
+    // Default to the deployed Render HTTPS backend for Android/iOS APK & native builds
+    return 'https://bmg5111-ehealth-fall-2026-1.onrender.com';
   }
 
   static String get ehospitalBaseUrl {

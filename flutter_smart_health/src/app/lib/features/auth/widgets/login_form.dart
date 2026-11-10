@@ -454,7 +454,7 @@ class _LoginFormState extends State<LoginForm> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: const Color(0xFF071938),
-                      hintText: 'https://your-service.onrender.com',
+                      hintText: 'https://bmg5111-ehealth-fall-2026-1.onrender.com',
                       hintStyle: const TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: 13,
@@ -539,7 +539,7 @@ class _LoginFormState extends State<LoginForm> {
                     children: [
                       _presetButton(
                         "Render HTTPS",
-                        "https://",
+                        "https://bmg5111-ehealth-fall-2026-1.onrender.com",
                         controller,
                       ),
                       _presetButton(
