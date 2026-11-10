@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:health/health.dart';
 import 'package:smart_health_app/data/models/wearable_models.dart';
 import 'package:smart_health_app/data/repositories/ehospital_repository.dart';
 import 'package:smart_health_app/data/repositories/wearable_ingestion_repository.dart';
@@ -255,6 +256,280 @@ void main() {
       expect(ingestion.samples, isEmpty);
     },
   );
+
+  test(
+    'Android Health Connect reports missing read permissions when requestAuthorization only partially grants',
+    () async {
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {HealthDataType.ACTIVE_ENERGY_BURNED},
+        grantedAfterRequest: {HealthDataType.ACTIVE_ENERGY_BURNED},
+      );
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+        diagnosticsProvider: () async => {
+          'available': true,
+          'missingCorePermissions': ['Steps', 'Heart Rate', 'Sleep'],
+          'records29dCount': 0,
+        },
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isFalse);
+      expect(result.message, contains('missing Health Connect read access'));
+      expect(result.message, contains('Steps'));
+      expect(result.message, contains('Heart Rate'));
+    },
+  );
+
+  test(
+    'Android Health Connect uses earlier-within-24h Samsung Health points when today after midnight is empty',
+    () async {
+      final now = DateTime.now();
+      final pointTime = now.subtract(const Duration(hours: 20));
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.HEART_RATE,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.TOTAL_CALORIES_BURNED,
+          HealthDataType.SLEEP_ASLEEP,
+          HealthDataType.SLEEP_DEEP,
+          HealthDataType.SLEEP_LIGHT,
+          HealthDataType.SLEEP_REM,
+          HealthDataType.SLEEP_SESSION,
+          HealthDataType.RESTING_HEART_RATE,
+        },
+        aggregateStepsToday: 0,
+        points: [
+          HealthDataPoint(
+            uuid: 'sh-1',
+            value: NumericHealthValue(numericValue: 4120),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: pointTime.subtract(const Duration(minutes: 30)),
+            dateTo: pointTime,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'sh-2',
+            value: NumericHealthValue(numericValue: 265),
+            type: HealthDataType.ACTIVE_ENERGY_BURNED,
+            unit: HealthDataUnit.KILOCALORIE,
+            dateFrom: pointTime.subtract(const Duration(minutes: 30)),
+            dateTo: pointTime,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+        ],
+      );
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isTrue);
+      expect(result.sample?.source, WearableSource.samsungHealth);
+      expect(result.sample?.steps, 4120);
+      expect(result.sample?.calories, 265);
+    },
+  );
+
+  test(
+    'Android Health Connect falls back to most recent active day within 29 days when 24h is empty',
+    () async {
+      final now = DateTime.now();
+      final twoDaysAgo = DateTime(now.year, now.month, now.day)
+          .subtract(const Duration(days: 2))
+          .add(const Duration(hours: 14));
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.HEART_RATE,
+          HealthDataType.RESTING_HEART_RATE,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.TOTAL_CALORIES_BURNED,
+          HealthDataType.SLEEP_ASLEEP,
+          HealthDataType.SLEEP_DEEP,
+          HealthDataType.SLEEP_LIGHT,
+          HealthDataType.SLEEP_REM,
+          HealthDataType.SLEEP_SESSION,
+        },
+        aggregateStepsToday: 0,
+        points: [
+          HealthDataPoint(
+            uuid: 'sh-old-1',
+            value: NumericHealthValue(numericValue: 6500),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: twoDaysAgo.subtract(const Duration(hours: 1)),
+            dateTo: twoDaysAgo,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'sh-old-2',
+            value: NumericHealthValue(numericValue: 74),
+            type: HealthDataType.HEART_RATE,
+            unit: HealthDataUnit.BEATS_PER_MINUTE,
+            dateFrom: twoDaysAgo,
+            dateTo: twoDaysAgo,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+        ],
+      );
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isTrue);
+      expect(result.sample?.source, WearableSource.samsungHealth);
+      expect(result.sample?.steps, 6500);
+      expect(result.sample?.heartRate, 74);
+      expect(result.sample?.sourceMetadata['sync_window'], 'latest_within_29d');
+    },
+  );
+
+  test(
+    'Android Health Connect surfaces clear Samsung Allow-to-write diagnosis when granted but 0 records exist',
+    () async {
+      final allCore = {
+        HealthDataType.STEPS,
+        HealthDataType.HEART_RATE,
+        HealthDataType.RESTING_HEART_RATE,
+        HealthDataType.ACTIVE_ENERGY_BURNED,
+        HealthDataType.TOTAL_CALORIES_BURNED,
+        HealthDataType.SLEEP_ASLEEP,
+        HealthDataType.SLEEP_DEEP,
+        HealthDataType.SLEEP_LIGHT,
+        HealthDataType.SLEEP_REM,
+        HealthDataType.SLEEP_SESSION,
+      };
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: allCore,
+        aggregateStepsToday: 0,
+      );
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+        diagnosticsProvider: () async => {
+          'available': true,
+          'missingCorePermissions': const <String>[],
+          'records29dCount': 0,
+          'dataOrigins29d': const <String, int>{},
+        },
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isFalse);
+      expect(result.message, contains('Allow to write'));
+      expect(result.message, contains('Samsung Health'));
+    },
+  );
+}
+
+class _FakeHealth extends Health {
+  _FakeHealth({
+    Set<HealthDataType>? initiallyGranted,
+    Set<HealthDataType>? grantedAfterRequest,
+    List<HealthDataPoint>? points,
+    this.aggregateStepsToday = 0,
+  }) : _granted = Set<HealthDataType>.from(initiallyGranted ?? const {}),
+       _grantedAfterRequest = grantedAfterRequest,
+       _points = points ?? const [];
+
+  final Set<HealthDataType> _granted;
+  final Set<HealthDataType>? _grantedAfterRequest;
+  final List<HealthDataPoint> _points;
+  final int aggregateStepsToday;
+
+  @override
+  Future<void> configure() async {}
+
+  @override
+  Future<HealthConnectSdkStatus?> getHealthConnectSdkStatus() async =>
+      HealthConnectSdkStatus.sdkAvailable;
+
+  @override
+  Future<bool?> hasPermissions(
+    List<HealthDataType> types, {
+    List<HealthDataAccess>? permissions,
+  }) async {
+    return types.every(_granted.contains);
+  }
+
+  @override
+  Future<bool> requestAuthorization(
+    List<HealthDataType> types, {
+    List<HealthDataAccess>? permissions,
+  }) async {
+    final next = _grantedAfterRequest;
+    if (next != null) {
+      _granted.addAll(next);
+    }
+    return _granted.isNotEmpty;
+  }
+
+  @override
+  Future<List<HealthDataPoint>> getHealthDataFromTypes({
+    required List<HealthDataType> types,
+    Map<HealthDataType, HealthDataUnit>? preferredUnits,
+    required DateTime startTime,
+    required DateTime endTime,
+    List<RecordingMethod> recordingMethodsToFilter = const [],
+  }) async {
+    return _points.where((point) {
+      return _granted.contains(point.type) &&
+          types.contains(point.type) &&
+          !point.dateTo.isBefore(startTime) &&
+          !point.dateTo.isAfter(endTime);
+    }).toList();
+  }
+
+  @override
+  List<HealthDataPoint> removeDuplicates(List<HealthDataPoint> points) => points;
+
+  @override
+  Future<int?> getTotalStepsInInterval(
+    DateTime startTime,
+    DateTime endTime, {
+    bool includeManualEntry = true,
+  }) async {
+    return aggregateStepsToday;
+  }
 }
 
 class _FakeIngestionClient implements WearableIngestionClient {

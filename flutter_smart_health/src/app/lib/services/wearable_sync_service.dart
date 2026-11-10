@@ -7,6 +7,7 @@ import '../data/models/wearable_models.dart';
 import '../data/repositories/ehospital_repository.dart';
 import '../data/repositories/wearable_ingestion_repository.dart';
 import 'fitbit_service.dart';
+import 'mobile_health_registry_service.dart';
 
 abstract class WearablePlatformSyncService {
   String get source;
@@ -196,16 +197,22 @@ class WearableSyncService {
       final via = apps is List && apps.isNotEmpty
           ? ' via ${apps.join(", ")}'
           : '';
+      final syncWindow = s.sourceMetadata['sync_window']?.toString();
+      final isFallbackWindow =
+          syncWindow == 'latest_within_29d' || syncWindow == 'last_24h_previous_day';
+      final dayStr = s.timestamp.toLocal().toIso8601String().split('T').first;
+      final stepsLabel = isFallbackWindow ? 'steps' : 'today steps';
       final details = <String>[
-        if (s.steps != null) '${s.steps!.round()} today steps',
+        if (s.steps != null) '${s.steps!.round()} $stepsLabel',
         if (s.heartRate != null) '${s.heartRate!.round()} bpm HR',
         if (s.calories != null) '${s.calories!.round()} kcal',
         if (s.sleep != null) '${s.sleep!.toStringAsFixed(1)}h sleep',
       ].join(', ');
+      final dateSuffix = isFallbackWindow ? ' (latest recorded $dayStr)' : '';
       return WearableSyncResult.success(
         source: s.source,
         ingestions: [ingestion],
-        message: 'Synced $label telemetry$via ($details) into EHR.',
+        message: 'Synced $label telemetry$via ($details)$dateSuffix into EHR.',
       );
     }
     return syncFromGoogleHealth(patientId: patientId);
@@ -489,8 +496,22 @@ class AppleHealthSyncService
 class GoogleHealthSyncService
     implements WearablePlatformSyncService, WearablePlatformWorkoutSyncService {
   final Health _health;
+  final Future<Map<String, dynamic>?> Function()? _diagnosticsProvider;
+  final bool? _isWebOverride;
+  final TargetPlatform? _platformOverride;
 
-  GoogleHealthSyncService({Health? health}) : _health = health ?? Health();
+  GoogleHealthSyncService({
+    Health? health,
+    Future<Map<String, dynamic>?> Function()? diagnosticsProvider,
+    bool? isWebOverride,
+    TargetPlatform? platformOverride,
+  }) : _health = health ?? Health(),
+       _diagnosticsProvider = diagnosticsProvider,
+       _isWebOverride = isWebOverride,
+       _platformOverride = platformOverride;
+
+  bool get _isWeb => _isWebOverride ?? kIsWeb;
+  TargetPlatform get _platform => _platformOverride ?? defaultTargetPlatform;
 
   @override
   String get source => WearableSource.googleHealth;
@@ -500,7 +521,7 @@ class GoogleHealthSyncService
     required String patientId,
     String? preferredSourceKey,
   }) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (_isWeb || _platform != TargetPlatform.android) {
       return WearableSourceReadResult.failure(
         source: preferredSourceKey ?? source,
         message: 'Health Connect sync is only available on Android devices.',
@@ -539,6 +560,13 @@ class GoogleHealthSyncService
       source: preferredSourceKey ?? source,
       preferredSourceKey: preferredSourceKey,
       isAndroid: true,
+      diagnosticsProvider:
+          _diagnosticsProvider ??
+          () => MobileHealthRegistryService(
+                isWebOverride: _isWebOverride,
+                platformOverride: _platformOverride,
+                health: _health,
+              ).diagnoseHealthConnect(),
       unavailableMessage:
           'No $targetName data found in Health Connect for the last 24 hours. Make sure sharing is enabled in $targetName settings -> Health Connect.',
     );
@@ -548,7 +576,7 @@ class GoogleHealthSyncService
   Future<WearableWorkoutReadResult> readRecentWorkouts({
     required String patientId,
   }) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (_isWeb || _platform != TargetPlatform.android) {
       return WearableWorkoutReadResult.failure(
         source: source,
         message:
@@ -565,75 +593,152 @@ class GoogleHealthSyncService
   }
 }
 
-Future<WearableSourceReadResult> _readHealthSample({
-  required Health health,
-  required String patientId,
-  required String source,
-  String? preferredSourceKey,
-  bool isAndroid = false,
-  required String unavailableMessage,
-}) async {
-  await health.configure();
+const _androidVitalTypes = <HealthDataType>[
+  HealthDataType.STEPS,
+  HealthDataType.HEART_RATE,
+  HealthDataType.RESTING_HEART_RATE,
+  HealthDataType.ACTIVE_ENERGY_BURNED,
+  HealthDataType.TOTAL_CALORIES_BURNED,
+  HealthDataType.SLEEP_ASLEEP,
+  HealthDataType.SLEEP_DEEP,
+  HealthDataType.SLEEP_LIGHT,
+  HealthDataType.SLEEP_REM,
+  HealthDataType.SLEEP_SESSION,
+];
 
-  final types = isAndroid
-      ? const [
-          HealthDataType.STEPS,
-          HealthDataType.HEART_RATE,
-          HealthDataType.ACTIVE_ENERGY_BURNED,
-          HealthDataType.TOTAL_CALORIES_BURNED,
-          HealthDataType.SLEEP_ASLEEP,
-          HealthDataType.SLEEP_DEEP,
-          HealthDataType.SLEEP_LIGHT,
-          HealthDataType.SLEEP_REM,
-          HealthDataType.SLEEP_SESSION,
-        ]
-      : const [
-          HealthDataType.STEPS,
-          HealthDataType.HEART_RATE,
-          HealthDataType.ACTIVE_ENERGY_BURNED,
-          HealthDataType.SLEEP_ASLEEP,
-          HealthDataType.SLEEP_DEEP,
-          HealthDataType.SLEEP_LIGHT,
-          HealthDataType.SLEEP_REM,
-        ];
-  final permissions = types.map((_) => HealthDataAccess.READ).toList();
-  final granted = await health.requestAuthorization(
-    types,
-    permissions: permissions,
-  );
-  if (!granted) {
-    return WearableSourceReadResult.failure(
-      source: source,
-      message: 'Health permission was denied.',
+const _iosVitalTypes = <HealthDataType>[
+  HealthDataType.STEPS,
+  HealthDataType.HEART_RATE,
+  HealthDataType.RESTING_HEART_RATE,
+  HealthDataType.ACTIVE_ENERGY_BURNED,
+  HealthDataType.SLEEP_ASLEEP,
+  HealthDataType.SLEEP_DEEP,
+  HealthDataType.SLEEP_LIGHT,
+  HealthDataType.SLEEP_REM,
+];
+
+const _healthPermissionLabels = <HealthDataType, String>{
+  HealthDataType.STEPS: 'Steps',
+  HealthDataType.HEART_RATE: 'Heart Rate',
+  HealthDataType.RESTING_HEART_RATE: 'Heart Rate',
+  HealthDataType.ACTIVE_ENERGY_BURNED: 'Active Calories',
+  HealthDataType.TOTAL_CALORIES_BURNED: 'Total Calories',
+  HealthDataType.SLEEP_ASLEEP: 'Sleep',
+  HealthDataType.SLEEP_DEEP: 'Sleep',
+  HealthDataType.SLEEP_LIGHT: 'Sleep',
+  HealthDataType.SLEEP_REM: 'Sleep',
+  HealthDataType.SLEEP_SESSION: 'Sleep',
+};
+
+class _HealthReadPermissionStatus {
+  final List<HealthDataType> grantedTypes;
+  final List<String> missingCoreLabels;
+
+  const _HealthReadPermissionStatus({
+    required this.grantedTypes,
+    required this.missingCoreLabels,
+  });
+}
+
+Future<_HealthReadPermissionStatus> _requestAndVerifyReadPermissions({
+  required Health health,
+  required List<HealthDataType> types,
+  required bool isAndroid,
+}) async {
+  if (!isAndroid) {
+    final permissions = types.map((_) => HealthDataAccess.READ).toList();
+    final granted = await health.requestAuthorization(
+      types,
+      permissions: permissions,
+    );
+    return _HealthReadPermissionStatus(
+      grantedTypes: granted ? types : const [],
+      missingCoreLabels: granted ? const [] : const ['Health Data'],
     );
   }
 
-  final now = DateTime.now();
-  final startOfToday = DateTime(now.year, now.month, now.day);
-  final since = now.subtract(const Duration(hours: 24));
-  final dataPoints = await health.getHealthDataFromTypes(
-    startTime: since,
-    endTime: now,
-    types: types,
-  );
-  final unique = health.removeDuplicates(dataPoints);
+  Future<List<HealthDataType>?> probeGranted() async {
+    final granted = <HealthDataType>[];
+    var sawNull = false;
+    for (final type in types) {
+      bool? hasPerm;
+      try {
+        hasPerm = await health.hasPermissions(
+          [type],
+          permissions: const [HealthDataAccess.READ],
+        );
+      } catch (_) {
+        hasPerm = null;
+      }
+      if (hasPerm == null) {
+        sawNull = true;
+      } else if (hasPerm) {
+        granted.add(type);
+      }
+    }
+    return sawNull && granted.isEmpty ? null : granted;
+  }
 
-  int? aggregateStepsToday;
-  try {
-    aggregateStepsToday = await health.getTotalStepsInInterval(
-      startOfToday,
-      now,
+  final initialGranted = await probeGranted();
+  final typesToRequest = initialGranted == null
+      ? types
+      : types.where((t) => !initialGranted.contains(t)).toList();
+
+  var authGranted = initialGranted != null && typesToRequest.isEmpty;
+  if (typesToRequest.isNotEmpty) {
+    authGranted = await health.requestAuthorization(
+      typesToRequest,
+      permissions: typesToRequest.map((_) => HealthDataAccess.READ).toList(),
     );
-  } catch (_) {}
+  }
 
-  // Discover all contributing health apps in this fetch.
+  final verifiedGranted = await probeGranted();
+  final resolvedGranted =
+      verifiedGranted ?? (authGranted ? types : const <HealthDataType>[]);
+
+  final missingLabels = <String>{};
+  for (final type in types) {
+    if (!resolvedGranted.contains(type)) {
+      final label = _healthPermissionLabels[type];
+      if (label != null) missingLabels.add(label);
+    }
+  }
+
+  return _HealthReadPermissionStatus(
+    grantedTypes: resolvedGranted,
+    missingCoreLabels: missingLabels.toList(),
+  );
+}
+
+class _SourceSelection {
+  final List<HealthDataPoint> points;
+  final List<String> contributingLabels;
+  final List<String> contributingSourceKeys;
+  final String resolvedSource;
+  final bool filteredByApp;
+
+  const _SourceSelection({
+    required this.points,
+    required this.contributingLabels,
+    required this.contributingSourceKeys,
+    required this.resolvedSource,
+    required this.filteredByApp,
+  });
+}
+
+_SourceSelection _resolveSourceSelection(
+  List<HealthDataPoint> points, {
+  required String fallbackSource,
+  String? preferredSourceKey,
+}) {
   final contributingLabels = <String>{};
   final contributingSourceKeys = <String>{};
   final sourcePointCounts = <String, int>{};
-  for (final point in unique) {
+
+  for (final point in points) {
     final key = WearableSource.fromSourceIdentifier(
       '${point.sourceId} ${point.sourceName}',
-      fallback: source,
+      fallback: fallbackSource,
     );
     contributingSourceKeys.add(key);
     sourcePointCounts[key] = (sourcePointCounts[key] ?? 0) + 1;
@@ -643,49 +748,126 @@ Future<WearableSourceReadResult> _readHealthSample({
     contributingLabels.add(label);
   }
 
-  // If user specifically requested a health app (e.g. Google Fit or Samsung Health)
-  // and it has points in Health Connect, filter to that app's points.
   final filteredByApp =
       preferredSourceKey != null &&
-          contributingSourceKeys.contains(preferredSourceKey);
+      contributingSourceKeys.contains(preferredSourceKey);
   final selectedPoints = filteredByApp
-      ? unique.where((point) {
+      ? points.where((point) {
           final key = WearableSource.fromSourceIdentifier(
             '${point.sourceId} ${point.sourceName}',
-            fallback: source,
+            fallback: fallbackSource,
           );
           return key == preferredSourceKey;
         }).toList()
-      : unique;
+      : points;
 
-  int rawTodaySteps = 0;
-  double totalHeartRate = 0;
-  int heartRateCount = 0;
-  double activeCalories = 0;
-  double totalCalories = 0;
-  double sleepAsleepMinutes = 0;
-  double sleepStageMinutes = 0;
-  double sleepSessionMinutes = 0;
+  var resolvedSource = fallbackSource;
+  if (preferredSourceKey != null &&
+      contributingSourceKeys.contains(preferredSourceKey)) {
+    resolvedSource = preferredSourceKey;
+  } else if (sourcePointCounts.isNotEmpty) {
+    final sorted = sourcePointCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    resolvedSource = sorted.first.key;
+  }
 
-  for (final point in selectedPoints) {
+  return _SourceSelection(
+    points: selectedPoints,
+    contributingLabels: contributingLabels.toList(),
+    contributingSourceKeys: contributingSourceKeys.toList(),
+    resolvedSource: resolvedSource,
+    filteredByApp: filteredByApp,
+  );
+}
+
+class _MetricsSummary {
+  final int steps;
+  final int averageHeartRate;
+  final double effectiveCalories;
+  final double sleepHours;
+  final bool useAggregateSteps;
+  final DateTime? latestPointTimestamp;
+
+  const _MetricsSummary({
+    required this.steps,
+    required this.averageHeartRate,
+    required this.effectiveCalories,
+    required this.sleepHours,
+    required this.useAggregateSteps,
+    this.latestPointTimestamp,
+  });
+
+  bool get hasAnyMetric =>
+      steps > 0 ||
+      averageHeartRate > 0 ||
+      effectiveCalories > 0 ||
+      sleepHours > 0;
+}
+
+_MetricsSummary _summarizeHealthPoints({
+  required List<HealthDataPoint> points,
+  required DateTime windowStart,
+  DateTime? windowEnd,
+  int? aggregateSteps,
+  required bool allowAggregateSteps,
+  required bool filterStepsCaloriesToWindow,
+}) {
+  var rawSteps = 0;
+  var workoutSteps = 0;
+  var totalHeartRate = 0.0;
+  var heartRateCount = 0;
+  var restingHeartRateTotal = 0.0;
+  var restingHeartRateCount = 0;
+  var activeCalories = 0.0;
+  var totalCalories = 0.0;
+  var workoutCalories = 0.0;
+  var sleepAsleepMinutes = 0.0;
+  var sleepStageMinutes = 0.0;
+  var sleepSessionMinutes = 0.0;
+  DateTime? latestTs;
+
+  for (final point in points) {
+    final endLocal = point.dateTo.toLocal();
+    if (latestTs == null || endLocal.isAfter(latestTs)) {
+      latestTs = endLocal;
+    }
+
+    final inStepCalorieWindow =
+        !filterStepsCaloriesToWindow ||
+        (!endLocal.isBefore(windowStart) &&
+            (windowEnd == null || !endLocal.isAfter(windowEnd)));
+
     final value = point.value;
     final numVal = value is NumericHealthValue ? value.numericValue.toDouble() : null;
-    final isToday = !point.dateTo.isBefore(startOfToday);
     switch (point.type) {
       case HealthDataType.STEPS:
-        if (isToday && numVal != null) rawTodaySteps += numVal.round();
+        if (inStepCalorieWindow && numVal != null) rawSteps += numVal.round();
         break;
       case HealthDataType.HEART_RATE:
-        if (numVal != null) {
+        if (inStepCalorieWindow && numVal != null) {
           totalHeartRate += numVal;
           heartRateCount++;
         }
         break;
+      case HealthDataType.RESTING_HEART_RATE:
+        if (inStepCalorieWindow && numVal != null) {
+          restingHeartRateTotal += numVal;
+          restingHeartRateCount++;
+        }
+        break;
       case HealthDataType.ACTIVE_ENERGY_BURNED:
-        if (isToday && numVal != null) activeCalories += numVal;
+        if (inStepCalorieWindow && numVal != null) activeCalories += numVal;
         break;
       case HealthDataType.TOTAL_CALORIES_BURNED:
-        if (isToday && numVal != null) totalCalories += numVal;
+        if (inStepCalorieWindow && numVal != null) totalCalories += numVal;
+        break;
+      case HealthDataType.WORKOUT:
+        if (inStepCalorieWindow && value is WorkoutHealthValue) {
+          if ((value.totalSteps ?? 0) > 0) workoutSteps += value.totalSteps!;
+          if ((value.totalEnergyBurned ?? 0) > 0) {
+            workoutCalories += value.totalEnergyBurned!.toDouble();
+          }
+        }
         break;
       case HealthDataType.SLEEP_ASLEEP:
         sleepAsleepMinutes +=
@@ -707,57 +889,306 @@ Future<WearableSourceReadResult> _readHealthSample({
   }
 
   final useAggregateSteps =
-      aggregateStepsToday != null &&
-      (!filteredByApp || contributingSourceKeys.length <= 1);
-  final steps = useAggregateSteps ? aggregateStepsToday : rawTodaySteps;
+      aggregateSteps != null &&
+      aggregateSteps > 0 &&
+      allowAggregateSteps;
+  final resolvedSteps = useAggregateSteps
+      ? aggregateSteps
+      : (rawSteps > 0 ? rawSteps : workoutSteps);
 
-  final effectiveCalories =
-      activeCalories > 0 ? activeCalories : totalCalories;
+  final effectiveCalories = activeCalories > 0
+      ? activeCalories
+      : (totalCalories > 0 ? totalCalories : workoutCalories);
   final effectiveSleepMinutes = sleepStageMinutes > 0
       ? sleepStageMinutes
       : (sleepAsleepMinutes > 0 ? sleepAsleepMinutes : sleepSessionMinutes);
-
   final averageHeartRate = heartRateCount > 0
       ? (totalHeartRate / heartRateCount).round()
-      : 0;
-  final sleepHours = effectiveSleepMinutes / 60.0;
-  if (steps == 0 &&
-      averageHeartRate == 0 &&
-      effectiveCalories == 0 &&
-      sleepHours == 0) {
+      : (restingHeartRateCount > 0
+            ? (restingHeartRateTotal / restingHeartRateCount).round()
+            : 0);
+
+  return _MetricsSummary(
+    steps: resolvedSteps,
+    averageHeartRate: averageHeartRate,
+    effectiveCalories: effectiveCalories,
+    sleepHours: effectiveSleepMinutes / 60.0,
+    useAggregateSteps: useAggregateSteps,
+    latestPointTimestamp: latestTs,
+  );
+}
+
+@visibleForTesting
+String buildHealthConnectDiagnosticMessage({
+  required String targetName,
+  required List<String> missingCoreLabels,
+  Map<String, dynamic>? nativeDiagnostics,
+  required String fallbackMessage,
+}) {
+  final nativeMissing =
+      (nativeDiagnostics?['missingCorePermissions'] as List?)
+          ?.map((e) => e.toString())
+          .where((e) => e.isNotEmpty)
+          .toList() ??
+      const <String>[];
+  final missing = <String>{...missingCoreLabels, ...nativeMissing}.toList();
+  if (missing.isNotEmpty) {
+    return 'eHospital is missing Health Connect read access for: ${missing.join(', ')}. Tap "Permissions" above -> eHospital -> Allow all, then tap Sync again.';
+  }
+
+  if (nativeDiagnostics == null || nativeDiagnostics['available'] == false) {
+    return fallbackMessage;
+  }
+
+  final originLabelsRaw = nativeDiagnostics['originLabels'];
+  final origins29dRaw = nativeDiagnostics['dataOrigins29d'];
+  final records29d =
+      (nativeDiagnostics['records29dCount'] as num?)?.toInt() ?? 0;
+
+  if (origins29dRaw is Map && origins29dRaw.isNotEmpty) {
+    final labels = <String>[];
+    for (final entry in origins29dRaw.entries) {
+      final pkg = entry.key.toString();
+      final label = originLabelsRaw is Map && originLabelsRaw[pkg] != null
+          ? originLabelsRaw[pkg].toString()
+          : WearableSource.labelFor(
+              WearableSource.fromSourceIdentifier(pkg),
+            );
+      labels.add('$label (${entry.value})');
+    }
+    return 'eHospital has Health Connect permissions and found records from ${labels.join(', ')} in the last 29 days, but no readable vitals matched $targetName. Check $targetName -> Settings -> Health Connect -> Permissions and ensure "Allow to write" is ON.';
+  }
+
+  if (records29d == 0) {
+    return 'eHospital has Health Connect read permissions, but Health Connect currently holds 0 records from $targetName in the last 29 days. In $targetName -> Settings -> Health Connect -> Permissions -> $targetName, enable "Allow to write", then open $targetName Home once to push your latest steps/vitals before tapping Sync here.';
+  }
+
+  return fallbackMessage;
+}
+
+Future<WearableSourceReadResult> _readHealthSample({
+  required Health health,
+  required String patientId,
+  required String source,
+  String? preferredSourceKey,
+  bool isAndroid = false,
+  Future<Map<String, dynamic>?> Function()? diagnosticsProvider,
+  required String unavailableMessage,
+}) async {
+  await health.configure();
+
+  final types = isAndroid ? _androidVitalTypes : _iosVitalTypes;
+  final permStatus = await _requestAndVerifyReadPermissions(
+    health: health,
+    types: types,
+    isAndroid: isAndroid,
+  );
+  if (permStatus.grantedTypes.isEmpty) {
+    final missingText = permStatus.missingCoreLabels.isEmpty
+        ? 'health vitals'
+        : permStatus.missingCoreLabels.join(', ');
     return WearableSourceReadResult.failure(
       source: source,
-      message: unavailableMessage,
+      message: isAndroid
+          ? 'Health Connect read permission is required for: $missingText. Tap "Permissions" above -> eHospital -> Allow all.'
+          : 'Health permission was denied.',
     );
   }
 
-  // Pick resolved canonical source from actual dominant contributing app.
-  var resolvedSource = source;
-  if (preferredSourceKey != null &&
-      contributingSourceKeys.contains(preferredSourceKey)) {
-    resolvedSource = preferredSourceKey;
-  } else if (sourcePointCounts.isNotEmpty) {
-    final sorted = sourcePointCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    resolvedSource = sorted.first.key;
+  final targetName = preferredSourceKey != null
+      ? WearableSource.labelFor(preferredSourceKey)
+      : 'Health Connect';
+
+  final now = DateTime.now();
+  final startOfToday = DateTime(now.year, now.month, now.day);
+  final since24h = now.subtract(const Duration(hours: 24));
+  final points24h = health.removeDuplicates(
+    await health.getHealthDataFromTypes(
+      startTime: since24h,
+      endTime: now,
+      types: permStatus.grantedTypes,
+    ),
+  );
+
+  final stepsGranted = permStatus.grantedTypes.contains(HealthDataType.STEPS);
+  int? aggregateStepsToday;
+  if (stepsGranted) {
+    try {
+      aggregateStepsToday = await health.getTotalStepsInInterval(
+        startOfToday,
+        now,
+      );
+    } catch (_) {}
+  }
+
+  var selection = _resolveSourceSelection(
+    points24h,
+    fallbackSource: source,
+    preferredSourceKey: preferredSourceKey,
+  );
+  var allowAggregate =
+      !selection.filteredByApp || selection.contributingSourceKeys.length <= 1;
+  var summary = _summarizeHealthPoints(
+    points: selection.points,
+    windowStart: startOfToday,
+    aggregateSteps: aggregateStepsToday,
+    allowAggregateSteps: allowAggregate,
+    filterStepsCaloriesToWindow: true,
+  );
+  var syncWindow = 'last_24h';
+  var sampleTimestamp = now;
+
+  // Fallback 1: check earlier-within-24h points (e.g., yesterday evening before midnight)
+  if (!summary.hasAnyMetric && selection.points.isNotEmpty) {
+    final prevDaySummary = _summarizeHealthPoints(
+      points: selection.points,
+      windowStart: since24h,
+      aggregateSteps: aggregateStepsToday,
+      allowAggregateSteps: allowAggregate,
+      filterStepsCaloriesToWindow: false,
+    );
+    if (prevDaySummary.hasAnyMetric) {
+      summary = prevDaySummary;
+      syncWindow = 'last_24h_previous_day';
+      sampleTimestamp = prevDaySummary.latestPointTimestamp ?? now;
+    }
+  }
+
+  // Fallback 2: widen lookback to the last 29 days (safe within Health Connect's 30-day window)
+  if (!summary.hasAnyMetric) {
+    final since29d = now.subtract(const Duration(days: 29));
+    var points29d = health.removeDuplicates(
+      await health.getHealthDataFromTypes(
+        startTime: since29d,
+        endTime: now,
+        types: permStatus.grantedTypes,
+      ),
+    );
+
+    if (points29d.isEmpty && isAndroid) {
+      try {
+        final workoutAllowed =
+            await health.hasPermissions(
+              const [HealthDataType.WORKOUT],
+              permissions: const [HealthDataAccess.READ],
+            ) ??
+            false;
+        if (workoutAllowed) {
+          points29d = health.removeDuplicates(
+            await health.getHealthDataFromTypes(
+              startTime: since29d,
+              endTime: now,
+              types: const [HealthDataType.WORKOUT],
+            ),
+          );
+        }
+      } catch (_) {}
+    }
+
+    if (points29d.isNotEmpty) {
+      selection = _resolveSourceSelection(
+        points29d,
+        fallbackSource: source,
+        preferredSourceKey: preferredSourceKey,
+      );
+      allowAggregate =
+          !selection.filteredByApp ||
+          selection.contributingSourceKeys.length <= 1;
+
+      DateTime? latestPointEnd;
+      for (final point in selection.points) {
+        final endLocal = point.dateTo.toLocal();
+        if (latestPointEnd == null || endLocal.isAfter(latestPointEnd)) {
+          latestPointEnd = endLocal;
+        }
+      }
+      if (latestPointEnd != null) {
+        final dayStart = DateTime(
+          latestPointEnd.year,
+          latestPointEnd.month,
+          latestPointEnd.day,
+        );
+        final dayEnd = dayStart.add(const Duration(days: 1));
+        int? dayAggSteps;
+        if (stepsGranted && allowAggregate) {
+          try {
+            dayAggSteps = await health.getTotalStepsInInterval(
+              dayStart,
+              dayEnd.isAfter(now) ? now : dayEnd,
+            );
+          } catch (_) {}
+        }
+        final daySleepStart = dayStart.subtract(const Duration(hours: 12));
+        final dayPoints = selection.points.where((point) {
+          final endLocal = point.dateTo.toLocal();
+          final isSleep =
+              point.type == HealthDataType.SLEEP_ASLEEP ||
+              point.type == HealthDataType.SLEEP_DEEP ||
+              point.type == HealthDataType.SLEEP_LIGHT ||
+              point.type == HealthDataType.SLEEP_REM ||
+              point.type == HealthDataType.SLEEP_SESSION;
+          final lowerBound = isSleep ? daySleepStart : dayStart;
+          return !endLocal.isBefore(lowerBound) && !endLocal.isAfter(dayEnd);
+        }).toList();
+
+        final fallbackSummary = _summarizeHealthPoints(
+          points: dayPoints,
+          windowStart: dayStart,
+          windowEnd: dayEnd,
+          aggregateSteps: dayAggSteps,
+          allowAggregateSteps: allowAggregate,
+          filterStepsCaloriesToWindow: true,
+        );
+        if (fallbackSummary.hasAnyMetric) {
+          summary = fallbackSummary;
+          syncWindow = 'latest_within_29d';
+          sampleTimestamp = fallbackSummary.latestPointTimestamp ?? latestPointEnd;
+        }
+      }
+    }
+  }
+
+  if (!summary.hasAnyMetric) {
+    Map<String, dynamic>? diagnostics;
+    if (isAndroid && diagnosticsProvider != null) {
+      try {
+        diagnostics = await diagnosticsProvider();
+      } catch (_) {}
+    }
+    return WearableSourceReadResult.failure(
+      source: source,
+      message: isAndroid
+          ? buildHealthConnectDiagnosticMessage(
+              targetName: targetName,
+              missingCoreLabels: permStatus.missingCoreLabels,
+              nativeDiagnostics: diagnostics,
+              fallbackMessage: unavailableMessage,
+            )
+          : unavailableMessage,
+    );
   }
 
   return WearableSourceReadResult.success(
     WearableSample(
       patientId: patientId,
-      heartRate: averageHeartRate > 0 ? averageHeartRate.toDouble() : null,
-      steps: steps > 0 ? steps.toDouble() : null,
-      calories: effectiveCalories > 0 ? effectiveCalories.roundToDouble() : null,
-      sleep: sleepHours > 0
-          ? double.parse(sleepHours.toStringAsFixed(2))
+      heartRate: summary.averageHeartRate > 0
+          ? summary.averageHeartRate.toDouble()
           : null,
-      timestamp: now,
-      source: resolvedSource,
+      steps: summary.steps > 0 ? summary.steps.toDouble() : null,
+      calories: summary.effectiveCalories > 0
+          ? summary.effectiveCalories.roundToDouble()
+          : null,
+      sleep: summary.sleepHours > 0
+          ? double.parse(summary.sleepHours.toStringAsFixed(2))
+          : null,
+      timestamp: sampleTimestamp,
+      source: selection.resolvedSource,
       sourceMetadata: {
-        'contributing_apps': contributingLabels.toList(),
-        'detected_sources': contributingSourceKeys.toList(),
+        'contributing_apps': selection.contributingLabels,
+        'detected_sources': selection.contributingSourceKeys,
+        'sync_window': syncWindow,
         'steps_method':
-            useAggregateSteps ? 'os_aggregate_today' : 'filtered_today_points',
+            summary.useAggregateSteps ? 'os_aggregate_today' : 'filtered_today_points',
         'platform': isAndroid ? 'android_health_connect' : 'ios_healthkit',
       },
     ),

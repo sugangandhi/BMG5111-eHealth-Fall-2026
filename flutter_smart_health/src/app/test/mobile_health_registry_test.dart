@@ -242,4 +242,55 @@ void main() {
     expect(find.text('Upload File'), findsOneWidget);
     expect(find.text('FILE / APK'), findsOneWidget);
   });
+
+  testWidgets('DetectedHealthAppsPanel shows Open Health Connect Permissions button on Android errors', (
+    tester,
+  ) async {
+    var openSettingsTapped = false;
+    const samsung = DetectedHealthApp(
+      id: 'samsung_health',
+      sourceKey: WearableSource.samsungHealth,
+      name: 'Samsung Health',
+      packageName: 'com.sec.android.app.shealth',
+      installed: true,
+      connected: false,
+      supportsHealthConnect: true,
+      statusNote: 'Detected on phone • Health Connect ready',
+    );
+    const snapshot = MobileHealthScanSnapshot(
+      apps: [samsung],
+      isWebMode: false,
+      targetPlatform: TargetPlatform.android,
+      healthConnectStatus: HealthConnectSdkStatus.sdkAvailable,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: DetectedHealthAppsPanel(
+              snapshot: snapshot,
+              loading: false,
+              busy: false,
+              activeSyncSource: null,
+              lastActionMessage: 'eHospital is missing Health Connect read access for: Steps.',
+              lastActionError: true,
+              onRefreshScan: () {},
+              onSyncApp: (_) {},
+              onOpenApp: (_) {},
+              onOpenHealthConnectSettings: () => openSettingsTapped = true,
+              onConnectFitbit: () {},
+              onImportExportFile: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Open Health Connect Permissions'), findsOneWidget);
+    await tester.tap(find.text('Open Health Connect Permissions'));
+    await tester.pump();
+    expect(openSettingsTapped, isTrue);
+  });
 }

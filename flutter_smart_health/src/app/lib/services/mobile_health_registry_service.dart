@@ -115,13 +115,29 @@ class MobileHealthRegistryService {
     );
   }
 
-  Future<bool> openHealthConnectSettings() async {
+  Future<bool> openHealthConnectSettings({String? packageName}) async {
     if (_isWeb || _platform != TargetPlatform.android) return false;
     try {
-      return (await _channel.invokeMethod<bool>('openHealthConnectSettings')) ??
+      return (await _channel.invokeMethod<bool>(
+            'openHealthConnectSettings',
+            packageName == null ? null : {'packageName': packageName},
+          )) ??
           false;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> diagnoseHealthConnect() async {
+    if (_isWeb || _platform != TargetPlatform.android) return null;
+    try {
+      final raw = await _channel.invokeMethod<dynamic>('diagnoseHealthConnect');
+      if (raw is Map) {
+        return raw.map((k, v) => MapEntry(k.toString(), v));
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 

@@ -64,7 +64,12 @@ class WearableSource {
   /// Resolves an OS package ID or bundle identifier into a canonical provider key.
   static String fromSourceIdentifier(String sourceId, {String fallback = healthConnect}) {
     final lower = sourceId.toLowerCase();
-    if (lower.contains('shealth') || lower.contains('samsung')) return samsungHealth;
+    if (lower.contains('shealth') ||
+        lower.contains('samsung') ||
+        lower.contains('sec.android') ||
+        lower.contains('galaxy')) {
+      return samsungHealth;
+    }
     if (lower.contains('apple') || lower.contains('com.apple')) return appleHealth;
     if (lower.contains('fitbit')) return fitbit;
     if (lower.contains('garmin')) return garmin;

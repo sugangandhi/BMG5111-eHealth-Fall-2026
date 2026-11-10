@@ -102,6 +102,12 @@ class DetectedHealthAppsPanel extends StatelessWidget {
             _StatusFeedbackPill(
               message: lastActionMessage!,
               isError: lastActionError,
+              onAction: lastActionError &&
+                      !(snap?.isWebMode ?? true) &&
+                      snap?.targetPlatform == TargetPlatform.android
+                  ? onOpenHealthConnectSettings
+                  : null,
+              actionLabel: 'Open Health Connect Permissions',
             ),
           ],
           const SizedBox(height: 12),
@@ -250,7 +256,7 @@ class DetectedHealthAppsPanel extends StatelessWidget {
             Expanded(
               child: Text(
                 available
-                    ? 'Health Connect is active. Link Samsung Health / Google Fit in Health Connect settings, then tap Sync.'
+                    ? 'Health Connect is active. Allow eHospital to read data and enable "Allow to write" in Samsung Health / your health app, then tap Sync.'
                     : 'Health Connect needs setup or update on this phone to read Samsung Health automatically.',
                 style: TextStyle(
                   fontSize: 11.5,
@@ -545,10 +551,14 @@ class _DetectedAppTile extends StatelessWidget {
 class _StatusFeedbackPill extends StatelessWidget {
   final String message;
   final bool isError;
+  final VoidCallback? onAction;
+  final String? actionLabel;
 
   const _StatusFeedbackPill({
     required this.message,
     required this.isError,
+    this.onAction,
+    this.actionLabel,
   });
 
   @override
@@ -558,21 +568,57 @@ class _StatusFeedbackPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: DeviceStyles.syncResultDecorationColor(color),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            isError ? Icons.info_outline_rounded : Icons.check_circle_outline,
-            size: 16,
-            color: color,
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              isError ? Icons.info_outline_rounded : Icons.check_circle_outline,
+              size: 16,
+              color: color,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+                if (onAction != null && actionLabel != null) ...[
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: onAction,
+                    style: TextButton.styleFrom(
+                      foregroundColor: color,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      backgroundColor: color.withValues(alpha: 0.10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadii.radius(AppRadii.sm),
+                      ),
+                    ),
+                    icon: const Icon(Icons.tune_rounded, size: 14),
+                    label: Text(
+                      actionLabel!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
