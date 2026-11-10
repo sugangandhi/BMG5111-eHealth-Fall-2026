@@ -198,6 +198,7 @@
       }
 
       function loadFlutterBootstrap(tag) {
+        window.__ehospitalBuildTag = tag;
         var script = document.createElement('script');
         script.src = 'flutter_bootstrap.js?v=' + encodeURIComponent(tag) + '&t=' + Date.now();
         script.async = true;
