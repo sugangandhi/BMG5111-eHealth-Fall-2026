@@ -157,6 +157,7 @@ class DetectedHealthAppsPanel extends StatelessWidget {
       busy: busy,
       isActiveSync: activeSyncSource == app.sourceKey,
       onSync: () => onSyncApp(app),
+      onUploadExport: onImportExportFile,
       onOpen: () => onOpenApp(app),
       onConnectFitbit: onConnectFitbit,
     );
@@ -295,9 +296,7 @@ class DetectedHealthAppsPanel extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                snap.targetPlatform == TargetPlatform.android
-                    ? 'Mobile Web Mode: browsers cannot read Samsung Health directly. Upload a Samsung Health export (Settings -> Download personal data -> CSV/ZIP) above for real data, or install the Android APK for 1-tap Health Connect sync.'
-                    : 'Web Mode: upload Samsung Health (CSV/ZIP) or Apple Health (export.xml/ZIP) files above, connect Fitbit Cloud, or run Sync for demo preview data.',
+                'Web Browser Mode (Real Connections Only): Browsers cannot access Samsung Health or Health Connect directly. To use real data, upload your exported CSV/XML/JSON/ZIP file below, connect Fitbit Cloud OAuth, or install the Android APK.',
                 style: DeviceStyles.bannerBody.copyWith(fontSize: 11.5),
               ),
             ),
@@ -317,6 +316,7 @@ class _DetectedAppTile extends StatelessWidget {
   final bool busy;
   final bool isActiveSync;
   final VoidCallback onSync;
+  final VoidCallback onUploadExport;
   final VoidCallback onOpen;
   final VoidCallback onConnectFitbit;
 
@@ -327,6 +327,7 @@ class _DetectedAppTile extends StatelessWidget {
     required this.busy,
     required this.isActiveSync,
     required this.onSync,
+    required this.onUploadExport,
     required this.onOpen,
     required this.onConnectFitbit,
   });
@@ -334,15 +335,20 @@ class _DetectedAppTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = _accentForSource(app.sourceKey);
+    final isWebLocalExportOnly = isWebMode && !app.supportsDirectWebOAuth;
     final badgeColor = app.connected
         ? Colors.green.shade700
+        : isWebLocalExportOnly
+        ? AppColors.primary
         : app.installed
         ? AppColors.primary
         : AppColors.textMuted;
     final badgeText = app.connected
-        ? 'SYNCED'
+        ? 'CONNECTED'
+        : isWebLocalExportOnly
+        ? 'FILE / APK'
         : app.installed
-        ? (isWebMode ? 'COMPATIBLE' : 'INSTALLED')
+        ? 'INSTALLED'
         : 'OPTIONAL';
 
     return Container(
@@ -442,7 +448,20 @@ class _DetectedAppTile extends StatelessWidget {
                 style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
               ),
             )
-          else if (app.supportsHealthConnect || app.connected || isWebMode)
+          else if (isWebLocalExportOnly)
+            OutlinedButton(
+              onPressed: busy ? null : onUploadExport,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'Upload File',
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+              ),
+            )
+          else if (app.supportsHealthConnect || app.connected)
             ElevatedButton(
               onPressed: busy ? null : onSync,
               style: ElevatedButton.styleFrom(

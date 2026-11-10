@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -33,6 +31,8 @@ class WearableSyncService {
   final WearablePlatformSyncService _googleHealthSyncService;
   final WearablePlatformWorkoutSyncService _appleWorkoutSyncService;
   final WearablePlatformWorkoutSyncService _googleWorkoutSyncService;
+  final bool? _isWebOverride;
+  final TargetPlatform? _platformOverride;
 
   WearableSyncService({
     WearableIngestionClient? ingestionClient,
@@ -41,6 +41,8 @@ class WearableSyncService {
     WearablePlatformSyncService? googleHealthSyncService,
     WearablePlatformWorkoutSyncService? appleWorkoutSyncService,
     WearablePlatformWorkoutSyncService? googleWorkoutSyncService,
+    bool? isWebOverride,
+    TargetPlatform? platformOverride,
   }) : _ingestionClient = ingestionClient ?? WearableIngestionRepository(),
        _exportClient = _resolveExportClient(exportClient, ingestionClient),
        _appleHealthSyncService =
@@ -50,7 +52,12 @@ class WearableSyncService {
        _appleWorkoutSyncService =
            appleWorkoutSyncService ?? AppleHealthSyncService(),
        _googleWorkoutSyncService =
-           googleWorkoutSyncService ?? GoogleHealthSyncService();
+           googleWorkoutSyncService ?? GoogleHealthSyncService(),
+       _isWebOverride = isWebOverride,
+       _platformOverride = platformOverride;
+
+  bool get _isWeb => _isWebOverride ?? kIsWeb;
+  TargetPlatform get _platform => _platformOverride ?? defaultTargetPlatform;
 
   static WearableExportClient? _resolveExportClient(
     WearableExportClient? exportClient,
@@ -114,14 +121,14 @@ class WearableSyncService {
         ? '1'
         : patientId.trim();
 
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    if (!_isWeb && _platform == TargetPlatform.iOS) {
       if (preferredSourceKey == WearableSource.fitbit) {
         final fitbitRes = await _trySyncFitbitCloud(effectivePid);
         if (fitbitRes != null && fitbitRes.success) return fitbitRes;
       }
       return syncFromAppleHealth(patientId: effectivePid);
     }
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (!_isWeb && _platform == TargetPlatform.android) {
       if (preferredSourceKey == WearableSource.fitbit) {
         final fitbitRes = await _trySyncFitbitCloud(effectivePid);
         if (fitbitRes != null && fitbitRes.success) return fitbitRes;
@@ -132,8 +139,8 @@ class WearableSyncService {
       );
     }
 
-    // Web / Mobile Browser PWA: prefer real connected Fitbit OAuth cloud data if available;
-    // otherwise generate a labeled browser preview telemetry sync for the target mobile provider.
+    // Web / Mobile Browser PWA: only real cloud/file connections are allowed.
+    // Browsers cannot directly read on-device Samsung Health, Health Connect, or Apple Health.
     if (preferredSourceKey == null || preferredSourceKey == WearableSource.fitbit) {
       final fitbitRes = await _trySyncFitbitCloud(effectivePid);
       if (fitbitRes != null && fitbitRes.success) {
@@ -143,41 +150,16 @@ class WearableSyncService {
 
     final resolvedSource =
         preferredSourceKey ??
-        (defaultTargetPlatform == TargetPlatform.iOS
+        (_platform == TargetPlatform.iOS
             ? WearableSource.appleHealth
             : WearableSource.healthConnect);
     final label = WearableSource.labelFor(resolvedSource);
 
-    try {
-      final now = DateTime.now();
-      final rng = Random();
-      final sample = WearableSample(
-        patientId: effectivePid,
-        heartRate: (70 + rng.nextInt(18)).toDouble(),
-        steps: (7600 + rng.nextInt(2600)).toDouble(),
-        calories: (320 + rng.nextInt(140)).toDouble(),
-        sleep: double.parse((6.8 + rng.nextDouble() * 1.4).toStringAsFixed(1)),
-        timestamp: now,
-        source: resolvedSource,
-        sourceMetadata: const {
-          'channel': 'web_preview_sync',
-          'simulated': true,
-        },
-      );
-      final ingestion = await _ingestionClient.ingest(sample);
-      await _recordLastConnectedProvider(resolvedSource);
-      return WearableSyncResult.success(
-        source: resolvedSource,
-        ingestions: [ingestion],
-        message:
-            'Synced $label preview telemetry to EHR (upload CSV/XML or use the Android app for direct Samsung Health / Health Connect reading).',
-      );
-    } catch (e) {
-      return WearableSyncResult.failure(
-        source: resolvedSource,
-        message: '$label sync error: $e',
-      );
-    }
+    return WearableSyncResult.failure(
+      source: resolvedSource,
+      message:
+          'Not connected to $label in browser mode. Browsers cannot read on-device health apps directly — upload your real $label export file (CSV/XML/JSON/ZIP) or install the Android APK to connect via Health Connect.',
+    );
   }
 
   Future<WearableSyncResult> syncFromDetectedApp({
@@ -208,15 +190,22 @@ class WearableSyncService {
       }
       final ingestion = await _ingestionClient.ingest(read.sample!);
       await _recordLastConnectedProvider(read.sample!.source);
-      final label = WearableSource.labelFor(read.sample!.source);
-      final apps = read.sample!.sourceMetadata['contributing_apps'];
-      final suffix = apps is List && apps.isNotEmpty
+      final s = read.sample!;
+      final label = WearableSource.labelFor(s.source);
+      final apps = s.sourceMetadata['contributing_apps'];
+      final via = apps is List && apps.isNotEmpty
           ? ' via ${apps.join(", ")}'
           : '';
+      final details = <String>[
+        if (s.steps != null) '${s.steps!.round()} today steps',
+        if (s.heartRate != null) '${s.heartRate!.round()} bpm HR',
+        if (s.calories != null) '${s.calories!.round()} kcal',
+        if (s.sleep != null) '${s.sleep!.toStringAsFixed(1)}h sleep',
+      ].join(', ');
       return WearableSyncResult.success(
-        source: read.sample!.source,
+        source: s.source,
         ingestions: [ingestion],
-        message: 'Synced $label telemetry$suffix into EHR.',
+        message: 'Synced $label telemetry$via ($details) into EHR.',
       );
     }
     return syncFromGoogleHealth(patientId: patientId);
@@ -397,24 +386,11 @@ class WearableSyncService {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return syncWorkoutsFromGoogleHealth(patientId: patientId);
     }
-    // Web / Cross-Platform Demo: Ingests preview workout into EHR
-    try {
-      final now = DateTime.now();
-      return await uploadSimulationWorkout(
-        patientId: patientId,
-        workoutType: 'Outdoor Walk',
-        startTime: now.subtract(const Duration(minutes: 45)),
-        endTime: now,
-        distanceMeters: 3200,
-        activeEnergyKcal: 215,
-        steps: 4200,
-      );
-    } catch (e) {
-      return WearableSyncResult.failure(
-        source: WearableSource.simulation,
-        message: 'Workout sync error: $e',
-      );
-    }
+    return WearableSyncResult.failure(
+      source: WearableSource.healthConnect,
+      message:
+          'Workout sync requires the Android (Health Connect) or iOS (HealthKit) mobile app.',
+    );
   }
 
   Future<WearableSyncResult> syncWorkoutsFromAppleHealth({
@@ -633,6 +609,7 @@ Future<WearableSourceReadResult> _readHealthSample({
   }
 
   final now = DateTime.now();
+  final startOfToday = DateTime(now.year, now.month, now.day);
   final since = now.subtract(const Duration(hours: 24));
   final dataPoints = await health.getHealthDataFromTypes(
     startTime: since,
@@ -640,6 +617,14 @@ Future<WearableSourceReadResult> _readHealthSample({
     types: types,
   );
   final unique = health.removeDuplicates(dataPoints);
+
+  int? aggregateStepsToday;
+  try {
+    aggregateStepsToday = await health.getTotalStepsInInterval(
+      startOfToday,
+      now,
+    );
+  } catch (_) {}
 
   // Discover all contributing health apps in this fetch.
   final contributingLabels = <String>{};
@@ -658,11 +643,12 @@ Future<WearableSourceReadResult> _readHealthSample({
     contributingLabels.add(label);
   }
 
-  // If user specifically requested a health app (e.g. Samsung Health) and it
-  // has points in Health Connect, filter to that app's points.
-  final selectedPoints =
-      (preferredSourceKey != null &&
-          contributingSourceKeys.contains(preferredSourceKey))
+  // If user specifically requested a health app (e.g. Google Fit or Samsung Health)
+  // and it has points in Health Connect, filter to that app's points.
+  final filteredByApp =
+      preferredSourceKey != null &&
+          contributingSourceKeys.contains(preferredSourceKey);
+  final selectedPoints = filteredByApp
       ? unique.where((point) {
           final key = WearableSource.fromSourceIdentifier(
             '${point.sourceId} ${point.sourceName}',
@@ -672,7 +658,7 @@ Future<WearableSourceReadResult> _readHealthSample({
         }).toList()
       : unique;
 
-  int steps = 0;
+  int rawTodaySteps = 0;
   double totalHeartRate = 0;
   int heartRateCount = 0;
   double activeCalories = 0;
@@ -684,9 +670,10 @@ Future<WearableSourceReadResult> _readHealthSample({
   for (final point in selectedPoints) {
     final value = point.value;
     final numVal = value is NumericHealthValue ? value.numericValue.toDouble() : null;
+    final isToday = !point.dateTo.isBefore(startOfToday);
     switch (point.type) {
       case HealthDataType.STEPS:
-        if (numVal != null) steps += numVal.round();
+        if (isToday && numVal != null) rawTodaySteps += numVal.round();
         break;
       case HealthDataType.HEART_RATE:
         if (numVal != null) {
@@ -695,10 +682,10 @@ Future<WearableSourceReadResult> _readHealthSample({
         }
         break;
       case HealthDataType.ACTIVE_ENERGY_BURNED:
-        if (numVal != null) activeCalories += numVal;
+        if (isToday && numVal != null) activeCalories += numVal;
         break;
       case HealthDataType.TOTAL_CALORIES_BURNED:
-        if (numVal != null) totalCalories += numVal;
+        if (isToday && numVal != null) totalCalories += numVal;
         break;
       case HealthDataType.SLEEP_ASLEEP:
         sleepAsleepMinutes +=
@@ -718,6 +705,11 @@ Future<WearableSourceReadResult> _readHealthSample({
         break;
     }
   }
+
+  final useAggregateSteps =
+      aggregateStepsToday != null &&
+      (!filteredByApp || contributingSourceKeys.length <= 1);
+  final steps = useAggregateSteps ? aggregateStepsToday : rawTodaySteps;
 
   final effectiveCalories =
       activeCalories > 0 ? activeCalories : totalCalories;
@@ -764,6 +756,8 @@ Future<WearableSourceReadResult> _readHealthSample({
       sourceMetadata: {
         'contributing_apps': contributingLabels.toList(),
         'detected_sources': contributingSourceKeys.toList(),
+        'steps_method':
+            useAggregateSteps ? 'os_aggregate_today' : 'filtered_today_points',
         'platform': isAndroid ? 'android_health_connect' : 'ios_healthkit',
       },
     ),

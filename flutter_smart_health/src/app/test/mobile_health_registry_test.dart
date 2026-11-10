@@ -183,7 +183,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Detected Mobile Health Apps'), findsOneWidget);
     expect(find.text('Samsung Health'), findsOneWidget);
-    expect(find.text('SYNCED'), findsOneWidget);
+    expect(find.text('CONNECTED'), findsOneWidget);
 
     await tester.tap(find.text('Sync'));
     await tester.pump();
@@ -194,5 +194,52 @@ void main() {
     );
     await tester.pump();
     expect(importTapped, isTrue);
+  });
+
+  testWidgets('DetectedHealthAppsPanel hides fake Sync button on Web local apps', (
+    tester,
+  ) async {
+    const samsungWeb = DetectedHealthApp(
+      id: 'samsung_health',
+      sourceKey: WearableSource.samsungHealth,
+      name: 'Samsung Health',
+      packageName: 'com.sec.android.app.shealth',
+      installed: true,
+      connected: false,
+      supportsHealthConnect: true,
+      statusNote: 'Upload CSV/ZIP or use Android APK',
+    );
+    const snapshot = MobileHealthScanSnapshot(
+      apps: [samsungWeb],
+      isWebMode: true,
+      targetPlatform: TargetPlatform.android,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: DetectedHealthAppsPanel(
+            snapshot: snapshot,
+            loading: false,
+            busy: false,
+            activeSyncSource: null,
+            lastActionMessage: null,
+            onRefreshScan: () {},
+            onSyncApp: (_) {},
+            onOpenApp: (_) {},
+            onOpenHealthConnectSettings: () {},
+            onConnectFitbit: () {},
+            onImportExportFile: () {},
+          ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Sync'), findsNothing);
+    expect(find.text('Upload File'), findsOneWidget);
+    expect(find.text('FILE / APK'), findsOneWidget);
   });
 }

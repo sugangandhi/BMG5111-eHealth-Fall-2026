@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -485,7 +486,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
     }
   }
 
-  Future<void> _importExportFromVitals() async {
+  Future<void> _importExportFromVitals({String? providerHint}) async {
     setState(() {
       _syncingHealth = true;
       _lastSyncStatus = null;
@@ -495,6 +496,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
       final result = await pickAndImportHealthExport(
         syncService: _wearableSyncService,
         patientId: targetPid,
+        providerHint: providerHint,
       );
       if (!mounted) return;
       if (result == null) {
@@ -528,6 +530,14 @@ class _VitalsScreenState extends State<VitalsScreen> {
     }
   }
 
+  void _handleSheetAppAction(DetectedHealthApp app) {
+    if (kIsWeb && !app.connected && !app.supportsDirectWebOAuth) {
+      _importExportFromVitals(providerHint: app.sourceKey);
+      return;
+    }
+    _syncFromMobileHealth(preferredSourceKey: app.sourceKey);
+  }
+
   void _showHealthAppSyncSheet() {
     final apps = _detectedApps;
     showModalBottomSheet<void>(
@@ -549,7 +559,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Sync from any health app detected on your phone or import real CSV / XML / JSON / ZIP exports.',
+                'Real connections only: sync natively on Android APK / iOS HealthKit, connect Fitbit Cloud, or import exported CSV/XML/ZIP files.',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 10),
@@ -560,11 +570,11 @@ class _VitalsScreenState extends State<VitalsScreen> {
                   child: Icon(Icons.sync_rounded, color: AppColors.primary, size: 20),
                 ),
                 title: const Text(
-                  'Auto-Sync All Detected Apps',
+                  'Sync Real Connected Source',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 subtitle: const Text(
-                  'Reads the active source from Health Connect / HealthKit',
+                  'Health Connect (Android APK), HealthKit (iOS), or Fitbit OAuth',
                   style: TextStyle(fontSize: 11.5),
                 ),
                 trailing: TextButton(
@@ -572,7 +582,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                     Navigator.pop(ctx);
                     _syncFromMobileHealth();
                   },
-                  child: const Text('Sync All'),
+                  child: const Text('Sync'),
                 ),
               ),
               if (apps.isNotEmpty) ...[
@@ -613,11 +623,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         trailing: TextButton(
                           onPressed: () {
                             Navigator.pop(ctx);
-                            _syncFromMobileHealth(
-                              preferredSourceKey: app.sourceKey,
-                            );
+                            _handleSheetAppAction(app);
                           },
-                          child: const Text('Sync'),
+                          child: Text(app.connected || !kIsWeb ? 'Sync' : 'Upload'),
                         ),
                       );
                     }).toList(),

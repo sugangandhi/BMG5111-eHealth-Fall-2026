@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_health_app/data/models/wearable_models.dart';
 import 'package:smart_health_app/data/repositories/ehospital_repository.dart';
@@ -230,6 +231,28 @@ void main() {
 
       expect(ingestion.samples.single.patientId, '20');
       expect(ingestion.samples.single.source, WearableSource.manual);
+    },
+  );
+
+  test(
+    'syncPlatformHealth refuses fake simulation data when running on Web without Fitbit OAuth',
+    () async {
+      final ingestion = _FakeIngestionClient();
+      final service = WearableSyncService(
+        ingestionClient: ingestion,
+        isWebOverride: true,
+        platformOverride: TargetPlatform.android,
+      );
+
+      final result = await service.syncPlatformHealth(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isFalse);
+      expect(result.source, WearableSource.samsungHealth);
+      expect(result.message, contains('Not connected'));
+      expect(ingestion.samples, isEmpty);
     },
   );
 }
