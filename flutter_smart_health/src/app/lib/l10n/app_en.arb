@@ -204,7 +204,7 @@
   "@sourceWearableTitle": {
     "description": "Data source item title for wearable vitals."
   },
-  "sourceWearableDescription": "Heart rate, steps, calories, and sleep data sourced from Apple HealthKit via Apple Watch or other connected health devices.",
+  "sourceWearableDescription": "Heart rate, steps, calories, and sleep data sourced from Samsung Health, Android Health Connect, Apple HealthKit, Fitbit, or uploaded health export files.",
   "@sourceWearableDescription": {
     "description": "Data source description for wearable vitals."
   },
@@ -857,15 +857,15 @@
   "@assistantThinking": {
     "description": "Assistant typing indicator label."
   },
-  "deviceManagerTitle": "Device Manager",
+  "deviceManagerTitle": "Health Apps & Devices",
   "@deviceManagerTitle": {
     "description": "Device connection screen title."
   },
-  "deviceInfoTitle": "Apple Watch -> eHospital",
+  "deviceInfoTitle": "Mobile Health Apps -> eHospital",
   "@deviceInfoTitle": {
     "description": "Device screen info banner title."
   },
-  "deviceInfoBody": "On a real device: patient logs in and taps \"Sync Apple Watch\" to push live Health data.\nFor demo/testing: tap Simulate to generate 7 days of realistic wearable data for any patient.",
+  "deviceInfoBody": "On Android (APK): Samsung Health, Google Fit, Garmin & other detected apps sync automatically through Health Connect. On Web/PWA: upload CSV/XML/ZIP exports or connect Fitbit Cloud, or tap Simulate for demo data.",
   "@deviceInfoBody": {
     "description": "Device screen info banner body."
   },
@@ -977,7 +977,7 @@
       }
     }
   },
-  "appleHealthPipeline": "Apple Watch  -> Apple Health  -> eHospital DB",
+  "appleHealthPipeline": "Samsung Health / Health Connect / Apple Health -> eHospital DB",
   "@appleHealthPipeline": {
     "description": "Simulation dialog data pipeline label."
   },
@@ -1163,7 +1163,7 @@
   "@vitalSignsTitle": {
     "description": "Vitals screen title."
   },
-  "syncingAppleWatch": "Syncing from Apple Watch...",
+  "syncingAppleWatch": "Syncing mobile health telemetry...",
   "@syncingAppleWatch": {
     "description": "Vitals sync loading banner text."
   },
@@ -1171,13 +1171,13 @@
   "@vitalsSyncIssue": {
     "description": "Vitals warning banner shown for suspicious wearable sync data."
   },
-  "deviceManagerTooltip": "Device Manager",
+  "deviceManagerTooltip": "Health Apps & Devices",
   "@deviceManagerTooltip": {
     "description": "Tooltip for opening the device manager from the vitals screen."
   },
-  "syncFromAppleWatchTooltip": "Sync from Apple Watch",
+  "syncFromAppleWatchTooltip": "Sync from Health App",
   "@syncFromAppleWatchTooltip": {
-    "description": "Tooltip for syncing Apple Watch data."
+    "description": "Tooltip for syncing mobile health data."
   },
   "logVitalsManuallyTooltip": "Log Vitals manually",
   "@logVitalsManuallyTooltip": {
@@ -1187,9 +1187,9 @@
   "@syncingShort": {
     "description": "Short loading label while syncing wearable data."
   },
-  "syncAppleWatchButton": "Sync Apple Watch",
+  "syncAppleWatchButton": "Sync Health App",
   "@syncAppleWatchButton": {
-    "description": "Floating action button label for Apple Watch sync."
+    "description": "Floating action button label for mobile health sync."
   },
   "logVitalsTitle": "Log Vitals to eHospital",
   "@logVitalsTitle": {

@@ -1,13 +1,17 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:health/health.dart';
+import '../../../data/models/wearable_models.dart';
 import '../models/night_sleep.dart';
 
-/// Reads real sleep data from Apple HealthKit (sourced from a paired Apple Watch):
-/// sleep stages (deep, REM, core/light, awake), blood oxygen (SpO2), and heart rate.
-/// Groups the raw samples into per-night summaries the UI and backend consume.
+/// Reads real sleep data from mobile health platforms:
+/// Apple HealthKit on iOS and Health Connect (Samsung Health, Google Fit, etc.) on Android.
+/// Groups sleep stages (deep, REM, core/light, awake), blood oxygen (SpO2),
+/// and heart rate into per-night summaries consumed by the UI and backend.
 class HealthSleepService {
   final Health _health = Health();
 
-  static const _types = <HealthDataType>[
+  static const _iosTypes = <HealthDataType>[
     HealthDataType.SLEEP_DEEP,
     HealthDataType.SLEEP_REM,
     HealthDataType.SLEEP_LIGHT,
@@ -17,6 +21,22 @@ class HealthSleepService {
     HealthDataType.BLOOD_OXYGEN,
     HealthDataType.HEART_RATE,
   ];
+
+  static const _androidTypes = <HealthDataType>[
+    HealthDataType.SLEEP_DEEP,
+    HealthDataType.SLEEP_REM,
+    HealthDataType.SLEEP_LIGHT,
+    HealthDataType.SLEEP_ASLEEP,
+    HealthDataType.SLEEP_AWAKE,
+    HealthDataType.SLEEP_SESSION,
+    HealthDataType.BLOOD_OXYGEN,
+    HealthDataType.HEART_RATE,
+  ];
+
+  List<HealthDataType> get _types =>
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+          ? _androidTypes
+          : _iosTypes;
 
   /// Ask the user for read access to the sleep-related HealthKit types.
   Future<bool> requestPermissions() async {
@@ -53,6 +73,12 @@ class HealthSleepService {
     final inBed = <String, double>{};
     final spo2 = <String, List<double>>{};
     final hr = <String, List<double>>{};
+    final sessionMinutes = <String, double>{};
+    final nightSource = <String, String>{};
+    final defaultSource =
+        (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+        ? WearableSource.healthConnect
+        : WearableSource.appleHealth;
 
     void addMinutes(
       Map<String, double> map,
@@ -66,6 +92,13 @@ class HealthSleepService {
 
     for (final p in points) {
       final night = _nightKey(p.dateFrom);
+      nightSource.putIfAbsent(
+        night,
+        () => WearableSource.fromSourceIdentifier(
+          '${p.sourceId} ${p.sourceName}',
+          fallback: defaultSource,
+        ),
+      );
       switch (p.type) {
         case HealthDataType.SLEEP_DEEP:
           addMinutes(deep, night, p.dateFrom, p.dateTo);
@@ -79,6 +112,9 @@ class HealthSleepService {
         case HealthDataType.SLEEP_ASLEEP:
           addMinutes(core, night, p.dateFrom, p.dateTo);
           addMinutes(asleep, night, p.dateFrom, p.dateTo);
+          break;
+        case HealthDataType.SLEEP_SESSION:
+          addMinutes(sessionMinutes, night, p.dateFrom, p.dateTo);
           break;
         case HealthDataType.SLEEP_AWAKE:
           addMinutes(awake, night, p.dateFrom, p.dateTo);
@@ -105,6 +141,7 @@ class HealthSleepService {
       ...core.keys,
       ...awake.keys,
       ...asleep.keys,
+      ...sessionMinutes.keys,
     }.toList()..sort();
 
     double? avg(List<double>? xs) => (xs == null || xs.isEmpty)
@@ -115,23 +152,27 @@ class HealthSleepService {
 
     final result = <NightSleep>[];
     for (final night in allNights) {
-      final a = asleep[night] ?? 0;
-      final ib = inBed[night] ?? (a + (awake[night] ?? 0));
+      final rawAsleep = asleep[night] ?? 0;
+      final effectiveAsleep =
+          rawAsleep > 0 ? rawAsleep : (sessionMinutes[night] ?? 0);
+      final effectiveCore =
+          rawAsleep > 0 ? (core[night] ?? 0) : effectiveAsleep;
+      final ib = inBed[night] ?? (effectiveAsleep + (awake[night] ?? 0));
       result.add(
         NightSleep(
           night: night,
           deepMinutes: deep[night] ?? 0,
           remMinutes: rem[night] ?? 0,
-          coreMinutes: core[night] ?? 0,
+          coreMinutes: effectiveCore,
           lightMinutes: 0,
           awakeMinutes: awake[night] ?? 0,
-          asleepMinutes: a,
+          asleepMinutes: effectiveAsleep,
           inBedMinutes: ib,
           spo2Avg: avg(spo2[night]),
           spo2Min: lo(spo2[night]),
           hrAvg: avg(hr[night]),
           hrMin: lo(hr[night]),
-          source: 'apple_health',
+          source: nightSource[night] ?? defaultSource,
         ),
       );
     }

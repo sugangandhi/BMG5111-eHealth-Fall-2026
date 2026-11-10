@@ -3,6 +3,8 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from src.backend.schemas.wearables import (
+    WearableExportImportRequest,
+    WearableExportImportResponse,
     WearableWorkoutBatchIngestionRequest,
     WearableWorkoutBatchIngestionResponse,
     WearableWorkoutIngestionRequest,
@@ -10,6 +12,7 @@ from src.backend.schemas.wearables import (
     WearableIngestionRequest,
     WearableIngestionResponse,
 )
+from src.backend.services.health_export_parser import import_health_export
 from src.backend.services.wearable_ingestion import (
     ingest_wearable_sample,
     ingest_wearable_workout,
@@ -25,6 +28,13 @@ async def ingest_wearable(
     request: WearableIngestionRequest,
 ) -> WearableIngestionResponse:
     return await ingest_wearable_sample(request)
+
+
+@router.post("/import-export", response_model=WearableExportImportResponse)
+async def import_wearable_export(
+    request: WearableExportImportRequest,
+) -> WearableExportImportResponse:
+    return await import_health_export(request)
 
 
 @router.post("/workouts/ingest", response_model=WearableWorkoutIngestionResponse)

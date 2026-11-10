@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../data/models/wearable_models.dart';
 import '../../../data/repositories/sleep_repository.dart';
 import '../models/night_sleep.dart';
 import '../presentation/sleep_styles.dart';
@@ -80,9 +81,9 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
         setState(() {
           _loading = false;
           _error =
-              'Apple Health access was not granted. Enable Sleep, Blood Oxygen, '
-              'and Heart Rate for this app in the Health app under '
-              'Sharing \u203a Apps.';
+              'Mobile health sleep permission was not granted. Enable Sleep, '
+              'Blood Oxygen, and Heart Rate access in Health Connect (Samsung '
+              'Health / Android) or Apple Health Sharing settings.';
         });
         return;
       }
@@ -98,7 +99,7 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Could not read Apple Health data: $e';
+        _error = 'Could not read sleep health data: $e';
       });
     }
   }
@@ -257,8 +258,8 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
           ),
           const SizedBox(height: 8),
           const Text(
-            'Wear your Apple Watch to bed and your nightly sleep stages will '
-            'appear here automatically from Apple Health.',
+            'Sync sleep from Samsung Health, Health Connect, Apple Health, or Fitbit '
+            'and your nightly sleep stages will appear here automatically.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey),
           ),
@@ -275,6 +276,9 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
 
   Widget _content() {
     final latest = _nights.last;
+    final sourceLabel = latest.source == 'sample_data'
+        ? 'Sample Preview'
+        : WearableSource.labelFor(latest.source);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -298,9 +302,9 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
                     color: Color(0xFF1550C4),
                   ),
                   const SizedBox(width: 4),
-                  const Text(
-                    'Apple Health',
-                    style: TextStyle(
+                  Text(
+                    sourceLabel,
+                    style: const TextStyle(
                       fontSize: 11,
                       color: Color(0xFF1550C4),
                       fontWeight: FontWeight.w600,

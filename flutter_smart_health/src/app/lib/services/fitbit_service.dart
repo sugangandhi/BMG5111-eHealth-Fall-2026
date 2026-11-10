@@ -1,11 +1,11 @@
 ﻿import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'e_hospital_service.dart';
+import 'fitbit_loopback.dart';
 import '../config/api_config.dart';
 
 class FitbitService {
@@ -22,7 +22,7 @@ class FitbitService {
 
   static String get redirectUri {
     if (kIsWeb) {
-      return 'http://localhost:8080/';
+      return '${Uri.base.origin}/';
     } else {
       return 'smarthealth://callback';
     }
@@ -90,32 +90,15 @@ class FitbitService {
 
       if (kIsWeb) return;
 
-      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 8080);
-      await for (HttpRequest req in server) {
-        final code = req.uri.queryParameters['code'];
-        if (code != null) {
-          req.response
-            ..statusCode = 200
-            ..headers.contentType = ContentType.html
-            ..write("<h2> Fitbit connected successfully! You can close this tab.</h2>");
-          await req.response.close();
-          await server.close();
+      final code = await listenForOAuthCodeLoopback();
+      if (code != null && code.isNotEmpty) {
+        final ok = await _exchangeCodeForToken(code);
+        if (!ok) throw 'Failed to get access token';
 
-          final ok = await _exchangeCodeForToken(code);
-          if (!ok) throw 'Failed to get access token';
-
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text(" Fitbit Connected Successfully")),
-            );
-          }
-
-          break;
-        } else {
-          req.response
-            ..statusCode = 400
-            ..write("<h2>鉂?Fitbit connection failed.</h2>");
-          await req.response.close();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fitbit Connected Successfully')),
+          );
         }
       }
     } catch (e) {

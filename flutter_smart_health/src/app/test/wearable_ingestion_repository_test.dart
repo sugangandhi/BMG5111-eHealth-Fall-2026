@@ -250,6 +250,46 @@ void main() {
       ),
     );
   });
+
+  test('importExportFile uploads base64 export archive to backend', () async {
+    late http.Request captured;
+    final repository = WearableIngestionRepository(
+      client: ApiClient(
+        baseUrl: 'https://backend.test',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(
+            jsonEncode({
+              'status': 'imported',
+              'patient_id': '20',
+              'detected_provider': 'samsung_health',
+              'filename': 'samsung.csv',
+              'records_parsed': 3,
+              'records_ingested': 2,
+              'accepted_metrics': ['heart_rate', 'steps'],
+            }),
+            200,
+          );
+        }),
+      ),
+    );
+
+    final result = await repository.importExportFile(
+      patientId: '20',
+      filename: 'samsung.csv',
+      bytes: utf8.encode('day_time,step_count\n2026-06-20,8500\n'),
+      provider: WearableSource.samsungHealth,
+    );
+
+    expect(captured.url.path, '/wearables/import-export');
+    final body = jsonDecode(captured.body) as Map<String, dynamic>;
+    expect(body['patient_id'], '20');
+    expect(body['filename'], 'samsung.csv');
+    expect(body['provider'], 'samsung_health');
+    expect(body['content_base64'], isNotEmpty);
+    expect(result.detectedProvider, 'samsung_health');
+    expect(result.recordsIngested, 2);
+  });
 }
 
 WearableWorkout _testWorkout() {

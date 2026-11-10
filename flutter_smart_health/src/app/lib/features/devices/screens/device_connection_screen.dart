@@ -1,20 +1,27 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/widgets/widgets.dart';
+import '../../../data/models/wearable_models.dart';
 import '../../../l10n/l10n.dart';
 import '../../../services/e_hospital_service.dart';
+import '../../../services/fitbit_service.dart';
+import '../../../services/health_export_picker.dart';
+import '../../../services/mobile_health_registry_service.dart';
 import '../../../services/wearable_sync_service.dart';
 import '../../../ui/ui.dart';
 import '../models/patient_device.dart';
 import '../presentation/device_styles.dart';
+import '../widgets/detected_health_apps_panel.dart';
 import '../widgets/device_info_banner.dart';
 import '../widgets/device_section_label.dart';
 import '../widgets/patient_device_card.dart';
 import '../widgets/simulation_progress_panel.dart';
 
-// Lists patients, shows Apple Watch sync status, and supports demo wearable uploads.
+// Lists detected mobile health apps (Samsung Health, Health Connect, Apple Health,
+// Fitbit, etc.), patient sync status, export file upload, and demo simulation.
 class DeviceConnectionScreen extends StatefulWidget {
   const DeviceConnectionScreen({super.key});
 
@@ -23,14 +30,157 @@ class DeviceConnectionScreen extends StatefulWidget {
 }
 
 class _DeviceConnectionScreenState extends State<DeviceConnectionScreen> {
+  final MobileHealthRegistryService _registry = MobileHealthRegistryService();
+  final WearableSyncService _wearableSyncService = WearableSyncService();
+
   bool _loading = true;
+  bool _scanningApps = true;
+  bool _actionBusy = false;
+  String? _activeSyncSource;
+  String? _actionMessage;
+  bool _actionIsError = false;
+  String _currentPatientId = '1';
+  MobileHealthScanSnapshot? _scanSnapshot;
   String? _errorMsg;
   List<PatientDevice> _patients = [];
 
   @override
   void initState() {
     super.initState();
-    _loadPatients();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    await Future.wait([
+      _loadPatients(),
+      _scanDetectedHealthApps(),
+    ]);
+  }
+
+  Future<void> _scanDetectedHealthApps() async {
+    if (mounted) setState(() => _scanningApps = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pid = (prefs.get('patient_id') ?? '1').toString().trim();
+      final synced = prefs.getStringList('synced_wearable_sources') ?? const [];
+      final snapshot = await _registry.detectHealthApps(
+        syncedSourceKeys: synced,
+      );
+      if (!mounted) return;
+      setState(() {
+        _currentPatientId = pid.isEmpty ? '1' : pid;
+        _scanSnapshot = snapshot;
+        _scanningApps = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _scanningApps = false);
+    }
+  }
+
+  Future<void> _syncFromApp(DetectedHealthApp app) async {
+    if (_actionBusy) return;
+    setState(() {
+      _actionBusy = true;
+      _activeSyncSource = app.sourceKey;
+      _actionMessage = 'Syncing ${app.name}...';
+      _actionIsError = false;
+    });
+
+    try {
+      final result = await _wearableSyncService.syncFromDetectedApp(
+        patientId: _currentPatientId,
+        app: app,
+      );
+      if (result.success) {
+        await _wearableSyncService.syncRecentStressFromPlatformHealth(
+          patientId: _currentPatientId,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _actionBusy = false;
+        _activeSyncSource = null;
+        _actionMessage = result.message;
+        _actionIsError = !result.success;
+      });
+      await Future.wait([
+        _loadPatients(),
+        _scanDetectedHealthApps(),
+      ]);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _actionBusy = false;
+        _activeSyncSource = null;
+        _actionMessage = '${app.name} sync error: $e';
+        _actionIsError = true;
+      });
+    }
+  }
+
+  Future<void> _openHealthConnectPermissions() async {
+    final opened = await _registry.openHealthConnectSettings();
+    if (!opened) {
+      await _registry.installHealthConnect();
+    }
+    if (mounted) {
+      await _scanDetectedHealthApps();
+    }
+  }
+
+  Future<void> _openInstalledApp(DetectedHealthApp app) async {
+    final opened = await _registry.openInstalledApp(app.packageName);
+    if (!opened && mounted) {
+      setState(() {
+        _actionMessage = 'Could not launch ${app.name} (${app.packageName}).';
+        _actionIsError = true;
+      });
+    }
+  }
+
+  Future<void> _connectFitbit() async {
+    await FitbitService.connectFitbit(context);
+    if (mounted) {
+      await _scanDetectedHealthApps();
+    }
+  }
+
+  Future<void> _importHealthExport() async {
+    if (_actionBusy) return;
+    setState(() {
+      _actionBusy = true;
+      _actionMessage = null;
+      _actionIsError = false;
+    });
+    try {
+      final result = await pickAndImportHealthExport(
+        syncService: _wearableSyncService,
+        patientId: _currentPatientId,
+      );
+      if (!mounted) return;
+      if (result == null) {
+        setState(() => _actionBusy = false);
+        return;
+      }
+      final providerLabel = WearableSource.labelFor(result.detectedProvider);
+      setState(() {
+        _actionBusy = false;
+        _actionMessage =
+            'Synced ${result.recordsIngested} day(s) from $providerLabel (${result.acceptedMetrics.join(", ")}).';
+        _actionIsError = false;
+      });
+      await Future.wait([
+        _loadPatients(),
+        _scanDetectedHealthApps(),
+      ]);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _actionBusy = false;
+        _actionMessage = 'Import failed: $e';
+        _actionIsError = true;
+      });
+    }
   }
 
   Future<void> _loadPatients() async {
@@ -156,6 +306,20 @@ class _DeviceConnectionScreenState extends State<DeviceConnectionScreen> {
               padding: DeviceStyles.bodyPadding,
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
+                  DetectedHealthAppsPanel(
+                    snapshot: _scanSnapshot,
+                    loading: _scanningApps,
+                    busy: _actionBusy,
+                    activeSyncSource: _activeSyncSource,
+                    lastActionMessage: _actionMessage,
+                    lastActionError: _actionIsError,
+                    onRefreshScan: _scanDetectedHealthApps,
+                    onSyncApp: _syncFromApp,
+                    onOpenApp: _openInstalledApp,
+                    onOpenHealthConnectSettings: _openHealthConnectPermissions,
+                    onConnectFitbit: _connectFitbit,
+                    onImportExportFile: _importHealthExport,
+                  ),
                   DeviceInfoBanner(
                     title: l10n.deviceInfoTitle,
                     body: l10n.deviceInfoBody,

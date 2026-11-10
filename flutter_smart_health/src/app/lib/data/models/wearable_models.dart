@@ -1,9 +1,167 @@
 class WearableSource {
   static const appleHealth = 'apple_health';
+  static const samsungHealth = 'samsung_health';
+  static const healthConnect = 'health_connect';
   static const fitbit = 'fitbit';
   static const googleHealth = 'google_health';
+  static const garmin = 'garmin';
+  static const strava = 'strava';
+  static const oura = 'oura';
+  static const whoop = 'whoop';
+  static const withings = 'withings';
+  static const polar = 'polar';
+  static const zepp = 'zepp';
+  static const xiaomiHealth = 'xiaomi_health';
+  static const huaweiHealth = 'huawei_health';
+  static const csvImport = 'csv_import';
+  static const xmlImport = 'xml_import';
   static const manual = 'manual';
   static const simulation = 'simulation';
+
+  static String labelFor(String source) {
+    switch (source) {
+      case samsungHealth:
+        return 'Samsung Health';
+      case healthConnect:
+        return 'Health Connect';
+      case googleHealth:
+        return 'Google Fit';
+      case appleHealth:
+        return 'Apple Health';
+      case fitbit:
+        return 'Fitbit';
+      case garmin:
+        return 'Garmin Connect';
+      case strava:
+        return 'Strava';
+      case oura:
+        return 'Oura';
+      case whoop:
+        return 'WHOOP';
+      case withings:
+        return 'Withings';
+      case polar:
+        return 'Polar Flow';
+      case zepp:
+        return 'Zepp';
+      case xiaomiHealth:
+        return 'Mi Fitness';
+      case huaweiHealth:
+        return 'Huawei Health';
+      case csvImport:
+        return 'CSV Export Import';
+      case xmlImport:
+        return 'Health XML Import';
+      case simulation:
+        return 'Demo Simulation';
+      case manual:
+        return 'Manual Entry';
+      default:
+        return source;
+    }
+  }
+
+  /// Resolves an OS package ID or bundle identifier into a canonical provider key.
+  static String fromSourceIdentifier(String sourceId, {String fallback = healthConnect}) {
+    final lower = sourceId.toLowerCase();
+    if (lower.contains('shealth') || lower.contains('samsung')) return samsungHealth;
+    if (lower.contains('apple') || lower.contains('com.apple')) return appleHealth;
+    if (lower.contains('fitbit')) return fitbit;
+    if (lower.contains('garmin')) return garmin;
+    if (lower.contains('strava')) return strava;
+    if (lower.contains('oura')) return oura;
+    if (lower.contains('whoop')) return whoop;
+    if (lower.contains('withings')) return withings;
+    if (lower.contains('polar')) return polar;
+    if (lower.contains('huami') || lower.contains('zepp')) return zepp;
+    if (lower.contains('xiaomi') || lower.contains('mi.health')) return xiaomiHealth;
+    if (lower.contains('huawei')) return huaweiHealth;
+    if (lower.contains('fitness') || lower.contains('google.android.apps.fitness')) {
+      return googleHealth;
+    }
+    if (lower.contains('healthdata') || lower.contains('healthconnect')) return healthConnect;
+    return fallback;
+  }
+}
+
+class DetectedHealthApp {
+  final String id;
+  final String sourceKey;
+  final String name;
+  final String packageName;
+  final bool installed;
+  final bool connected;
+  final bool supportsHealthConnect;
+  final bool supportsDirectWebOAuth;
+  final bool detectedDynamically;
+  final String statusNote;
+
+  const DetectedHealthApp({
+    required this.id,
+    required this.sourceKey,
+    required this.name,
+    required this.packageName,
+    required this.installed,
+    this.connected = false,
+    required this.supportsHealthConnect,
+    this.supportsDirectWebOAuth = false,
+    this.detectedDynamically = false,
+    this.statusNote = '',
+  });
+
+  DetectedHealthApp copyWith({
+    bool? connected,
+    bool? installed,
+    String? statusNote,
+  }) {
+    return DetectedHealthApp(
+      id: id,
+      sourceKey: sourceKey,
+      name: name,
+      packageName: packageName,
+      installed: installed ?? this.installed,
+      connected: connected ?? this.connected,
+      supportsHealthConnect: supportsHealthConnect,
+      supportsDirectWebOAuth: supportsDirectWebOAuth,
+      detectedDynamically: detectedDynamically,
+      statusNote: statusNote ?? this.statusNote,
+    );
+  }
+}
+
+class WearableExportImportResult {
+  final String status;
+  final String patientId;
+  final String detectedProvider;
+  final String filename;
+  final int recordsParsed;
+  final int recordsIngested;
+  final List<String> acceptedMetrics;
+
+  const WearableExportImportResult({
+    required this.status,
+    required this.patientId,
+    required this.detectedProvider,
+    required this.filename,
+    required this.recordsParsed,
+    required this.recordsIngested,
+    required this.acceptedMetrics,
+  });
+
+  factory WearableExportImportResult.fromJson(Map<String, dynamic> json) {
+    final rawMetrics = json['accepted_metrics'];
+    return WearableExportImportResult(
+      status: json['status']?.toString() ?? 'imported',
+      patientId: json['patient_id']?.toString() ?? '',
+      detectedProvider: json['detected_provider']?.toString() ?? 'csv_import',
+      filename: json['filename']?.toString() ?? '',
+      recordsParsed: (json['records_parsed'] as num?)?.toInt() ?? 0,
+      recordsIngested: (json['records_ingested'] as num?)?.toInt() ?? 0,
+      acceptedMetrics: rawMetrics is List
+          ? rawMetrics.map((e) => e.toString()).toList()
+          : const [],
+    );
+  }
 }
 
 class WearableSample {

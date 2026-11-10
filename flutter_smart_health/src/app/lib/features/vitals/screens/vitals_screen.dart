@@ -3,8 +3,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../data/models/wearable_models.dart';
 import '../../../services/backend_api_service.dart';
 import '../../../services/e_hospital_service.dart';
+import '../../../services/health_export_picker.dart';
+import '../../../services/mobile_health_registry_service.dart';
 import '../../../services/wearable_sync_service.dart';
 import '../../../l10n/l10n.dart';
 import '../../../ui/app_theme.dart';
@@ -43,10 +46,13 @@ class _VitalsScreenState extends State<VitalsScreen> {
   String _liveBaselineBP = "120/80";
   bool _hasZeroHR = false;
 
-  // Apple Health sync state
-  bool _syncingAppleHealth = false;
+  // Multi-platform mobile health sync state
+  bool _syncingHealth = false;
   String? _lastSyncStatus;
   final WearableSyncService _wearableSyncService = WearableSyncService();
+  final MobileHealthRegistryService _healthRegistry =
+      MobileHealthRegistryService();
+  List<DetectedHealthApp> _detectedApps = const [];
 
   // AI summaries keyed by tab index (0=Steps,1=Cal,2=HR,3=Sleep)
   final Map<int, String?> _aiSummaries = {};
@@ -87,6 +93,20 @@ class _VitalsScreenState extends State<VitalsScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _detectHealthApps();
+  }
+
+  Future<void> _detectHealthApps() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final synced = prefs.getStringList('synced_wearable_sources') ?? const [];
+      final snap = await _healthRegistry.detectHealthApps(
+        syncedSourceKeys: synced,
+      );
+      if (mounted) {
+        setState(() => _detectedApps = snap.apps);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadData() async {
@@ -391,19 +411,22 @@ class _VitalsScreenState extends State<VitalsScreen> {
     );
   }
 
-  // Apple Watch / Apple Health Sync
-  Future<void> _syncFromAppleHealth() async {
+  // Universal Mobile Health Sync (Samsung Health, Health Connect, Apple Health, Fitbit, etc.)
+  Future<void> _syncFromMobileHealth({String? preferredSourceKey}) async {
+    final providerLabel = preferredSourceKey != null
+        ? WearableSource.labelFor(preferredSourceKey)
+        : 'mobile health app';
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Syncing Apple Health data...'),
+        SnackBar(
+          content: Text('Syncing $providerLabel data...'),
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
     setState(() {
-      _syncingAppleHealth = true;
+      _syncingHealth = true;
       _lastSyncStatus = null;
     });
 
@@ -411,13 +434,14 @@ class _VitalsScreenState extends State<VitalsScreen> {
       final targetPid = (currentPatientId.trim().isNotEmpty) ? currentPatientId.trim() : "1";
       final result = await _wearableSyncService.syncPlatformHealth(
         patientId: targetPid,
+        preferredSourceKey: preferredSourceKey,
       );
 
       var message = result.message;
       if (result.success) {
         try {
           final uploadedStress = await _wearableSyncService
-              .syncRecentStressFromAppleHealth(patientId: currentPatientId);
+              .syncRecentStressFromPlatformHealth(patientId: targetPid);
           if (uploadedStress > 0) {
             message = '${result.message} Stress: $uploadedStress hrs.';
           }
@@ -426,7 +450,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
       if (mounted) {
         setState(() {
-          _syncingAppleHealth = false;
+          _syncingHealth = false;
           _lastSyncStatus = message;
         });
         ScaffoldMessenger.of(context)
@@ -438,24 +462,175 @@ class _VitalsScreenState extends State<VitalsScreen> {
               backgroundColor: result.success ? Colors.green : null,
             ),
           );
-        if (result.success) _loadData(); // refresh charts
+        if (result.success) {
+          _loadData();
+          _detectHealthApps();
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _syncingAppleHealth = false;
+          _syncingHealth = false;
           _lastSyncStatus = "Sync error: $e";
         });
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
-              content: Text('Apple Health sync error: $e'),
+              content: Text('$providerLabel sync error: $e'),
               behavior: SnackBarBehavior.floating,
             ),
           );
       }
     }
+  }
+
+  Future<void> _importExportFromVitals() async {
+    setState(() {
+      _syncingHealth = true;
+      _lastSyncStatus = null;
+    });
+    try {
+      final targetPid = (currentPatientId.trim().isNotEmpty) ? currentPatientId.trim() : "1";
+      final result = await pickAndImportHealthExport(
+        syncService: _wearableSyncService,
+        patientId: targetPid,
+      );
+      if (!mounted) return;
+      if (result == null) {
+        setState(() => _syncingHealth = false);
+        return;
+      }
+      final providerLabel = WearableSource.labelFor(result.detectedProvider);
+      final msg =
+          'Synced ${result.recordsIngested} day(s) from $providerLabel (${result.acceptedMetrics.join(", ")}).';
+      setState(() {
+        _syncingHealth = false;
+        _lastSyncStatus = msg;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green,
+          ),
+        );
+      _loadData();
+      _detectHealthApps();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _syncingHealth = false;
+        _lastSyncStatus = 'Import error: $e';
+      });
+    }
+  }
+
+  void _showHealthAppSyncSheet() {
+    final apps = _detectedApps;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Connect & Sync Mobile Health Apps',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Select any detected app or import a real Samsung Health / Apple Health / Fitbit export file.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 12),
+              if (apps.isNotEmpty)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 240),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: apps.map((app) {
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundColor: AppColors.primarySoft,
+                          child: Icon(
+                            app.installed
+                                ? Icons.check_circle_outline
+                                : Icons.watch_outlined,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          app.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        subtitle: Text(
+                          app.statusNote,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11.5),
+                        ),
+                        trailing: TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _syncFromMobileHealth(
+                              preferredSourceKey: app.sourceKey,
+                            );
+                          },
+                          child: const Text('Sync'),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              const Divider(),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.upload_file_rounded, color: AppColors.primary),
+                title: const Text(
+                  'Import Samsung / Apple / Fitbit Export',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Upload .csv, .xml, .json, or .zip from your phone',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _importExportFromVitals();
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.devices_outlined, color: AppColors.primary),
+                title: const Text(
+                  'Open Full Health Apps Hub',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.pushNamed(context, '/devices');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // Log Vitals to eHospital
@@ -679,7 +854,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
   Widget _buildSyncBanner() {
     return VitalsSyncBanner(
-      syncing: _syncingAppleHealth,
+      syncing: _syncingHealth,
       status: _lastSyncStatus,
       syncingLabel: context.l10n.syncingAppleWatch,
       onDismiss: () => setState(() => _lastSyncStatus = null),
@@ -689,18 +864,19 @@ class _VitalsScreenState extends State<VitalsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final primaryApp = _detectedApps.where((a) => a.installed).firstOrNull;
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.vitalSignsTitle),
         actions: [
-          // Device Manager
+          // Health Apps & Devices Hub
           IconButton(
             icon: const Icon(Icons.devices_outlined),
             tooltip: l10n.deviceManagerTooltip,
             onPressed: () => Navigator.pushNamed(context, "/devices"),
           ),
-          // Apple Watch sync button
-          _syncingAppleHealth
+          // One-tap sync using primary detected health app
+          _syncingHealth
               ? const Padding(
                   padding: EdgeInsets.all(14),
                   child: SizedBox(
@@ -714,8 +890,12 @@ class _VitalsScreenState extends State<VitalsScreen> {
                 )
               : IconButton(
                   icon: const Icon(Icons.watch_outlined),
-                  tooltip: l10n.syncFromAppleWatchTooltip,
-                  onPressed: _syncFromAppleHealth,
+                  tooltip: primaryApp != null
+                      ? 'Sync ${primaryApp.name}'
+                      : l10n.syncFromAppleWatchTooltip,
+                  onPressed: () => _syncFromMobileHealth(
+                    preferredSourceKey: primaryApp?.sourceKey,
+                  ),
                 ),
           IconButton(
             icon: const Icon(Icons.edit_outlined),
@@ -725,9 +905,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _syncFromAppleHealth,
+        onPressed: _syncingHealth ? null : _showHealthAppSyncSheet,
         backgroundColor: AppColors.primary,
-        icon: _syncingAppleHealth
+        icon: _syncingHealth
             ? const SizedBox(
                 width: 18,
                 height: 18,
@@ -736,9 +916,11 @@ class _VitalsScreenState extends State<VitalsScreen> {
                   color: Colors.white,
                 ),
               )
-            : const Icon(Icons.watch_outlined, color: Colors.white),
+            : const Icon(Icons.health_and_safety_rounded, color: Colors.white),
         label: Text(
-          _syncingAppleHealth ? l10n.syncingShort : l10n.syncAppleWatchButton,
+          _syncingHealth
+              ? l10n.syncingShort
+              : (primaryApp != null ? 'Sync ${primaryApp.name}' : l10n.syncAppleWatchButton),
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,

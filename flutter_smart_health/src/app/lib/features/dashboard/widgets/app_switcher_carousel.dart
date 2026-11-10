@@ -1163,8 +1163,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           Expanded(
             child: Text(
               synced
-                  ? 'Apple Health & Fitbit telemetry connected'
-                  : 'Pair wearable sensor or simulate stream',
+                  ? 'Samsung Health, Health Connect & Fitbit synced'
+                  : 'Connect mobile health app or import CSV/XML',
               style: const TextStyle(
                 fontSize: 10.8,
                 fontWeight: FontWeight.w600,
@@ -1423,20 +1423,20 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       // 12. Wearable Devices (newly exposed in carousel!)
       _AppModuleItem(
         type: _AppType.devices,
-        title: "Wearable Devices",
-        category: "HARDWARE & SYNC",
-        heroMetric: synced ? "Connected" : "Pair Sensor",
-        heroBadge: "HealthKit • Fitbit",
+        title: "Health App Hub",
+        category: "MOBILE HEALTH & SYNC",
+        heroMetric: synced ? "Connected" : "Connect App",
+        heroBadge: "Samsung • Health Connect • iOS",
         description:
-            "Manage wearable Bluetooth/HealthKit connections, sync historical sensor packets, or simulate real-time bedside telemetry streams.",
+            "Auto-detect Samsung Health, Health Connect, Google Fit, Apple Health, Fitbit, Garmin & more, or import health export files cleanly.",
         icon: Icons.watch_rounded,
         statusText: synced ? "Active" : "Standby",
-        stat1Label: "DATA SOURCE",
-        stat1Value: "Apple Watch / Fit",
+        stat1Label: "COMPATIBLE APPS",
+        stat1Value: "Samsung / Fit / iOS",
         stat2Label: "TELEMETRY SYNC",
-        stat2Value: synced ? "Up to Date" : "Tap to Sync",
+        stat2Value: synced ? "Up to Date" : "Tap to Connect",
         route: "/devices",
-        actionLabel: "Manage Wearables",
+        actionLabel: "Connect Health Apps",
         accentColor: const Color(0xFF0EA5E9),
       ),
     ];

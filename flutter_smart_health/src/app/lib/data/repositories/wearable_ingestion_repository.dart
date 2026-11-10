@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../config/api_config.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
@@ -11,7 +13,17 @@ abstract class WearableIngestionClient {
   );
 }
 
-class WearableIngestionRepository implements WearableIngestionClient {
+abstract class WearableExportClient {
+  Future<WearableExportImportResult> importExportFile({
+    required String patientId,
+    required String filename,
+    required List<int> bytes,
+    String? provider,
+  });
+}
+
+class WearableIngestionRepository
+    implements WearableIngestionClient, WearableExportClient {
   final ApiClient _client;
 
   WearableIngestionRepository({ApiClient? client})
@@ -55,5 +67,24 @@ class WearableIngestionRepository implements WearableIngestionClient {
       throw const ApiException('Backend returned an unexpected response.');
     }
     return WearableWorkoutBatchIngestionResult.fromJson(decoded);
+  }
+
+  @override
+  Future<WearableExportImportResult> importExportFile({
+    required String patientId,
+    required String filename,
+    required List<int> bytes,
+    String? provider,
+  }) async {
+    final decoded = await _client.postJson('/wearables/import-export', {
+      'patient_id': patientId,
+      'filename': filename,
+      'content_base64': base64Encode(bytes),
+      if (provider != null && provider.trim().isNotEmpty) 'provider': provider,
+    });
+    if (decoded is! Map<String, dynamic>) {
+      throw const ApiException('Backend returned an unexpected response.');
+    }
+    return WearableExportImportResult.fromJson(decoded);
   }
 }

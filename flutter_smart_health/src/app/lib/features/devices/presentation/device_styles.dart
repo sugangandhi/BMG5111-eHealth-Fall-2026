@@ -37,6 +37,12 @@ class DeviceStyles {
         borderRadius: AppRadii.radius(AppSpacing.sm),
       );
 
+  static BoxDecoration syncResultDecorationColor(Color color) => BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: AppRadii.radius(AppSpacing.md),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      );
+
   static const simulationIconDecoration = BoxDecoration(
     color: AppColors.primarySoft,
     shape: BoxShape.circle,

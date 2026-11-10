@@ -171,7 +171,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sourceWearableDescription =>
-      'Heart rate, steps, calories, and sleep data sourced from Apple HealthKit via Apple Watch or other connected health devices.';
+      'Heart rate, steps, calories, and sleep data sourced from Samsung Health, Android Health Connect, Apple HealthKit, Fitbit, or uploaded health export files.';
 
   @override
   String get sourceAssistantTitle => 'AI Health Assistant';
@@ -623,14 +623,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assistantThinking => 'Thinking...';
 
   @override
-  String get deviceManagerTitle => 'Device Manager';
+  String get deviceManagerTitle => 'Health Apps & Devices';
 
   @override
-  String get deviceInfoTitle => 'Apple Watch -> eHospital';
+  String get deviceInfoTitle => 'Mobile Health Apps -> eHospital';
 
   @override
   String get deviceInfoBody =>
-      'On a real device: patient logs in and taps \"Sync Apple Watch\" to push live Health data.\nFor demo/testing: tap Simulate to generate 7 days of realistic wearable data for any patient.';
+      'On Android (APK): Samsung Health, Google Fit, Garmin & other detected apps sync automatically through Health Connect. On Web/PWA: upload CSV/XML/ZIP exports or connect Fitbit Cloud, or tap Simulate for demo data.';
 
   @override
   String patientsInDb(int count) {
@@ -692,7 +692,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appleHealthPipeline =>
-      'Apple Watch  -> Apple Health  -> eHospital DB';
+      'Samsung Health / Health Connect / Apple Health -> eHospital DB';
 
   @override
   String uploadCompleteMessage(int total) {
@@ -822,17 +822,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vitalSignsTitle => 'Vital Signs';
 
   @override
-  String get syncingAppleWatch => 'Syncing from Apple Watch...';
+  String get syncingAppleWatch => 'Syncing mobile health telemetry...';
 
   @override
   String get vitalsSyncIssue =>
       'Data sync issue: Heart rate recorded as 0 BPM. Wearable may not be syncing correctly.';
 
   @override
-  String get deviceManagerTooltip => 'Device Manager';
+  String get deviceManagerTooltip => 'Health Apps & Devices';
 
   @override
-  String get syncFromAppleWatchTooltip => 'Sync from Apple Watch';
+  String get syncFromAppleWatchTooltip => 'Sync from Health App';
 
   @override
   String get logVitalsManuallyTooltip => 'Log Vitals manually';
@@ -841,7 +841,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncingShort => 'Syncing...';
 
   @override
-  String get syncAppleWatchButton => 'Sync Apple Watch';
+  String get syncAppleWatchButton => 'Sync Health App';
 
   @override
   String get logVitalsTitle => 'Log Vitals to eHospital';

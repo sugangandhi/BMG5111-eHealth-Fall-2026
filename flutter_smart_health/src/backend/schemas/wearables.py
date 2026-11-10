@@ -6,14 +6,27 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-WearableSource = Literal["apple_health", "google_health", "manual", "simulation"]
-WorkoutSourceProvider = Literal[
+WearableSource = Literal[
     "apple_health",
-    "fitbit",
+    "samsung_health",
+    "health_connect",
     "google_health",
+    "fitbit",
+    "garmin",
+    "strava",
+    "oura",
+    "whoop",
+    "withings",
+    "polar",
+    "zepp",
+    "xiaomi_health",
+    "huawei_health",
+    "csv_import",
+    "xml_import",
     "manual",
     "simulation",
 ]
+WorkoutSourceProvider = WearableSource
 
 
 class WearableIngestionRequest(BaseModel):
@@ -162,3 +175,30 @@ class WearableWorkoutBatchIngestionResponse(BaseModel):
     accepted_count: int
     ingested_count: int
     workouts: list[WearableWorkoutIngestionResponse]
+
+
+class WearableExportImportRequest(BaseModel):
+    patient_id: int | str
+    filename: str = Field(min_length=1, max_length=255)
+    content_base64: str = Field(min_length=1)
+    provider: WearableSource | None = None
+    max_days: int = Field(default=14, ge=1, le=90)
+
+    @field_validator("patient_id")
+    @classmethod
+    def coerce_blank_patient_id(cls, value: int | str) -> int | str:
+        val_str = str(value).strip() if value is not None else ""
+        if not val_str or val_str in ("null", "undefined", "0"):
+            return "1"
+        return value
+
+
+class WearableExportImportResponse(BaseModel):
+    status: Literal["imported"] = "imported"
+    patient_id: str
+    detected_provider: str
+    filename: str
+    records_parsed: int
+    records_ingested: int
+    accepted_metrics: list[str]
+    samples_preview: list[dict[str, Any]] = Field(default_factory=list)

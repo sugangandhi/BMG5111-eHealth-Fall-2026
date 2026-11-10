@@ -376,3 +376,94 @@ def test_workout_ingest_write_failure_returns_gateway_error(monkeypatch):
 
     assert response.status_code == 502
     assert "Failed to ingest wearable workout" in response.json()["detail"]
+
+
+def test_wearable_ingest_accepts_samsung_health_and_multi_app_sources(monkeypatch):
+    writes = []
+
+    async def fake_write(table, row):
+        writes.append((table, row))
+        return {"id": len(writes)}
+
+    monkeypatch.setattr(wearable_ingestion, "write_ehospital_table_row", fake_write)
+
+    for provider in ("samsung_health", "health_connect", "fitbit", "garmin"):
+        response = client.post(
+            "/wearables/ingest",
+            json={
+                "patient_id": 20,
+                "heart_rate": 74,
+                "steps": 8150,
+                "calories": 390,
+                "sleep": 7.5,
+                "timestamp": "2026-06-20T10:30:00Z",
+                "source": provider,
+                "source_metadata": {"app_package": "com.sec.android.app.shealth"},
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["source"] == provider
+
+    assert len(writes) == 4
+
+
+def test_wearable_import_export_parses_samsung_csv_and_apple_xml(monkeypatch):
+    import base64
+    import io
+    import zipfile
+
+    writes = []
+
+    async def fake_write(table, row):
+        writes.append((table, row))
+        return {"id": len(writes)}
+
+    monkeypatch.setattr(wearable_ingestion, "write_ehospital_table_row", fake_write)
+
+    samsung_csv = (
+        "com.samsung.shealth.tracker.pedometer_day_summary,1,1\n"
+        "day_time,step_count,calorie,heart_rate\n"
+        "2026-06-19 12:00:00,7450,315,72\n"
+        "2026-06-20 12:00:00,9820,420,69\n"
+    ).encode("utf-8")
+
+    csv_resp = client.post(
+        "/wearables/import-export",
+        json={
+            "patient_id": 20,
+            "filename": "com.samsung.shealth.tracker.pedometer_day_summary.csv",
+            "content_base64": base64.b64encode(samsung_csv).decode("ascii"),
+        },
+    )
+    assert csv_resp.status_code == 200
+    csv_body = csv_resp.json()
+    assert csv_body["detected_provider"] == "samsung_health"
+    assert csv_body["records_ingested"] == 2
+    assert "steps" in csv_body["accepted_metrics"]
+    assert "heart_rate" in csv_body["accepted_metrics"]
+
+    apple_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<HealthData>"
+        '<Record type="HKQuantityTypeIdentifierHeartRate" value="76" startDate="2026-06-20 09:00:00 -0400" endDate="2026-06-20 09:00:00 -0400"/>'
+        '<Record type="HKQuantityTypeIdentifierStepCount" value="5400" startDate="2026-06-20 10:00:00 -0400" endDate="2026-06-20 10:30:00 -0400"/>'
+        "</HealthData>"
+    ).encode("utf-8")
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w") as zf:
+        zf.writestr("apple_health_export/export.xml", apple_xml)
+
+    zip_resp = client.post(
+        "/wearables/import-export",
+        json={
+            "patient_id": 20,
+            "filename": "export.zip",
+            "content_base64": base64.b64encode(zip_buf.getvalue()).decode("ascii"),
+        },
+    )
+    assert zip_resp.status_code == 200
+    zip_body = zip_resp.json()
+    assert zip_body["detected_provider"] == "apple_health"
+    assert zip_body["records_ingested"] == 1
+    assert set(zip_body["accepted_metrics"]) >= {"heart_rate", "steps"}

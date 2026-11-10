@@ -171,7 +171,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   Future<void> _launchWhatsApp([String? customMessage]) async {
     final defaultMsg = customMessage ??
-        "Hi Doctor, this is patient #$_patientId. I have a question about my recent vitals recorded on Apple Health.";
+        "Hi Doctor, this is patient #$_patientId. I have a question about my recent mobile health vitals.";
     final url = Uri.parse(
       "https://wa.me/16132616383?text=${Uri.encodeComponent(defaultMsg)}",
     );
@@ -663,7 +663,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Real-time clinical AI assistant connected to your Apple Watch telemetry, appointments, and care team.",
+                  "Real-time clinical AI assistant connected to your wearable & mobile health telemetry, appointments, and care team.",
                   style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   textAlign: TextAlign.center,
                 ),

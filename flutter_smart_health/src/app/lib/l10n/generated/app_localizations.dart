@@ -403,7 +403,7 @@ abstract class AppLocalizations {
   /// Data source description for wearable vitals.
   ///
   /// In en, this message translates to:
-  /// **'Heart rate, steps, calories, and sleep data sourced from Apple HealthKit via Apple Watch or other connected health devices.'**
+  /// **'Heart rate, steps, calories, and sleep data sourced from Samsung Health, Android Health Connect, Apple HealthKit, Fitbit, or uploaded health export files.'**
   String get sourceWearableDescription;
 
   /// Data source item title for AI assistant.
@@ -1225,19 +1225,19 @@ abstract class AppLocalizations {
   /// Device connection screen title.
   ///
   /// In en, this message translates to:
-  /// **'Device Manager'**
+  /// **'Health Apps & Devices'**
   String get deviceManagerTitle;
 
   /// Device screen info banner title.
   ///
   /// In en, this message translates to:
-  /// **'Apple Watch -> eHospital'**
+  /// **'Mobile Health Apps -> eHospital'**
   String get deviceInfoTitle;
 
   /// Device screen info banner body.
   ///
   /// In en, this message translates to:
-  /// **'On a real device: patient logs in and taps \"Sync Apple Watch\" to push live Health data.\nFor demo/testing: tap Simulate to generate 7 days of realistic wearable data for any patient.'**
+  /// **'On Android (APK): Samsung Health, Google Fit, Garmin & other detected apps sync automatically through Health Connect. On Web/PWA: upload CSV/XML/ZIP exports or connect Fitbit Cloud, or tap Simulate for demo data.'**
   String get deviceInfoBody;
 
   /// Device screen patient count section label.
@@ -1327,7 +1327,7 @@ abstract class AppLocalizations {
   /// Simulation dialog data pipeline label.
   ///
   /// In en, this message translates to:
-  /// **'Apple Watch  -> Apple Health  -> eHospital DB'**
+  /// **'Samsung Health / Health Connect / Apple Health -> eHospital DB'**
   String get appleHealthPipeline;
 
   /// Simulation dialog completion message.
@@ -1543,7 +1543,7 @@ abstract class AppLocalizations {
   /// Vitals sync loading banner text.
   ///
   /// In en, this message translates to:
-  /// **'Syncing from Apple Watch...'**
+  /// **'Syncing mobile health telemetry...'**
   String get syncingAppleWatch;
 
   /// Vitals warning banner shown for suspicious wearable sync data.
@@ -1555,13 +1555,13 @@ abstract class AppLocalizations {
   /// Tooltip for opening the device manager from the vitals screen.
   ///
   /// In en, this message translates to:
-  /// **'Device Manager'**
+  /// **'Health Apps & Devices'**
   String get deviceManagerTooltip;
 
-  /// Tooltip for syncing Apple Watch data.
+  /// Tooltip for syncing mobile health data.
   ///
   /// In en, this message translates to:
-  /// **'Sync from Apple Watch'**
+  /// **'Sync from Health App'**
   String get syncFromAppleWatchTooltip;
 
   /// Tooltip for opening the manual vitals sheet.
@@ -1576,10 +1576,10 @@ abstract class AppLocalizations {
   /// **'Syncing...'**
   String get syncingShort;
 
-  /// Floating action button label for Apple Watch sync.
+  /// Floating action button label for mobile health sync.
   ///
   /// In en, this message translates to:
-  /// **'Sync Apple Watch'**
+  /// **'Sync Health App'**
   String get syncAppleWatchButton;
 
   /// Manual vitals bottom sheet title.
