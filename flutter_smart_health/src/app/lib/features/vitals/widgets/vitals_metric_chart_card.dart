@@ -69,7 +69,7 @@ class VitalsMetricChartCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nonZero = spots.map((s) => s.y).where((v) => v > 0).toList();
-    final latest = spots.isNotEmpty ? spots.last.y : 0.0;
+    final latest = nonZero.isNotEmpty ? nonZero.last : (spots.isNotEmpty ? spots.last.y : 0.0);
     final avg = nonZero.isNotEmpty
         ? nonZero.reduce((a, b) => a + b) / nonZero.length
         : 0.0;

@@ -147,7 +147,11 @@ class _VitalsScreenState extends State<VitalsScreen> {
             (item) => item is Map && item['patient_id']?.toString() == searchId,
           )
           .toList();
-      filteredData.sort((a, b) => _timestampOf(a).compareTo(_timestampOf(b)));
+      filteredData.sort((a, b) {
+        final ta = _parseWearableTimestamp(a) ?? DateTime(1970);
+        final tb = _parseWearableTimestamp(b) ?? DateTime(1970);
+        return ta.compareTo(tb);
+      });
     } catch (_) {}
 
     if (mounted) {
@@ -188,18 +192,46 @@ class _VitalsScreenState extends State<VitalsScreen> {
     bool hasZero = false;
     final annotated = <int>{};
 
+    double lastKnownSteps = 0.0;
+    double lastKnownCalories = 0.0;
+    double lastKnownHeartRate = 0.0;
+    double lastKnownSleep = 0.0;
+
     for (int i = 0; i < ranged.length; i++) {
       final d = ranged[i];
-      final s = double.tryParse(d['steps'].toString()) ?? 0.0;
-      final c = double.tryParse(d['calories'].toString()) ?? 0.0;
-      final hr = double.tryParse(d['heart_rate'].toString()) ?? 0.0;
-      final sl = double.tryParse(d['sleep'].toString()) ?? 0.0;
-      final stress = double.tryParse(d['stress_score'].toString()) ?? 0.0;
-      if (hr == 0.0) hasZero = true;
-      sSpots.add(FlSpot(i.toDouble(), s));
-      cSpots.add(FlSpot(i.toDouble(), c));
-      hrSpots.add(FlSpot(i.toDouble(), hr));
-      slSpots.add(FlSpot(i.toDouble(), sl));
+      final rawS = d['steps'];
+      final rawC = d['calories'];
+      final rawHR = d['heart_rate'];
+      final rawSl = d['sleep'];
+      final rawStress = d['stress_score'];
+
+      if (rawS != null && rawS.toString() != 'null') {
+        final parsed = double.tryParse(rawS.toString()) ?? 0.0;
+        if (parsed > 0) lastKnownSteps = parsed;
+      }
+      if (rawC != null && rawC.toString() != 'null') {
+        final parsed = double.tryParse(rawC.toString()) ?? 0.0;
+        if (parsed > 0) lastKnownCalories = parsed;
+      }
+      if (rawHR != null && rawHR.toString() != 'null') {
+        final parsed = double.tryParse(rawHR.toString()) ?? 0.0;
+        if (parsed > 0) {
+          lastKnownHeartRate = parsed;
+        } else if (parsed == 0.0) {
+          hasZero = true;
+        }
+      }
+      if (rawSl != null && rawSl.toString() != 'null') {
+        final parsed = double.tryParse(rawSl.toString()) ?? 0.0;
+        if (parsed > 0) lastKnownSleep = parsed;
+      }
+
+      final stress = double.tryParse(rawStress.toString()) ?? 0.0;
+
+      sSpots.add(FlSpot(i.toDouble(), lastKnownSteps));
+      cSpots.add(FlSpot(i.toDouble(), lastKnownCalories));
+      hrSpots.add(FlSpot(i.toDouble(), lastKnownHeartRate));
+      slSpots.add(FlSpot(i.toDouble(), lastKnownSleep));
       stSpots.add(FlSpot(i.toDouble(), stress));
       if ((d['annotation'] ?? '').toString().trim().isNotEmpty) {
         annotated.add(i);
