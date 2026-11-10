@@ -14,6 +14,8 @@ class AiService {
   }) async {
     switch (ApiConfig.aiProvider.toLowerCase()) {
       case 'backend':
+      case 'openai':
+      case 'gpt':
         if (patientId == null || patientId.trim().isEmpty) {
           throw StateError('Missing patient id for backend AI request.');
         }
@@ -49,6 +51,8 @@ class AiService {
   }) async {
     switch (ApiConfig.aiProvider.toLowerCase()) {
       case 'backend':
+      case 'openai':
+      case 'gpt':
         if (patientId == null || patientId.trim().isEmpty) {
           throw StateError('Missing patient id for backend AI request.');
         }

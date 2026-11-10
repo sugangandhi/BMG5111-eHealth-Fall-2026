@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   static const String aiProvider = String.fromEnvironment(
     'AI_PROVIDER',
-    defaultValue: 'ollama',
+    defaultValue: 'backend',
   );
 
   static const String geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
@@ -22,18 +22,24 @@ class ApiConfig {
   );
   static const String defaultModelProvider = String.fromEnvironment(
     'AI_MODEL_PROVIDER',
-    defaultValue: 'ollama',
+    defaultValue: 'openai',
   );
   static const String defaultModelName = String.fromEnvironment(
     'AI_MODEL_NAME',
-    defaultValue: ollamaModel,
+    defaultValue: 'gpt-4o',
   );
   static const String defaultModelBaseUrl = String.fromEnvironment(
     'AI_MODEL_BASE_URL',
-    defaultValue: ollamaBaseUrl,
+    defaultValue: '',
   );
 
   static String? _customBackendHost;
+  static String? _runtimeAiProviderLabel;
+
+  static void setRuntimeAiProviderLabel(String? label) {
+    final trimmed = label?.trim() ?? '';
+    _runtimeAiProviderLabel = trimmed.isEmpty ? null : trimmed;
+  }
 
   static String normalizeBaseUrl(String host) {
     final trimmed = host.trim();
@@ -98,17 +104,37 @@ class ApiConfig {
       case 'ollama':
         return 'Local Llama';
       case 'backend':
-        return 'Python Backend';
+      case 'openai':
+      case 'gpt':
+        if (_runtimeAiProviderLabel != null) {
+          return _runtimeAiProviderLabel!;
+        }
+        return formatModelLabel(defaultModelProvider, defaultModelName);
       default:
         return aiProvider;
     }
+  }
+
+  static String formatModelLabel(String provider, String modelName) {
+    final normalized = provider.trim().toLowerCase();
+    final model = modelName.trim();
+    if (normalized == 'openai' || normalized == 'gpt' || normalized == 'backend') {
+      if (model.isEmpty) return 'GPT-4o';
+      if (model.toLowerCase().startsWith('gpt-')) {
+        return 'GPT-${model.substring(4)}';
+      }
+      return model;
+    }
+    if (normalized == 'gemini') return 'Gemini';
+    if (normalized == 'ollama' || normalized == 'local') return 'Local Llama';
+    return model.isNotEmpty ? model : provider;
   }
 
   static void requireGeminiConfig() {
     if (geminiApiKey.trim().isEmpty) {
       throw StateError(
         'Missing GEMINI_API_KEY. Run Flutter with '
-        '--dart-define=GEMINI_API_KEY=your_key or use AI_PROVIDER=ollama.',
+        '--dart-define=GEMINI_API_KEY=your_key or leave AI_PROVIDER=backend.',
       );
     }
   }

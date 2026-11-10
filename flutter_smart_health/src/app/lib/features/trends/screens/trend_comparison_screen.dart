@@ -156,6 +156,7 @@ class _TrendComparisonScreenState extends State<TrendComparisonScreen> {
     }
 
     try {
+      await BackendApiService.syncModelStatus();
       final insights = await BackendApiService.trendInsights(
         patientId: currentPatientId,
         steps: {'last_week': _lastWeekSteps, 'this_week': _thisWeekSteps},

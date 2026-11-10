@@ -150,6 +150,29 @@ class AssistantRepository {
     return decoded['analysis']?.toString() ?? '';
   }
 
+  Future<String?> syncModelStatus() async {
+    try {
+      final saved = await _modelInvocationStore.loadSaved();
+      if (saved != null) {
+        final label = ApiConfig.formatModelLabel(
+          saved.modelProvider,
+          saved.modelName,
+        );
+        ApiConfig.setRuntimeAiProviderLabel(label);
+        return label;
+      }
+      final decoded = await _client.getJson('/assistant/model-status');
+      if (decoded is Map<String, dynamic>) {
+        final label = decoded['label']?.toString().trim();
+        if (label != null && label.isNotEmpty) {
+          ApiConfig.setRuntimeAiProviderLabel(label);
+          return label;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<Map<String, dynamic>?> _savedModelInvocationJson() async {
     final settings = await _modelInvocationStore.loadSaved();
     return settings?.toJson();

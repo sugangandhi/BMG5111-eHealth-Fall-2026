@@ -53,6 +53,7 @@ void main() {
     expect(find.text('Stress Trend'), findsOneWidget);
     expect(find.text('Normal range: 0-40 score'), findsOneWidget);
     expect(find.text('Stress is slightly elevated.'), findsOneWidget);
+    expect(find.text('GPT-4o'), findsOneWidget);
     expect(
       find.text('Tap stress points to add context annotations.'),
       findsOneWidget,

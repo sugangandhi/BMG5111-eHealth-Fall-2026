@@ -261,6 +261,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
         _aiSummaries.clear();
       });
 
+    await BackendApiService.syncModelStatus();
+
     const tabNames = ["Steps", "Active Calories", "Heart Rate", "Sleep"];
     const units = ["steps", "kcal", "bpm", "hrs"];
     const normalRanges = [

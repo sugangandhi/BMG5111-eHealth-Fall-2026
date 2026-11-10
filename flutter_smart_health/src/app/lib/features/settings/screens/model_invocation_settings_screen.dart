@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../config/api_config.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../data/models/model_invocation_settings.dart';
 import '../../../data/repositories/model_invocation_settings_store.dart';
@@ -19,7 +20,7 @@ class _ModelInvocationSettingsScreenState
   final _modelNameController = TextEditingController();
   final _baseUrlController = TextEditingController();
   String _providerKey = ModelInvocationSettings.providerWearableLangGraph;
-  String _modelProvider = 'ollama';
+  String _modelProvider = ApiConfig.defaultModelProvider;
   bool _useGraphFlow = true;
   bool _loading = true;
 
@@ -60,6 +61,9 @@ class _ModelInvocationSettingsScreenState
       useGraphFlow: _useGraphFlow,
     );
     await _store.save(settings);
+    ApiConfig.setRuntimeAiProviderLabel(
+      ApiConfig.formatModelLabel(settings.modelProvider, settings.modelName),
+    );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Model invocation settings saved.')),
@@ -140,13 +144,13 @@ class _ModelInvocationSettingsScreenState
                     ),
                     items: const [
                       DropdownMenuItem(
-                        value: 'ollama',
-                        child: Text('Ollama / local'),
+                        value: 'openai',
+                        child: Text('OpenAI (GPT)'),
                       ),
                       DropdownMenuItem(value: 'gemini', child: Text('Gemini')),
                       DropdownMenuItem(
-                        value: 'openai',
-                        child: Text('OpenAI-compatible'),
+                        value: 'ollama',
+                        child: Text('Ollama / local'),
                       ),
                     ],
                     onChanged: (value) => setState(() {
@@ -158,7 +162,7 @@ class _ModelInvocationSettingsScreenState
                     controller: _modelNameController,
                     decoration: const InputDecoration(
                       labelText: 'Model name',
-                      hintText: 'llama3.1:8b',
+                      hintText: 'gpt-4o',
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
@@ -166,7 +170,7 @@ class _ModelInvocationSettingsScreenState
                     controller: _baseUrlController,
                     decoration: const InputDecoration(
                       labelText: 'Endpoint / base URL',
-                      hintText: 'http://127.0.0.1:11434',
+                      hintText: 'Optional (blank uses OpenAI API)',
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),

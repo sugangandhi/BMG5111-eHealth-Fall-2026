@@ -1280,3 +1280,37 @@ def test_context_unknown_patient(monkeypatch):
     )
 
     assert response.status_code == 404
+
+
+def test_model_status_endpoint_formats_label(monkeypatch):
+    from src.backend.api import assistant as assistant_api
+    from src.backend.core.config import BackendSettings
+
+    monkeypatch.setattr(
+        assistant_api,
+        "settings",
+        BackendSettings(
+            ehospital_base_url="https://example.test",
+            ehospital_auth_base_url="https://example.test",
+            assistant_provider="wearable_langgraph",
+            ai_model_provider="openai",
+            ai_model_name="gpt-4o",
+            ollama_base_url="http://127.0.0.1:11434",
+            report_interpreter_max_context_chars=12000,
+            report_interpreter_min_pdf_text_chars=200,
+            cors_allow_origins=("*",),
+            host="127.0.0.1",
+            port=8000,
+        ),
+    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    response = client.get("/assistant/model-status")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "label": "GPT-4o",
+        "openai_configured": True,
+    }

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 from fastapi import APIRouter
+
+from src.backend.clients.model_client import format_model_label
+from src.backend.core.config import settings
 
 AI_CHAT_THREADS_FILE = Path(__file__).resolve().parents[3] / "backend" / "ai_chat_threads.json"
 
@@ -80,6 +84,20 @@ from src.backend.services.patient_context_service import build_patient_context
 
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
+
+
+@router.get("/model-status")
+async def model_status() -> dict:
+    """Expose active non-secret AI model configuration for client UI badges."""
+    return {
+        "provider": settings.ai_model_provider,
+        "model": settings.ai_model_name,
+        "label": format_model_label(
+            settings.ai_model_provider,
+            settings.ai_model_name,
+        ),
+        "openai_configured": bool(os.getenv("OPENAI_API_KEY")),
+    }
 
 
 @router.get("/patients/{patient_id}/context")

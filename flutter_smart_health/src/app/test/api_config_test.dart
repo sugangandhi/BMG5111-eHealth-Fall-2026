@@ -25,4 +25,16 @@ void main() {
       'https://bmg5111-ehealth-fall-2026-1.onrender.com',
     );
   });
+
+  test('default AI provider and insight badge target backend GPT-4o', () {
+    ApiConfig.setRuntimeAiProviderLabel(null);
+    expect(ApiConfig.aiProvider, 'backend');
+    expect(ApiConfig.defaultModelProvider, 'openai');
+    expect(ApiConfig.defaultModelName, 'gpt-4o');
+    expect(ApiConfig.aiProviderLabel, 'GPT-4o');
+
+    ApiConfig.setRuntimeAiProviderLabel('GPT-4.1');
+    expect(ApiConfig.aiProviderLabel, 'GPT-4.1');
+    ApiConfig.setRuntimeAiProviderLabel(null);
+  });
 }

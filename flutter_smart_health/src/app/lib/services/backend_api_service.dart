@@ -73,4 +73,8 @@ class BackendApiService {
   static Future<String> stressAnalysis({required String patientId}) {
     return _repository.stressAnalysis(patientId: patientId);
   }
+
+  static Future<String?> syncModelStatus() {
+    return _repository.syncModelStatus();
+  }
 }

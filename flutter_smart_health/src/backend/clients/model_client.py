@@ -33,17 +33,22 @@ def invoke_model(
 
     # 1. Try direct HTTP to OpenAI if OPENAI_API_KEY is available
     openai_key = os.getenv("OPENAI_API_KEY")
-    if openai_key and model_provider.lower() in {"openai", "gpt"}:
+    if openai_key and model_provider.lower() in {"openai", "gpt", "backend"}:
         try:
             import requests
             msgs = []
             if system_prompt:
                 msgs.append({"role": "system", "content": system_prompt})
             msgs.append({"role": "user", "content": prompt})
+            resolved_model = (
+                model_name
+                if model_name and "llama" not in model_name.lower()
+                else (os.getenv("OPENAI_MODEL") or "gpt-4o")
+            )
             r = requests.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"},
-                json={"model": model_name or "gpt-4o", "messages": msgs, "temperature": 0.2},
+                json={"model": resolved_model, "messages": msgs, "temperature": 0.2},
                 timeout=15,
             )
             if r.status_code == 200:
@@ -122,6 +127,8 @@ def parse_model_json(text: str) -> dict[str, Any]:
 
 def _build_chat_model(model_provider: str, model_name: str, base_url: str):
     provider = model_provider.strip().lower()
+    if provider in {"gpt", "backend"}:
+        provider = "openai"
     if provider in {"ollama", "local"}:
         try:
             from langchain_openai import ChatOpenAI
@@ -134,6 +141,21 @@ def _build_chat_model(model_provider: str, model_name: str, base_url: str):
             pass
     from langchain.chat_models import init_chat_model
     return init_chat_model(model_name, model_provider=provider)
+
+
+def format_model_label(provider: str, model_name: str) -> str:
+    """Formats active backend provider/model pair into a concise UI badge label."""
+    normalized = provider.strip().lower()
+    model = model_name.strip()
+    if normalized in {"openai", "gpt", "backend"}:
+        if not model:
+            return "GPT-4o"
+        return f"GPT-{model[4:]}" if model.lower().startswith("gpt-") else model
+    if normalized == "gemini":
+        return "Gemini"
+    if normalized in {"ollama", "local"}:
+        return "Local Llama"
+    return model or normalized
 
 
 def _setting_value(candidate: str | None, fallback: str) -> str:

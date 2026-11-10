@@ -112,4 +112,31 @@ void main() {
 
     expect(body.containsKey('model_invocation'), isFalse);
   });
+
+  test('defaults use OpenAI gpt-4o and syncModelStatus updates runtime badge', () async {
+    final defaults = ModelInvocationSettings.defaults();
+    expect(defaults.modelProvider, 'openai');
+    expect(defaults.modelName, 'gpt-4o');
+
+    final repository = AssistantRepository(
+      client: ApiClient(
+        baseUrl: 'https://example.test',
+        client: MockClient((request) async {
+          expect(request.url.path, '/assistant/model-status');
+          return http.Response(
+            jsonEncode({
+              'provider': 'openai',
+              'model': 'gpt-4o',
+              'label': 'GPT-4o',
+              'openai_configured': true,
+            }),
+            200,
+          );
+        }),
+      ),
+    );
+
+    final label = await repository.syncModelStatus();
+    expect(label, 'GPT-4o');
+  });
 }
