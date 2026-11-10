@@ -15,7 +15,7 @@ class WearableIngestionRepository implements WearableIngestionClient {
   final ApiClient _client;
 
   WearableIngestionRepository({ApiClient? client})
-    : _client = client ?? ApiClient(baseUrl: ApiConfig.backendBaseUrl);
+    : _client = client ?? ApiClient();
 
   @override
   Future<WearableIngestionResult> ingest(WearableSample sample) async {

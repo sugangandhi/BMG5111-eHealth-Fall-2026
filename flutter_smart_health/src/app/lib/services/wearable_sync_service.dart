@@ -113,12 +113,12 @@ class WearableSyncService {
       return WearableSyncResult.success(
         source: WearableSource.appleHealth,
         ingestions: [ingestion],
-        message: 'Apple Health data synced successfully: Heart Rate, Steps, Calories & Sleep recorded in EHR.',
+        message: 'Simulated Demo Sync (Browser): Apple Watch / HealthKit hardware requires running the app on your iPhone. Demo sample recorded in EHR.',
       );
     } catch (e) {
       return WearableSyncResult.failure(
         source: WearableSource.appleHealth,
-        message: 'Apple Health sync error: $e',
+        message: 'Sync error: $e',
       );
     }
   }
@@ -144,11 +144,15 @@ class WearableSyncService {
     );
   }
 
-  Future<WearableSyncResult> uploadSample(WearableSample sample) async {
+  Future<WearableSyncResult> uploadSample(
+    WearableSample sample, {
+    String? customMessage,
+  }) async {
     final ingestion = await _ingestionClient.ingest(sample);
     return WearableSyncResult.success(
       source: sample.source,
       ingestions: [ingestion],
+      message: customMessage,
     );
   }
 
@@ -264,7 +268,7 @@ class WearableSyncService {
         message: read.message ?? 'No wearable data available.',
       );
     }
-    return uploadSample(read.sample!);
+    return uploadSample(read.sample!, customMessage: read.message);
   }
 
   Future<WearableSyncResult> _syncWorkoutsFromPlatform({
@@ -404,65 +408,132 @@ Future<WearableSourceReadResult> _readHealthSample({
   }
 
   final now = DateTime.now();
-  final since = now.subtract(const Duration(hours: 24));
+  final midnight = DateTime(now.year, now.month, now.day);
+  final since24h = now.subtract(const Duration(hours: 24));
+  final since48h = now.subtract(const Duration(hours: 48));
+
+  // 1. Query deduplicated step count for Today and for the last 24 hours
+  int todayStepsInterval = 0;
+  try {
+    final res = await health.getTotalStepsInInterval(midnight, now);
+    if (res != null && res > 0) todayStepsInterval = res;
+  } catch (e) {
+    debugPrint("HealthKit getTotalStepsInInterval today error: $e");
+  }
+
+  int past24hStepsInterval = 0;
+  try {
+    final res24 = await health.getTotalStepsInInterval(since24h, now);
+    if (res24 != null && res24 > 0) past24hStepsInterval = res24;
+  } catch (e) {
+    debugPrint("HealthKit getTotalStepsInInterval 24h error: $e");
+  }
+
+  // 2. Query detailed HealthKit points for Steps, Heart Rate, Active Calories, Sleep
   final dataPoints = await health.getHealthDataFromTypes(
-    startTime: since,
+    startTime: since48h,
     endTime: now,
     types: types,
   );
   final unique = health.removeDuplicates(dataPoints);
 
-  int steps = 0;
+  int fallbackStepsToday = 0;
+  int fallbackSteps24h = 0;
   double totalHeartRate = 0;
   int heartRateCount = 0;
-  double calories = 0;
+  double? latestHeartRate;
+  DateTime? latestHeartRateTime;
+  double caloriesToday = 0;
   double sleepMinutes = 0;
 
   for (final point in unique) {
     final value = point.value;
     if (value is! NumericHealthValue) continue;
+    final numVal = value.numericValue;
+
     switch (point.type) {
       case HealthDataType.STEPS:
-        steps += value.numericValue.round();
+        if (point.dateFrom.isAfter(since24h)) {
+          fallbackSteps24h += numVal.round();
+        }
+        if (point.dateFrom.isAfter(midnight)) {
+          fallbackStepsToday += numVal.round();
+        }
         break;
       case HealthDataType.HEART_RATE:
-        totalHeartRate += value.numericValue;
-        heartRateCount++;
+        if (point.dateFrom.isAfter(since24h)) {
+          totalHeartRate += numVal;
+          heartRateCount++;
+        }
+        if (latestHeartRateTime == null || point.dateTo.isAfter(latestHeartRateTime)) {
+          latestHeartRateTime = point.dateTo;
+          latestHeartRate = numVal.toDouble();
+        }
         break;
       case HealthDataType.ACTIVE_ENERGY_BURNED:
-        calories += value.numericValue;
+        if (point.dateFrom.isAfter(midnight)) {
+          caloriesToday += numVal;
+        } else if (point.dateFrom.isAfter(since24h) && caloriesToday == 0) {
+          caloriesToday += numVal;
+        }
         break;
       case HealthDataType.SLEEP_ASLEEP:
-        sleepMinutes += value.numericValue;
+        if (point.dateFrom.isAfter(since24h)) {
+          sleepMinutes += numVal;
+        }
         break;
       default:
         break;
     }
   }
 
-  final averageHeartRate = heartRateCount > 0
-      ? (totalHeartRate / heartRateCount).round()
-      : 0;
+  // Determine effective steps:
+  // Prefer today's steps. If 0 (e.g. right after midnight or before morning movement),
+  // fall back to the past 24 hours so the user's active wearable steps are reflected.
+  int finalSteps = 0;
+  String stepSourceLabel = 'Today';
+  if (todayStepsInterval > 0) {
+    finalSteps = todayStepsInterval;
+    stepSourceLabel = 'Today';
+  } else if (fallbackStepsToday > 0) {
+    finalSteps = fallbackStepsToday;
+    stepSourceLabel = 'Today';
+  } else if (past24hStepsInterval > 0) {
+    finalSteps = past24hStepsInterval;
+    stepSourceLabel = 'Past 24h';
+  } else if (fallbackSteps24h > 0) {
+    finalSteps = fallbackSteps24h;
+    stepSourceLabel = 'Past 24h';
+  }
+
+  final finalHeartRate = latestHeartRate ?? (heartRateCount > 0 ? (totalHeartRate / heartRateCount) : 0);
   final sleepHours = sleepMinutes / 60;
-  if (steps == 0 && averageHeartRate == 0 && calories == 0 && sleepHours == 0) {
+
+  if (finalSteps == 0 && finalHeartRate == 0 && caloriesToday == 0 && sleepHours == 0) {
     return WearableSourceReadResult.failure(
       source: source,
-      message: unavailableMessage,
+      message: 'No Apple Health data found. Make sure Steps and Heart Rate permissions are turned ON in iPhone Settings > Health > Smart Health.',
     );
   }
+
+  final summaryMsg = StringBuffer('Synced from Apple Health: ')
+    ..write('$finalSteps steps ($stepSourceLabel)')
+    ..write(', ${finalHeartRate > 0 ? '${finalHeartRate.toInt()} bpm' : 'no active HR'}')
+    ..write(', ${caloriesToday.toInt()} kcal.');
 
   return WearableSourceReadResult.success(
     WearableSample(
       patientId: patientId,
-      heartRate: averageHeartRate > 0 ? averageHeartRate.toDouble() : null,
-      steps: steps > 0 ? steps.toDouble() : null,
-      calories: calories > 0 ? calories.roundToDouble() : null,
+      heartRate: finalHeartRate > 0 ? double.parse(finalHeartRate.toStringAsFixed(1)) : null,
+      steps: finalSteps > 0 ? finalSteps.toDouble() : 0.0,
+      calories: caloriesToday > 0 ? double.parse(caloriesToday.toStringAsFixed(1)) : null,
       sleep: sleepHours > 0
           ? double.parse(sleepHours.toStringAsFixed(2))
           : null,
       timestamp: now,
       source: source,
     ),
+    message: summaryMsg.toString(),
   );
 }
 

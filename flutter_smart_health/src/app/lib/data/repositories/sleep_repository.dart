@@ -8,7 +8,7 @@ class SleepRepository {
   final ApiClient _client;
 
   SleepRepository({ApiClient? client})
-    : _client = client ?? ApiClient(baseUrl: ApiConfig.backendBaseUrl);
+    : _client = client ?? ApiClient();
 
   static const _lastSyncKey = 'sleep_last_auto_sync_date';
 

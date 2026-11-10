@@ -15,10 +15,13 @@ import 'package:smart_health_app/features/trends/trends.dart';
 import 'package:smart_health_app/features/urgent_care/urgent_care.dart';
 import 'package:smart_health_app/features/vitals/vitals.dart';
 import 'package:smart_health_app/l10n/generated/app_localizations.dart';
+import 'package:smart_health_app/config/api_config.dart';
 import 'package:smart_health_app/services/health_alert_coordinator.dart';
 import 'package:smart_health_app/ui/app_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiConfig.loadSavedConfig();
   runApp(const SmartHealthApp());
 }
 

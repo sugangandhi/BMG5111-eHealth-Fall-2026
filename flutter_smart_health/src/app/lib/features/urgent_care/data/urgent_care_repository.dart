@@ -5,7 +5,7 @@ import '../models/urgent_care_models.dart';
 
 class UrgentCareRepository {
   UrgentCareRepository({ApiClient? client})
-    : _client = client ?? ApiClient(baseUrl: ApiConfig.backendBaseUrl);
+    : _client = client ?? ApiClient();
 
   final ApiClient _client;
 

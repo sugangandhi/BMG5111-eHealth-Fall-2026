@@ -26,6 +26,13 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>This app uses Bluetooth to connect with your smartwatch.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
@@ -38,11 +45,6 @@
 	<string>This app writes health data such as synced vitals and activity to your Apple Health account.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app needs local network access to communicate with Fitbit and your hospital server.</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
 	<key>NSMotionUsageDescription</key>
 	<string>This app uses motion data to track steps and activity.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -16,7 +16,7 @@ class EHospitalRepository {
     WearableIngestionClient? wearableIngestionClient,
   }) : _client = client ?? ApiClient(baseUrl: ApiConfig.ehospitalBaseUrl),
        _backendClient =
-           backendClient ?? ApiClient(baseUrl: ApiConfig.backendBaseUrl),
+           backendClient ?? ApiClient(),
        _wearableIngestionClient =
            wearableIngestionClient ?? WearableIngestionRepository();
 

@@ -2,14 +2,18 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../config/api_config.dart';
 import 'api_exception.dart';
 
 class ApiClient {
-  final String baseUrl;
+  final String? _baseUrl;
   final http.Client _client;
 
-  ApiClient({required this.baseUrl, http.Client? client})
-    : _client = client ?? http.Client();
+  ApiClient({String? baseUrl, http.Client? client})
+    : _baseUrl = baseUrl,
+      _client = client ?? http.Client();
+
+  String get baseUrl => _baseUrl ?? ApiConfig.backendBaseUrl;
 
   Uri uri(String path, {Map<String, String>? queryParameters}) {
     final normalizedBase = baseUrl.endsWith('/')

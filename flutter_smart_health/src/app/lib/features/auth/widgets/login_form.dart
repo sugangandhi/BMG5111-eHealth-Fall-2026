@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../config/api_config.dart';
 import '../../../l10n/l10n.dart';
 import '../../../ui/ui.dart';
 import '../presentation/login_styles.dart';
 
-class LoginForm extends StatelessWidget {
+class LoginForm extends StatefulWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final String selectedIdentity;
@@ -26,8 +27,84 @@ class LoginForm extends StatelessWidget {
   });
 
   @override
+  State<LoginForm> createState() => _LoginFormState();
+}
+
+class _LoginFormState extends State<LoginForm> {
+  void _showServerConfigDialog(BuildContext context) {
+    final controller = TextEditingController(text: ApiConfig.backendBaseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.dns_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Backend Server URL', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the backend address (e.g. http://192.168.2.33:8080). Make sure your iPhone is connected to the same Wi-Fi as your Mac.',
+              style: TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'http://192.168.2.33:8080',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              autocorrect: false,
+              enableSuggestions: false,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await ApiConfig.saveBackendBaseUrl(null);
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                setState(() {});
+              }
+            },
+            child: const Text('Reset Default'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty) {
+                await ApiConfig.saveBackendBaseUrl(newUrl);
+              }
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                setState(() {});
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final isNetworkError = widget.error != null &&
+        (widget.error!.contains('Unable to reach backend') ||
+            widget.error!.contains('SocketException') ||
+            widget.error!.contains('unreachable'));
+
     return Expanded(
       child: SingleChildScrollView(
         padding: LoginStyles.formPadding,
@@ -42,7 +119,7 @@ class LoginForm extends StatelessWidget {
               decoration: LoginStyles.emailFieldDecoration,
               child: TextField(
                 key: const Key('login_email_field'),
-                controller: emailController,
+                controller: widget.emailController,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
@@ -69,10 +146,10 @@ class LoginForm extends StatelessWidget {
               decoration: LoginStyles.emailFieldDecoration,
               child: TextField(
                 key: const Key('login_password_field'),
-                controller: passwordController,
+                controller: widget.passwordController,
                 obscureText: true,
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => onSubmit(),
+                onSubmitted: (_) => widget.loading ? null : widget.onSubmit(),
                 decoration: InputDecoration(
                   hintText: l10n.passwordHint,
                   prefixIcon: const Icon(
@@ -97,15 +174,15 @@ class LoginForm extends StatelessWidget {
               decoration: LoginStyles.emailFieldDecoration,
               child: DropdownButtonFormField<String>(
                 key: const Key('login_identity_dropdown'),
-                initialValue: selectedIdentity,
+                initialValue: widget.selectedIdentity,
                 items: [
-                  for (final identity in identityOptions)
+                  for (final identity in widget.identityOptions)
                     DropdownMenuItem(value: identity, child: Text(identity)),
                 ],
-                onChanged: loading
+                onChanged: widget.loading
                     ? null
                     : (value) {
-                        if (value != null) onIdentityChanged(value);
+                        if (value != null) widget.onIdentityChanged(value);
                       },
                 decoration: InputDecoration(
                   hintText: l10n.roleLabel,
@@ -126,26 +203,50 @@ class LoginForm extends StatelessWidget {
                 ),
               ),
             ),
-            if (error != null) ...[
+            if (widget.error != null) ...[
               const SizedBox(height: AppSpacing.md),
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: LoginStyles.errorDecoration,
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: AppColors.danger,
-                      size: 16,
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.error_outline,
+                        color: AppColors.danger,
+                        size: 16,
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
-                      child: Text(
-                        error!,
-                        style: const TextStyle(
-                          color: AppColors.danger,
-                          fontSize: 13,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.error!,
+                            style: const TextStyle(
+                              color: AppColors.danger,
+                              fontSize: 13,
+                            ),
+                          ),
+                          if (isNetworkError) ...[
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: () => _showServerConfigDialog(context),
+                              child: const Text(
+                                "💡 Tap here to verify or change the Server URL.",
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ],
@@ -157,7 +258,7 @@ class LoginForm extends StatelessWidget {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: loading ? null : onSubmit,
+                onPressed: widget.loading ? null : widget.onSubmit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -166,7 +267,7 @@ class LoginForm extends StatelessWidget {
                   ),
                   elevation: 0,
                 ),
-                child: loading
+                child: widget.loading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
@@ -181,9 +282,9 @@ class LoginForm extends StatelessWidget {
             const SizedBox(height: 16),
             InkWell(
               onTap: () {
-                emailController.text = "normal@demo.com";
-                passwordController.text = "123456";
-                onIdentityChanged("Patient");
+                widget.emailController.text = "normal@demo.com";
+                widget.passwordController.text = "123456";
+                widget.onIdentityChanged("Patient");
               },
               borderRadius: BorderRadius.circular(10),
               child: Container(
@@ -205,6 +306,32 @@ class LoginForm extends StatelessWidget {
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600,
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => _showServerConfigDialog(context),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.settings_ethernet, size: 14, color: AppColors.textMuted),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        "Server: ${ApiConfig.backendBaseUrl}",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          decoration: TextDecoration.underline,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

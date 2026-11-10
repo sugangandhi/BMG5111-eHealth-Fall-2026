@@ -355,11 +355,12 @@ class WearableSourceReadResult {
     this.message,
   });
 
-  factory WearableSourceReadResult.success(WearableSample sample) {
+  factory WearableSourceReadResult.success(WearableSample sample, {String? message}) {
     return WearableSourceReadResult._(
       success: true,
       source: sample.source,
       sample: sample,
+      message: message,
     );
   }
 

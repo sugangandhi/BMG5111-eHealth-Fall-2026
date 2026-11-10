@@ -1,6 +1,38 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiConfig {
+  static String? _customBackendBaseUrl;
+
+  static void setBackendBaseUrl(String? url) {
+    if (url == null || url.trim().isEmpty) {
+      _customBackendBaseUrl = null;
+      return;
+    }
+    _customBackendBaseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
+  }
+
+  static Future<void> loadSavedConfig() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedUrl = prefs.getString('custom_backend_base_url');
+      if (savedUrl != null && savedUrl.trim().isNotEmpty) {
+        _customBackendBaseUrl = savedUrl.trim().replaceAll(RegExp(r'/+$'), '');
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> saveBackendBaseUrl(String? url) async {
+    setBackendBaseUrl(url);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_customBackendBaseUrl == null) {
+        await prefs.remove('custom_backend_base_url');
+      } else {
+        await prefs.setString('custom_backend_base_url', _customBackendBaseUrl!);
+      }
+    } catch (_) {}
+  }
   static const String aiProvider = String.fromEnvironment(
     'AI_PROVIDER',
     defaultValue: 'ollama',

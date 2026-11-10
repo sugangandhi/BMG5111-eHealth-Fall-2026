@@ -15,7 +15,7 @@ class HealthAlertRepository implements HealthAlertAnalysisClient {
   HealthAlertRepository({
     ApiClient? client,
     ModelInvocationSettingsStore? modelInvocationStore,
-  }) : _client = client ?? ApiClient(baseUrl: ApiConfig.backendBaseUrl),
+  }) : _client = client ?? ApiClient(),
        _modelInvocationStore =
            modelInvocationStore ?? ModelInvocationSettingsStore();
 

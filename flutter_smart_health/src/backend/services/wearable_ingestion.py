@@ -9,6 +9,7 @@ from src.backend.clients.ehospital_client import (
     fetch_ehospital_table,
     write_ehospital_table_row,
 )
+from src.backend.core.logging import get_backend_logger
 from src.backend.schemas.wearables import (
     WearableWorkoutBatchIngestionRequest,
     WearableWorkoutBatchIngestionResponse,
@@ -64,9 +65,21 @@ WORKOUT_FIELD_NAMES = (
 )
 
 
+logger = get_backend_logger()
+
+
 async def ingest_wearable_sample(
     request: WearableIngestionRequest,
 ) -> WearableIngestionResponse:
+    logger.info(
+        "ingest_wearable_sample patient_id=%s source=%s steps=%s heart_rate=%s calories=%s sleep=%s",
+        request.patient_id,
+        request.source,
+        request.steps,
+        request.heart_rate,
+        request.calories,
+        request.sleep,
+    )
     row = build_wearable_vitals_row(request)
     try:
         ehospital_response = await write_ehospital_table_row(WEARABLE_TABLE, row)
