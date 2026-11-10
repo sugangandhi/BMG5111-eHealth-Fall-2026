@@ -88,6 +88,8 @@ def create_app() -> FastAPI:
             elapsed_ms,
         )
         response.headers["Access-Control-Allow-Private-Network"] = "true"
+        if request.url.path in ("/", "/index.html", "/flutter_bootstrap.js", "/main.dart.js", "/manifest.json"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
         return response
 
     app.include_router(auth_router)
