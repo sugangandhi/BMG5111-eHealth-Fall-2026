@@ -152,22 +152,95 @@
     };
   </script>
   <script>
-    // Automatically purge old service worker and cached files for fresh demo
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for (var i = 0; i < registrations.length; i++) {
-          registrations[i].unregister();
+    (function () {
+      var currentBuildId = null;
+      var reloadingForUpdate = false;
+      var lastUpdateCheckAt = 0;
+
+      function clearOldServiceWorkersAndCaches() {
+        var tasks = [];
+        if ('serviceWorker' in navigator) {
+          tasks.push(
+            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+              return Promise.all(registrations.map(function (reg) {
+                return reg.unregister();
+              }));
+            }).catch(function () {})
+          );
         }
-      });
-      if ('caches' in window) {
-        caches.keys().then(function(names) {
-          for (var i = 0; i < names.length; i++) {
-            caches.delete(names[i]);
+        if ('caches' in window) {
+          tasks.push(
+            caches.keys().then(function (names) {
+              return Promise.all(names.map(function (name) {
+                return caches.delete(name);
+              }));
+            }).catch(function () {})
+          );
+        }
+        var timeout = new Promise(function (resolve) { setTimeout(resolve, 1200); });
+        return Promise.race([Promise.all(tasks), timeout]);
+      }
+
+      function fetchRemoteBuildId() {
+        return fetch('web-version?t=' + Date.now(), {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' }
+        })
+          .then(function (res) {
+            return res.ok ? res.json() : null;
+          })
+          .then(function (data) {
+            return data && data.build_id ? String(data.build_id) : null;
+          })
+          .catch(function () {
+            return null;
+          });
+      }
+
+      function loadFlutterBootstrap(tag) {
+        var script = document.createElement('script');
+        script.src = 'flutter_bootstrap.js?v=' + encodeURIComponent(tag) + '&t=' + Date.now();
+        script.async = true;
+        document.body.appendChild(script);
+      }
+
+      function checkForAppUpdate() {
+        var now = Date.now();
+        if (reloadingForUpdate || !currentBuildId || (now - lastUpdateCheckAt) < 5000) {
+          return;
+        }
+        lastUpdateCheckAt = now;
+        fetchRemoteBuildId().then(function (latestId) {
+          if (!latestId || latestId === currentBuildId || reloadingForUpdate) {
+            return;
           }
+          reloadingForUpdate = true;
+          clearOldServiceWorkersAndCaches().then(function () {
+            window.location.reload();
+          });
         });
       }
-    }
+
+      clearOldServiceWorkersAndCaches()
+        .then(fetchRemoteBuildId)
+        .then(function (buildId) {
+          currentBuildId = buildId;
+          lastUpdateCheckAt = Date.now();
+          loadFlutterBootstrap(buildId || String(Date.now()));
+        });
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          checkForAppUpdate();
+        }
+      });
+
+      window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+          checkForAppUpdate();
+        }
+      });
+    })();
   </script>
-  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

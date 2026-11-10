@@ -59,3 +59,29 @@ def test_backend_logs_failed_api_request_without_swallowing_exception(caplog):
         "api_request method=GET path=/logging-test/boom status=ERROR" in record.message
         for record in caplog.records
     )
+
+
+def test_web_version_and_no_store_cache_headers():
+    app = create_app()
+
+    with TestClient(app) as client:
+        ver_resp = client.get("/web-version")
+        assert ver_resp.status_code == 200
+        payload = ver_resp.json()
+        assert isinstance(payload.get("build_id"), str)
+        assert len(payload["build_id"]) >= 8
+        assert "no-store" in ver_resp.headers.get("cache-control", "")
+        assert ver_resp.headers.get("pragma") == "no-cache"
+        assert ver_resp.headers.get("expires") == "0"
+
+        for asset_path in (
+            "/",
+            "/flutter_bootstrap.js",
+            "/flutter_service_worker.js",
+            "/manifest.json",
+        ):
+            resp = client.get(asset_path)
+            assert resp.status_code == 200
+            assert "no-store" in resp.headers.get("cache-control", "")
+            assert resp.headers.get("pragma") == "no-cache"
+            assert resp.headers.get("expires") == "0"

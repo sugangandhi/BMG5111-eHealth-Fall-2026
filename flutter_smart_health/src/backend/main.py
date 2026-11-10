@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import hashlib
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -29,6 +30,43 @@ from src.backend.core.logging import get_backend_logger
 
 
 logger = get_backend_logger()
+
+_WEB_NO_CACHE_PATHS = {
+    "/",
+    "/index.html",
+    "/flutter_bootstrap.js",
+    "/flutter_service_worker.js",
+    "/main.dart.js",
+    "/manifest.json",
+    "/version.json",
+    "/web-version",
+}
+
+
+def _resolve_web_dir() -> Path | None:
+    """Return the built Flutter Web directory if present."""
+    dist_dir = Path(__file__).resolve().parents[2] / "web_dist"
+    if dist_dir.exists():
+        return dist_dir
+    app_build_dir = Path(__file__).resolve().parents[1] / "app" / "build" / "web"
+    if app_build_dir.exists():
+        return app_build_dir
+    return None
+
+
+def _resolve_web_build_id(web_dir: Path | None) -> str:
+    """Compute a deterministic hash representing the active Flutter Web bundle."""
+    if web_dir is None:
+        return "no-web-dist"
+    hasher = hashlib.sha256()
+    hashed_any = False
+    for filename in ("main.dart.js", "flutter_bootstrap.js", "index.html", "manifest.json"):
+        target = web_dir / filename
+        if target.is_file():
+            hasher.update(filename.encode("utf-8"))
+            hasher.update(target.read_bytes())
+            hashed_any = True
+    return hasher.hexdigest()[:16] if hashed_any else "empty-web-dist"
 
 
 def log_startup_ready() -> None:
@@ -88,9 +126,19 @@ def create_app() -> FastAPI:
             elapsed_ms,
         )
         response.headers["Access-Control-Allow-Private-Network"] = "true"
-        if request.url.path in ("/", "/index.html", "/flutter_bootstrap.js", "/main.dart.js", "/manifest.json"):
-            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        if request.url.path in _WEB_NO_CACHE_PATHS or request.url.path.endswith((".js", ".html", ".json")):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
         return response
+
+    web_dir = _resolve_web_dir()
+    web_build_id = _resolve_web_build_id(web_dir)
+
+    @app.get("/web-version")
+    async def get_web_version():
+        """Expose a deterministic build ID so installed mobile PWAs detect new deploys."""
+        return {"build_id": web_build_id}
 
     app.include_router(auth_router)
     app.include_router(assistant_router)
@@ -128,10 +176,7 @@ def create_app() -> FastAPI:
             return {"status": "error", "detail": str(e)}
 
     # Mount Flutter Web frontend if built (enables unified cloud deployment on Render/Docker)
-    web_dir = Path(__file__).resolve().parents[2] / "web_dist"
-    if not web_dir.exists():
-        web_dir = Path(__file__).resolve().parents[1] / "app" / "build" / "web"
-    if web_dir.exists():
+    if web_dir is not None and web_dir.exists():
         from fastapi.staticfiles import StaticFiles
         app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web_app")
         logger.info("Mounted Flutter Web app from %s", web_dir)
