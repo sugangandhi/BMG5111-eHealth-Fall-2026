@@ -7,7 +7,19 @@ import 'package:smart_health_app/config/api_config.dart';
 import 'package:smart_health_app/core/widgets/atmospheric_sky_background.dart';
 import 'package:smart_health_app/data/repositories/ehospital_repository.dart';
 import 'package:smart_health_app/features/dashboard/data/dashboard_summary_service.dart';
+import 'package:smart_health_app/features/dashboard/screens/dashboard_screen.dart';
 import 'package:smart_health_app/features/dashboard/widgets/app_switcher_carousel.dart';
+import 'package:smart_health_app/features/profile/screens/profile_screen.dart';
+import 'package:smart_health_app/l10n/generated/app_localizations.dart';
+
+class _FakeDashboardSummaryService extends DashboardSummaryService {
+  _FakeDashboardSummaryService();
+
+  @override
+  Future<DashboardLiveSummary> load() async {
+    return const DashboardLiveSummary(isLiveSynced: true, heartRateBpm: 72);
+  }
+}
 
 class _FakeEHospitalRepository extends EHospitalRepository {
   _FakeEHospitalRepository(this.tables);
@@ -188,6 +200,76 @@ void main() {
       await tester.tap(skyToggle);
       await tester.pump();
       expect(moodCycles, 1);
+    },
+  );
+
+  testWidgets(
+    'PatientDashboard removes top Emergency SOS icon from AppBar and keeps switcher + Profile',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: PatientDashboard(summaryService: _FakeDashboardSummaryService()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byIcon(Icons.emergency_rounded), findsNothing);
+      expect(find.byTooltip('Emergency SOS'), findsNothing);
+      expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.person_rounded), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'ProfileScreen exposes Emergency SOS Card and routes to /emergency',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'patient_id': 42});
+      var openedEmergency = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routes: {
+            '/emergency': (_) {
+              openedEmergency = true;
+              return const Scaffold(body: Text('Emergency Screen'));
+            },
+          },
+          home: ProfileScreen(
+            fetchUsersTable: () async => [
+              {
+                'user_id': 42,
+                'username': 'sugan',
+                'email': 'sugan@example.com',
+                'role': 'Patient',
+                'status': 'Active',
+                'created_on': '2026-01-01',
+              },
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final emergencyTile = find.text('Emergency SOS Card');
+      expect(emergencyTile, findsOneWidget);
+      expect(find.text('Blood type, allergies, contact'), findsOneWidget);
+
+      await tester.ensureVisible(emergencyTile);
+      await tester.tap(emergencyTile);
+      await tester.pumpAndSettle();
+
+      expect(openedEmergency, isTrue);
+      expect(find.text('Emergency Screen'), findsOneWidget);
     },
   );
 }

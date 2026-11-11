@@ -14,7 +14,9 @@ import '../widgets/dashboard_section_header.dart';
 import '../widgets/dashboard_settings_link.dart';
 
 class PatientDashboard extends StatefulWidget {
-  const PatientDashboard({super.key});
+  const PatientDashboard({super.key, this.summaryService});
+
+  final DashboardSummaryService? summaryService;
 
   @override
   State<PatientDashboard> createState() => _PatientDashboardState();
@@ -27,12 +29,13 @@ class _PatientDashboardState extends State<PatientDashboard>
   SkyMood _skyMood = SkyMood.daylight;
   DashboardLiveSummary _summary = const DashboardLiveSummary();
   bool _syncingSummary = false;
-  final DashboardSummaryService _summaryService = DashboardSummaryService();
+  late final DashboardSummaryService _summaryService;
   late final AnimationController _heartTicker;
 
   @override
   void initState() {
     super.initState();
+    _summaryService = widget.summaryService ?? DashboardSummaryService();
     _heartTicker = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
@@ -92,6 +95,8 @@ class _PatientDashboardState extends State<PatientDashboard>
               children: [
                 const Text(
                   "INTELLIGENT DIGITAL SOLUTION",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -99,90 +104,94 @@ class _PatientDashboardState extends State<PatientDashboard>
                     letterSpacing: 1.1,
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      "eHospital",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "eHospital",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Live physiological telemetry badge (tap to refresh backend summary)
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        _loadSummary();
-                      },
-                      child: AnimatedBuilder(
-                        animation: _heartTicker,
-                        builder: (context, _) {
-                          final liveHr = _summary.heartRateBpm;
-                          final bpm = liveHr ??
-                              (74 +
-                                  ((math.sin(_heartTicker.value * math.pi * 8) +
-                                              1.0) *
-                                          1.8)
-                                      .round());
-                          final pulseScale = 1.0 +
-                              ((math.sin(_heartTicker.value * math.pi * 16) +
-                                      1.0) *
-                                  0.10);
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981)
-                                  .withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(0xFF10B981)
-                                    .withValues(alpha: 0.40),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_syncingSummary)
-                                  const SizedBox(
-                                    width: 10,
-                                    height: 10,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.6,
-                                      color: Color(0xFF10B981),
-                                    ),
-                                  )
-                                else
-                                  Transform.scale(
-                                    scale: pulseScale,
-                                    child: const Icon(
-                                      Icons.favorite_rounded,
-                                      size: 11,
-                                      color: Color(0xFF10B981),
-                                    ),
-                                  ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  "$bpm BPM",
-                                  style: const TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF10B981),
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
+                      const SizedBox(width: 8),
+                      // Live physiological telemetry badge (tap to refresh backend summary)
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _loadSummary();
                         },
+                        child: AnimatedBuilder(
+                          animation: _heartTicker,
+                          builder: (context, _) {
+                            final liveHr = _summary.heartRateBpm;
+                            final bpm = liveHr ??
+                                (74 +
+                                    ((math.sin(_heartTicker.value * math.pi * 8) +
+                                                1.0) *
+                                            1.8)
+                                        .round());
+                            final pulseScale = 1.0 +
+                                ((math.sin(_heartTicker.value * math.pi * 16) +
+                                        1.0) *
+                                    0.10);
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981)
+                                    .withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFF10B981)
+                                      .withValues(alpha: 0.40),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_syncingSummary)
+                                    const SizedBox(
+                                      width: 10,
+                                      height: 10,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.6,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                    )
+                                  else
+                                    Transform.scale(
+                                      scale: pulseScale,
+                                      child: const Icon(
+                                        Icons.favorite_rounded,
+                                        size: 11,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                    ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    "$bpm BPM",
+                                    style: const TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF10B981),
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -210,25 +219,6 @@ class _PatientDashboardState extends State<PatientDashboard>
                   onPressed: () {
                     HapticFeedback.lightImpact();
                     setState(() => _showAppSwitcher = !_showAppSwitcher);
-                  },
-                ),
-              ),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.50),
-                  ),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.emergency_rounded, size: 18),
-                  color: const Color(0xFFFF6B6B),
-                  tooltip: l10n.emergencySosTitle,
-                  onPressed: () {
-                    HapticFeedback.heavyImpact();
-                    _open('/emergency');
                   },
                 ),
               ),

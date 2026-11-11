@@ -10,7 +10,14 @@ import '../widgets/profile_header.dart';
 import '../widgets/profile_info_row.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({
+    super.key,
+    this.fetchUsersTable,
+    this.updateService,
+  });
+
+  final Future<List<dynamic>> Function()? fetchUsersTable;
+  final AppUpdateService? updateService;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -20,7 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   Map<String, dynamic>? _user;
   String? _errorMsg;
-  final AppUpdateService _updateService = AppUpdateService();
+  late final AppUpdateService _updateService;
   AppVersionInfo _appVersion = const AppVersionInfo(versionName: '1.0.0', versionCode: 1);
   AppUpdateCheckResult? _updateCheck;
   bool _checkingUpdate = false;
@@ -28,6 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _updateService = widget.updateService ?? AppUpdateService();
     _loadProfile();
     _loadUpdateStatus();
   }
@@ -86,7 +94,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     try {
-      final data = await EHospitalService.fetchTable('users');
+      final fetchUsers =
+          widget.fetchUsersTable ?? () => EHospitalService.fetchTable('users');
+      final data = await fetchUsers();
       final record = data.firstWhere((e) {
         final id = e["user_id"] ?? e["patient_id"];
         if (id == null) return false;
@@ -188,6 +198,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           subtitle: 'Notifications, AI model, and data sources',
                           onTap: () => Navigator.pushNamed(context, "/settings"),
                         ),
+                        _ProfileActionCard(
+                          icon: Icons.emergency_outlined,
+                          title: l10n.emergencySosCardTitle,
+                          subtitle: l10n.emergencySosCardSubtitle,
+                          iconColor: Colors.red.shade600,
+                          onTap: () => Navigator.pushNamed(context, "/emergency"),
+                        ),
                         if (_updateService.isAndroidNative)
                           _ProfileActionCard(
                             icon: Icons.system_update_outlined,
@@ -213,6 +230,7 @@ class _ProfileActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final Color? iconColor;
   final bool highlight;
   final bool loading;
   final VoidCallback onTap;
@@ -221,6 +239,7 @@ class _ProfileActionCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.iconColor,
     this.highlight = false,
     this.loading = false,
     required this.onTap,
@@ -228,7 +247,8 @@ class _ProfileActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = highlight ? Colors.green.shade700 : AppColors.primary;
+    final accent =
+        highlight ? Colors.green.shade700 : (iconColor ?? AppColors.primary);
     return Container(
       margin: ProfileStyles.rowMargin,
       decoration: ProfileStyles.infoRowDecoration,
