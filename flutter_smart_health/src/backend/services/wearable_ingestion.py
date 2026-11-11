@@ -22,7 +22,7 @@ from src.backend.schemas.wearables import (
 
 WEARABLE_TABLE = "wearable_vitals"
 WORKOUT_TABLE = "wearable_workouts"
-METRIC_FIELDS = ("heart_rate", "steps", "calories", "sleep")
+METRIC_FIELDS = ("heart_rate", "steps", "calories", "sleep", "stress_score")
 WORKOUT_FIELD_NAMES = (
     "patient_id",
     "source_provider",

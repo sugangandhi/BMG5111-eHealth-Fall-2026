@@ -12,6 +12,7 @@ class WearableSample {
   final double? steps;
   final double? calories;
   final double? sleep;
+  final double? stressScore;
   final DateTime timestamp;
   final DateTime? recordedOn;
   final String source;
@@ -23,6 +24,7 @@ class WearableSample {
     this.steps,
     this.calories,
     this.sleep,
+    this.stressScore,
     required this.timestamp,
     this.recordedOn,
     required this.source,
@@ -34,6 +36,7 @@ class WearableSample {
     if (steps != null) 'steps',
     if (calories != null) 'calories',
     if (sleep != null) 'sleep',
+    if (stressScore != null) 'stress_score',
   ];
 
   Map<String, dynamic> toJson() => {
@@ -42,6 +45,7 @@ class WearableSample {
     if (steps != null) 'steps': steps,
     if (calories != null) 'calories': calories,
     if (sleep != null) 'sleep': sleep,
+    if (stressScore != null) 'stress_score': stressScore,
     'timestamp': timestamp.toUtc().toIso8601String(),
     if (recordedOn != null) 'recorded_on': recordedOn!.toUtc().toIso8601String(),
     'source': source,

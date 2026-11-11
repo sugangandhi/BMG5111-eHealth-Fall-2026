@@ -22,6 +22,7 @@ class WearableIngestionRequest(BaseModel):
     steps: float | None = Field(default=None, ge=0)
     calories: float | None = Field(default=None, ge=0)
     sleep: float | None = Field(default=None, ge=0)
+    stress_score: float | None = Field(default=None, ge=0, le=100)
     timestamp: datetime
     recorded_on: datetime | None = None
     source: WearableSource = "manual"
@@ -30,16 +31,15 @@ class WearableIngestionRequest(BaseModel):
     @field_validator("patient_id")
     @classmethod
     def patient_id_must_not_be_blank(cls, value: int | str) -> int | str:
-        val_str = str(value).strip() if value is not None else ""
-        if not val_str or val_str in ("", "null", "undefined", "0"):
-            return "1"
+        if str(value).strip() == "":
+            raise ValueError("patient_id must not be empty")
         return value
 
     @model_validator(mode="after")
     def require_at_least_one_metric(self) -> "WearableIngestionRequest":
         if not self.accepted_metrics:
             raise ValueError(
-                "At least one wearable metric is required: heart_rate, steps, calories, or sleep."
+                "At least one wearable metric is required: heart_rate, steps, calories, sleep, or stress_score."
             )
         return self
 
@@ -47,7 +47,7 @@ class WearableIngestionRequest(BaseModel):
     def accepted_metrics(self) -> list[str]:
         return [
             field
-            for field in ("heart_rate", "steps", "calories", "sleep")
+            for field in ("heart_rate", "steps", "calories", "sleep", "stress_score")
             if getattr(self, field) is not None
         ]
 
@@ -105,9 +105,8 @@ class WearableWorkoutIngestionRequest(BaseModel):
     @field_validator("patient_id")
     @classmethod
     def patient_id_must_not_be_blank(cls, value: int | str) -> int | str:
-        val_str = str(value).strip() if value is not None else ""
-        if not val_str or val_str in ("", "null", "undefined", "0"):
-            return "1"
+        if str(value).strip() == "":
+            raise ValueError("patient_id must not be empty")
         return value
 
     @field_validator(

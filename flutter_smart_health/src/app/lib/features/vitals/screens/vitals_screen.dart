@@ -196,6 +196,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
     double lastKnownCalories = 0.0;
     double lastKnownHeartRate = 0.0;
     double lastKnownSleep = 0.0;
+    double lastKnownStress = 0.0;
 
     for (int i = 0; i < ranged.length; i++) {
       final d = ranged[i];
@@ -225,14 +226,16 @@ class _VitalsScreenState extends State<VitalsScreen> {
         final parsed = double.tryParse(rawSl.toString()) ?? 0.0;
         if (parsed > 0) lastKnownSleep = parsed;
       }
-
-      final stress = double.tryParse(rawStress.toString()) ?? 0.0;
+      if (rawStress != null && rawStress.toString() != 'null') {
+        final parsed = double.tryParse(rawStress.toString()) ?? 0.0;
+        if (parsed > 0) lastKnownStress = parsed;
+      }
 
       sSpots.add(FlSpot(i.toDouble(), lastKnownSteps));
       cSpots.add(FlSpot(i.toDouble(), lastKnownCalories));
       hrSpots.add(FlSpot(i.toDouble(), lastKnownHeartRate));
       slSpots.add(FlSpot(i.toDouble(), lastKnownSleep));
-      stSpots.add(FlSpot(i.toDouble(), stress));
+      stSpots.add(FlSpot(i.toDouble(), lastKnownStress));
       if ((d['annotation'] ?? '').toString().trim().isNotEmpty) {
         annotated.add(i);
       }

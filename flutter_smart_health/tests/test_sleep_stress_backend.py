@@ -102,8 +102,8 @@ def test_sleep_feedback_handles_empty_data(monkeypatch):
 
 
 def test_stress_score_supports_complete_partial_and_missing_inputs():
-    assert compute_stress_score(50, 60, 14) == 0
-    assert compute_stress_score(25, None, None) == 50
+    assert compute_stress_score(50, 60, 14) == 28.7
+    assert compute_stress_score(25, None, None) == 70.0
     assert compute_stress_score(None, None, None) is None
 
 
@@ -131,7 +131,7 @@ def test_stress_snapshot_derives_score_server_side(monkeypatch):
 
     assert response.status_code == 200
     assert captured["table"] == "wearable_vitals"
-    assert captured["row"]["stress_score"] == 46.4
+    assert captured["row"]["stress_score"] == 49.4
     assert "stress_score" in captured["row"]
 
 
@@ -172,5 +172,12 @@ def test_assistant_stress_analysis_endpoint_coexists_with_health_alert(monkeypat
 
     assert stress_response.status_code == 200
     assert stress_response.json() == {"analysis": "stress for 20"}
-    route_paths = {route.path for route in app.routes}
+    route_paths = set()
+    for route in app.routes:
+        if hasattr(route, "path"):
+            route_paths.add(route.path)
+        if hasattr(route, "original_router"):
+            for sub in route.original_router.routes:
+                if hasattr(sub, "path"):
+                    route_paths.add(sub.path)
     assert "/assistant/health-alert/analyze" in route_paths

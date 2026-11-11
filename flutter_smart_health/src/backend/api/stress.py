@@ -18,9 +18,10 @@ router = APIRouter(prefix="/vitals", tags=["stress"])
 @router.post("/stress-snapshot")
 async def create_stress_snapshot(request: StressSnapshotRequest) -> dict[str, Any]:
     stress_score = compute_stress_score(
-        request.hrv_sdnn,
-        request.resting_heart_rate,
-        request.respiratory_rate,
+        hrv_sdnn=request.hrv_sdnn,
+        resting_heart_rate=request.resting_heart_rate,
+        respiratory_rate=request.respiratory_rate,
+        current_heart_rate=request.heart_rate,
     )
     payload: dict[str, Any] = {
         "patient_id": request.patient_id,

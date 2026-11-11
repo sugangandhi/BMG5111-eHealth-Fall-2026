@@ -222,7 +222,7 @@ class WearableSyncService {
     // Web / Cross-Platform Demo: Ingests Apple Watch workout into EHR
     try {
       final now = DateTime.now();
-      return uploadSimulationWorkout(
+      return await uploadSimulationWorkout(
         patientId: patientId,
         workoutType: 'Outdoor Walk',
         startTime: now.subtract(const Duration(minutes: 45)),
@@ -394,6 +394,14 @@ Future<WearableSourceReadResult> _readHealthSample({
     HealthDataType.HEART_RATE,
     HealthDataType.ACTIVE_ENERGY_BURNED,
     HealthDataType.SLEEP_ASLEEP,
+    HealthDataType.SLEEP_LIGHT,
+    HealthDataType.SLEEP_DEEP,
+    HealthDataType.SLEEP_REM,
+    HealthDataType.SLEEP_IN_BED,
+    HealthDataType.SLEEP_AWAKE,
+    HealthDataType.HEART_RATE_VARIABILITY_SDNN,
+    HealthDataType.RESTING_HEART_RATE,
+    HealthDataType.RESPIRATORY_RATE,
   ];
   final permissions = types.map((_) => HealthDataAccess.READ).toList();
   final granted = await health.requestAuthorization(
@@ -429,7 +437,7 @@ Future<WearableSourceReadResult> _readHealthSample({
     debugPrint("HealthKit getTotalStepsInInterval 24h error: $e");
   }
 
-  // 2. Query detailed HealthKit points for Steps, Heart Rate, Active Calories, Sleep
+  // 2. Query detailed HealthKit points for Steps, Heart Rate, Active Calories, Sleep, Stress
   final dataPoints = await health.getHealthDataFromTypes(
     startTime: since48h,
     endTime: now,
@@ -444,9 +452,63 @@ Future<WearableSourceReadResult> _readHealthSample({
   double? latestHeartRate;
   DateTime? latestHeartRateTime;
   double caloriesToday = 0;
-  double sleepMinutes = 0;
+
+  // Sleep accumulators keyed by night (yyyy-MM-dd)
+  final deepByNight = <String, double>{};
+  final remByNight = <String, double>{};
+  final coreByNight = <String, double>{};
+  final generalAsleepByNight = <String, double>{};
+  final inBedByNight = <String, double>{};
+
+  String nightKey(DateTime dt) {
+    final local = dt.toLocal();
+    final d = local.hour < 18 ? local.subtract(const Duration(days: 1)) : local;
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  // Stress metric accumulators (HRV, resting HR, respiratory rate)
+  double? latestHrv;
+  DateTime? latestHrvTime;
+  double? latestRestingHR;
+  DateTime? latestRestingHRTime;
+  double? latestRespiratory;
+  DateTime? latestRespiratoryTime;
 
   for (final point in unique) {
+    // A. Handle sleep samples (duration-based from start to end)
+    final isSleep = point.type == HealthDataType.SLEEP_DEEP ||
+        point.type == HealthDataType.SLEEP_REM ||
+        point.type == HealthDataType.SLEEP_LIGHT ||
+        point.type == HealthDataType.SLEEP_ASLEEP ||
+        point.type == HealthDataType.SLEEP_IN_BED;
+    if (isSleep) {
+      final durMinutes = point.dateTo.difference(point.dateFrom).inSeconds / 60.0;
+      if (durMinutes > 0 && durMinutes < 720) {
+        final key = nightKey(point.dateFrom);
+        switch (point.type) {
+          case HealthDataType.SLEEP_DEEP:
+            deepByNight[key] = (deepByNight[key] ?? 0) + durMinutes;
+            break;
+          case HealthDataType.SLEEP_REM:
+            remByNight[key] = (remByNight[key] ?? 0) + durMinutes;
+            break;
+          case HealthDataType.SLEEP_LIGHT:
+            coreByNight[key] = (coreByNight[key] ?? 0) + durMinutes;
+            break;
+          case HealthDataType.SLEEP_ASLEEP:
+            generalAsleepByNight[key] = (generalAsleepByNight[key] ?? 0) + durMinutes;
+            break;
+          case HealthDataType.SLEEP_IN_BED:
+            inBedByNight[key] = (inBedByNight[key] ?? 0) + durMinutes;
+            break;
+          default:
+            break;
+        }
+      }
+      continue;
+    }
+
+    // B. Handle numeric samples
     final value = point.value;
     if (value is! NumericHealthValue) continue;
     final numVal = value.numericValue;
@@ -477,9 +539,22 @@ Future<WearableSourceReadResult> _readHealthSample({
           caloriesToday += numVal;
         }
         break;
-      case HealthDataType.SLEEP_ASLEEP:
-        if (point.dateFrom.isAfter(since24h)) {
-          sleepMinutes += numVal;
+      case HealthDataType.HEART_RATE_VARIABILITY_SDNN:
+        if (latestHrvTime == null || point.dateTo.isAfter(latestHrvTime)) {
+          latestHrvTime = point.dateTo;
+          latestHrv = numVal.toDouble();
+        }
+        break;
+      case HealthDataType.RESTING_HEART_RATE:
+        if (latestRestingHRTime == null || point.dateTo.isAfter(latestRestingHRTime)) {
+          latestRestingHRTime = point.dateTo;
+          latestRestingHR = numVal.toDouble();
+        }
+        break;
+      case HealthDataType.RESPIRATORY_RATE:
+        if (latestRespiratoryTime == null || point.dateTo.isAfter(latestRespiratoryTime)) {
+          latestRespiratoryTime = point.dateTo;
+          latestRespiratory = numVal.toDouble();
         }
         break;
       default:
@@ -507,7 +582,41 @@ Future<WearableSourceReadResult> _readHealthSample({
   }
 
   final finalHeartRate = latestHeartRate ?? (heartRateCount > 0 ? (totalHeartRate / heartRateCount) : 0);
-  final sleepHours = sleepMinutes / 60;
+
+  // Extract latest completed night of sleep
+  final allSleepNights = <String>{
+    ...deepByNight.keys,
+    ...remByNight.keys,
+    ...coreByNight.keys,
+    ...generalAsleepByNight.keys,
+    ...inBedByNight.keys,
+  }.toList()..sort();
+
+  double sleepHours = 0.0;
+  if (allSleepNights.isNotEmpty) {
+    for (int i = allSleepNights.length - 1; i >= 0; i--) {
+      final k = allSleepNights[i];
+      final stages = (deepByNight[k] ?? 0) + (remByNight[k] ?? 0) + (coreByNight[k] ?? 0);
+      final general = generalAsleepByNight[k] ?? 0;
+      final inBed = inBedByNight[k] ?? 0;
+      final totalMin = stages > 0 ? stages : (general > 0 ? general : inBed * 0.9);
+      if (totalMin >= 20) {
+        sleepHours = double.parse((totalMin / 60.0).toStringAsFixed(1));
+        break;
+      }
+    }
+  }
+
+  // Calculate physiological stress score from HRV, HR elevation, and respiratory rate
+  double? computedStressScore;
+  if (latestHrv != null || latestRestingHR != null || (finalHeartRate > 0)) {
+    computedStressScore = _calculateStressScore(
+      hrvSdnn: latestHrv,
+      restingHeartRate: latestRestingHR,
+      currentHeartRate: finalHeartRate > 0 ? finalHeartRate : null,
+      respiratoryRate: latestRespiratory,
+    );
+  }
 
   if (finalSteps == 0 && finalHeartRate == 0 && caloriesToday == 0 && sleepHours == 0) {
     return WearableSourceReadResult.failure(
@@ -519,7 +628,10 @@ Future<WearableSourceReadResult> _readHealthSample({
   final summaryMsg = StringBuffer('Synced from Apple Health: ')
     ..write('$finalSteps steps ($stepSourceLabel)')
     ..write(', ${finalHeartRate > 0 ? '${finalHeartRate.toInt()} bpm' : 'no active HR'}')
-    ..write(', ${caloriesToday.toInt()} kcal.');
+    ..write(', ${caloriesToday.toInt()} kcal')
+    ..write(', ${sleepHours > 0 ? '${sleepHours.toStringAsFixed(1)} hrs sleep' : 'no sleep'}')
+    ..write(computedStressScore != null ? ', stress ${computedStressScore.toInt()}' : '')
+    ..write('.');
 
   return WearableSourceReadResult.success(
     WearableSample(
@@ -527,14 +639,71 @@ Future<WearableSourceReadResult> _readHealthSample({
       heartRate: finalHeartRate > 0 ? double.parse(finalHeartRate.toStringAsFixed(1)) : null,
       steps: finalSteps > 0 ? finalSteps.toDouble() : 0.0,
       calories: caloriesToday > 0 ? double.parse(caloriesToday.toStringAsFixed(1)) : null,
-      sleep: sleepHours > 0
-          ? double.parse(sleepHours.toStringAsFixed(2))
-          : null,
+      sleep: sleepHours > 0 ? sleepHours : null,
+      stressScore: computedStressScore,
       timestamp: now,
       source: source,
     ),
     message: summaryMsg.toString(),
   );
+}
+
+double _calculateStressScore({
+  double? hrvSdnn,
+  double? restingHeartRate,
+  double? currentHeartRate,
+  double? respiratoryRate,
+}) {
+  double totalWeight = 0.0;
+  double weightedScore = 0.0;
+
+  if (hrvSdnn != null && hrvSdnn > 0) {
+    double hrvScore;
+    if (hrvSdnn >= 75.0) {
+      hrvScore = (15.0 - (hrvSdnn - 75.0) * 0.2).clamp(5.0, 15.0);
+    } else if (hrvSdnn >= 45.0) {
+      hrvScore = 40.0 - ((hrvSdnn - 45.0) / 30.0) * 25.0;
+    } else if (hrvSdnn >= 25.0) {
+      hrvScore = 70.0 - ((hrvSdnn - 25.0) / 20.0) * 30.0;
+    } else {
+      hrvScore = (70.0 + ((25.0 - hrvSdnn) / 25.0) * 25.0).clamp(70.0, 95.0);
+    }
+    weightedScore += 0.50 * hrvScore;
+    totalWeight += 0.50;
+  }
+
+  if (currentHeartRate != null && currentHeartRate > 0) {
+    final restingBaseline = (restingHeartRate != null && restingHeartRate > 30) ? restingHeartRate : 65.0;
+    final delta = currentHeartRate - restingBaseline;
+    double hrScore;
+    if (delta <= 0) {
+      hrScore = 15.0;
+    } else if (delta <= 15.0) {
+      hrScore = 20.0 + (delta / 15.0) * 20.0;
+    } else if (delta <= 35.0) {
+      hrScore = 40.0 + ((delta - 15.0) / 20.0) * 30.0;
+    } else {
+      hrScore = (70.0 + ((delta - 35.0) / 25.0) * 25.0).clamp(70.0, 95.0);
+    }
+    final hrWeight = (hrvSdnn != null && hrvSdnn > 0) ? 0.35 : 0.70;
+    weightedScore += hrWeight * hrScore;
+    totalWeight += hrWeight;
+  } else if (restingHeartRate != null && restingHeartRate > 0) {
+    final rScore = (20.0 + (restingHeartRate - 60.0) * 1.5).clamp(10.0, 85.0);
+    final rWeight = (hrvSdnn != null && hrvSdnn > 0) ? 0.35 : 0.70;
+    weightedScore += rWeight * rScore;
+    totalWeight += rWeight;
+  }
+
+  if (respiratoryRate != null && respiratoryRate > 0) {
+    final respScore = (25.0 + (respiratoryRate - 14.0) * 4.5).clamp(10.0, 90.0);
+    const respWeight = 0.15;
+    weightedScore += respWeight * respScore;
+    totalWeight += respWeight;
+  }
+
+  if (totalWeight <= 0) return 25.0;
+  return double.parse((weightedScore / totalWeight).clamp(5.0, 95.0).toStringAsFixed(1));
 }
 
 class _StressBucket {
@@ -612,13 +781,14 @@ Future<int> _uploadHourlyStressBuckets({
     final hrv = bucket.avg(bucket.hrvSdnn);
     final resting = bucket.avg(bucket.restingHeartRate);
     final respiratory = bucket.avg(bucket.respiratoryRate);
-    if (hrv == null && resting == null && respiratory == null) continue;
+    final hr = bucket.avg(bucket.heartRate);
+    if (hrv == null && resting == null && respiratory == null && hr == null) continue;
     await repo.sendStressSnapshot(
       patientId: patientId,
       hrvSdnn: hrv,
       restingHeartRate: resting,
       respiratoryRate: respiratory,
-      heartRate: bucket.avg(bucket.heartRate),
+      heartRate: hr,
       timestamp: bucket.hour.toUtc().toIso8601String(),
     );
     uploaded++;

@@ -48,8 +48,8 @@ class HealthSleepService {
     final deep = <String, double>{};
     final rem = <String, double>{};
     final core = <String, double>{};
+    final unspecified = <String, double>{};
     final awake = <String, double>{};
-    final asleep = <String, double>{};
     final inBed = <String, double>{};
     final spo2 = <String, List<double>>{};
     final hr = <String, List<double>>{};
@@ -69,16 +69,15 @@ class HealthSleepService {
       switch (p.type) {
         case HealthDataType.SLEEP_DEEP:
           addMinutes(deep, night, p.dateFrom, p.dateTo);
-          addMinutes(asleep, night, p.dateFrom, p.dateTo);
           break;
         case HealthDataType.SLEEP_REM:
           addMinutes(rem, night, p.dateFrom, p.dateTo);
-          addMinutes(asleep, night, p.dateFrom, p.dateTo);
           break;
         case HealthDataType.SLEEP_LIGHT:
-        case HealthDataType.SLEEP_ASLEEP:
           addMinutes(core, night, p.dateFrom, p.dateTo);
-          addMinutes(asleep, night, p.dateFrom, p.dateTo);
+          break;
+        case HealthDataType.SLEEP_ASLEEP:
+          addMinutes(unspecified, night, p.dateFrom, p.dateTo);
           break;
         case HealthDataType.SLEEP_AWAKE:
           addMinutes(awake, night, p.dateFrom, p.dateTo);
@@ -103,8 +102,9 @@ class HealthSleepService {
       ...deep.keys,
       ...rem.keys,
       ...core.keys,
+      ...unspecified.keys,
       ...awake.keys,
-      ...asleep.keys,
+      ...inBed.keys,
     }.toList()..sort();
 
     double? avg(List<double>? xs) => (xs == null || xs.isEmpty)
@@ -115,7 +115,9 @@ class HealthSleepService {
 
     final result = <NightSleep>[];
     for (final night in allNights) {
-      final a = asleep[night] ?? 0;
+      final stageAsleep = (deep[night] ?? 0) + (rem[night] ?? 0) + (core[night] ?? 0);
+      final unspec = unspecified[night] ?? 0;
+      final a = stageAsleep > 0 ? stageAsleep : unspec;
       final ib = inBed[night] ?? (a + (awake[night] ?? 0));
       result.add(
         NightSleep(
