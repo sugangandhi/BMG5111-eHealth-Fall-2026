@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import hashlib
+import os
 from pathlib import Path
+from time import monotonic, perf_counter
 from dotenv import load_dotenv
+import httpx
 
 _env_file = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(_env_file)
 load_dotenv()
-
-from time import perf_counter
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,7 +41,54 @@ _WEB_NO_CACHE_PATHS = {
     "/manifest.json",
     "/version.json",
     "/web-version",
+    "/apk-version",
 }
+
+_DEFAULT_APK_VERSION_URL = (
+    "https://github.com/sugangandhi/BMG5111-eHealth-Fall-2026/"
+    "releases/download/android-latest/apk-version.json"
+)
+_APK_VERSION_CACHE_TTL_SECONDS = 45.0
+_apk_version_cache: dict[str, object] = {"fetched_at": 0.0, "payload": None}
+
+
+async def _fetch_apk_version_metadata() -> dict:
+    """Fetch latest published Android APK release metadata with short in-memory caching."""
+    now = monotonic()
+    cached_payload = _apk_version_cache.get("payload")
+    fetched_at = float(_apk_version_cache.get("fetched_at") or 0.0)
+    if isinstance(cached_payload, dict) and (now - fetched_at) < _APK_VERSION_CACHE_TTL_SECONDS:
+        return cached_payload
+
+    url = os.getenv("APK_VERSION_URL", _DEFAULT_APK_VERSION_URL).strip() or _DEFAULT_APK_VERSION_URL
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=6.0) as client:
+            resp = await client.get(url)
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, dict) and data.get("apk_url"):
+                payload = {
+                    "available": True,
+                    "version_code": int(data.get("version_code") or 0),
+                    "version_name": str(data.get("version_name") or "1.0.0"),
+                    "apk_url": str(data["apk_url"]),
+                    "release_notes": str(data.get("release_notes") or ""),
+                    "published_at": str(data.get("published_at") or ""),
+                }
+                _apk_version_cache["fetched_at"] = now
+                _apk_version_cache["payload"] = payload
+                return payload
+    except Exception as exc:
+        logger.warning("Failed fetching APK version metadata from %s: %s", url, exc)
+
+    return {
+        "available": False,
+        "version_code": 0,
+        "version_name": "0.0.0",
+        "apk_url": None,
+        "release_notes": "",
+        "published_at": "",
+    }
 
 
 def _resolve_web_dir() -> Path | None:
@@ -139,6 +187,11 @@ def create_app() -> FastAPI:
     async def get_web_version():
         """Expose a deterministic build ID so installed mobile PWAs detect new deploys."""
         return {"build_id": web_build_id}
+
+    @app.get("/apk-version")
+    async def get_apk_version():
+        """Expose latest published Android APK release metadata for 1-tap in-app updates."""
+        return await _fetch_apk_version_metadata()
 
     app.include_router(auth_router)
     app.include_router(assistant_router)

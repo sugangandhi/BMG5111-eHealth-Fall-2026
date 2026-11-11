@@ -4,10 +4,12 @@ import 'dart:math' as math;
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../services/backend_api_service.dart';
 import '../../../services/e_hospital_service.dart';
 import '../../../l10n/l10n.dart';
 import '../../../ui/app_theme.dart';
 import '../presentation/insights_styles.dart';
+import '../widgets/ai_clinical_synthesis_card.dart';
 import '../widgets/health_insight_card.dart';
 import '../widgets/insight_chip.dart';
 import '../widgets/insight_correlation_row.dart';
@@ -47,6 +49,10 @@ class _HealthInsightsScreenState extends State<HealthInsightsScreen> {
   double? _corrHrBp; // Pearson r wearable HR vs clinical BP
   List<Map<String, dynamic>> _anomalyAlerts = []; // rule-based anomaly table
   List<Map<String, dynamic>> _allPatientsStats = []; // multi-patient comparison
+  int? _activePatientId;
+  bool _aiSynthesisLoading = false;
+  String? _aiSynthesisText;
+  String? _aiSynthesisError;
 
   @override
   void initState() {
@@ -124,6 +130,7 @@ class _HealthInsightsScreenState extends State<HealthInsightsScreen> {
 
     if (mounted) {
       setState(() {
+        _activePatientId = patientId;
         _insights = insights;
         _wearableVitals = wearableVitals;
         _diabetesData = diabetes;
@@ -140,6 +147,42 @@ class _HealthInsightsScreenState extends State<HealthInsightsScreen> {
         _allPatientsStats = allPatientsStats;
         _loading = false;
       });
+      _loadAiSynthesis();
+    }
+  }
+
+  Future<void> _loadAiSynthesis() async {
+    final pid = _activePatientId;
+    if (pid == null || _aiSynthesisLoading) return;
+    setState(() {
+      _aiSynthesisLoading = true;
+      _aiSynthesisError = null;
+    });
+    try {
+      await BackendApiService.syncModelStatus();
+      final titles = _insights
+          .map((e) => '${e['title']}: ${e['severity']}')
+          .take(8)
+          .toList();
+      final text = await BackendApiService.insightsSummary(
+        patientId: pid.toString(),
+        insightTitles: titles,
+        corrStepsCalories: _corrStepsCalories,
+        corrHrBp: _corrHrBp,
+        anomalyCount: _anomalyAlerts.length,
+        mergedCount: _mergedRecords.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _aiSynthesisText = text;
+        _aiSynthesisLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _aiSynthesisError = 'Unable to load AI clinical synthesis right now: $e';
+        _aiSynthesisLoading = false;
+      });
     }
   }
 
@@ -148,7 +191,7 @@ class _HealthInsightsScreenState extends State<HealthInsightsScreen> {
     int patientId,
   ) async {
     try {
-      return EHospitalService.fetchTable(
+      return await EHospitalService.fetchTable(
         table,
         patientId: patientId.toString(),
       );
@@ -1725,6 +1768,13 @@ class _HealthInsightsScreenState extends State<HealthInsightsScreen> {
                     ),
 
                     const SizedBox(height: 16),
+
+                    AiClinicalSynthesisCard(
+                      loading: _aiSynthesisLoading,
+                      summary: _aiSynthesisText,
+                      errorMessage: _aiSynthesisError,
+                      onRefresh: _loadAiSynthesis,
+                    ),
 
                     // Wellness disclaimer
                     _buildDisclaimerBanner(),

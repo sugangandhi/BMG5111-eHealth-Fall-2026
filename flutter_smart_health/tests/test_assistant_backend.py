@@ -1314,3 +1314,31 @@ def test_model_status_endpoint_formats_label(monkeypatch):
         "label": "GPT-4o",
         "openai_configured": True,
     }
+
+
+def test_insights_summary_endpoint_returns_synthesis(monkeypatch):
+    async def fake_context(patient_id):
+        return {"patient_id": patient_id, "latest_wearable": [{"steps": 6200}]}
+
+    monkeypatch.setattr(assistant_service, "build_patient_context", fake_context)
+    monkeypatch.setattr(
+        assistant_service,
+        "invoke_model",
+        lambda prompt, system, invocation=None: "Wearable steps rose to 6,200 with stable heart rate.",
+    )
+
+    response = client.post(
+        "/assistant/insights-summary",
+        json={
+            "patient_id": 20,
+            "insight_titles": ["Resting Heart Rate: normal"],
+            "corr_steps_calories": 0.84,
+            "anomaly_count": 0,
+            "merged_count": 2,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "6,200" in body["summary"]
+    assert body["model_label"]

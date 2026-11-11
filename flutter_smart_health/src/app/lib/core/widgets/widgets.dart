@@ -3,6 +3,7 @@ export 'app_card.dart';
 export 'app_form_panel.dart';
 export 'app_page.dart';
 export 'app_sliver_header.dart';
+export 'app_update_dialog.dart';
 export 'atmospheric_sky_background.dart';
 export 'metric_tile.dart';
 export 'section_header.dart';

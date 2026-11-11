@@ -108,6 +108,21 @@ class TrendInsightsResponse(BaseModel):
     insights: dict[str, str]
 
 
+class InsightsSynthesisRequest(BaseModel):
+    patient_id: int | str
+    insight_titles: list[str] = Field(default_factory=list)
+    corr_steps_calories: float | None = None
+    corr_hr_bp: float | None = None
+    anomaly_count: int = 0
+    merged_count: int = 0
+    model_invocation: ModelInvocationSettings | None = None
+
+
+class InsightsSynthesisResponse(BaseModel):
+    summary: str
+    model_label: str = ""
+
+
 class HealthAlertEventRequest(BaseModel):
     patient_id: int | str
     event_type: str

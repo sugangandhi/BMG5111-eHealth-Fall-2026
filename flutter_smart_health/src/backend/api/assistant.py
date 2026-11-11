@@ -64,6 +64,8 @@ from src.backend.schemas.assistant import (
     AssistantChatResponse,
     HealthAlertDecisionResponse,
     HealthAlertEventRequest,
+    InsightsSynthesisRequest,
+    InsightsSynthesisResponse,
     TrendInsightsRequest,
     TrendInsightsResponse,
     VitalsSummaryRequest,
@@ -74,6 +76,7 @@ from src.backend.services.assistant_service import (
     analyze_stress,
     build_trend_insights,
     chat_with_assistant,
+    synthesize_health_insights,
     summarize_vitals,
     validate_model_invocation,
 )
@@ -175,6 +178,13 @@ async def trend_insights(request: TrendInsightsRequest) -> TrendInsightsResponse
     # Flutter, keeping chart widgets free of LLM response parsing.
     insights = await build_trend_insights(request)
     return TrendInsightsResponse(insights=insights)
+
+
+@router.post("/insights-summary", response_model=InsightsSynthesisResponse)
+async def insights_summary(
+    request: InsightsSynthesisRequest,
+) -> InsightsSynthesisResponse:
+    return await synthesize_health_insights(request)
 
 
 @router.post("/health-alert/analyze", response_model=HealthAlertDecisionResponse)

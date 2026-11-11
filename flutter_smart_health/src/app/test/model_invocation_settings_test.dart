@@ -139,4 +139,36 @@ void main() {
     final label = await repository.syncModelStatus();
     expect(label, 'GPT-4o');
   });
+
+  test('insightsSummary posts analytics signals and reads synthesis summary', () async {
+    late Map<String, dynamic> captured;
+    final repository = AssistantRepository(
+      client: ApiClient(
+        baseUrl: 'https://example.test',
+        client: MockClient((request) async {
+          expect(request.url.path, '/assistant/insights-summary');
+          captured = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'summary': 'Your activity correlation is strong.',
+              'model_label': 'GPT-4o',
+            }),
+            200,
+          );
+        }),
+      ),
+    );
+
+    final summary = await repository.insightsSummary(
+      patientId: '20',
+      insightTitles: const ['Steps Trend: normal'],
+      corrStepsCalories: 0.91,
+      anomalyCount: 0,
+      mergedCount: 3,
+    );
+
+    expect(summary, 'Your activity correlation is strong.');
+    expect(captured['insight_titles'], ['Steps Trend: normal']);
+    expect(captured['corr_steps_calories'], 0.91);
+  });
 }

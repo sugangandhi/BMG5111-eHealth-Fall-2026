@@ -5,6 +5,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../../data/models/model_invocation_settings.dart';
 import '../../../data/repositories/model_invocation_settings_store.dart';
 import '../../../l10n/l10n.dart';
+import '../../../services/app_update_service.dart';
 import '../../../ui/ui.dart';
 import '../presentation/settings_styles.dart';
 import '../widgets/data_sources_dialog.dart';
@@ -23,6 +24,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _email = "";
   int? _patientId;
   ModelInvocationSettings? _modelInvocationSettings;
+  final AppUpdateService _updateService = AppUpdateService();
+  AppVersionInfo _appVersion = const AppVersionInfo(versionName: '1.0.0', versionCode: 1);
+  AppUpdateCheckResult? _updateCheck;
+  bool _checkingUpdate = false;
   final FlutterLocalNotificationsPlugin _notifPlugin = FlutterLocalNotificationsPlugin();
 
   @override
@@ -36,13 +41,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     final rawId = prefs.get("patient_id");
     final modelSettings = await ModelInvocationSettingsStore().loadEffective();
+    final version = await _updateService.getInstalledVersion();
     _patientId = int.tryParse(rawId?.toString() ?? '');
     if (mounted) {
       setState(() {
         _notificationsEnabled = prefs.getBool("notifications_enabled_$_patientId") ?? false;
         _email = prefs.getString("patient_email") ?? "";
         _modelInvocationSettings = modelSettings;
+        _appVersion = version;
       });
+    }
+    if (_updateService.isAndroidNative) {
+      final check = await _updateService.checkForUpdate();
+      if (mounted) {
+        setState(() => _updateCheck = check);
+      }
     }
   }
 
@@ -132,6 +145,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _checkForUpdates() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    final check = await _updateService.checkForUpdate();
+    if (!mounted) return;
+    setState(() {
+      _checkingUpdate = false;
+      _updateCheck = check;
+    });
+    if (!_updateService.isAndroidNative) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Web app updates automatically on refresh from the server.'),
+        ),
+      );
+      return;
+    }
+    await showAppUpdateDialog(
+      context,
+      updateService: _updateService,
+      checkResult: check,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -175,9 +212,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SettingsTile(
                     icon: Icons.info_outline,
                     title: l10n.appVersionTitle,
-                    subtitle: l10n.appVersionValue,
+                    subtitle: _updateService.isAndroidNative
+                        ? _appVersion.displayLabel
+                        : '${l10n.appVersionValue} (Web)',
                     trailing: const SizedBox.shrink(),
                   ),
+                  if (_updateService.isAndroidNative)
+                    SettingsTile(
+                      icon: Icons.system_update_outlined,
+                      title: 'App updates',
+                      subtitle: _updateCheck?.isUpdateAvailable == true
+                          ? 'Update v${_updateCheck!.remoteVersionName} available — tap to install'
+                          : 'Check for latest Android APK release',
+                      iconColor: _updateCheck?.isUpdateAvailable == true
+                          ? Colors.green.shade700
+                          : AppColors.primary,
+                      trailing: _checkingUpdate
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.chevron_right),
+                      onTap: _checkForUpdates,
+                    ),
                   SettingsTile(
                     icon: Icons.health_and_safety_outlined,
                     title: l10n.appTitle,

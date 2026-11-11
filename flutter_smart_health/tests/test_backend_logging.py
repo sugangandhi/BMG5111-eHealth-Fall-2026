@@ -85,3 +85,25 @@ def test_web_version_and_no_store_cache_headers():
             assert "no-store" in resp.headers.get("cache-control", "")
             assert resp.headers.get("pragma") == "no-cache"
             assert resp.headers.get("expires") == "0"
+
+
+def test_apk_version_endpoint_returns_no_store_metadata(monkeypatch):
+    from src.backend import main as backend_main
+
+    async def fake_meta():
+        return {
+            "available": True,
+            "version_code": 15,
+            "version_name": "1.0.15",
+            "apk_url": "https://example.test/app-release.apk",
+            "release_notes": "CI build",
+            "published_at": "2026-11-11T00:00:00Z",
+        }
+
+    monkeypatch.setattr(backend_main, "_fetch_apk_version_metadata", fake_meta)
+    app = create_app()
+    with TestClient(app) as client:
+        resp = client.get("/apk-version")
+        assert resp.status_code == 200
+        assert resp.json()["version_code"] == 15
+        assert "no-store" in resp.headers.get("cache-control", "")

@@ -150,6 +150,37 @@ class AssistantRepository {
     return decoded['analysis']?.toString() ?? '';
   }
 
+  Future<String> insightsSummary({
+    required String patientId,
+    required List<String> insightTitles,
+    double? corrStepsCalories,
+    double? corrHrBp,
+    int anomalyCount = 0,
+    int mergedCount = 0,
+  }) async {
+    final body = <String, dynamic>{
+      'patient_id': patientId,
+      'insight_titles': insightTitles,
+      'corr_steps_calories': corrStepsCalories,
+      'corr_hr_bp': corrHrBp,
+      'anomaly_count': anomalyCount,
+      'merged_count': mergedCount,
+    };
+    final modelInvocation = await _savedModelInvocationJson();
+    if (modelInvocation != null) {
+      body['model_invocation'] = modelInvocation;
+    }
+    final decoded = await _client.postJson('/assistant/insights-summary', body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const ApiException('Backend returned an unexpected response.');
+    }
+    final modelLabel = decoded['model_label']?.toString().trim();
+    if (modelLabel != null && modelLabel.isNotEmpty) {
+      ApiConfig.setRuntimeAiProviderLabel(modelLabel);
+    }
+    return decoded['summary']?.toString().trim() ?? '';
+  }
+
   Future<String?> syncModelStatus() async {
     try {
       final saved = await _modelInvocationStore.loadSaved();

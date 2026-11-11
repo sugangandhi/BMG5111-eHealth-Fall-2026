@@ -7,10 +7,13 @@ from typing import Any
 from fastapi import HTTPException
 
 from src.backend.clients.ehospital_client import write_ehospital_table_row
-from src.backend.clients.model_client import invoke_model
+from src.backend.clients.model_client import format_model_label, invoke_model
+from src.backend.core.config import settings
 from src.backend.schemas.assistant import (
     AssistantChatResponse,
     AssistantConversationMessage,
+    InsightsSynthesisRequest,
+    InsightsSynthesisResponse,
     ModelInvocationSettings,
     TrendInsightsRequest,
     VitalsSummaryRequest,
@@ -105,6 +108,38 @@ SLEEP: [sentence]"""
         elif cleaned.startswith("SLEEP:"):
             insights["Sleep"] = cleaned.replace("SLEEP:", "", 1).strip()
     return insights
+
+
+async def synthesize_health_insights(
+    request: InsightsSynthesisRequest,
+) -> InsightsSynthesisResponse:
+    model_invocation = validate_model_invocation(request.model_invocation)
+    context = await build_patient_context(request.patient_id)
+    prompt = f"""Write a concise 3-4 sentence holistic health synthesis for a patient insights dashboard.
+
+Combine these signals:
+- Flagged rule/Z-score insights: {json.dumps(request.insight_titles, ensure_ascii=False)}
+- Timestamp-merged wearable+clinical pairs: {request.merged_count}
+- Rule-based anomaly alerts count: {request.anomaly_count}
+- Pearson correlation Steps vs Calories: {request.corr_steps_calories}
+- Pearson correlation Wearable HR vs Clinical BP: {request.corr_hr_bp}
+
+Highlight key patterns across wearable activity/sleep and hospital records using exact metrics present. Do not diagnose or recommend medications. Keep it under 110 words."""
+    text = _invoke_model(prompt, build_system_prompt(context), model_invocation)
+    provider = (
+        model_invocation.model_provider
+        if model_invocation and model_invocation.model_provider
+        else settings.ai_model_provider
+    )
+    model_name = (
+        model_invocation.model_name
+        if model_invocation and model_invocation.model_name
+        else settings.ai_model_name
+    )
+    return InsightsSynthesisResponse(
+        summary=text,
+        model_label=format_model_label(provider, model_name),
+    )
 
 
 async def analyze_stress(request: StressAnalysisRequest) -> StressAnalysisResponse:
@@ -245,6 +280,7 @@ __all__ = [
     "invoke_model",
     "query_table",
     "summarize_vitals",
+    "synthesize_health_insights",
     "validate_model_invocation",
     "validate_assistant_result_payload",
 ]

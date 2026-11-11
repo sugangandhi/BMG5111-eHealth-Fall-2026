@@ -74,6 +74,24 @@ class BackendApiService {
     return _repository.stressAnalysis(patientId: patientId);
   }
 
+  static Future<String> insightsSummary({
+    required String patientId,
+    required List<String> insightTitles,
+    double? corrStepsCalories,
+    double? corrHrBp,
+    int anomalyCount = 0,
+    int mergedCount = 0,
+  }) {
+    return _repository.insightsSummary(
+      patientId: patientId,
+      insightTitles: insightTitles,
+      corrStepsCalories: corrStepsCalories,
+      corrHrBp: corrHrBp,
+      anomalyCount: anomalyCount,
+      mergedCount: mergedCount,
+    );
+  }
+
   static Future<String?> syncModelStatus() {
     return _repository.syncModelStatus();
   }

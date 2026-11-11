@@ -6,6 +6,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
+import androidx.core.content.FileProvider
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -23,6 +26,7 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -36,6 +40,7 @@ import kotlinx.coroutines.launch
 class MainActivity : FlutterFragmentActivity() {
     companion object {
         private const val HEALTH_APPS_CHANNEL = "com.example.smart_health_app/health_apps"
+        private const val APP_UPDATER_CHANNEL = "com.example.smart_health_app/app_updater"
     }
 
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -99,6 +104,26 @@ class MainActivity : FlutterFragmentActivity() {
                 "openApp" -> {
                     val pkg = call.argument<String>("packageName") ?: ""
                     result.success(openPackage(pkg))
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            APP_UPDATER_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getAppVersionInfo" -> result.success(getAppVersionInfo())
+                "getUpdatesDir" -> {
+                    val dir = File(cacheDir, "updates").apply { mkdirs() }
+                    result.success(dir.absolutePath)
+                }
+                "canRequestPackageInstalls" -> result.success(canRequestPackageInstalls())
+                "openUnknownAppSourcesSettings" -> result.success(openUnknownAppSourcesSettings())
+                "installApk" -> {
+                    val path = call.argument<String>("path") ?: ""
+                    result.success(installApk(path))
                 }
                 else -> result.notImplemented()
             }
@@ -416,6 +441,70 @@ class MainActivity : FlutterFragmentActivity() {
             val launch = packageManager.getLaunchIntentForPackage(packageName) ?: return false
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(launch)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun getAppVersionInfo(): Map<String, Any> {
+        return try {
+            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(
+                    packageName,
+                    PackageManager.PackageInfoFlags.of(0),
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0)
+            }
+            mapOf(
+                "versionName" to (info.versionName ?: "1.0.0"),
+                "versionCode" to PackageInfoCompat.getLongVersionCode(info).toInt(),
+            )
+        } catch (_: Exception) {
+            mapOf("versionName" to "1.0.0", "versionCode" to 1)
+        }
+    }
+
+    private fun canRequestPackageInstalls(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    private fun openUnknownAppSourcesSettings(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
+        return try {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:$packageName"),
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun installApk(filePath: String): Boolean {
+        if (filePath.isBlank()) return false
+        val apkFile = File(filePath)
+        if (!apkFile.exists() || apkFile.length() == 0L) return false
+        return try {
+            val uri = FileProvider.getUriForFile(
+                this,
+                "${applicationContext.packageName}.fileprovider",
+                apkFile,
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
             true
         } catch (_: Exception) {
             false

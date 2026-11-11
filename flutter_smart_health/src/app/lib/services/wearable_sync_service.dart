@@ -945,6 +945,11 @@ String buildHealthConnectDiagnosticMessage({
   final records29d =
       (nativeDiagnostics['records29dCount'] as num?)?.toInt() ?? 0;
 
+  final isGenericHub = targetName == 'Health Connect';
+  final appLabel = isGenericHub
+      ? 'your health app (such as Samsung Health or Google Fit)'
+      : targetName;
+
   if (origins29dRaw is Map && origins29dRaw.isNotEmpty) {
     final labels = <String>[];
     for (final entry in origins29dRaw.entries) {
@@ -956,11 +961,11 @@ String buildHealthConnectDiagnosticMessage({
             );
       labels.add('$label (${entry.value})');
     }
-    return 'eHospital has Health Connect permissions and found records from ${labels.join(', ')} in the last 29 days, but no readable vitals matched $targetName. Check $targetName -> Settings -> Health Connect -> Permissions and ensure "Allow to write" is ON.';
+    return 'eHospital has Health Connect permissions and found records from ${labels.join(', ')} in the last 29 days, but no readable vitals matched $appLabel. Check $appLabel -> Settings -> Connected services -> Health Connect and ensure "Allow to write" is ON.';
   }
 
   if (records29d == 0) {
-    return 'eHospital has Health Connect read permissions, but Health Connect currently holds 0 records from $targetName in the last 29 days. In $targetName -> Settings -> Health Connect -> Permissions -> $targetName, enable "Allow to write", then open $targetName Home once to push your latest steps/vitals before tapping Sync here.';
+    return 'eHospital has Health Connect read permissions, but Health Connect currently holds 0 records from $appLabel in the last 29 days. Open Health Connect -> App permissions -> $appLabel and ensure "Allow to write" is ON, then open Samsung Health Home once to sync before tapping Sync here.';
   }
 
   return fallbackMessage;
