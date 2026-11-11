@@ -1,9 +1,9 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/widgets/widgets.dart';
 import '../../../l10n/l10n.dart';
+import '../../../ui/app_colors.dart';
+import '../../../ui/app_gradients.dart';
 import '../data/dashboard_summary_service.dart';
 import '../presentation/dashboard_styles.dart';
 import '../widgets/app_switcher_carousel.dart';
@@ -22,30 +22,17 @@ class PatientDashboard extends StatefulWidget {
   State<PatientDashboard> createState() => _PatientDashboardState();
 }
 
-class _PatientDashboardState extends State<PatientDashboard>
-    with SingleTickerProviderStateMixin {
+class _PatientDashboardState extends State<PatientDashboard> {
   bool _showAppSwitcher = true;
-  Color _ambientAccent = const Color(0xFF00E5FF);
   DashboardLiveSummary _summary = const DashboardLiveSummary();
   bool _syncingSummary = false;
   late final DashboardSummaryService _summaryService;
-  late final AnimationController _heartTicker;
 
   @override
   void initState() {
     super.initState();
     _summaryService = widget.summaryService ?? DashboardSummaryService();
-    _heartTicker = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 12),
-    )..repeat(reverse: true);
     _loadSummary();
-  }
-
-  @override
-  void dispose() {
-    _heartTicker.dispose();
-    super.dispose();
   }
 
   Future<void> _loadSummary() async {
@@ -70,276 +57,265 @@ class _PatientDashboardState extends State<PatientDashboard>
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
-    return Stack(
-      children: [
-        AtmosphericSkyBackground(
-          ambientAccent: _ambientAccent,
-        ),
-
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            centerTitle: false,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "INTELLIGENT DIGITAL SOLUTION",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF6EE7B7), // Bright mint sky accent
-                    letterSpacing: 1.1,
-                  ),
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.bg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: 68,
+        centerTitle: false,
+        title: GestureDetector(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _loadSummary();
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  gradient: AppGradients.primary,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x280F5C9C),
+                      blurRadius: 10,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
                 ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        "eHospital",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
+                child: const Icon(
+                  Icons.monitor_heart_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "eHospital",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                        letterSpacing: -0.4,
                       ),
-                      const SizedBox(width: 8),
-                      // Live physiological telemetry badge (tap to refresh backend summary)
-                      GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          _loadSummary();
-                        },
-                        child: AnimatedBuilder(
-                          animation: _heartTicker,
-                          builder: (context, _) {
-                            final liveHr = _summary.heartRateBpm;
-                            final bpm = liveHr ??
-                                (74 +
-                                    ((math.sin(_heartTicker.value * math.pi * 8) +
-                                                1.0) *
-                                            1.8)
-                                        .round());
-                            final pulseScale = 1.0 +
-                                ((math.sin(_heartTicker.value * math.pi * 16) +
-                                        1.0) *
-                                    0.10);
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2.5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981)
-                                    .withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: const Color(0xFF10B981)
-                                      .withValues(alpha: 0.40),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_syncingSummary)
-                                    const SizedBox(
-                                      width: 10,
-                                      height: 10,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.6,
-                                        color: Color(0xFF10B981),
-                                      ),
-                                    )
-                                  else
-                                    Transform.scale(
-                                      scale: pulseScale,
-                                      child: const Icon(
-                                        Icons.favorite_rounded,
-                                        size: 11,
-                                        color: Color(0xFF10B981),
-                                      ),
-                                    ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    "$bpm BPM",
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF10B981),
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                    ),
+                    const SizedBox(height: 1),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_syncingSummary)
+                          const SizedBox(
+                            width: 10,
+                            height: 10,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.6,
+                              color: AppColors.primaryAccent,
+                            ),
+                          )
+                        else
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: _summary.isLiveSynced
+                                  ? AppColors.primaryAccent
+                                  : AppColors.textMuted,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            _syncingSummary
+                                ? "Syncing health data..."
+                                : (_summary.isLiveSynced
+                                    ? "Health Connect Synced"
+                                    : "Tap to sync telemetry"),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _summary.isLiveSynced
+                                  ? AppColors.tealDark
+                                  : AppColors.textMuted,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A16202C),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
                 ),
               ],
             ),
-            actions: [
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14), // Apple frosted glass button
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.20),
-                  ),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    _showAppSwitcher
-                        ? Icons.grid_view_rounded
-                        : Icons.view_carousel_rounded,
-                    size: 18,
-                  ),
-                  color: Colors.white,
-                  tooltip: _showAppSwitcher
-                      ? "Switch to Grid View"
-                      : "Switch to App Switcher",
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    setState(() => _showAppSwitcher = !_showAppSwitcher);
-                  },
-                ),
+            child: IconButton(
+              icon: Icon(
+                _showAppSwitcher
+                    ? Icons.grid_view_rounded
+                    : Icons.view_carousel_rounded,
+                size: 19,
               ),
-              Container(
-                margin: const EdgeInsets.only(left: 4, right: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14), // Apple frosted glass button
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.20),
-                  ),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.person_rounded, size: 18),
-                  color: Colors.white,
-                  tooltip: l10n.profileTitle,
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    _open('/profile');
-                  },
-                ),
-              ),
-            ],
+              color: _showAppSwitcher ? AppColors.textDark : AppColors.primary,
+              tooltip: _showAppSwitcher
+                  ? "Switch to Grid View"
+                  : "Switch to App Switcher",
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                setState(() => _showAppSwitcher = !_showAppSwitcher);
+              },
+            ),
           ),
-          body: _showAppSwitcher
-              ? AppSwitcherCarousel(
-                  summary: _summary,
-                  onSelectApp: _open,
-                  onActiveAccentChanged: (accent) {
-                    if (_ambientAccent != accent) {
-                      setState(() => _ambientAccent = accent);
-                    }
-                  },
-                )
-              : SingleChildScrollView(
-                  padding: DashboardStyles.bodyPadding,
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
+          Container(
+            margin: const EdgeInsets.only(left: 4, right: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A16202C),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.person_rounded, size: 19),
+              color: AppColors.textDark,
+              tooltip: l10n.profileTitle,
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _open('/profile');
+              },
+            ),
+          ),
+        ],
+      ),
+      body: _showAppSwitcher
+          ? AppSwitcherCarousel(
+              summary: _summary,
+              onSelectApp: _open,
+            )
+          : SingleChildScrollView(
+              padding: DashboardStyles.bodyPadding,
+              physics: const BouncingScrollPhysics(),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              const SizedBox(height: 12),
-              DashboardSectionHeader(title: l10n.healthMonitoringSection),
-              DashboardGridRow(
-                left: DashboardGridCard(
-                  icon: Icons.watch_outlined,
-                  title: l10n.wearableVitalsTitle,
-                  subtitle: l10n.wearableVitalsSubtitle,
-                  onTap: () => _open('/vitals'),
-                ),
-                right: DashboardGridCard(
-                  icon: Icons.history,
-                  title: l10n.vitalsHistoryTitle,
-                  subtitle: l10n.vitalsHistorySubtitle,
-                  onTap: () => _open('/history'),
-                ),
+                  const SizedBox(height: 6),
+                  DashboardSectionHeader(title: l10n.healthMonitoringSection),
+                  DashboardGridRow(
+                    left: DashboardGridCard(
+                      icon: Icons.watch_outlined,
+                      title: l10n.wearableVitalsTitle,
+                      subtitle: l10n.wearableVitalsSubtitle,
+                      onTap: () => _open('/vitals'),
+                    ),
+                    right: DashboardGridCard(
+                      icon: Icons.history,
+                      title: l10n.vitalsHistoryTitle,
+                      subtitle: l10n.vitalsHistorySubtitle,
+                      onTap: () => _open('/history'),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  DashboardGridRow(
+                    left: DashboardGridCard(
+                      icon: Icons.insights,
+                      title: l10n.healthInsightsTitle,
+                      subtitle: l10n.healthInsightsSubtitle,
+                      onTap: () => _open('/insights'),
+                    ),
+                    right: DashboardGridCard(
+                      icon: Icons.trending_up,
+                      title: l10n.trendAnalysisTitle,
+                      subtitle: l10n.trendAnalysisSubtitle,
+                      onTap: () => _open('/trends'),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  DashboardSectionHeader(title: l10n.healthManagementSection),
+                  DashboardGridRow(
+                    left: DashboardGridCard(
+                      icon: Icons.medication_outlined,
+                      title: l10n.medicationsTitle,
+                      subtitle: l10n.medicationsSubtitle,
+                      onTap: () => _open('/medications'),
+                    ),
+                    right: DashboardGridCard(
+                      icon: Icons.sick_outlined,
+                      title: l10n.symptomLogTitle,
+                      subtitle: l10n.symptomLogSubtitle,
+                      onTap: () => _open('/symptoms'),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  DashboardGridRow(
+                    left: DashboardGridCard(
+                      icon: Icons.flag_outlined,
+                      title: l10n.healthGoalsTitle,
+                      subtitle: l10n.healthGoalsSubtitle,
+                      onTap: () => _open('/goals'),
+                    ),
+                    right: DashboardGridCard(
+                      icon: Icons.monitor_weight_outlined,
+                      title: l10n.bmiCalculatorTitle,
+                      subtitle: l10n.bmiCalculatorSubtitle,
+                      onTap: () => _open('/bmi'),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  DashboardFeaturedCard(
+                    icon: Icons.local_hospital_outlined,
+                    title: 'Urgent Care',
+                    subtitle:
+                        'Check in, view queue status, and send condition updates.',
+                    onTap: () => _open('/urgent-care'),
+                  ),
+                  const SizedBox(height: 20),
+                  DashboardFeaturedCard(
+                    icon: Icons.smart_toy_outlined,
+                    title: l10n.aiHealthAssistantTitle,
+                    subtitle: l10n.aiHealthAssistantSubtitle,
+                    onTap: () => _open('/assistant'),
+                  ),
+                  const SizedBox(height: 20),
+                  DashboardSettingsLink(
+                    title: l10n.settingsTitle,
+                    onTap: () => _open('/settings'),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              const SizedBox(height: 14),
-              DashboardGridRow(
-                left: DashboardGridCard(
-                  icon: Icons.insights,
-                  title: l10n.healthInsightsTitle,
-                  subtitle: l10n.healthInsightsSubtitle,
-                  onTap: () => _open('/insights'),
-                ),
-                right: DashboardGridCard(
-                  icon: Icons.trending_up,
-                  title: l10n.trendAnalysisTitle,
-                  subtitle: l10n.trendAnalysisSubtitle,
-                  onTap: () => _open('/trends'),
-                ),
-              ),
-              const SizedBox(height: 28),
-              DashboardSectionHeader(title: l10n.healthManagementSection),
-              DashboardGridRow(
-                left: DashboardGridCard(
-                  icon: Icons.medication_outlined,
-                  title: l10n.medicationsTitle,
-                  subtitle: l10n.medicationsSubtitle,
-                  onTap: () => _open('/medications'),
-                ),
-                right: DashboardGridCard(
-                  icon: Icons.sick_outlined,
-                  title: l10n.symptomLogTitle,
-                  subtitle: l10n.symptomLogSubtitle,
-                  onTap: () => _open('/symptoms'),
-                ),
-              ),
-              const SizedBox(height: 14),
-              DashboardGridRow(
-                left: DashboardGridCard(
-                  icon: Icons.flag_outlined,
-                  title: l10n.healthGoalsTitle,
-                  subtitle: l10n.healthGoalsSubtitle,
-                  onTap: () => _open('/goals'),
-                ),
-                right: DashboardGridCard(
-                  icon: Icons.monitor_weight_outlined,
-                  title: l10n.bmiCalculatorTitle,
-                  subtitle: l10n.bmiCalculatorSubtitle,
-                  onTap: () => _open('/bmi'),
-                ),
-              ),
-              const SizedBox(height: 28),
-              DashboardFeaturedCard(
-                icon: Icons.local_hospital_outlined,
-                title: 'Urgent Care',
-                subtitle:
-                    'Check in, view queue status, and send condition updates.',
-                onTap: () => _open('/urgent-care'),
-              ),
-              const SizedBox(height: 20),
-              DashboardFeaturedCard(
-                icon: Icons.smart_toy_outlined,
-                title: l10n.aiHealthAssistantTitle,
-                subtitle: l10n.aiHealthAssistantSubtitle,
-                onTap: () => _open('/assistant'),
-              ),
-              const SizedBox(height: 20),
-              DashboardSettingsLink(
-                title: l10n.settingsTitle,
-                onTap: () => _open('/settings'),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-      ),
-    ],
-  );
-}
+            ),
+    );
+  }
 }

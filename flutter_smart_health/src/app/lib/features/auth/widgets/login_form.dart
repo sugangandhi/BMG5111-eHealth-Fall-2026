@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/api_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../l10n/l10n.dart';
+import '../../../ui/app_colors.dart';
 import '../presentation/login_styles.dart';
 
 class LoginForm extends StatefulWidget {
@@ -34,10 +35,6 @@ class LoginForm extends StatefulWidget {
 class _LoginFormState extends State<LoginForm> {
   bool _obscurePassword = true;
 
-  static const _appleBlue = Color(0xFF007AFF);
-  static const _appleCyan = Color(0xFF38BDF8);
-  static const _appleAzureSoft = Color(0xFF93C5FD);
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -48,49 +45,49 @@ class _LoginFormState extends State<LoginForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Email Address Input (Apple OS Frosted Glass Pill)
+          // Email Address Input
           TextField(
             key: const Key('login_email_field'),
             controller: widget.emailController,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
-            cursorColor: _appleCyan,
+            cursorColor: AppColors.primary,
             cursorWidth: 2.0,
             style: const TextStyle(
               fontSize: 15,
-              color: Colors.white,
+              color: AppColors.textDark,
               fontWeight: FontWeight.w500,
             ),
             decoration: LoginStyles.inputDecoration(
               hintText: l10n.emailAddressHint,
               prefixIcon: const Icon(
                 Icons.mail_rounded,
-                color: _appleCyan,
+                color: AppColors.primary,
                 size: 20,
               ),
             ),
           ),
           const SizedBox(height: 14),
 
-          // Password Input with Visibility Toggle (Apple OS Frosted Glass Pill)
+          // Password Input with Visibility Toggle
           TextField(
             key: const Key('login_password_field'),
             controller: widget.passwordController,
             obscureText: _obscurePassword,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => widget.onSubmit(),
-            cursorColor: _appleCyan,
+            cursorColor: AppColors.primary,
             cursorWidth: 2.0,
             style: const TextStyle(
               fontSize: 15,
-              color: Colors.white,
+              color: AppColors.textDark,
               fontWeight: FontWeight.w500,
             ),
             decoration: LoginStyles.inputDecoration(
               hintText: l10n.passwordHint,
               prefixIcon: const Icon(
                 Icons.lock_rounded,
-                color: _appleCyan,
+                color: AppColors.primary,
                 size: 20,
               ),
               suffixIcon: IconButton(
@@ -98,7 +95,7 @@ class _LoginFormState extends State<LoginForm> {
                   _obscurePassword
                       ? Icons.visibility_off_rounded
                       : Icons.visibility_rounded,
-                  color: _appleAzureSoft,
+                  color: AppColors.textMuted,
                   size: 20,
                 ),
                 tooltip: _obscurePassword ? "Show password" : "Hide password",
@@ -109,20 +106,20 @@ class _LoginFormState extends State<LoginForm> {
           ),
           const SizedBox(height: 14),
 
-          // Identity Dropdown Selector (Apple OS Frosted Glass Pill)
+          // Identity Dropdown Selector
           DropdownButtonFormField<String>(
             key: const Key('login_identity_dropdown'),
             initialValue: widget.selectedIdentity,
-            dropdownColor: const Color(0xFF162238),
+            dropdownColor: Colors.white,
             borderRadius: BorderRadius.circular(16),
             icon: const Icon(
               Icons.unfold_more_rounded,
-              color: _appleAzureSoft,
+              color: AppColors.textMuted,
               size: 20,
             ),
             style: const TextStyle(
               fontSize: 15,
-              color: Colors.white,
+              color: AppColors.textDark,
               fontWeight: FontWeight.w600,
             ),
             items: [
@@ -131,7 +128,7 @@ class _LoginFormState extends State<LoginForm> {
                   value: identity,
                   child: Text(
                     identity,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppColors.textDark),
                   ),
                 ),
             ],
@@ -144,7 +141,7 @@ class _LoginFormState extends State<LoginForm> {
               hintText: l10n.roleLabel,
               prefixIcon: const Icon(
                 Icons.badge_rounded,
-                color: _appleCyan,
+                color: AppColors.primaryAccent,
                 size: 20,
               ),
             ),
@@ -164,7 +161,7 @@ class _LoginFormState extends State<LoginForm> {
                     children: [
                       const Icon(
                         Icons.error_outline_rounded,
-                        color: Color(0xFFEF4444),
+                        color: AppColors.coralDark,
                         size: 18,
                       ),
                       const SizedBox(width: 8),
@@ -172,7 +169,7 @@ class _LoginFormState extends State<LoginForm> {
                         child: Text(
                           widget.error!,
                           style: const TextStyle(
-                            color: Color(0xFFFCA5A5),
+                            color: AppColors.coralDark,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -183,18 +180,15 @@ class _LoginFormState extends State<LoginForm> {
                   const SizedBox(height: 10),
                   InkWell(
                     onTap: () => _showServerHostDialog(context),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(999),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
+                        horizontal: 12,
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7).withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
-                        ),
+                        color: AppColors.primarySoft,
+                        borderRadius: BorderRadius.circular(999),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -202,14 +196,14 @@ class _LoginFormState extends State<LoginForm> {
                           Icon(
                             Icons.settings_ethernet_rounded,
                             size: 14,
-                            color: Color(0xFF38BDF8),
+                            color: AppColors.primary,
                           ),
                           SizedBox(width: 6),
                           Text(
                             "Tap to Change Server URL / Host",
                             style: TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF38BDF8),
+                              color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -224,37 +218,18 @@ class _LoginFormState extends State<LoginForm> {
 
           const SizedBox(height: 22),
 
-          // Apple OS Glossy Bluish Action Button
-          Container(
+          // Primary Sign In Pill Button
+          SizedBox(
             width: double.infinity,
             height: 50,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF007AFF), Color(0xFF0284C7)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.28),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _appleBlue.withValues(alpha: 0.45),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
             child: ElevatedButton(
               onPressed: widget.loading ? null : widget.onSubmit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
               child: widget.loading
@@ -274,7 +249,6 @@ class _LoginFormState extends State<LoginForm> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: -0.3,
                             color: Colors.white,
                           ),
                         ),
@@ -291,30 +265,26 @@ class _LoginFormState extends State<LoginForm> {
 
           const SizedBox(height: 14),
 
-          // Quick Demo Account Pill (Tap to fill)
+          // Quick Demo Account Pill
           InkWell(
             onTap: () {
               widget.emailController.text = "normal@demo.com";
               widget.passwordController.text = "123456";
               widget.onIdentityChanged("Patient");
             },
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _appleCyan.withValues(alpha: 0.35),
-                  width: 1.1,
-                ),
+                color: AppColors.tealSoft,
+                borderRadius: BorderRadius.circular(16),
               ),
               child: const Row(
                 children: [
                   Icon(
                     Icons.touch_app_rounded,
                     size: 16,
-                    color: _appleCyan,
+                    color: AppColors.tealDark,
                   ),
                   SizedBox(width: 8),
                   Expanded(
@@ -322,7 +292,7 @@ class _LoginFormState extends State<LoginForm> {
                       "Demo Patient: normal@demo.com / 123456 (Tap to fill)",
                       style: TextStyle(
                         fontSize: 12,
-                        color: _appleCyan,
+                        color: AppColors.tealDark,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -339,13 +309,10 @@ class _LoginFormState extends State<LoginForm> {
             child: GestureDetector(
               onTap: () => _showServerHostDialog(context),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.14),
-                  ),
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -353,7 +320,7 @@ class _LoginFormState extends State<LoginForm> {
                     const Icon(
                       Icons.wifi_rounded,
                       size: 13,
-                      color: Color(0xFF93C5FD),
+                      color: AppColors.primary,
                     ),
                     const SizedBox(width: 5),
                     Flexible(
@@ -362,9 +329,9 @@ class _LoginFormState extends State<LoginForm> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFFCBD5E1),
-                          fontWeight: FontWeight.w500,
+                          fontSize: 11.5,
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -372,7 +339,7 @@ class _LoginFormState extends State<LoginForm> {
                     const Icon(
                       Icons.edit_rounded,
                       size: 11,
-                      color: Color(0xFF93C5FD),
+                      color: AppColors.primary,
                     ),
                   ],
                 ),
@@ -425,15 +392,15 @@ class _LoginFormState extends State<LoginForm> {
           }
 
           return AlertDialog(
-            backgroundColor: const Color(0xFF0E2856),
+            backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+              borderRadius: BorderRadius.circular(24),
+              side: const BorderSide(color: AppColors.border),
             ),
             title: const Text(
               "Backend Server Host",
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.textDark,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
@@ -445,18 +412,18 @@ class _LoginFormState extends State<LoginForm> {
                 children: [
                   const Text(
                     "Enter your Render HTTPS URL or local host:",
-                    style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: controller,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: const TextStyle(color: AppColors.textDark, fontSize: 14),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: const Color(0xFF071938),
+                      fillColor: LoginStyles.softSurface,
                       hintText: 'https://bmg5111-ehealth-fall-2026-1.onrender.com',
                       hintStyle: const TextStyle(
-                        color: Color(0xFF64748B),
+                        color: AppColors.textMuted,
                         fontSize: 13,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
@@ -464,14 +431,12 @@ class _LoginFormState extends State<LoginForm> {
                         vertical: 12,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: LoginStyles.inputBorder),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.2),
-                        ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                       ),
                     ),
                   ),
@@ -481,16 +446,14 @@ class _LoginFormState extends State<LoginForm> {
                       OutlinedButton.icon(
                         onPressed: checking ? null : testConnection,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF38BDF8),
-                          side: BorderSide(
-                            color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
-                          ),
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.border),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(999),
                           ),
                         ),
                         icon: checking
@@ -499,7 +462,7 @@ class _LoginFormState extends State<LoginForm> {
                                 height: 13,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Color(0xFF38BDF8),
+                                  color: AppColors.primary,
                                 ),
                               )
                             : const Icon(Icons.network_check_rounded, size: 16),
@@ -515,11 +478,11 @@ class _LoginFormState extends State<LoginForm> {
                     Text(
                       pingStatus!,
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: pingSuccess
-                            ? const Color(0xFF34D399)
-                            : const Color(0xFFFCA5A5),
+                            ? AppColors.tealDark
+                            : AppColors.coralDark,
                       ),
                     ),
                   ],
@@ -527,9 +490,9 @@ class _LoginFormState extends State<LoginForm> {
                   const Text(
                     "Quick Presets:",
                     style: TextStyle(
-                      color: Color(0xFF93C5FD),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -562,14 +525,16 @@ class _LoginFormState extends State<LoginForm> {
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text(
                   "Cancel",
-                  style: TextStyle(color: Color(0xFF94A3B8)),
+                  style: TextStyle(color: AppColors.textMuted),
                 ),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
                 onPressed: () async {
@@ -606,22 +571,19 @@ class _LoginFormState extends State<LoginForm> {
           TextPosition(offset: controller.text.length),
         );
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
-          ),
+          color: AppColors.primarySoft,
+          borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF38BDF8),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),

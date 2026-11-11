@@ -18,7 +18,8 @@ class DashboardSectionHeader extends StatelessWidget {
         title,
         style: AppTypography.sectionTitle.copyWith(
           fontSize: 17,
-          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textDark,
         ),
       ),
     );

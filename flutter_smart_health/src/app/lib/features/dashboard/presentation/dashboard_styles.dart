@@ -8,9 +8,10 @@ class DashboardStyles {
   static const featuredPadding = EdgeInsets.symmetric(vertical: 22, horizontal: 24);
   static const settingsPadding = EdgeInsets.symmetric(vertical: 14, horizontal: 18);
 
-  static BoxDecoration get gridCardDecoration => const BoxDecoration(
+  static BoxDecoration get gridCardDecoration => BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.all(Radius.circular(AppRadii.dialog)),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
         boxShadow: AppShadows.primarySoft,
       );
 
@@ -19,12 +20,12 @@ class DashboardStyles {
         shape: BoxShape.circle,
       );
 
-  static BoxDecoration get featuredCardDecoration => const BoxDecoration(
+  static BoxDecoration get featuredCardDecoration => BoxDecoration(
         gradient: AppGradients.primary,
-        borderRadius: BorderRadius.all(Radius.circular(AppRadii.dialog)),
-        boxShadow: [
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
           BoxShadow(
-            color: Color(0x591550C4),
+            color: Color(0x330F5C9C),
             blurRadius: 14,
             offset: Offset(0, 6),
           ),
@@ -36,16 +37,11 @@ class DashboardStyles {
         shape: BoxShape.circle,
       );
 
-  static BoxDecoration get settingsLinkDecoration => const BoxDecoration(
+  static BoxDecoration get settingsLinkDecoration => BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.all(Radius.circular(AppRadii.xl)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x121550C4),
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.primarySoft,
       );
 
   static const welcomeTitle = TextStyle(

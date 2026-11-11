@@ -1,53 +1,25 @@
 import 'package:flutter/material.dart';
+import '../../../ui/app_colors.dart';
 
 class LoginStyles {
-  static const headerPadding = EdgeInsets.fromLTRB(28, 36, 28, 8);
-  static const formPadding = EdgeInsets.fromLTRB(24, 8, 24, 28);
-  static const heroIconSize = 64.0;
+  static const headerPadding = EdgeInsets.fromLTRB(26, 30, 26, 10);
+  static const formPadding = EdgeInsets.fromLTRB(24, 10, 24, 26);
+  static const heroIconSize = 62.0;
 
-  // Apple OS Glossy Bluish Palette
-  static const appleBluePrimary = Color(0xFF007AFF);
-  static const appleBlueSecondary = Color(0xFF0284C7);
-  static const appleCyanGlow = Color(0xFF38BDF8);
-  static const appleAzureSoft = Color(0xFF93C5FD);
+  static const primaryAction = AppColors.primary;
+  static const secondaryTeal = AppColors.primaryAccent;
+  static const softSurface = Color(0xFFF4F7FA);
+  static const inputBorder = Color(0xFFCFD9E3);
 
-  // Backward compatibility aliases
-  static const emeraldPrimary = appleBluePrimary;
-  static const emeraldSecondary = appleBlueSecondary;
-
-  static BoxDecoration get cardGlassDecoration => BoxDecoration(
-        color: const Color(0xFF0E2856).withValues(alpha: 0.48),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.24),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF041029).withValues(alpha: 0.38),
-            blurRadius: 34,
-            offset: const Offset(0, 14),
-          ),
-          BoxShadow(
-            color: appleBluePrimary.withValues(alpha: 0.20),
-            blurRadius: 26,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
-
-  static BoxDecoration get inputFieldDecoration => BoxDecoration(
-        color: const Color(0xFF071938).withValues(alpha: 0.48),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
-          width: 1.1,
-        ),
+  static BoxDecoration get cardDecoration => BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x18000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
+            color: Color(0x120F5C9C),
+            blurRadius: 24,
+            offset: Offset(0, 8),
           ),
         ],
       );
@@ -60,47 +32,33 @@ class LoginStyles {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(
-        color: Color(0xFFCBD5E1),
+        color: AppColors.textMuted,
         fontSize: 14,
         fontWeight: FontWeight.w400,
       ),
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: const Color(0xFF071938).withValues(alpha: 0.48),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      fillColor: softSurface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.16),
-          width: 1.1,
-        ),
+        borderSide: const BorderSide(color: inputBorder, width: 1.1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.16),
-          width: 1.1,
-        ),
+        borderSide: const BorderSide(color: inputBorder, width: 1.1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: Color(0xFF38BDF8),
-          width: 1.6,
-        ),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
       ),
     );
   }
 
-  // Backward compatibility alias
-  static BoxDecoration get emailFieldDecoration => inputFieldDecoration;
-
   static BoxDecoration get errorDecoration => BoxDecoration(
-        color: const Color(0xFF450A0A).withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFEF4444).withValues(alpha: 0.45),
-        ),
+        color: AppColors.coralSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.coral.withValues(alpha: 0.4)),
       );
 }

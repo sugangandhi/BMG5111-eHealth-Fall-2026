@@ -31,7 +31,8 @@ ThemeData buildAppTheme() {
     ),
     cardTheme: CardThemeData(
       color: AppColors.card,
-      elevation: 4,
+      elevation: 2,
+      shadowColor: const Color(0x140F5C9C),
       shape: RoundedRectangleBorder(
         borderRadius: AppRadii.radius(AppRadii.xl),
       ),

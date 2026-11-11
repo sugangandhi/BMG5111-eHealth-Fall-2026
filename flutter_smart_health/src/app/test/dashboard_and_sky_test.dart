@@ -9,8 +9,10 @@ import 'package:smart_health_app/data/repositories/ehospital_repository.dart';
 import 'package:smart_health_app/features/dashboard/data/dashboard_summary_service.dart';
 import 'package:smart_health_app/features/dashboard/screens/dashboard_screen.dart';
 import 'package:smart_health_app/features/dashboard/widgets/app_switcher_carousel.dart';
+import 'package:smart_health_app/features/dashboard/widgets/module_illustration_banner.dart';
 import 'package:smart_health_app/features/profile/screens/profile_screen.dart';
 import 'package:smart_health_app/l10n/generated/app_localizations.dart';
+import 'package:smart_health_app/ui/app_colors.dart';
 
 class _FakeDashboardSummaryService extends DashboardSummaryService {
   _FakeDashboardSummaryService();
@@ -318,6 +320,64 @@ void main() {
 
       expect(openedEmergency, isTrue);
       expect(find.text('Emergency Screen'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'PatientDashboard uses unified light canvas without dark sky or marketing banner',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: PatientDashboard(summaryService: _FakeDashboardSummaryService()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+      expect(scaffold.backgroundColor, AppColors.bg);
+      expect(find.byType(AtmosphericSkyBackground), findsNothing);
+      expect(find.text('INTELLIGENT DIGITAL SOLUTION'), findsNothing);
+      expect(find.byType(ModuleIllustrationBanner), findsWidgets);
+
+      // Switch cleanly to light Grid View as well
+      await tester.tap(find.byIcon(Icons.grid_view_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byIcon(Icons.view_carousel_rounded), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'ModuleIllustrationBanner paints all 12 animated scenes cleanly across progress steps',
+    (tester) async {
+      for (final kind in DashboardModuleKind.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ModuleIllustrationBanner(
+                kind: kind,
+                progress: 0.35,
+                badgeText: kind.name,
+                overlayValueText: '73 bpm',
+                accentColor: AppColors.primary,
+                backgroundColor: AppColors.primarySoft,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.text(kind.name), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
     },
   );
 }

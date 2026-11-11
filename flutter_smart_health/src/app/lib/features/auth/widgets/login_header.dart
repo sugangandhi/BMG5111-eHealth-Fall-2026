@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../ui/app_colors.dart';
+import '../../../ui/app_gradients.dart';
 import '../presentation/login_styles.dart';
 
 class LoginHeader extends StatelessWidget {
@@ -12,66 +14,52 @@ class LoginHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Apple OS Glossy Bluish Squircle Badge with luminous glow
-          Container(
-            width: LoginStyles.heroIconSize,
-            height: LoginStyles.heroIconSize,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF007AFF), Color(0xFF00C7BE)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.92, end: 1.0),
+            duration: const Duration(milliseconds: 520),
+            curve: Curves.easeOutBack,
+            builder: (context, scale, child) {
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: Container(
+              width: LoginStyles.heroIconSize,
+              height: LoginStyles.heroIconSize,
+              decoration: BoxDecoration(
+                gradient: AppGradients.primary,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x330F5C9C),
+                    blurRadius: 16,
+                    offset: Offset(0, 6),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.30),
-                width: 1.2,
+              child: const Icon(
+                Icons.monitor_heart_rounded,
+                color: Colors.white,
+                size: 32,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF007AFF).withValues(alpha: 0.45),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-                BoxShadow(
-                  color: const Color(0xFF00C7BE).withValues(alpha: 0.25),
-                  blurRadius: 16,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.health_and_safety_rounded,
-              color: Colors.white,
-              size: 36,
             ),
           ),
           const SizedBox(height: 16),
           const Text(
-            "INTELLIGENT DIGITAL SOLUTION",
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF38BDF8),
-              letterSpacing: 1.3,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            "eHospital Portal",
+            "Welcome to eHospital",
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 25,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -0.5,
+              color: AppColors.textDark,
+              letterSpacing: -0.4,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           const Text(
-            "Secure Clinical & Telemetry Care",
+            "Connected care, wearable vitals & health records",
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 13,
-              color: Color(0xFF93C5FD),
+              fontSize: 13.5,
+              color: AppColors.textMuted,
               fontWeight: FontWeight.w500,
             ),
           ),

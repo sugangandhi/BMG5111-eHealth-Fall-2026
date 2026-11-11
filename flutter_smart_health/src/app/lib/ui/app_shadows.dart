@@ -11,7 +11,7 @@ class AppShadows {
 
   static const primarySoft = [
     BoxShadow(
-      color: Color(0x141550C4),
+      color: Color(0x120F5C9C),
       blurRadius: 12,
       offset: Offset(0, 4),
     ),

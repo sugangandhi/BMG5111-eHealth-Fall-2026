@@ -50,7 +50,7 @@ class VitalsStyles {
     borderRadius: BorderRadius.all(Radius.circular(AppRadii.dialog)),
     boxShadow: [
       BoxShadow(
-        color: Color(0x4D1550C4),
+        color: Color(0x3D0F5C9C),
         blurRadius: 14,
         offset: Offset(0, 6),
       ),
