@@ -54,6 +54,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
   final MobileHealthRegistryService _healthRegistry =
       MobileHealthRegistryService();
   List<DetectedHealthApp> _detectedApps = const [];
+  String? _lastWearableSource;
 
   // AI summaries keyed by tab index (0=Steps,1=Cal,2=HR,3=Sleep)
   final Map<int, String?> _aiSummaries = {};
@@ -101,11 +102,15 @@ class _VitalsScreenState extends State<VitalsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final synced = prefs.getStringList('synced_wearable_sources') ?? const [];
+      final lastSource = prefs.getString('last_wearable_source');
       final snap = await _healthRegistry.detectHealthApps(
         syncedSourceKeys: synced,
       );
       if (mounted) {
-        setState(() => _detectedApps = snap.apps);
+        setState(() {
+          _detectedApps = snap.apps;
+          _lastWearableSource = lastSource;
+        });
       }
     } catch (_) {}
   }
@@ -168,7 +173,15 @@ class _VitalsScreenState extends State<VitalsScreen> {
             (item) => item is Map && item['patient_id']?.toString() == searchId,
           )
           .toList();
-      filteredData.sort((a, b) => _timestampOf(a).compareTo(_timestampOf(b)));
+      filteredData.sort((a, b) {
+        final ta = _parseWearableTimestamp(a)?.toUtc();
+        final tb = _parseWearableTimestamp(b)?.toUtc();
+        if (ta != null && tb != null) {
+          final cmp = ta.compareTo(tb);
+          if (cmp != 0) return cmp;
+        }
+        return _timestampOf(a).compareTo(_timestampOf(b));
+      });
     } catch (_) {}
 
     if (mounted) {
@@ -542,6 +555,17 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
   void _showHealthAppSyncSheet() {
     final apps = _detectedApps;
+    DetectedHealthApp? primaryApp;
+    if (_lastWearableSource != null) {
+      for (final app in apps) {
+        if (app.sourceKey == _lastWearableSource &&
+            app.sourceKey != 'health_connect' &&
+            app.sourceKey != 'apple_health') {
+          primaryApp = app;
+          break;
+        }
+      }
+    }
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -571,18 +595,24 @@ class _VitalsScreenState extends State<VitalsScreen> {
                   backgroundColor: AppColors.primarySoft,
                   child: Icon(Icons.sync_rounded, color: AppColors.primary, size: 20),
                 ),
-                title: const Text(
-                  'Sync Real Connected Source',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                title: Text(
+                  primaryApp != null
+                      ? 'Sync ${primaryApp.name} (Primary)'
+                      : 'Sync Real Connected Source',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
-                subtitle: const Text(
-                  'Health Connect (Android APK), HealthKit (iOS), or Fitbit OAuth',
-                  style: TextStyle(fontSize: 11.5),
+                subtitle: Text(
+                  primaryApp != null
+                      ? 'Locked to ${primaryApp.name} only (avoids mixing other apps)'
+                      : 'Health Connect (Android APK), HealthKit (iOS), or Fitbit OAuth',
+                  style: const TextStyle(fontSize: 11.5),
                 ),
                 trailing: TextButton(
                   onPressed: () {
                     Navigator.pop(ctx);
-                    _syncFromMobileHealth();
+                    _syncFromMobileHealth(
+                      preferredSourceKey: primaryApp?.sourceKey,
+                    );
                   },
                   child: const Text('Sync'),
                 ),

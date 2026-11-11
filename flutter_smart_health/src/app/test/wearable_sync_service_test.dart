@@ -751,6 +751,197 @@ void main() {
       expect(result.sample?.sourceMetadata['yesterday_steps'], 5000);
     },
   );
+
+  test(
+    'Preferred Samsung Health filter stays locked even when only another app has today steps',
+    () async {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.HEART_RATE,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+        },
+        aggregateStepsToday: 5040,
+        points: [
+          // Another app in Health Connect holds 5040 today steps
+          HealthDataPoint(
+            uuid: 'gfit-today-steps',
+            value: NumericHealthValue(numericValue: 5040),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: dayStart.add(const Duration(minutes: 1)),
+            dateTo: dayStart.add(const Duration(minutes: 20)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'phone-1',
+            sourceId: 'com.google.android.apps.fitness',
+            sourceName: 'com.google.android.apps.fitness',
+          ),
+          // Yesterday Samsung Health point exists inside 24h window
+          HealthDataPoint(
+            uuid: 'shealth-yday-steps',
+            value: NumericHealthValue(numericValue: 5009),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: dayStart.subtract(const Duration(hours: 6)),
+            dateTo: dayStart,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-watch',
+            sourceId: 'com.sec.android.app.shealth',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+        ],
+      );
+
+      final capturedPackages = <List<String>>[];
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+        aggregateMetricsProvider: (start, end, packageNames) async {
+          capturedPackages.add(packageNames);
+          final isSamsungOnly = packageNames.contains('com.sec.android.app.shealth');
+          if (!start.isBefore(dayStart)) {
+            return {
+              'available': true,
+              'steps': isSamsungOnly ? 0 : 5040,
+              'strictSteps': isSamsungOnly ? 0 : 5040,
+              'activeCalories': 0.0,
+              'totalCalories': 0.0,
+            };
+          }
+          return {
+            'available': true,
+            'steps': isSamsungOnly ? 5009 : 10049,
+            'strictSteps': isSamsungOnly ? 5009 : 10049,
+            'activeCalories': 220.0,
+            'totalCalories': 1800.0,
+          };
+        },
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isTrue);
+      expect(result.sample?.source, WearableSource.samsungHealth);
+      expect(result.sample?.steps, 0);
+      expect(result.sample?.calories, 0);
+      expect(capturedPackages, isNotEmpty);
+      expect(
+        capturedPackages.every(
+          (pkgs) => pkgs.contains('com.sec.android.app.shealth'),
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'Cross-midnight multi-hour step dump is filtered via strictSteps and reported in sync message',
+    () async {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.HEART_RATE,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.SLEEP_SESSION,
+        },
+        points: [
+          HealthDataPoint(
+            uuid: 'today-hr',
+            value: NumericHealthValue(numericValue: 73),
+            type: HealthDataType.HEART_RATE,
+            unit: HealthDataUnit.BEATS_PER_MINUTE,
+            dateFrom: dayStart.add(const Duration(minutes: 5)),
+            dateTo: dayStart.add(const Duration(minutes: 10)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'today-cal',
+            value: NumericHealthValue(numericValue: 1),
+            type: HealthDataType.ACTIVE_ENERGY_BURNED,
+            unit: HealthDataUnit.KILOCALORIE,
+            dateFrom: dayStart.add(const Duration(minutes: 5)),
+            dateTo: dayStart.add(const Duration(minutes: 15)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'today-sleep',
+            value: NumericHealthValue(numericValue: 252),
+            type: HealthDataType.SLEEP_SESSION,
+            unit: HealthDataUnit.MINUTE,
+            dateFrom: dayStart.subtract(const Duration(hours: 3)),
+            dateTo: dayStart.add(const Duration(minutes: 12)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+        ],
+      );
+
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+        aggregateMetricsProvider: (start, end, packageNames) async {
+          return {
+            'available': true,
+            'steps': 5040,
+            'strictSteps': 0,
+            'crossMidnightRecords': 1,
+            'longCrossMidnightRecords': 1,
+            'strictStepRecords': 0,
+            'activeCalories': 1.0,
+            'totalCalories': 40.0,
+            'stepsByOrigin': {
+              'com.sec.android.app.shealth': 0,
+              'com.google.android.apps.fitness': 5040,
+            },
+            'originLabels': {
+              'com.sec.android.app.shealth': 'Samsung Health',
+              'com.google.android.apps.fitness': 'Google Fit',
+            },
+          };
+        },
+      );
+
+      final ingestion = _FakeIngestionClient();
+      final service = WearableSyncService(
+        ingestionClient: ingestion,
+        googleHealthSyncService: google,
+      );
+
+      final result = await service.syncFromHealthConnect(patientId: '20');
+
+      expect(result.success, isTrue);
+      expect(ingestion.samples.single.steps, 0);
+      expect(ingestion.samples.single.calories, 1);
+      expect(ingestion.samples.single.heartRate, 73);
+      expect(ingestion.samples.single.sleep, 4.2);
+      expect(
+        ingestion.samples.single.sourceMetadata['pre_midnight_filtered_steps'],
+        5040,
+      );
+      expect(result.message, contains('excluded 5040 pre-midnight steps'));
+      expect(
+        result.message,
+        contains('[HC steps: Samsung Health 0, Google Fit 5040]'),
+      );
+    },
+  );
 }
 
 class _FakeHealth extends Health {

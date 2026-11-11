@@ -119,14 +119,26 @@ class DashboardSummaryService {
     int? calories;
     double? sleepHours;
     if (wearableList.isNotEmpty) {
-      wearableList.sort(
-        (a, b) => (b['timestamp'] ?? b['recorded_on'] ?? '')
-            .toString()
-            .compareTo(
-              (a['timestamp'] ?? a['recorded_on'] ?? '').toString(),
-            ),
+      wearableList.sort((a, b) {
+        final ra = (a['timestamp'] ?? a['recorded_on'] ?? '').toString();
+        final rb = (b['timestamp'] ?? b['recorded_on'] ?? '').toString();
+        final ta = DateTime.tryParse(ra)?.toUtc();
+        final tb = DateTime.tryParse(rb)?.toUtc();
+        if (ta != null && tb != null) {
+          final cmp = tb.compareTo(ta);
+          if (cmp != 0) return cmp;
+        }
+        return rb.compareTo(ra);
+      });
+      final latestWearable = wearableList.firstWhere(
+        (row) =>
+            row is Map &&
+            (row['steps'] != null ||
+                row['calories'] != null ||
+                row['heart_rate'] != null ||
+                row['sleep'] != null),
+        orElse: () => wearableList.first,
       );
-      final latestWearable = wearableList.first;
       heartRate ??= _asIntOrNull(latestWearable['heart_rate']);
       steps = _asIntOrNull(latestWearable['steps']);
       calories = _asIntOrNull(latestWearable['calories']);

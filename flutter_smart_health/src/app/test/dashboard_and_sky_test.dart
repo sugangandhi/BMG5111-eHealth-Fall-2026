@@ -113,6 +113,50 @@ void main() {
     expect(summary.latestBmiCategory, 'Normal');
   });
 
+  test(
+    'DashboardSummaryService sorts wearable timestamps chronologically across offsets and skips stress-only rows',
+    () async {
+      SharedPreferences.setMockInitialValues({'patient_id': '391'});
+
+      final service = DashboardSummaryService(
+        ehospitalRepository: _FakeEHospitalRepository({
+          'ecg': const [],
+          'vitals_history': const [],
+          'wearable_vitals': [
+            // Older row with lexicographically later wall-clock string
+            {
+              'timestamp': '2026-11-11T04:54:10+05:00', // 23:54Z yesterday
+              'heart_rate': 73,
+              'steps': 5009,
+              'calories': 223,
+              'sleep': null,
+            },
+            // Newer midnight reset row (00:33 EST = 05:33Z)
+            {
+              'timestamp': '2026-11-11T05:33:03.000Z',
+              'heart_rate': 73,
+              'steps': 0,
+              'calories': 1,
+              'sleep': 4.2,
+            },
+            // Latest stress-only bucket with null activity metrics
+            {
+              'timestamp': '2026-11-11T05:34:00.000Z',
+              'respiratory_rate': 16.5,
+              'stress_score': 32.0,
+            },
+          ],
+        }),
+      );
+
+      final summary = await service.load();
+      expect(summary.stepsCount, 0);
+      expect(summary.caloriesCount, 1);
+      expect(summary.sleepHours, closeTo(4.2, 0.01));
+      expect(summary.heartRateBpm, 73);
+    },
+  );
+
   testWidgets(
     'AppSwitcherCarousel removes theme toggle, shows icon-only side arrows, binds live metrics, and navigates cards',
     (tester) async {

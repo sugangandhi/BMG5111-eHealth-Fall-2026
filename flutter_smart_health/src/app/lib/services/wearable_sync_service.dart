@@ -212,6 +212,32 @@ class WearableSyncService {
         if (s.sleep != null) '${s.sleep!.toStringAsFixed(1)}h sleep',
       ].join(', ');
       final yesterdaySteps = s.sourceMetadata['yesterday_steps'];
+      final stepsByOrigin = s.sourceMetadata['steps_by_origin'];
+      final originLabels = s.sourceMetadata['origin_labels'];
+      String originNote = '';
+      if (stepsByOrigin is Map && stepsByOrigin.isNotEmpty) {
+        final parts = <String>[];
+        var differsFromSource = stepsByOrigin.length > 1;
+        for (final entry in stepsByOrigin.entries) {
+          final pkg = entry.key.toString();
+          final rawLabel = originLabels is Map ? originLabels[pkg] : null;
+          final originLabel =
+              rawLabel?.toString() ??
+              WearableSource.labelFor(WearableSource.fromSourceIdentifier(pkg));
+          if (originLabel.toLowerCase() != label.toLowerCase()) {
+            differsFromSource = true;
+          }
+          parts.add('$originLabel ${entry.value}');
+        }
+        if (differsFromSource) {
+          originNote = ' [HC steps: ${parts.join(', ')}]';
+        }
+      }
+      final preMidnightFiltered = s.sourceMetadata['pre_midnight_filtered_steps'];
+      final preMidnightNote =
+          preMidnightFiltered is num && preMidnightFiltered > 0
+          ? ' (excluded ${preMidnightFiltered.round()} pre-midnight steps)'
+          : '';
       final dateSuffix = isMidnightReset && yesterdaySteps != null
           ? ' (midnight reset; yesterday: $yesterdaySteps steps)'
           : isFallbackWindow
@@ -220,7 +246,8 @@ class WearableSyncService {
       return WearableSyncResult.success(
         source: s.source,
         ingestions: [ingestion],
-        message: 'Synced $label telemetry$via ($details)$dateSuffix into EHR.',
+        message:
+            'Synced $label telemetry$via ($details)$dateSuffix$preMidnightNote$originNote into EHR.',
       );
     }
     return syncFromGoogleHealth(patientId: patientId);
@@ -755,6 +782,22 @@ class _SourceSelection {
   });
 }
 
+const Map<String, List<String>> _knownPackagesBySource = <String, List<String>>{
+  WearableSource.samsungHealth: ['com.sec.android.app.shealth'],
+  WearableSource.googleHealth: ['com.google.android.apps.fitness'],
+  WearableSource.fitbit: ['com.fitbit.FitbitMobile'],
+  WearableSource.garmin: ['com.garmin.android.apps.connectmobile'],
+  WearableSource.strava: ['com.strava'],
+  WearableSource.oura: ['com.ouraring.oura'],
+  WearableSource.whoop: ['com.whoop.android'],
+};
+
+bool _isAppSpecificSource(String? sourceKey) {
+  return sourceKey != null &&
+      sourceKey != WearableSource.healthConnect &&
+      sourceKey != WearableSource.appleHealth;
+}
+
 _SourceSelection _resolveSourceSelection(
   List<HealthDataPoint> points, {
   required String fallbackSource,
@@ -777,9 +820,9 @@ _SourceSelection _resolveSourceSelection(
     contributingLabels.add(label);
   }
 
-  final filteredByApp =
-      preferredSourceKey != null &&
-      contributingSourceKeys.contains(preferredSourceKey);
+  // Always enforce the app filter when an explicit app source (e.g. Samsung Health)
+  // was requested, even if it has 0 points so other apps' data never leaks in.
+  final filteredByApp = _isAppSpecificSource(preferredSourceKey);
   final selectedPoints = filteredByApp
       ? points.where((point) {
           final key = WearableSource.fromSourceIdentifier(
@@ -791,7 +834,9 @@ _SourceSelection _resolveSourceSelection(
       : points;
 
   var resolvedSource = fallbackSource;
-  if (preferredSourceKey != null &&
+  if (filteredByApp) {
+    resolvedSource = preferredSourceKey!;
+  } else if (preferredSourceKey != null &&
       contributingSourceKeys.contains(preferredSourceKey)) {
     resolvedSource = preferredSourceKey;
   } else if (sourcePointCounts.isNotEmpty) {
@@ -802,7 +847,9 @@ _SourceSelection _resolveSourceSelection(
 
   return _SourceSelection(
     points: selectedPoints,
-    contributingLabels: contributingLabels.toList(),
+    contributingLabels: filteredByApp
+        ? <String>[WearableSource.labelFor(preferredSourceKey!)]
+        : contributingLabels.toList(),
     contributingSourceKeys: contributingSourceKeys.toList(),
     resolvedSource: resolvedSource,
     filteredByApp: filteredByApp,
@@ -851,15 +898,31 @@ class _AdditiveInterval {
 
 class _OsAggregateSnapshot {
   final int? steps;
+  final int? strictSteps;
   final double? activeCalories;
   final double? totalCalories;
   final bool usedNativeAggregate;
+  final int crossMidnightRecords;
+  final int longCrossMidnightRecords;
+  final int strictStepRecords;
+  final int preMidnightFilteredSteps;
+  final Map<String, int> stepsByOrigin;
+  final Map<String, String> originLabels;
+  final List<String> stepRecordSamples;
 
   const _OsAggregateSnapshot({
     this.steps,
+    this.strictSteps,
     this.activeCalories,
     this.totalCalories,
     this.usedNativeAggregate = false,
+    this.crossMidnightRecords = 0,
+    this.longCrossMidnightRecords = 0,
+    this.strictStepRecords = 0,
+    this.preMidnightFilteredSteps = 0,
+    this.stepsByOrigin = const <String, int>{},
+    this.originLabels = const <String, String>{},
+    this.stepRecordSamples = const <String>[],
   });
 }
 
@@ -867,7 +930,7 @@ List<String> _extractFilterPackageNames(
   _SourceSelection selection,
   String? preferredSourceKey,
 ) {
-  if (!selection.filteredByApp || preferredSourceKey == null) {
+  if (!_isAppSpecificSource(preferredSourceKey)) {
     return const <String>[];
   }
   final packages = <String>{};
@@ -879,18 +942,9 @@ List<String> _extractFilterPackageNames(
       }
     }
   }
-  if (packages.isEmpty) {
-    const knownPackages = <String, String>{
-      WearableSource.samsungHealth: 'com.sec.android.app.shealth',
-      WearableSource.googleHealth: 'com.google.android.apps.fitness',
-      WearableSource.fitbit: 'com.fitbit.FitbitMobile',
-      WearableSource.garmin: 'com.garmin.android.apps.connectmobile',
-      WearableSource.strava: 'com.strava',
-      WearableSource.oura: 'com.ouraring.oura',
-      WearableSource.whoop: 'com.whoop.android',
-    };
-    final known = knownPackages[preferredSourceKey];
-    if (known != null) packages.add(known);
+  final known = _knownPackagesBySource[preferredSourceKey!];
+  if (known != null) {
+    packages.addAll(known);
   }
   return packages.toList();
 }
@@ -1241,9 +1295,17 @@ Future<_OsAggregateSnapshot> _resolveOsAggregatedMetrics({
   HealthConnectAggregateProvider? aggregateMetricsProvider,
 }) async {
   int? osSteps;
+  int? strictSteps;
   double? osActiveCalories;
   double? osTotalCalories;
   var usedNativeAggregate = false;
+  var crossMidnightRecords = 0;
+  var longCrossMidnightRecords = 0;
+  var strictStepRecords = 0;
+  var preMidnightFilteredSteps = 0;
+  var stepsByOrigin = const <String, int>{};
+  var originLabels = const <String, String>{};
+  var stepRecordSamples = const <String>[];
 
   if (isAndroid && aggregateMetricsProvider != null) {
     try {
@@ -1256,16 +1318,56 @@ Future<_OsAggregateSnapshot> _resolveOsAggregatedMetrics({
         usedNativeAggregate = true;
         final s = raw['steps'];
         if (s is num) osSteps = s.round();
+        final ss = raw['strictSteps'];
+        if (ss is num) strictSteps = ss.round();
         final a = raw['activeCalories'];
         if (a is num) osActiveCalories = a.toDouble();
         final t = raw['totalCalories'];
         if (t is num) osTotalCalories = t.toDouble();
+        final cm = raw['crossMidnightRecords'];
+        if (cm is num) crossMidnightRecords = cm.toInt();
+        final lcm = raw['longCrossMidnightRecords'];
+        if (lcm is num) longCrossMidnightRecords = lcm.toInt();
+        final sr = raw['strictStepRecords'];
+        if (sr is num) strictStepRecords = sr.toInt();
+
+        final rawOrigins = raw['stepsByOrigin'];
+        if (rawOrigins is Map && rawOrigins.isNotEmpty) {
+          stepsByOrigin = <String, int>{
+            for (final entry in rawOrigins.entries)
+              if (entry.value is num)
+                entry.key.toString(): (entry.value as num).round(),
+          };
+        }
+        final rawLabels = raw['originLabels'];
+        if (rawLabels is Map && rawLabels.isNotEmpty) {
+          originLabels = <String, String>{
+            for (final entry in rawLabels.entries)
+              entry.key.toString(): entry.value.toString(),
+          };
+        }
+        final rawSamples = raw['stepRecordSamples'];
+        if (rawSamples is List && rawSamples.isNotEmpty) {
+          stepRecordSamples = rawSamples.map((e) => e.toString()).toList();
+        }
+
+        // Prevent multi-hour pre-midnight step summaries (or crossing records when
+        // zero records started today) from leaking yesterday's totals after midnight.
+        if (osSteps != null && strictSteps != null && osSteps > strictSteps) {
+          if (longCrossMidnightRecords > 0 ||
+              (crossMidnightRecords > 0 && strictStepRecords == 0 && strictSteps == 0)) {
+            preMidnightFilteredSteps = osSteps - strictSteps;
+            osSteps = strictSteps;
+          }
+        }
       }
     } catch (_) {}
   }
 
   final allowLegacyStepsAgg =
-      !selection.filteredByApp || selection.contributingSourceKeys.length <= 1;
+      !usedNativeAggregate &&
+      !selection.filteredByApp &&
+      selection.contributingSourceKeys.length <= 1;
   if (osSteps == null && stepsGranted && allowLegacyStepsAgg) {
     try {
       osSteps = await health.getTotalStepsInInterval(startTime, endTime);
@@ -1274,9 +1376,17 @@ Future<_OsAggregateSnapshot> _resolveOsAggregatedMetrics({
 
   return _OsAggregateSnapshot(
     steps: osSteps,
+    strictSteps: strictSteps,
     activeCalories: osActiveCalories,
     totalCalories: osTotalCalories,
     usedNativeAggregate: usedNativeAggregate,
+    crossMidnightRecords: crossMidnightRecords,
+    longCrossMidnightRecords: longCrossMidnightRecords,
+    strictStepRecords: strictStepRecords,
+    preMidnightFilteredSteps: preMidnightFilteredSteps,
+    stepsByOrigin: stepsByOrigin,
+    originLabels: originLabels,
+    stepRecordSamples: stepRecordSamples,
   );
 }
 
@@ -1302,7 +1412,7 @@ List<HealthDataPoint> _filterPointsToCalendarDay(
       // Strictly exclude previous-day intervals ending right at midnight (00:00:00).
       return endLocal.isAfter(dayStart) && startLocal.isBefore(dayEnd);
     }
-    return !endLocal.isBefore(dayStart) && !endLocal.isAfter(dayEnd);
+    return endLocal.isAfter(dayStart) && !endLocal.isAfter(dayEnd);
   }).toList();
 }
 
@@ -1608,6 +1718,15 @@ Future<WearableSourceReadResult> _readHealthSample({
         'detected_sources': selection.contributingSourceKeys,
         'sync_window': syncWindow,
         if (yesterdaySteps != null) 'yesterday_steps': yesterdaySteps,
+        if (osToday.stepsByOrigin.isNotEmpty) 'steps_by_origin': osToday.stepsByOrigin,
+        if (osToday.originLabels.isNotEmpty) 'origin_labels': osToday.originLabels,
+        if (osToday.stepRecordSamples.isNotEmpty)
+          'step_record_samples': osToday.stepRecordSamples,
+        if (osToday.preMidnightFilteredSteps > 0)
+          'pre_midnight_filtered_steps': osToday.preMidnightFilteredSteps,
+        if (osToday.crossMidnightRecords > 0)
+          'cross_midnight_records': osToday.crossMidnightRecords,
+        if (osToday.strictSteps != null) 'strict_steps_today': osToday.strictSteps,
         'steps_method':
             summary.useAggregateSteps ? 'os_aggregate_today' : 'deduped_day_points',
         'calories_method': summary.caloriesMethod,

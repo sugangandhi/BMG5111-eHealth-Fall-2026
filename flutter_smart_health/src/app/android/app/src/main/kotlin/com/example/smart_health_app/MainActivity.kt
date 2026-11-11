@@ -32,7 +32,9 @@ import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -429,20 +431,23 @@ class MainActivity : FlutterFragmentActivity() {
             val payload: Map<String, Any?> = try {
                 val client = HealthConnectClient.getOrCreate(applicationContext)
                 val granted = client.permissionController.getGrantedPermissions()
+                val stepsGranted =
+                    granted.contains(HealthPermission.getReadPermission(StepsRecord::class))
+                val activeCalGranted =
+                    granted.contains(HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class))
+                val totalCalGranted =
+                    granted.contains(HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class))
+
                 val metrics = mutableSetOf<AggregateMetric<*>>()
-                if (granted.contains(HealthPermission.getReadPermission(StepsRecord::class))) {
-                    metrics.add(StepsRecord.COUNT_TOTAL)
-                }
-                if (granted.contains(HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class))) {
-                    metrics.add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
-                }
-                if (granted.contains(HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class))) {
-                    metrics.add(TotalCaloriesBurnedRecord.ENERGY_TOTAL)
-                }
+                if (stepsGranted) metrics.add(StepsRecord.COUNT_TOTAL)
+                if (activeCalGranted) metrics.add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+                if (totalCalGranted) metrics.add(TotalCaloriesBurnedRecord.ENERGY_TOTAL)
 
                 if (metrics.isEmpty()) {
                     mapOf("available" to true)
                 } else {
+                    val startInstant = Instant.ofEpochMilli(startEpochMs)
+                    val endInstant = Instant.ofEpochMilli(endEpochMs)
                     val origins = packageNames
                         .map { it.trim() }
                         .filter { it.isNotEmpty() }
@@ -452,18 +457,114 @@ class MainActivity : FlutterFragmentActivity() {
                     val agg = client.aggregate(
                         AggregateRequest(
                             metrics = metrics,
-                            timeRangeFilter = TimeRangeFilter.between(
-                                Instant.ofEpochMilli(startEpochMs),
-                                Instant.ofEpochMilli(endEpochMs),
-                            ),
+                            timeRangeFilter = TimeRangeFilter.between(startInstant, endInstant),
                             dataOriginFilter = origins,
                         ),
                     )
+                    val stepsTotal: Long? =
+                        if (stepsGranted) (agg[StepsRecord.COUNT_TOTAL] ?: 0L) else null
+                    val activeCalTotal: Double? = if (activeCalGranted) {
+                        agg[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories ?: 0.0
+                    } else {
+                        null
+                    }
+                    val totalCalTotal: Double? = if (totalCalGranted) {
+                        agg[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories ?: 0.0
+                    } else {
+                        null
+                    }
+
+                    var strictSteps: Long? = if (stepsGranted) 0L else null
+                    var crossMidnightCount = 0
+                    var longCrossMidnightCount = 0
+                    var strictRecordCount = 0
+                    val stepsByOrigin = mutableMapOf<String, Long>()
+                    val originLabels = mutableMapOf<String, String>()
+                    val stepRecordSamples = mutableListOf<String>()
+
+                    if (stepsGranted) {
+                        try {
+                            val records = readStepsRecordsInRange(
+                                client = client,
+                                startInstant = startInstant,
+                                endInstant = endInstant,
+                                origins = origins,
+                            )
+                            val strictRecords = mutableListOf<StepsRecord>()
+                            val seenPackages = linkedSetOf<String>()
+                            for (rec in records) {
+                                val pkg = rec.metadata.dataOrigin.packageName
+                                if (pkg.isNotEmpty()) {
+                                    seenPackages.add(pkg)
+                                    if (!originLabels.containsKey(pkg)) {
+                                        originLabels[pkg] = resolveAppLabel(pkg)
+                                    }
+                                }
+                                if (rec.startTime.isBefore(startInstant) && rec.endTime.isAfter(startInstant)) {
+                                    crossMidnightCount++
+                                    val durationMs = rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()
+                                    if (durationMs >= 7_200_000L) {
+                                        longCrossMidnightCount++
+                                    }
+                                } else if (!rec.startTime.isBefore(startInstant)) {
+                                    strictRecords.add(rec)
+                                }
+                            }
+                            strictRecordCount = strictRecords.size
+                            strictSteps = computeDeduplicatedStepsTotal(strictRecords)
+
+                            val zone = ZoneId.systemDefault()
+                            val timeFmt = DateTimeFormatter.ofPattern("MM/dd HH:mm").withZone(zone)
+                            records
+                                .sortedByDescending { it.count }
+                                .take(6)
+                                .forEach { rec ->
+                                    val pkg = rec.metadata.dataOrigin.packageName
+                                    val label = originLabels[pkg] ?: resolveAppLabel(pkg)
+                                    val crossTag = if (rec.startTime.isBefore(startInstant)) " [pre-midnight]" else ""
+                                    stepRecordSamples.add(
+                                        "$label: ${rec.count} (${timeFmt.format(rec.startTime)}..${timeFmt.format(rec.endTime)})$crossTag",
+                                    )
+                                }
+
+                            if (origins.isEmpty() && seenPackages.size > 1) {
+                                for (pkg in seenPackages.take(8)) {
+                                    try {
+                                        val pkgAgg = client.aggregate(
+                                            AggregateRequest(
+                                                metrics = setOf(StepsRecord.COUNT_TOTAL),
+                                                timeRangeFilter = TimeRangeFilter.between(startInstant, endInstant),
+                                                dataOriginFilter = setOf(DataOrigin(pkg)),
+                                            ),
+                                        )
+                                        stepsByOrigin[pkg] = pkgAgg[StepsRecord.COUNT_TOTAL] ?: 0L
+                                    } catch (_: Exception) {}
+                                }
+                            } else if (seenPackages.size == 1 && stepsTotal != null) {
+                                val onlyPkg = seenPackages.first()
+                                stepsByOrigin[onlyPkg] = stepsTotal
+                            } else if (origins.size == 1 && stepsTotal != null) {
+                                val pkg = origins.first().packageName
+                                stepsByOrigin[pkg] = stepsTotal
+                                originLabels[pkg] = resolveAppLabel(pkg)
+                            }
+                        } catch (_: Exception) {
+                            strictSteps = stepsTotal
+                        }
+                    }
+
                     mapOf(
                         "available" to true,
-                        "steps" to agg[StepsRecord.COUNT_TOTAL],
-                        "activeCalories" to agg[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories,
-                        "totalCalories" to agg[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories,
+                        "steps" to stepsTotal,
+                        "strictSteps" to strictSteps,
+                        "crossMidnightRecords" to crossMidnightCount,
+                        "longCrossMidnightRecords" to longCrossMidnightCount,
+                        "strictStepRecords" to strictRecordCount,
+                        "activeCalories" to activeCalTotal,
+                        "totalCalories" to totalCalTotal,
+                        "stepsByOrigin" to stepsByOrigin,
+                        "originLabels" to originLabels,
+                        "stepRecordSamples" to stepRecordSamples,
                     )
                 }
             } catch (e: Exception) {
@@ -474,6 +575,109 @@ class MainActivity : FlutterFragmentActivity() {
             }
             mainHandler.post { result.success(payload) }
         }
+    }
+
+    private suspend fun readStepsRecordsInRange(
+        client: HealthConnectClient,
+        startInstant: Instant,
+        endInstant: Instant,
+        origins: Set<DataOrigin>,
+    ): List<StepsRecord> {
+        val records = mutableListOf<StepsRecord>()
+        var pageToken: String? = null
+        for (page in 0 until 20) {
+            val resp = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = StepsRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startInstant, endInstant),
+                    dataOriginFilter = origins,
+                    pageToken = pageToken,
+                ),
+            )
+            records.addAll(resp.records)
+            pageToken = resp.pageToken
+            if (pageToken == null) break
+        }
+        return records
+    }
+
+    private fun computeDeduplicatedStepsTotal(records: List<StepsRecord>): Long {
+        if (records.isEmpty()) return 0L
+        data class StepSpan(
+            val streamKey: String,
+            val startMs: Long,
+            val endMs: Long,
+            val count: Long,
+        )
+
+        val seen = HashSet<String>(records.size)
+        val spans = ArrayList<StepSpan>(records.size)
+        for (rec in records) {
+            if (rec.count <= 0L) continue
+            val sMs = rec.startTime.toEpochMilli()
+            val eMs = rec.endTime.toEpochMilli()
+            if (eMs <= sMs) continue
+            val streamKey =
+                "${rec.metadata.dataOrigin.packageName}|${rec.metadata.device?.model ?: ""}|${rec.metadata.recordingMethod}"
+            val dedupKey = "$streamKey|$sMs|$eMs|${rec.count}"
+            if (seen.add(dedupKey)) {
+                spans.add(StepSpan(streamKey, sMs, eMs, rec.count))
+            }
+        }
+        if (spans.isEmpty()) return 0L
+        spans.sortWith(compareBy<StepSpan> { it.startMs }.thenBy { it.endMs })
+
+        fun maxStreamSum(items: List<StepSpan>): Long {
+            if (items.isEmpty()) return 0L
+            val byEnd = items.sortedBy { it.endMs }
+            val ends = LongArray(byEnd.size) { byEnd[it].endMs }
+            val dp = LongArray(byEnd.size)
+            for (i in byEnd.indices) {
+                val cur = byEnd[i]
+                var lo = 0
+                var hi = i - 1
+                var prev = -1
+                while (lo <= hi) {
+                    val mid = (lo + hi) ushr 1
+                    if (ends[mid] <= cur.startMs) {
+                        prev = mid
+                        lo = mid + 1
+                    } else {
+                        hi = mid - 1
+                    }
+                }
+                val take = cur.count + if (prev >= 0) dp[prev] else 0L
+                val skip = if (i > 0) dp[i - 1] else 0L
+                dp[i] = max(take, skip)
+            }
+            return dp[byEnd.size - 1]
+        }
+
+        fun flushComponent(items: List<StepSpan>): Long {
+            val byStream = items.groupBy { it.streamKey }
+            var best = 0L
+            for (streamItems in byStream.values) {
+                best = max(best, maxStreamSum(streamItems))
+            }
+            return best
+        }
+
+        var total = 0L
+        var comp = mutableListOf(spans[0])
+        var compMaxEnd = spans[0].endMs
+        for (i in 1 until spans.size) {
+            val item = spans[i]
+            if (item.startMs < compMaxEnd) {
+                comp.add(item)
+                if (item.endMs > compMaxEnd) compMaxEnd = item.endMs
+            } else {
+                total += flushComponent(comp)
+                comp = mutableListOf(item)
+                compMaxEnd = item.endMs
+            }
+        }
+        total += flushComponent(comp)
+        return total
     }
 
     private fun openHealthConnectSettings(targetPackageName: String? = null): Boolean {
