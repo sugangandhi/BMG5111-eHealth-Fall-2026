@@ -448,28 +448,64 @@ class MainActivity : FlutterFragmentActivity() {
                 } else {
                     val startInstant = Instant.ofEpochMilli(startEpochMs)
                     val endInstant = Instant.ofEpochMilli(endEpochMs)
+                    val zone = ZoneId.systemDefault()
+                    val endOfWindowDay = startInstant
+                        .atZone(zone)
+                        .toLocalDate()
+                        .plusDays(1)
+                        .atStartOfDay(zone)
+                        .toInstant()
+                    // Daily step/active-calorie summaries (e.g. Samsung Health's
+                    // [00:00..24:00] bucket) extend to end-of-day; querying up to
+                    // endOfWindowDay avoids fractionally clipping 158 steps to 10.
+                    val activityEndInstant =
+                        if (endInstant.isBefore(endOfWindowDay)) endOfWindowDay else endInstant
                     val origins = packageNames
                         .map { it.trim() }
                         .filter { it.isNotEmpty() }
                         .map { DataOrigin(it) }
                         .toSet()
 
-                    val agg = client.aggregate(
-                        AggregateRequest(
-                            metrics = metrics,
-                            timeRangeFilter = TimeRangeFilter.between(startInstant, endInstant),
-                            dataOriginFilter = origins,
-                        ),
-                    )
+                    val activityMetrics = mutableSetOf<AggregateMetric<*>>()
+                    if (stepsGranted) activityMetrics.add(StepsRecord.COUNT_TOTAL)
+                    if (activeCalGranted) activityMetrics.add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+                    val sameWindowForTotal = activityEndInstant == endInstant
+                    if (totalCalGranted && sameWindowForTotal) {
+                        activityMetrics.add(TotalCaloriesBurnedRecord.ENERGY_TOTAL)
+                    }
+
+                    val activityAgg = if (activityMetrics.isNotEmpty()) {
+                        client.aggregate(
+                            AggregateRequest(
+                                metrics = activityMetrics,
+                                timeRangeFilter = TimeRangeFilter.between(startInstant, activityEndInstant),
+                                dataOriginFilter = origins,
+                            ),
+                        )
+                    } else {
+                        null
+                    }
+                    val totalCalAgg = if (totalCalGranted && !sameWindowForTotal) {
+                        client.aggregate(
+                            AggregateRequest(
+                                metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                                timeRangeFilter = TimeRangeFilter.between(startInstant, endInstant),
+                                dataOriginFilter = origins,
+                            ),
+                        )
+                    } else {
+                        activityAgg
+                    }
+
                     val stepsTotal: Long? =
-                        if (stepsGranted) (agg[StepsRecord.COUNT_TOTAL] ?: 0L) else null
+                        if (stepsGranted) (activityAgg?.get(StepsRecord.COUNT_TOTAL) ?: 0L) else null
                     val activeCalTotal: Double? = if (activeCalGranted) {
-                        agg[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories ?: 0.0
+                        activityAgg?.get(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)?.inKilocalories ?: 0.0
                     } else {
                         null
                     }
                     val totalCalTotal: Double? = if (totalCalGranted) {
-                        agg[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories ?: 0.0
+                        totalCalAgg?.get(TotalCaloriesBurnedRecord.ENERGY_TOTAL)?.inKilocalories ?: 0.0
                     } else {
                         null
                     }
@@ -489,7 +525,7 @@ class MainActivity : FlutterFragmentActivity() {
                             val allRecords = readStepsRecordsInRange(
                                 client = client,
                                 startInstant = startInstant,
-                                endInstant = endInstant,
+                                endInstant = activityEndInstant,
                                 origins = emptySet(),
                             )
                             val filterPackages = origins.map { it.packageName }.toSet()
@@ -523,7 +559,6 @@ class MainActivity : FlutterFragmentActivity() {
                             strictRecordCount = strictRecords.size
                             strictSteps = computeDeduplicatedStepsTotal(strictRecords)
 
-                            val zone = ZoneId.systemDefault()
                             val timeFmt = DateTimeFormatter.ofPattern("MM/dd HH:mm").withZone(zone)
                             allRecords
                                 .sortedByDescending { it.count }
@@ -553,7 +588,7 @@ class MainActivity : FlutterFragmentActivity() {
                                         val pkgAgg = client.aggregate(
                                             AggregateRequest(
                                                 metrics = setOf(StepsRecord.COUNT_TOTAL),
-                                                timeRangeFilter = TimeRangeFilter.between(startInstant, endInstant),
+                                                timeRangeFilter = TimeRangeFilter.between(startInstant, activityEndInstant),
                                                 dataOriginFilter = setOf(DataOrigin(pkg)),
                                             ),
                                         )
@@ -569,7 +604,7 @@ class MainActivity : FlutterFragmentActivity() {
                                         val pkgAgg = client.aggregate(
                                             AggregateRequest(
                                                 metrics = setOf(StepsRecord.COUNT_TOTAL),
-                                                timeRangeFilter = TimeRangeFilter.between(startInstant, endInstant),
+                                                timeRangeFilter = TimeRangeFilter.between(startInstant, activityEndInstant),
                                                 dataOriginFilter = setOf(DataOrigin(onlyPkg)),
                                             ),
                                         )

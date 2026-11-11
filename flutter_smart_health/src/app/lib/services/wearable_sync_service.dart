@@ -1078,6 +1078,7 @@ _MetricsSummary _summarizeHealthPoints({
   required List<HealthDataPoint> points,
   required DateTime windowStart,
   DateTime? windowEnd,
+  DateTime? totalCaloriesWindowEnd,
   required _OsAggregateSnapshot osAggregate,
   required bool allowTotalCaloriesFallback,
   required bool filterStepsCaloriesToWindow,
@@ -1178,7 +1179,9 @@ _MetricsSummary _summarizeHealthPoints({
   final dedupedTotalCal = _sumDeduplicatedAdditivePoints(
     windowTotalCalPoints,
     clipStart: clipStart,
-    clipEnd: clipEnd,
+    clipEnd: filterStepsCaloriesToWindow
+        ? (totalCaloriesWindowEnd ?? clipEnd)
+        : clipEnd,
   );
 
   final osSteps = osAggregate.steps;
@@ -1494,11 +1497,12 @@ Future<WearableSourceReadResult> _readHealthSample({
 
   final now = DateTime.now();
   final startOfToday = DateTime(now.year, now.month, now.day);
+  final endOfToday = startOfToday.add(const Duration(days: 1));
   final since24h = now.subtract(const Duration(hours: 24));
   final points24h = health.removeDuplicates(
     await health.getHealthDataFromTypes(
       startTime: since24h,
-      endTime: now,
+      endTime: endOfToday,
       types: permStatus.grantedTypes,
     ),
   );
@@ -1530,12 +1534,13 @@ Future<WearableSourceReadResult> _readHealthSample({
   final todaySleepAndDayPoints = _filterPointsToCalendarDay(
     selection.points,
     startOfToday,
-    now,
+    endOfToday,
   );
   var summary = _summarizeHealthPoints(
     points: todaySleepAndDayPoints,
     windowStart: startOfToday,
-    windowEnd: now,
+    windowEnd: endOfToday,
+    totalCaloriesWindowEnd: now,
     osAggregate: osToday,
     allowTotalCaloriesFallback:
         !hasActive24h && !((osToday.activeCalories ?? 0) > 0),
@@ -1548,12 +1553,13 @@ Future<WearableSourceReadResult> _readHealthSample({
     final allTodayPoints = _filterPointsToCalendarDay(
       points24h,
       startOfToday,
-      now,
+      endOfToday,
     );
     final crossOriginSummary = _summarizeHealthPoints(
       points: allTodayPoints,
       windowStart: startOfToday,
-      windowEnd: now,
+      windowEnd: endOfToday,
+      totalCaloriesWindowEnd: now,
       osAggregate: const _OsAggregateSnapshot(),
       allowTotalCaloriesFallback: false,
       filterStepsCaloriesToWindow: true,

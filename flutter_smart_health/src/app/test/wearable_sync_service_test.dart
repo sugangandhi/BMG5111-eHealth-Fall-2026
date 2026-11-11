@@ -1056,6 +1056,75 @@ void main() {
       expect(result.message, contains('70 kcal total (incl. resting)'));
     },
   );
+
+  test(
+    'Full-day Samsung Health [00:00..24:00] steps and active calories are not shredded by elapsed day fraction',
+    () async {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.TOTAL_CALORIES_BURNED,
+        },
+        points: [
+          HealthDataPoint(
+            uuid: 'shealth-full-day-steps',
+            value: NumericHealthValue(numericValue: 158),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: dayStart,
+            dateTo: dayEnd,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-phone',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'shealth-full-day-active',
+            value: NumericHealthValue(numericValue: 2),
+            type: HealthDataType.ACTIVE_ENERGY_BURNED,
+            unit: HealthDataUnit.KILOCALORIE,
+            dateFrom: dayStart,
+            dateTo: dayEnd,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-phone',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'shealth-full-day-bmr',
+            value: NumericHealthValue(numericValue: 1716),
+            type: HealthDataType.TOTAL_CALORIES_BURNED,
+            unit: HealthDataUnit.KILOCALORIE,
+            dateFrom: dayStart,
+            dateTo: dayEnd,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-phone',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+        ],
+      );
+
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isTrue);
+      expect(result.sample?.steps, 158);
+      expect(result.sample?.calories, 2);
+    },
+  );
 }
 
 class _FakeHealth extends Health {
