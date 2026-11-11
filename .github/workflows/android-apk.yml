@@ -64,6 +64,14 @@ jobs:
           flutter pub get
           flutter test test/api_config_test.dart test/wearable_sync_service_test.dart test/mobile_health_registry_test.dart test/app_update_service_test.dart
 
+      - name: Accept Android SDK licenses
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)"
+          if [ -n "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
+          fi
+
       - name: Build versioned release APK
         working-directory: flutter_smart_health/src/app
         env:
@@ -99,6 +107,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
+          target_commitish: ${{ github.sha }}
           name: eHospital Android Latest
           make_latest: true
           prerelease: false
