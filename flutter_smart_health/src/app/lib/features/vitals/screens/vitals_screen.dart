@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -573,7 +574,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -681,6 +682,26 @@ class _VitalsScreenState extends State<VitalsScreen> {
                   _importExportFromVitals();
                 },
               ),
+              if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.manage_search_rounded,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text(
+                    'Inspect Health Connect Records',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'See exact steps & calories each app currently holds in Health Connect',
+                    style: TextStyle(fontSize: 11.5),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showHealthConnectInspector();
+                  },
+                ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.devices_outlined, color: AppColors.primary),
@@ -696,6 +717,122 @@ class _VitalsScreenState extends State<VitalsScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _showHealthConnectInspector() async {
+    final now = DateTime.now();
+    final dayStart = DateTime(now.year, now.month, now.day);
+    final results = await Future.wait<Map<String, dynamic>?>([
+      _healthRegistry.diagnoseHealthConnect().catchError((_) => null),
+      _healthRegistry
+          .aggregateHealthMetrics(
+            startTime: dayStart,
+            endTime: now,
+            packageNames: const <String>[],
+          )
+          .catchError((_) => null),
+    ]);
+    if (!mounted) return;
+    final diag = results[0] ?? const <String, dynamic>{};
+    final agg = results[1] ?? const <String, dynamic>{};
+
+    final stepsByOrigin = agg['stepsByOrigin'] is Map
+        ? agg['stepsByOrigin'] as Map
+        : const {};
+    final originLabels = agg['originLabels'] is Map
+        ? agg['originLabels'] as Map
+        : const {};
+    final samples = agg['stepRecordSamples'] is List
+        ? agg['stepRecordSamples'] as List
+        : const [];
+    final records24h = diag['records24hCount'] ?? 0;
+    final records29d = diag['records29dCount'] ?? 0;
+    final missingPerms = diag['missingCorePermissions'] is List
+        ? (diag['missingCorePermissions'] as List).join(', ')
+        : '';
+
+    final originLines = stepsByOrigin.isEmpty
+        ? 'No app step records in Health Connect today yet.'
+        : stepsByOrigin.entries
+              .map((e) {
+                final pkg = e.key.toString();
+                final label = originLabels[pkg]?.toString() ?? pkg;
+                return '• $label ($pkg): ${e.value} steps';
+              })
+              .join('\n');
+
+    final sampleLines = samples.isEmpty
+        ? 'No step interval records for today.'
+        : samples.map((s) => '• $s').join('\n');
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Health Connect Live Data (Today)'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Window: ${DateFormat('MM/dd HH:mm').format(dayStart)} -> ${DateFormat('HH:mm').format(now)}',
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'OS Totals (all apps): ${agg['steps'] ?? '-'} steps\n'
+                'Strict post-midnight: ${agg['strictSteps'] ?? '-'} steps\n'
+                'Active Calories: ${agg['activeCalories'] is num ? (agg['activeCalories'] as num).toStringAsFixed(1) : '-'} kcal\n'
+                'Total Calories (incl. resting BMR): ${agg['totalCalories'] is num ? (agg['totalCalories'] as num).toStringAsFixed(1) : '-'} kcal\n'
+                'HC Records (24h / 29d): $records24h / $records29d',
+                style: const TextStyle(fontSize: 12.5, height: 1.4),
+              ),
+              if (missingPerms.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Missing permissions: $missingPerms',
+                  style: const TextStyle(fontSize: 12, color: Colors.red),
+                ),
+              ],
+              const SizedBox(height: 10),
+              const Text(
+                'Steps by Source App:',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+              ),
+              const SizedBox(height: 4),
+              Text(originLines, style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 10),
+              const Text(
+                'Raw StepsRecord Intervals Today:',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+              ),
+              const SizedBox(height: 4),
+              Text(sampleLines, style: const TextStyle(fontSize: 11.5)),
+              const SizedBox(height: 10),
+              const Text(
+                'Tip: Samsung Health syncs Watch/phone totals to Health Connect periodically (not every second). Opening Samsung Health Home and pulling down to refresh pushes latest steps into Health Connect.',
+                style: TextStyle(fontSize: 11.5, color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                _healthRegistry.openInstalledApp('com.sec.android.app.shealth'),
+            child: const Text('Open Samsung Health'),
+          ),
+          TextButton(
+            onPressed: () => _healthRegistry.openHealthConnectSettings(),
+            child: const Text('HC Permissions'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }

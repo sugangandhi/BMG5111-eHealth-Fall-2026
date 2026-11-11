@@ -940,6 +940,120 @@ void main() {
         result.message,
         contains('[HC steps: Samsung Health 0, Google Fit 5040]'),
       );
+      expect(ingestion.samples.single.toJson()['timestamp'], endsWith('Z'));
+    },
+  );
+
+  test(
+    'Preferred Samsung Health preserves HR/sleep from companion Health Connect origin without leaking other steps',
+    () async {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.HEART_RATE,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.TOTAL_CALORIES_BURNED,
+          HealthDataType.SLEEP_SESSION,
+        },
+        points: [
+          HealthDataPoint(
+            uuid: 'shealth-steps-3',
+            value: NumericHealthValue(numericValue: 3),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: dayStart.add(const Duration(minutes: 5)),
+            dateTo: dayStart.add(const Duration(minutes: 20)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'phone',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          // Companion / watch app wrote HR and Sleep + stale 5040 steps
+          HealthDataPoint(
+            uuid: 'other-steps-5040',
+            value: NumericHealthValue(numericValue: 5040),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: dayStart.add(const Duration(minutes: 1)),
+            dateTo: dayStart.add(const Duration(minutes: 30)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch',
+            sourceId: 'com.google.android.apps.fitness',
+            sourceName: 'com.google.android.apps.fitness',
+          ),
+          HealthDataPoint(
+            uuid: 'other-hr-73',
+            value: NumericHealthValue(numericValue: 73),
+            type: HealthDataType.HEART_RATE,
+            unit: HealthDataUnit.BEATS_PER_MINUTE,
+            dateFrom: dayStart.add(const Duration(minutes: 10)),
+            dateTo: dayStart.add(const Duration(minutes: 11)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch',
+            sourceId: 'com.google.android.apps.fitness',
+            sourceName: 'com.google.android.apps.fitness',
+          ),
+          HealthDataPoint(
+            uuid: 'other-sleep',
+            value: NumericHealthValue(numericValue: 252),
+            type: HealthDataType.SLEEP_SESSION,
+            unit: HealthDataUnit.MINUTE,
+            dateFrom: dayStart.subtract(const Duration(hours: 3)),
+            dateTo: dayStart.add(const Duration(minutes: 12)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch',
+            sourceId: 'com.google.android.apps.fitness',
+            sourceName: 'com.google.android.apps.fitness',
+          ),
+        ],
+      );
+
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+        aggregateMetricsProvider: (start, end, packageNames) async {
+          return {
+            'available': true,
+            'steps': 3,
+            'strictSteps': 3,
+            'activeCalories': 0.0,
+            'totalCalories': 70.0,
+            'stepsByOrigin': {
+              'com.sec.android.app.shealth': 3,
+              'com.google.android.apps.fitness': 5040,
+            },
+            'originLabels': {
+              'com.sec.android.app.shealth': 'Samsung Health',
+              'com.google.android.apps.fitness': 'Google Fit',
+            },
+          };
+        },
+      );
+
+      final ingestion = _FakeIngestionClient();
+      final service = WearableSyncService(
+        ingestionClient: ingestion,
+        googleHealthSyncService: google,
+      );
+
+      final result = await service.syncFromHealthConnect(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isTrue);
+      expect(ingestion.samples.single.steps, 3);
+      expect(ingestion.samples.single.calories, 70);
+      expect(ingestion.samples.single.heartRate, 73);
+      expect(ingestion.samples.single.sleep, 4.2);
+      expect(
+        ingestion.samples.single.sourceMetadata['hr_sleep_cross_origin'],
+        isTrue,
+      );
+      expect(result.message, contains('70 kcal total (incl. resting)'));
     },
   );
 }

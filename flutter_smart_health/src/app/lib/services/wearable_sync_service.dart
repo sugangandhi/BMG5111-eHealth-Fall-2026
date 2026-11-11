@@ -205,10 +205,17 @@ class WearableSyncService {
       final isMidnightReset = syncWindow == 'today_midnight_reset';
       final dayStr = s.timestamp.toLocal().toIso8601String().split('T').first;
       final stepsLabel = isFallbackWindow ? 'steps' : 'today steps';
+      final calMethod = s.sourceMetadata['calories_method']?.toString();
+      final calLabel =
+          (calMethod == 'os_aggregate_total' || calMethod == 'deduped_total')
+          ? 'kcal total (incl. resting)'
+          : (calMethod == 'os_aggregate_active' || calMethod == 'deduped_active')
+          ? 'kcal active'
+          : 'kcal';
       final details = <String>[
         if (s.steps != null) '${s.steps!.round()} $stepsLabel',
         if (s.heartRate != null) '${s.heartRate!.round()} bpm HR',
-        if (s.calories != null) '${s.calories!.round()} kcal',
+        if (s.calories != null) '${s.calories!.round()} $calLabel',
         if (s.sleep != null) '${s.sleep!.toStringAsFixed(1)}h sleep',
       ].join(', ');
       final yesterdaySteps = s.sourceMetadata['yesterday_steps'];
@@ -1534,6 +1541,43 @@ Future<WearableSourceReadResult> _readHealthSample({
         !hasActive24h && !((osToday.activeCalories ?? 0) > 0),
     filterStepsCaloriesToWindow: true,
   );
+  var hrSleepFromOtherOrigin = false;
+  if (selection.filteredByApp &&
+      (summary.averageHeartRate == 0 || summary.sleepHours == 0) &&
+      points24h.isNotEmpty) {
+    final allTodayPoints = _filterPointsToCalendarDay(
+      points24h,
+      startOfToday,
+      now,
+    );
+    final crossOriginSummary = _summarizeHealthPoints(
+      points: allTodayPoints,
+      windowStart: startOfToday,
+      windowEnd: now,
+      osAggregate: const _OsAggregateSnapshot(),
+      allowTotalCaloriesFallback: false,
+      filterStepsCaloriesToWindow: true,
+    );
+    final mergedHr = summary.averageHeartRate > 0
+        ? summary.averageHeartRate
+        : crossOriginSummary.averageHeartRate;
+    final mergedSleep = summary.sleepHours > 0
+        ? summary.sleepHours
+        : crossOriginSummary.sleepHours;
+    if (mergedHr != summary.averageHeartRate ||
+        mergedSleep != summary.sleepHours) {
+      hrSleepFromOtherOrigin = true;
+      summary = _MetricsSummary(
+        steps: summary.steps,
+        averageHeartRate: mergedHr,
+        effectiveCalories: summary.effectiveCalories,
+        sleepHours: mergedSleep,
+        useAggregateSteps: summary.useAggregateSteps,
+        caloriesMethod: summary.caloriesMethod,
+        latestPointTimestamp: summary.latestPointTimestamp,
+      );
+    }
+  }
   var syncWindow = 'last_24h';
   var sampleTimestamp = now;
   int? yesterdaySteps;
@@ -1727,6 +1771,7 @@ Future<WearableSourceReadResult> _readHealthSample({
         if (osToday.crossMidnightRecords > 0)
           'cross_midnight_records': osToday.crossMidnightRecords,
         if (osToday.strictSteps != null) 'strict_steps_today': osToday.strictSteps,
+        if (hrSleepFromOtherOrigin) 'hr_sleep_cross_origin': true,
         'steps_method':
             summary.useAggregateSteps ? 'os_aggregate_today' : 'deduped_day_points',
         'calories_method': summary.caloriesMethod,

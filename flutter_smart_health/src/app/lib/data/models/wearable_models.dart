@@ -205,8 +205,8 @@ class WearableSample {
     if (steps != null) 'steps': steps,
     if (calories != null) 'calories': calories,
     if (sleep != null) 'sleep': sleep,
-    'timestamp': timestamp.toIso8601String(),
-    if (recordedOn != null) 'recorded_on': recordedOn!.toIso8601String(),
+    'timestamp': timestamp.toUtc().toIso8601String(),
+    if (recordedOn != null) 'recorded_on': recordedOn!.toUtc().toIso8601String(),
     'source': source,
     if (sourceMetadata.isNotEmpty) 'source_metadata': sourceMetadata,
   };

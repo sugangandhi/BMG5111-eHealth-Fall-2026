@@ -484,22 +484,32 @@ class MainActivity : FlutterFragmentActivity() {
 
                     if (stepsGranted) {
                         try {
-                            val records = readStepsRecordsInRange(
+                            // Read across all origins so diagnostics always surface every
+                            // Health Connect writer, while strict step math respects origins.
+                            val allRecords = readStepsRecordsInRange(
                                 client = client,
                                 startInstant = startInstant,
                                 endInstant = endInstant,
-                                origins = origins,
+                                origins = emptySet(),
                             )
+                            val filterPackages = origins.map { it.packageName }.toSet()
+                            val records = if (filterPackages.isEmpty()) {
+                                allRecords
+                            } else {
+                                allRecords.filter { filterPackages.contains(it.metadata.dataOrigin.packageName) }
+                            }
                             val strictRecords = mutableListOf<StepsRecord>()
-                            val seenPackages = linkedSetOf<String>()
-                            for (rec in records) {
+                            val allSeenPackages = linkedSetOf<String>()
+                            for (rec in allRecords) {
                                 val pkg = rec.metadata.dataOrigin.packageName
                                 if (pkg.isNotEmpty()) {
-                                    seenPackages.add(pkg)
+                                    allSeenPackages.add(pkg)
                                     if (!originLabels.containsKey(pkg)) {
                                         originLabels[pkg] = resolveAppLabel(pkg)
                                     }
                                 }
+                            }
+                            for (rec in records) {
                                 if (rec.startTime.isBefore(startInstant) && rec.endTime.isAfter(startInstant)) {
                                     crossMidnightCount++
                                     val durationMs = rec.endTime.toEpochMilli() - rec.startTime.toEpochMilli()
@@ -515,7 +525,7 @@ class MainActivity : FlutterFragmentActivity() {
 
                             val zone = ZoneId.systemDefault()
                             val timeFmt = DateTimeFormatter.ofPattern("MM/dd HH:mm").withZone(zone)
-                            records
+                            allRecords
                                 .sortedByDescending { it.count }
                                 .take(6)
                                 .forEach { rec ->
@@ -527,8 +537,18 @@ class MainActivity : FlutterFragmentActivity() {
                                     )
                                 }
 
-                            if (origins.isEmpty() && seenPackages.size > 1) {
-                                for (pkg in seenPackages.take(8)) {
+                            for (pkg in filterPackages) {
+                                if (!originLabels.containsKey(pkg)) {
+                                    originLabels[pkg] = resolveAppLabel(pkg)
+                                }
+                            }
+                            if (allSeenPackages.size > 1 ||
+                                (filterPackages.isNotEmpty() && allSeenPackages.isNotEmpty())) {
+                                for (pkg in (filterPackages + allSeenPackages).take(8)) {
+                                    if (filterPackages.size == 1 && pkg == filterPackages.first() && stepsTotal != null) {
+                                        stepsByOrigin[pkg] = stepsTotal
+                                        continue
+                                    }
                                     try {
                                         val pkgAgg = client.aggregate(
                                             AggregateRequest(
@@ -540,13 +560,25 @@ class MainActivity : FlutterFragmentActivity() {
                                         stepsByOrigin[pkg] = pkgAgg[StepsRecord.COUNT_TOTAL] ?: 0L
                                     } catch (_: Exception) {}
                                 }
-                            } else if (seenPackages.size == 1 && stepsTotal != null) {
-                                val onlyPkg = seenPackages.first()
-                                stepsByOrigin[onlyPkg] = stepsTotal
-                            } else if (origins.size == 1 && stepsTotal != null) {
-                                val pkg = origins.first().packageName
+                            } else if (allSeenPackages.size == 1) {
+                                val onlyPkg = allSeenPackages.first()
+                                if (filterPackages.isEmpty() && stepsTotal != null) {
+                                    stepsByOrigin[onlyPkg] = stepsTotal
+                                } else {
+                                    try {
+                                        val pkgAgg = client.aggregate(
+                                            AggregateRequest(
+                                                metrics = setOf(StepsRecord.COUNT_TOTAL),
+                                                timeRangeFilter = TimeRangeFilter.between(startInstant, endInstant),
+                                                dataOriginFilter = setOf(DataOrigin(onlyPkg)),
+                                            ),
+                                        )
+                                        stepsByOrigin[onlyPkg] = pkgAgg[StepsRecord.COUNT_TOTAL] ?: 0L
+                                    } catch (_: Exception) {}
+                                }
+                            } else if (filterPackages.size == 1 && stepsTotal != null) {
+                                val pkg = filterPackages.first()
                                 stepsByOrigin[pkg] = stepsTotal
-                                originLabels[pkg] = resolveAppLabel(pkg)
                             }
                         } catch (_: Exception) {
                             strictSteps = stepsTotal

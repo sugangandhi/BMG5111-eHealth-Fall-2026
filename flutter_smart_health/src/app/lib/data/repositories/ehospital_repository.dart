@@ -70,7 +70,7 @@ class EHospitalRepository {
       if (restingHeartRate != null) 'resting_heart_rate': restingHeartRate,
       if (respiratoryRate != null) 'respiratory_rate': respiratoryRate,
       if (heartRate != null) 'heart_rate': heartRate,
-      'timestamp': timestamp ?? DateTime.now().toIso8601String(),
+      'timestamp': timestamp ?? DateTime.now().toUtc().toIso8601String(),
     });
   }
 
