@@ -113,10 +113,9 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         final deckHeight = (availableHeight - reservedHeight).clamp(420.0, 620.0);
         final cardHeight = deckHeight - 16.0;
 
-        return Container(
+        return SizedBox(
           width: availableWidth,
           height: availableHeight,
-          color: AppColors.bg,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

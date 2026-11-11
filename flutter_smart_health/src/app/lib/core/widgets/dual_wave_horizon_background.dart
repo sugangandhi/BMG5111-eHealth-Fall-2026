@@ -76,12 +76,13 @@ class _DualWaveHorizonPainter extends CustomPainter {
   const _DualWaveHorizonPainter();
 
   static const _refWidth = 392.0;
+  static const _refHeight = 772.0;
 
   static const List<_WaveLayerSpec> _waves = [
     _WaveLayerSpec(
       rightY: 248,
-      ctrl1X: 330,
-      ctrl1Y: 226,
+      ctrl1X: 265,
+      ctrl1Y: 205,
       midX: 160,
       midY: 242,
       ctrl2X: 68,
@@ -107,12 +108,13 @@ class _DualWaveHorizonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final sx = size.width / _refWidth;
+    final sy = (size.height / _refHeight).clamp(0.92, 1.35);
     for (final wave in _waves) {
-      _paintWave(canvas, size.width, sx, wave);
+      _paintWave(canvas, size.width, sx, sy, wave);
     }
 
     // Soft emerald glow tucked on top-left so the top-right emerald ring pops.
-    final glowCenter = Offset(96 * sx, 54);
+    final glowCenter = Offset(96 * sx, 54 * sy);
     final glowPaint = Paint()
       ..color = const Color(0xFF10B981).withValues(alpha: 0.10);
     canvas.drawCircle(glowCenter, 88 * sx.clamp(0.85, 1.4), glowPaint);
@@ -122,27 +124,34 @@ class _DualWaveHorizonPainter extends CustomPainter {
     Canvas canvas,
     double width,
     double sx,
+    double sy,
     _WaveLayerSpec wave,
   ) {
+    final rightY = wave.rightY * sy;
+    final ctrl1Y = wave.ctrl1Y * sy;
+    final midY = wave.midY * sy;
+    final ctrl2Y = wave.ctrl2Y * sy;
+    final leftY = wave.leftY * sy;
+
     final path = Path()
       ..moveTo(0, 0)
       ..lineTo(width, 0)
-      ..lineTo(width, wave.rightY)
+      ..lineTo(width, rightY)
       ..quadraticBezierTo(
         wave.ctrl1X * sx,
-        wave.ctrl1Y,
+        ctrl1Y,
         wave.midX * sx,
-        wave.midY,
+        midY,
       )
       ..quadraticBezierTo(
         wave.ctrl2X * sx,
-        wave.ctrl2Y,
+        ctrl2Y,
         0,
-        wave.leftY,
+        leftY,
       )
       ..close();
 
-    final rect = Rect.fromLTWH(0, 0, width, math.max(wave.ctrl2Y, wave.rightY));
+    final rect = Rect.fromLTWH(0, 0, width, math.max(ctrl2Y, rightY));
     final paint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topLeft,

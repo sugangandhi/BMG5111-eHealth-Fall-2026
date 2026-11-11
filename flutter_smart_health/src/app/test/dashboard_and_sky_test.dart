@@ -371,6 +371,15 @@ void main() {
       expect(find.text('INTELLIGENT DIGITAL SOLUTION'), findsNothing);
       expect(find.byType(ModuleIllustrationBanner), findsWidgets);
       expect(find.byType(AppSwitcherCarousel), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppSwitcherCarousel),
+          matching: find.byWidgetPredicate(
+            (w) => w is ColoredBox && w.color == AppColors.bg,
+          ),
+        ),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     },
   );
