@@ -459,6 +459,217 @@ void main() {
       expect(result.message, contains('Samsung Health'));
     },
   );
+
+  test(
+    'Android Health Connect uses native OS AggregateRequest consistently across overlapping watch/phone/multi-app records',
+    () async {
+      final now = DateTime.now();
+      final pointTime = now.isAfter(
+        DateTime(now.year, now.month, now.day).add(const Duration(seconds: 2)),
+      )
+          ? now.subtract(const Duration(seconds: 1))
+          : now;
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.HEART_RATE,
+          HealthDataType.RESTING_HEART_RATE,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.TOTAL_CALORIES_BURNED,
+          HealthDataType.SLEEP_ASLEEP,
+          HealthDataType.SLEEP_DEEP,
+          HealthDataType.SLEEP_LIGHT,
+          HealthDataType.SLEEP_REM,
+          HealthDataType.SLEEP_SESSION,
+        },
+        // Even if raw points contain overlapping Samsung Health + Google Fit + Total Calories:
+        points: [
+          HealthDataPoint(
+            uuid: 'sh-phone',
+            value: NumericHealthValue(numericValue: 4000),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: pointTime.subtract(const Duration(minutes: 40)),
+            dateTo: pointTime,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-phone',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'sh-watch',
+            value: NumericHealthValue(numericValue: 4200),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: pointTime.subtract(const Duration(minutes: 40)),
+            dateTo: pointTime,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-watch',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'gfit-overlap',
+            value: NumericHealthValue(numericValue: 3900),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: pointTime.subtract(const Duration(minutes: 40)),
+            dateTo: pointTime,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-phone',
+            sourceId: '',
+            sourceName: 'com.google.android.apps.fitness',
+          ),
+          HealthDataPoint(
+            uuid: 'sh-total-cal',
+            value: NumericHealthValue(numericValue: 1890),
+            type: HealthDataType.TOTAL_CALORIES_BURNED,
+            unit: HealthDataUnit.KILOCALORIE,
+            dateFrom: pointTime.subtract(const Duration(minutes: 40)),
+            dateTo: pointTime,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-watch',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+        ],
+      );
+
+      List<String>? capturedPackages;
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+        aggregateMetricsProvider: (start, end, packageNames) async {
+          capturedPackages = packageNames;
+          return {
+            'available': true,
+            'steps': 4350,
+            'activeCalories': 312.4,
+            'totalCalories': 1920.0,
+          };
+        },
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isTrue);
+      expect(capturedPackages, contains('com.sec.android.app.shealth'));
+      expect(result.sample?.steps, 4350);
+      expect(result.sample?.calories, 312);
+      expect(result.sample?.sourceMetadata['steps_method'], 'os_aggregate_today');
+      expect(
+        result.sample?.sourceMetadata['calories_method'],
+        'os_aggregate_active',
+      );
+    },
+  );
+
+  test(
+    'Dart interval deduplication merges overlapping Watch+Phone points and prevents flipping between Active and Total BMR calories',
+    () async {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final baseTime = now.difference(dayStart).inSeconds >= 10
+          ? dayStart.add(const Duration(seconds: 2))
+          : now.subtract(const Duration(seconds: 5));
+      final firstEnd = baseTime.add(const Duration(seconds: 1));
+      final secondStart = baseTime.add(const Duration(seconds: 2));
+      final secondEnd = baseTime.add(const Duration(seconds: 3));
+
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.TOTAL_CALORIES_BURNED,
+        },
+        aggregateStepsToday: 0,
+        points: [
+          // Overlapping Phone (3800) & Watch (4100) for same window -> keeps max 4100
+          HealthDataPoint(
+            uuid: 'phone-morning',
+            value: NumericHealthValue(numericValue: 3800),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: baseTime,
+            dateTo: firstEnd,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'phone-1',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'watch-morning',
+            value: NumericHealthValue(numericValue: 4100),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: baseTime,
+            dateTo: firstEnd,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch-1',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          // Separate non-overlapping window -> adds +900 => 5000 total steps
+          HealthDataPoint(
+            uuid: 'watch-evening',
+            value: NumericHealthValue(numericValue: 900),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: secondStart,
+            dateTo: secondEnd,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch-1',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          // Earlier ACTIVE_ENERGY_BURNED inside 24h; current window has only TOTAL_CALORIES_BURNED so far -> never jump to 1950 BMR!
+          HealthDataPoint(
+            uuid: 'prev-active',
+            value: NumericHealthValue(numericValue: 240),
+            type: HealthDataType.ACTIVE_ENERGY_BURNED,
+            unit: HealthDataUnit.KILOCALORIE,
+            dateFrom: dayStart.subtract(const Duration(hours: 4)),
+            dateTo: dayStart.subtract(const Duration(hours: 3)),
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch-1',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'today-total-bmr',
+            value: NumericHealthValue(numericValue: 1950),
+            type: HealthDataType.TOTAL_CALORIES_BURNED,
+            unit: HealthDataUnit.KILOCALORIE,
+            dateFrom: baseTime,
+            dateTo: secondEnd,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'watch-1',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+        ],
+      );
+
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isTrue);
+      expect(result.sample?.steps, 5000);
+      expect(result.sample?.calories, isNull);
+    },
+  );
 }
 
 class _FakeHealth extends Health {

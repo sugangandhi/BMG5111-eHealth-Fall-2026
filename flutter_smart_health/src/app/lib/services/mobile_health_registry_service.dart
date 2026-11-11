@@ -141,6 +141,30 @@ class MobileHealthRegistryService {
     }
   }
 
+  Future<Map<String, dynamic>?> aggregateHealthMetrics({
+    required DateTime startTime,
+    required DateTime endTime,
+    List<String> packageNames = const [],
+  }) async {
+    if (_isWeb || _platform != TargetPlatform.android) return null;
+    try {
+      final raw = await _channel.invokeMethod<dynamic>(
+        'aggregateHealthMetrics',
+        {
+          'startEpochMs': startTime.millisecondsSinceEpoch,
+          'endEpochMs': endTime.millisecondsSinceEpoch,
+          'packageNames': packageNames,
+        },
+      );
+      if (raw is Map) {
+        return raw.map((k, v) => MapEntry(k.toString(), v));
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<bool> openInstalledApp(String packageName) async {
     if (_isWeb || _platform != TargetPlatform.android || packageName.isEmpty) {
       return false;

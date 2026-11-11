@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -493,20 +495,30 @@ class AppleHealthSyncService
   }
 }
 
+typedef HealthConnectAggregateProvider =
+    Future<Map<String, dynamic>?> Function(
+      DateTime startTime,
+      DateTime endTime,
+      List<String> packageNames,
+    );
+
 class GoogleHealthSyncService
     implements WearablePlatformSyncService, WearablePlatformWorkoutSyncService {
   final Health _health;
   final Future<Map<String, dynamic>?> Function()? _diagnosticsProvider;
+  final HealthConnectAggregateProvider? _aggregateMetricsProvider;
   final bool? _isWebOverride;
   final TargetPlatform? _platformOverride;
 
   GoogleHealthSyncService({
     Health? health,
     Future<Map<String, dynamic>?> Function()? diagnosticsProvider,
+    HealthConnectAggregateProvider? aggregateMetricsProvider,
     bool? isWebOverride,
     TargetPlatform? platformOverride,
   }) : _health = health ?? Health(),
        _diagnosticsProvider = diagnosticsProvider,
+       _aggregateMetricsProvider = aggregateMetricsProvider,
        _isWebOverride = isWebOverride,
        _platformOverride = platformOverride;
 
@@ -567,6 +579,17 @@ class GoogleHealthSyncService
                 platformOverride: _platformOverride,
                 health: _health,
               ).diagnoseHealthConnect(),
+      aggregateMetricsProvider:
+          _aggregateMetricsProvider ??
+          (start, end, packageNames) => MobileHealthRegistryService(
+                isWebOverride: _isWebOverride,
+                platformOverride: _platformOverride,
+                health: _health,
+              ).aggregateHealthMetrics(
+                startTime: start,
+                endTime: end,
+                packageNames: packageNames,
+              ),
       unavailableMessage:
           'No $targetName data found in Health Connect for the last 24 hours. Make sure sharing is enabled in $targetName settings -> Health Connect.',
     );
@@ -786,6 +809,7 @@ class _MetricsSummary {
   final double effectiveCalories;
   final double sleepHours;
   final bool useAggregateSteps;
+  final String caloriesMethod;
   final DateTime? latestPointTimestamp;
 
   const _MetricsSummary({
@@ -794,6 +818,7 @@ class _MetricsSummary {
     required this.effectiveCalories,
     required this.sleepHours,
     required this.useAggregateSteps,
+    required this.caloriesMethod,
     this.latestPointTimestamp,
   });
 
@@ -804,22 +829,184 @@ class _MetricsSummary {
       sleepHours > 0;
 }
 
+class _AdditiveInterval {
+  final String streamKey;
+  final int startMs;
+  final int endMs;
+  final double value;
+
+  const _AdditiveInterval({
+    required this.streamKey,
+    required this.startMs,
+    required this.endMs,
+    required this.value,
+  });
+}
+
+class _OsAggregateSnapshot {
+  final int? steps;
+  final double? activeCalories;
+  final double? totalCalories;
+  final bool usedNativeAggregate;
+
+  const _OsAggregateSnapshot({
+    this.steps,
+    this.activeCalories,
+    this.totalCalories,
+    this.usedNativeAggregate = false,
+  });
+}
+
+List<String> _extractFilterPackageNames(
+  _SourceSelection selection,
+  String? preferredSourceKey,
+) {
+  if (!selection.filteredByApp || preferredSourceKey == null) {
+    return const <String>[];
+  }
+  final packages = <String>{};
+  for (final point in selection.points) {
+    for (final raw in [point.sourceName, point.sourceId]) {
+      final candidate = raw.trim();
+      if (candidate.contains('.') && !candidate.contains(' ')) {
+        packages.add(candidate);
+      }
+    }
+  }
+  if (packages.isEmpty) {
+    const knownPackages = <String, String>{
+      WearableSource.samsungHealth: 'com.sec.android.app.shealth',
+      WearableSource.googleHealth: 'com.google.android.apps.fitness',
+      WearableSource.fitbit: 'com.fitbit.FitbitMobile',
+      WearableSource.garmin: 'com.garmin.android.apps.connectmobile',
+      WearableSource.strava: 'com.strava',
+      WearableSource.oura: 'com.ouraring.oura',
+      WearableSource.whoop: 'com.whoop.android',
+    };
+    final known = knownPackages[preferredSourceKey];
+    if (known != null) packages.add(known);
+  }
+  return packages.toList();
+}
+
+double _maxNonOverlappingStreamSum(List<_AdditiveInterval> intervals) {
+  if (intervals.isEmpty) return 0.0;
+  final sorted = List<_AdditiveInterval>.from(intervals)
+    ..sort((a, b) {
+      final cmp = a.endMs.compareTo(b.endMs);
+      return cmp != 0 ? cmp : a.startMs.compareTo(b.startMs);
+    });
+  final dp = List<double>.filled(sorted.length, 0.0);
+  for (var i = 0; i < sorted.length; i++) {
+    final cur = sorted[i];
+    var lo = 0;
+    var hi = i - 1;
+    var prev = -1;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      if (sorted[mid].endMs <= cur.startMs) {
+        prev = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    final take = cur.value + (prev >= 0 ? dp[prev] : 0.0);
+    final skip = i > 0 ? dp[i - 1] : 0.0;
+    dp[i] = math.max(take, skip);
+  }
+  return dp[sorted.length - 1];
+}
+
+double _sumDeduplicatedAdditivePoints(List<HealthDataPoint> points) {
+  if (points.isEmpty) return 0.0;
+  final seen = <String>{};
+  final timed = <_AdditiveInterval>[];
+  final instantByTs = <int, double>{};
+
+  for (final p in points) {
+    final v = p.value;
+    if (v is! NumericHealthValue) continue;
+    final val = v.numericValue.toDouble();
+    if (val <= 0) continue;
+
+    final startMs = p.dateFrom.millisecondsSinceEpoch;
+    final endMs = p.dateTo.millisecondsSinceEpoch;
+    final streamKey = '${p.sourceDeviceId}|${p.sourceId}|${p.sourceName}';
+    final dedupKey = '$streamKey|$startMs|$endMs|$val';
+    if (!seen.add(dedupKey)) continue;
+
+    if (endMs > startMs) {
+      timed.add(
+        _AdditiveInterval(
+          streamKey: streamKey,
+          startMs: startMs,
+          endMs: endMs,
+          value: val,
+        ),
+      );
+    } else {
+      final existing = instantByTs[endMs];
+      if (existing == null || val > existing) {
+        instantByTs[endMs] = val;
+      }
+    }
+  }
+
+  var total = instantByTs.values.fold<double>(0.0, (a, b) => a + b);
+  if (timed.isEmpty) return total;
+
+  timed.sort((a, b) {
+    final cmp = a.startMs.compareTo(b.startMs);
+    return cmp != 0 ? cmp : a.endMs.compareTo(b.endMs);
+  });
+
+  var comp = <_AdditiveInterval>[timed.first];
+  var compMaxEnd = timed.first.endMs;
+
+  double flushComponent(List<_AdditiveInterval> items) {
+    final byStream = <String, List<_AdditiveInterval>>{};
+    for (final item in items) {
+      byStream.putIfAbsent(item.streamKey, () => []).add(item);
+    }
+    var best = 0.0;
+    for (final streamItems in byStream.values) {
+      best = math.max(best, _maxNonOverlappingStreamSum(streamItems));
+    }
+    return best;
+  }
+
+  for (var i = 1; i < timed.length; i++) {
+    final item = timed[i];
+    if (item.startMs < compMaxEnd) {
+      comp.add(item);
+      if (item.endMs > compMaxEnd) compMaxEnd = item.endMs;
+    } else {
+      total += flushComponent(comp);
+      comp = [item];
+      compMaxEnd = item.endMs;
+    }
+  }
+  total += flushComponent(comp);
+  return total;
+}
+
 _MetricsSummary _summarizeHealthPoints({
   required List<HealthDataPoint> points,
   required DateTime windowStart,
   DateTime? windowEnd,
-  int? aggregateSteps,
-  required bool allowAggregateSteps,
+  required _OsAggregateSnapshot osAggregate,
+  required bool allowTotalCaloriesFallback,
   required bool filterStepsCaloriesToWindow,
 }) {
-  var rawSteps = 0;
+  final windowStepPoints = <HealthDataPoint>[];
+  final windowActiveCalPoints = <HealthDataPoint>[];
+  final windowTotalCalPoints = <HealthDataPoint>[];
   var workoutSteps = 0;
   var totalHeartRate = 0.0;
   var heartRateCount = 0;
   var restingHeartRateTotal = 0.0;
   var restingHeartRateCount = 0;
-  var activeCalories = 0.0;
-  var totalCalories = 0.0;
   var workoutCalories = 0.0;
   var sleepAsleepMinutes = 0.0;
   var sleepStageMinutes = 0.0;
@@ -841,7 +1028,7 @@ _MetricsSummary _summarizeHealthPoints({
     final numVal = value is NumericHealthValue ? value.numericValue.toDouble() : null;
     switch (point.type) {
       case HealthDataType.STEPS:
-        if (inStepCalorieWindow && numVal != null) rawSteps += numVal.round();
+        if (inStepCalorieWindow) windowStepPoints.add(point);
         break;
       case HealthDataType.HEART_RATE:
         if (inStepCalorieWindow && numVal != null) {
@@ -856,10 +1043,10 @@ _MetricsSummary _summarizeHealthPoints({
         }
         break;
       case HealthDataType.ACTIVE_ENERGY_BURNED:
-        if (inStepCalorieWindow && numVal != null) activeCalories += numVal;
+        if (inStepCalorieWindow) windowActiveCalPoints.add(point);
         break;
       case HealthDataType.TOTAL_CALORIES_BURNED:
-        if (inStepCalorieWindow && numVal != null) totalCalories += numVal;
+        if (inStepCalorieWindow) windowTotalCalPoints.add(point);
         break;
       case HealthDataType.WORKOUT:
         if (inStepCalorieWindow && value is WorkoutHealthValue) {
@@ -888,17 +1075,43 @@ _MetricsSummary _summarizeHealthPoints({
     }
   }
 
-  final useAggregateSteps =
-      aggregateSteps != null &&
-      aggregateSteps > 0 &&
-      allowAggregateSteps;
-  final resolvedSteps = useAggregateSteps
-      ? aggregateSteps
-      : (rawSteps > 0 ? rawSteps : workoutSteps);
+  final dedupedSteps = _sumDeduplicatedAdditivePoints(windowStepPoints).round();
+  final dedupedActiveCal = _sumDeduplicatedAdditivePoints(windowActiveCalPoints);
+  final dedupedTotalCal = _sumDeduplicatedAdditivePoints(windowTotalCalPoints);
 
-  final effectiveCalories = activeCalories > 0
-      ? activeCalories
-      : (totalCalories > 0 ? totalCalories : workoutCalories);
+  final osSteps = osAggregate.steps;
+  final useAggregateSteps = osSteps != null && osSteps > 0;
+  final resolvedSteps = useAggregateSteps
+      ? osSteps
+      : (dedupedSteps > 0 ? dedupedSteps : workoutSteps);
+
+  final osActiveCal = osAggregate.activeCalories;
+  final osTotalCal = osAggregate.totalCalories;
+  final hasOsActive = osActiveCal != null && osActiveCal > 0;
+  final hasOsTotal = osTotalCal != null && osTotalCal > 0;
+
+  double effectiveCalories;
+  String caloriesMethod;
+  if (hasOsActive) {
+    effectiveCalories = osActiveCal;
+    caloriesMethod = 'os_aggregate_active';
+  } else if (dedupedActiveCal > 0) {
+    effectiveCalories = dedupedActiveCal;
+    caloriesMethod = 'deduped_active';
+  } else if (allowTotalCaloriesFallback && hasOsTotal) {
+    effectiveCalories = osTotalCal;
+    caloriesMethod = 'os_aggregate_total';
+  } else if (allowTotalCaloriesFallback && dedupedTotalCal > 0) {
+    effectiveCalories = dedupedTotalCal;
+    caloriesMethod = 'deduped_total';
+  } else if (workoutCalories > 0) {
+    effectiveCalories = workoutCalories;
+    caloriesMethod = 'workout_total';
+  } else {
+    effectiveCalories = 0.0;
+    caloriesMethod = 'none';
+  }
+
   final effectiveSleepMinutes = sleepStageMinutes > 0
       ? sleepStageMinutes
       : (sleepAsleepMinutes > 0 ? sleepAsleepMinutes : sleepSessionMinutes);
@@ -914,6 +1127,7 @@ _MetricsSummary _summarizeHealthPoints({
     effectiveCalories: effectiveCalories,
     sleepHours: effectiveSleepMinutes / 60.0,
     useAggregateSteps: useAggregateSteps,
+    caloriesMethod: caloriesMethod,
     latestPointTimestamp: latestTs,
   );
 }
@@ -971,6 +1185,75 @@ String buildHealthConnectDiagnosticMessage({
   return fallbackMessage;
 }
 
+Future<_OsAggregateSnapshot> _resolveOsAggregatedMetrics({
+  required Health health,
+  required DateTime startTime,
+  required DateTime endTime,
+  required bool stepsGranted,
+  required _SourceSelection selection,
+  required List<String> packageNames,
+  required bool isAndroid,
+  HealthConnectAggregateProvider? aggregateMetricsProvider,
+}) async {
+  int? osSteps;
+  double? osActiveCalories;
+  double? osTotalCalories;
+  var usedNativeAggregate = false;
+
+  if (isAndroid && aggregateMetricsProvider != null) {
+    try {
+      final raw = await aggregateMetricsProvider(
+        startTime,
+        endTime,
+        packageNames,
+      );
+      if (raw != null && raw['available'] == true) {
+        usedNativeAggregate = true;
+        final s = raw['steps'];
+        if (s is num) osSteps = s.round();
+        final a = raw['activeCalories'];
+        if (a is num) osActiveCalories = a.toDouble();
+        final t = raw['totalCalories'];
+        if (t is num) osTotalCalories = t.toDouble();
+      }
+    } catch (_) {}
+  }
+
+  final allowLegacyStepsAgg =
+      !selection.filteredByApp || selection.contributingSourceKeys.length <= 1;
+  if (osSteps == null && stepsGranted && allowLegacyStepsAgg) {
+    try {
+      osSteps = await health.getTotalStepsInInterval(startTime, endTime);
+    } catch (_) {}
+  }
+
+  return _OsAggregateSnapshot(
+    steps: osSteps,
+    activeCalories: osActiveCalories,
+    totalCalories: osTotalCalories,
+    usedNativeAggregate: usedNativeAggregate,
+  );
+}
+
+List<HealthDataPoint> _filterPointsToCalendarDay(
+  List<HealthDataPoint> points,
+  DateTime dayStart,
+  DateTime dayEnd,
+) {
+  final daySleepStart = dayStart.subtract(const Duration(hours: 12));
+  return points.where((point) {
+    final endLocal = point.dateTo.toLocal();
+    final isSleep =
+        point.type == HealthDataType.SLEEP_ASLEEP ||
+        point.type == HealthDataType.SLEEP_DEEP ||
+        point.type == HealthDataType.SLEEP_LIGHT ||
+        point.type == HealthDataType.SLEEP_REM ||
+        point.type == HealthDataType.SLEEP_SESSION;
+    final lowerBound = isSleep ? daySleepStart : dayStart;
+    return !endLocal.isBefore(lowerBound) && !endLocal.isAfter(dayEnd);
+  }).toList();
+}
+
 Future<WearableSourceReadResult> _readHealthSample({
   required Health health,
   required String patientId,
@@ -978,6 +1261,7 @@ Future<WearableSourceReadResult> _readHealthSample({
   String? preferredSourceKey,
   bool isAndroid = false,
   Future<Map<String, dynamic>?> Function()? diagnosticsProvider,
+  HealthConnectAggregateProvider? aggregateMetricsProvider,
   required String unavailableMessage,
 }) async {
   await health.configure();
@@ -1016,46 +1300,92 @@ Future<WearableSourceReadResult> _readHealthSample({
   );
 
   final stepsGranted = permStatus.grantedTypes.contains(HealthDataType.STEPS);
-  int? aggregateStepsToday;
-  if (stepsGranted) {
-    try {
-      aggregateStepsToday = await health.getTotalStepsInInterval(
-        startOfToday,
-        now,
-      );
-    } catch (_) {}
-  }
-
   var selection = _resolveSourceSelection(
     points24h,
     fallbackSource: source,
     preferredSourceKey: preferredSourceKey,
   );
-  var allowAggregate =
-      !selection.filteredByApp || selection.contributingSourceKeys.length <= 1;
+  var filterPackages = _extractFilterPackageNames(
+    selection,
+    preferredSourceKey,
+  );
+  final hasActive24h = selection.points.any(
+    (p) => p.type == HealthDataType.ACTIVE_ENERGY_BURNED,
+  );
+
+  final osToday = await _resolveOsAggregatedMetrics(
+    health: health,
+    startTime: startOfToday,
+    endTime: now,
+    stepsGranted: stepsGranted,
+    selection: selection,
+    packageNames: filterPackages,
+    isAndroid: isAndroid,
+    aggregateMetricsProvider: aggregateMetricsProvider,
+  );
+  final todaySleepAndDayPoints = _filterPointsToCalendarDay(
+    selection.points,
+    startOfToday,
+    now,
+  );
   var summary = _summarizeHealthPoints(
-    points: selection.points,
+    points: todaySleepAndDayPoints,
     windowStart: startOfToday,
-    aggregateSteps: aggregateStepsToday,
-    allowAggregateSteps: allowAggregate,
+    windowEnd: now,
+    osAggregate: osToday,
+    allowTotalCaloriesFallback:
+        !hasActive24h && !((osToday.activeCalories ?? 0) > 0),
     filterStepsCaloriesToWindow: true,
   );
   var syncWindow = 'last_24h';
   var sampleTimestamp = now;
 
-  // Fallback 1: check earlier-within-24h points (e.g., yesterday evening before midnight)
+  // Fallback 1: lock cleanly onto the latest earlier calendar day inside 24h (never sliding 24h sums)
   if (!summary.hasAnyMetric && selection.points.isNotEmpty) {
-    final prevDaySummary = _summarizeHealthPoints(
-      points: selection.points,
-      windowStart: since24h,
-      aggregateSteps: aggregateStepsToday,
-      allowAggregateSteps: allowAggregate,
-      filterStepsCaloriesToWindow: false,
-    );
-    if (prevDaySummary.hasAnyMetric) {
-      summary = prevDaySummary;
-      syncWindow = 'last_24h_previous_day';
-      sampleTimestamp = prevDaySummary.latestPointTimestamp ?? now;
+    DateTime? latestPrevEnd;
+    for (final point in selection.points) {
+      final endLocal = point.dateTo.toLocal();
+      if (endLocal.isBefore(startOfToday) &&
+          (latestPrevEnd == null || endLocal.isAfter(latestPrevEnd))) {
+        latestPrevEnd = endLocal;
+      }
+    }
+    if (latestPrevEnd != null) {
+      final prevDayStart = DateTime(
+        latestPrevEnd.year,
+        latestPrevEnd.month,
+        latestPrevEnd.day,
+      );
+      final prevDayEnd = prevDayStart.add(const Duration(days: 1));
+      final osPrevDay = await _resolveOsAggregatedMetrics(
+        health: health,
+        startTime: prevDayStart,
+        endTime: prevDayEnd.isAfter(now) ? now : prevDayEnd,
+        stepsGranted: stepsGranted,
+        selection: selection,
+        packageNames: filterPackages,
+        isAndroid: isAndroid,
+        aggregateMetricsProvider: aggregateMetricsProvider,
+      );
+      final prevDayPoints = _filterPointsToCalendarDay(
+        selection.points,
+        prevDayStart,
+        prevDayEnd,
+      );
+      final prevDaySummary = _summarizeHealthPoints(
+        points: prevDayPoints,
+        windowStart: prevDayStart,
+        windowEnd: prevDayEnd,
+        osAggregate: osPrevDay,
+        allowTotalCaloriesFallback:
+            !hasActive24h && !((osPrevDay.activeCalories ?? 0) > 0),
+        filterStepsCaloriesToWindow: true,
+      );
+      if (prevDaySummary.hasAnyMetric) {
+        summary = prevDaySummary;
+        syncWindow = 'last_24h_previous_day';
+        sampleTimestamp = prevDaySummary.latestPointTimestamp ?? latestPrevEnd;
+      }
     }
   }
 
@@ -1096,9 +1426,13 @@ Future<WearableSourceReadResult> _readHealthSample({
         fallbackSource: source,
         preferredSourceKey: preferredSourceKey,
       );
-      allowAggregate =
-          !selection.filteredByApp ||
-          selection.contributingSourceKeys.length <= 1;
+      filterPackages = _extractFilterPackageNames(
+        selection,
+        preferredSourceKey,
+      );
+      final hasActive29d = selection.points.any(
+        (p) => p.type == HealthDataType.ACTIVE_ENERGY_BURNED,
+      );
 
       DateTime? latestPointEnd;
       for (final point in selection.points) {
@@ -1114,34 +1448,28 @@ Future<WearableSourceReadResult> _readHealthSample({
           latestPointEnd.day,
         );
         final dayEnd = dayStart.add(const Duration(days: 1));
-        int? dayAggSteps;
-        if (stepsGranted && allowAggregate) {
-          try {
-            dayAggSteps = await health.getTotalStepsInInterval(
-              dayStart,
-              dayEnd.isAfter(now) ? now : dayEnd,
-            );
-          } catch (_) {}
-        }
-        final daySleepStart = dayStart.subtract(const Duration(hours: 12));
-        final dayPoints = selection.points.where((point) {
-          final endLocal = point.dateTo.toLocal();
-          final isSleep =
-              point.type == HealthDataType.SLEEP_ASLEEP ||
-              point.type == HealthDataType.SLEEP_DEEP ||
-              point.type == HealthDataType.SLEEP_LIGHT ||
-              point.type == HealthDataType.SLEEP_REM ||
-              point.type == HealthDataType.SLEEP_SESSION;
-          final lowerBound = isSleep ? daySleepStart : dayStart;
-          return !endLocal.isBefore(lowerBound) && !endLocal.isAfter(dayEnd);
-        }).toList();
-
+        final os29d = await _resolveOsAggregatedMetrics(
+          health: health,
+          startTime: dayStart,
+          endTime: dayEnd.isAfter(now) ? now : dayEnd,
+          stepsGranted: stepsGranted,
+          selection: selection,
+          packageNames: filterPackages,
+          isAndroid: isAndroid,
+          aggregateMetricsProvider: aggregateMetricsProvider,
+        );
+        final dayPoints = _filterPointsToCalendarDay(
+          selection.points,
+          dayStart,
+          dayEnd,
+        );
         final fallbackSummary = _summarizeHealthPoints(
           points: dayPoints,
           windowStart: dayStart,
           windowEnd: dayEnd,
-          aggregateSteps: dayAggSteps,
-          allowAggregateSteps: allowAggregate,
+          osAggregate: os29d,
+          allowTotalCaloriesFallback:
+              !hasActive29d && !((os29d.activeCalories ?? 0) > 0),
           filterStepsCaloriesToWindow: true,
         );
         if (fallbackSummary.hasAnyMetric) {
@@ -1193,7 +1521,8 @@ Future<WearableSourceReadResult> _readHealthSample({
         'detected_sources': selection.contributingSourceKeys,
         'sync_window': syncWindow,
         'steps_method':
-            summary.useAggregateSteps ? 'os_aggregate_today' : 'filtered_today_points',
+            summary.useAggregateSteps ? 'os_aggregate_today' : 'deduped_day_points',
+        'calories_method': summary.caloriesMethod,
         'platform': isAndroid ? 'android_health_connect' : 'ios_healthkit',
       },
     ),

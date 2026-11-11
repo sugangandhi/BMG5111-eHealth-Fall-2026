@@ -10,6 +10,7 @@ import android.provider.Settings
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.aggregate.AggregateMetric
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.DistanceRecord
@@ -20,6 +21,7 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -101,6 +103,12 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(openHealthConnectSettings(targetPkg))
                 }
                 "diagnoseHealthConnect" -> diagnoseHealthConnect(result)
+                "aggregateHealthMetrics" -> {
+                    val startEpochMs = (call.argument<Number>("startEpochMs"))?.toLong()
+                    val endEpochMs = (call.argument<Number>("endEpochMs"))?.toLong()
+                    val packages = call.argument<List<String>>("packageNames") ?: emptyList()
+                    aggregateHealthMetrics(startEpochMs, endEpochMs, packages, result)
+                }
                 "openApp" -> {
                     val pkg = call.argument<String>("packageName") ?: ""
                     result.success(openPackage(pkg))
@@ -389,6 +397,77 @@ class MainActivity : FlutterFragmentActivity() {
             } catch (e: Exception) {
                 mapOf(
                     "sdkStatus" to sdkStatus,
+                    "available" to false,
+                    "error" to (e.message ?: e.toString()),
+                )
+            }
+            mainHandler.post { result.success(payload) }
+        }
+    }
+
+    private fun aggregateHealthMetrics(
+        startEpochMs: Long?,
+        endEpochMs: Long?,
+        packageNames: List<String>,
+        result: MethodChannel.Result,
+    ) {
+        if (startEpochMs == null || endEpochMs == null || endEpochMs <= startEpochMs) {
+            result.success(mapOf("available" to false, "reason" to "invalid_range"))
+            return
+        }
+        val sdkStatus = try {
+            HealthConnectClient.getSdkStatus(applicationContext)
+        } catch (_: Exception) {
+            HealthConnectClient.SDK_UNAVAILABLE
+        }
+        if (sdkStatus != HealthConnectClient.SDK_AVAILABLE) {
+            result.success(mapOf("available" to false, "sdkStatus" to sdkStatus))
+            return
+        }
+
+        ioScope.launch {
+            val payload: Map<String, Any?> = try {
+                val client = HealthConnectClient.getOrCreate(applicationContext)
+                val granted = client.permissionController.getGrantedPermissions()
+                val metrics = mutableSetOf<AggregateMetric<*>>()
+                if (granted.contains(HealthPermission.getReadPermission(StepsRecord::class))) {
+                    metrics.add(StepsRecord.COUNT_TOTAL)
+                }
+                if (granted.contains(HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class))) {
+                    metrics.add(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)
+                }
+                if (granted.contains(HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class))) {
+                    metrics.add(TotalCaloriesBurnedRecord.ENERGY_TOTAL)
+                }
+
+                if (metrics.isEmpty()) {
+                    mapOf("available" to true)
+                } else {
+                    val origins = packageNames
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .map { DataOrigin(it) }
+                        .toSet()
+
+                    val agg = client.aggregate(
+                        AggregateRequest(
+                            metrics = metrics,
+                            timeRangeFilter = TimeRangeFilter.between(
+                                Instant.ofEpochMilli(startEpochMs),
+                                Instant.ofEpochMilli(endEpochMs),
+                            ),
+                            dataOriginFilter = origins,
+                        ),
+                    )
+                    mapOf(
+                        "available" to true,
+                        "steps" to agg[StepsRecord.COUNT_TOTAL],
+                        "activeCalories" to agg[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories,
+                        "totalCalories" to agg[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories,
+                    )
+                }
+            } catch (e: Exception) {
+                mapOf(
                     "available" to false,
                     "error" to (e.message ?: e.toString()),
                 )
