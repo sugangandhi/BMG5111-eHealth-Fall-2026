@@ -26,7 +26,6 @@ class _PatientDashboardState extends State<PatientDashboard>
     with SingleTickerProviderStateMixin {
   bool _showAppSwitcher = true;
   Color _ambientAccent = const Color(0xFF00E5FF);
-  SkyMood _skyMood = SkyMood.daylight;
   DashboardLiveSummary _summary = const DashboardLiveSummary();
   bool _syncingSummary = false;
   late final DashboardSummaryService _summaryService;
@@ -67,19 +66,13 @@ class _PatientDashboardState extends State<PatientDashboard>
     }
   }
 
-  void _cycleSkyMood() {
-    setState(() => _skyMood = _skyMood.next());
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
     return Stack(
       children: [
-        // Photorealistic Living Atmospheric Sky (Sunburst, Crepuscular Light Beams, Multi-Octave Parallax Clouds, Air Motes)
         AtmosphericSkyBackground(
-          mood: _skyMood,
           ambientAccent: _ambientAccent,
         ),
 
@@ -246,8 +239,6 @@ class _PatientDashboardState extends State<PatientDashboard>
           body: _showAppSwitcher
               ? AppSwitcherCarousel(
                   summary: _summary,
-                  skyMood: _skyMood,
-                  onCycleSkyMood: _cycleSkyMood,
                   onSelectApp: _open,
                   onActiveAccentChanged: (accent) {
                     if (_ambientAccent != accent) {

@@ -114,14 +114,13 @@ void main() {
   });
 
   testWidgets(
-    'AppSwitcherCarousel removes top tag bar, expands card for mobile, binds live metrics, and cycles sky mood',
+    'AppSwitcherCarousel removes theme toggle, shows icon-only side arrows, binds live metrics, and navigates cards',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      var moodCycles = 0;
       String? openedRoute;
 
       const summary = DashboardLiveSummary(
@@ -148,11 +147,9 @@ void main() {
           home: Scaffold(
             body: Stack(
               children: [
-                const AtmosphericSkyBackground(mood: SkyMood.daylight),
+                const AtmosphericSkyBackground(),
                 AppSwitcherCarousel(
                   summary: summary,
-                  skyMood: SkyMood.daylight,
-                  onCycleSkyMood: () => moodCycles++,
                   onSelectApp: (route) => openedRoute = route,
                 ),
               ],
@@ -162,11 +159,14 @@ void main() {
       );
       await tester.pump();
 
-      // Category filter name-tag chips are completely removed.
+      // Category filter name-tag chips and theme toggle are removed.
       expect(find.text('All (12)'), findsNothing);
       expect(find.text('Management (4)'), findsNothing);
       expect(find.text('Care & AI (3)'), findsNothing);
       expect(find.text('Daylight Sky'), findsNothing);
+      expect(find.byTooltip('Daylight Sky'), findsNothing);
+      expect(find.text('Prev'), findsNothing);
+      expect(find.text('Next'), findsNothing);
 
       // Card expands cleanly to fill the mobile viewport without overflowing.
       final cardSize = tester.getSize(
@@ -188,18 +188,22 @@ void main() {
       expect(openedRoute, isNotNull);
       expect(openedRoute, isNotEmpty);
 
-      // Horizontal swipe advances smoothly to the next module card.
-      await tester.drag(find.byType(PageView), const Offset(-340, 0));
+      // Bottom left/right arrow icon buttons advance cleanly without text labels.
+      final prevArrow = find.byIcon(Icons.chevron_left_rounded);
+      final nextArrow = find.byIcon(Icons.chevron_right_rounded);
+      expect(prevArrow, findsOneWidget);
+      expect(nextArrow, findsOneWidget);
+
+      await tester.tap(nextArrow);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      expect(tester.takeException(), isNull);
+      expect(find.text('Vitals History'), findsOneWidget);
 
-      // Compact bottom-right SkyMood toggle cycles atmospheric themes.
-      final skyToggle = find.byTooltip('Daylight Sky');
-      expect(skyToggle, findsOneWidget);
-      await tester.tap(skyToggle);
+      await tester.tap(prevArrow);
       await tester.pump();
-      expect(moodCycles, 1);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Wearable Vitals'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 

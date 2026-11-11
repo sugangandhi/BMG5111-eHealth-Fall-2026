@@ -66,18 +66,18 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   }
 
   void _goToPage(int page) {
+    final apps = _getAppsList();
+    if (apps.isEmpty) return;
+    final target = page.clamp(0, apps.length - 1);
     HapticFeedback.lightImpact();
     if (_pageController.hasClients) {
       _pageController.animateToPage(
-        page,
+        target,
         duration: const Duration(milliseconds: 360),
         curve: Curves.easeOutCubic,
       );
     }
-    final apps = _getAppsList();
-    if (page >= 0 && page < apps.length) {
-      widget.onActiveAccentChanged?.call(apps[page].accentColor);
-    }
+    widget.onActiveAccentChanged?.call(apps[target].accentColor);
   }
 
   @override
@@ -105,55 +105,11 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         return Container(
           width: availableWidth,
           height: availableHeight,
-          color: Colors.transparent, // Seamlessly inherits the Apple Weather sky gradient
+          color: Colors.transparent, // Seamlessly inherits the calm evening sky gradient
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Dynamic Atmospheric Accent Cloud Glow (Apple Weather Watch interactive ambient sky light)
-              Positioned(
-                top: (availableHeight - deckHeight) / 2 - 30,
-                left: -30,
-                right: -30,
-                height: deckHeight + 60,
-                child: IgnorePointer(
-                  child: AnimatedBuilder(
-                    animation: _pageController,
-                    builder: (context, _) {
-                      double page = 0.0;
-                      if (_pageController.hasClients && _pageController.page != null) {
-                        page = _pageController.page!;
-                      } else {
-                        page = safeCurrentPage.toDouble();
-                      }
-                      final prevIdx = page.floor().clamp(0, apps.length - 1);
-                      final nextIdx = page.ceil().clamp(0, apps.length - 1);
-                      final fraction = page - page.floor();
-                      final activeAccent = Color.lerp(
-                        apps[prevIdx].accentColor,
-                        apps[nextIdx].accentColor,
-                        fraction,
-                      ) ?? apps[prevIdx].accentColor;
-
-                      return Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            center: Alignment.center,
-                            radius: 0.72,
-                            colors: [
-                              activeAccent.withValues(alpha: 0.32),
-                              activeAccent.withValues(alpha: 0.08),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              // Main Expanded Carousel Interface (No name-tag bar above card)
+              // Main Expanded Carousel Interface (No bright spotlight behind card)
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -218,13 +174,20 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
                   const SizedBox(height: 14),
 
-                  // Bottom Row: Pagination Dots + Compact Sky Mood Toggle
+                  // Bottom Row: Left Arrow + Pagination Dots + Right Arrow (icon-only, single calm theme)
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          _buildPagerArrowButton(
+                            icon: Icons.chevron_left_rounded,
+                            tooltip: 'Previous',
+                            enabled: safeCurrentPage > 0,
+                            onTap: () => _goToPage(safeCurrentPage - 1),
+                          ),
+                          const SizedBox(width: 8),
                           Flexible(
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -233,10 +196,10 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                               ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0C244D)
-                                    .withValues(alpha: 0.45),
+                                    .withValues(alpha: 0.48),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
+                                  color: Colors.white.withValues(alpha: 0.14),
                                 ),
                               ),
                               child: SingleChildScrollView(
@@ -267,18 +230,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                                                     .withValues(alpha: 0.35),
                                             borderRadius:
                                                 BorderRadius.circular(3),
-                                            boxShadow: isSelected
-                                                ? [
-                                                    BoxShadow(
-                                                      color: app.accentColor
-                                                          .withValues(
-                                                              alpha: 0.65),
-                                                      blurRadius: 8,
-                                                      offset:
-                                                          const Offset(0, 1),
-                                                    ),
-                                                  ]
-                                                : null,
                                           ),
                                         ),
                                       ),
@@ -288,36 +239,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                               ),
                             ),
                           ),
-                          if (widget.onCycleSkyMood != null) ...[
-                            const SizedBox(width: 8),
-                            Tooltip(
-                              message: widget.skyMood.label,
-                              child: GestureDetector(
-                                onTap: () {
-                                  HapticFeedback.lightImpact();
-                                  widget.onCycleSkyMood!();
-                                },
-                                child: Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0C244D)
-                                        .withValues(alpha: 0.48),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: const Color(0xFF38BDF8)
-                                          .withValues(alpha: 0.50),
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    widget.skyMood.icon,
-                                    size: 15,
-                                    color: const Color(0xFFBAE6FD),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          const SizedBox(width: 8),
+                          _buildPagerArrowButton(
+                            icon: Icons.chevron_right_rounded,
+                            tooltip: 'Next',
+                            enabled: safeCurrentPage < apps.length - 1,
+                            onTap: () => _goToPage(safeCurrentPage + 1),
+                          ),
                         ],
                       ),
                     ),
@@ -328,6 +256,40 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPagerArrowButton({
+    required IconData icon,
+    required String tooltip,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: enabled ? onTap : null,
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0C244D).withValues(alpha: 0.48),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: enabled ? 0.16 : 0.06),
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: Colors.white.withValues(alpha: enabled ? 0.92 : 0.28),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -648,13 +610,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                 color: app.accentColor,
                 boxShadow: [
                   BoxShadow(
-                    color: app.accentColor.withValues(alpha: 0.50),
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
+                    color: app.accentColor.withValues(alpha: 0.22),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
                   BoxShadow(
-                    color: const Color(0xFF041029).withValues(alpha: 0.6),
-                    blurRadius: 8,
+                    color: const Color(0xFF041029).withValues(alpha: 0.45),
+                    blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
