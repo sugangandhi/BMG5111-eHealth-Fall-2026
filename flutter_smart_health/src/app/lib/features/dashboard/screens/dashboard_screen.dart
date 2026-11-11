@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 
 import '../../../core/widgets/widgets.dart';
 import '../../../l10n/l10n.dart';
-import '../../../services/app_update_service.dart';
 import '../data/dashboard_summary_service.dart';
 import '../presentation/dashboard_styles.dart';
 import '../widgets/app_switcher_carousel.dart';
@@ -29,8 +28,6 @@ class _PatientDashboardState extends State<PatientDashboard>
   DashboardLiveSummary _summary = const DashboardLiveSummary();
   bool _syncingSummary = false;
   final DashboardSummaryService _summaryService = DashboardSummaryService();
-  final AppUpdateService _updateService = AppUpdateService();
-  AppUpdateCheckResult? _availableUpdate;
   late final AnimationController _heartTicker;
 
   @override
@@ -41,14 +38,6 @@ class _PatientDashboardState extends State<PatientDashboard>
       duration: const Duration(seconds: 12),
     )..repeat(reverse: true);
     _loadSummary();
-    _checkAppUpdate();
-  }
-
-  Future<void> _checkAppUpdate() async {
-    if (!_updateService.isAndroidNative) return;
-    final check = await _updateService.checkForUpdate();
-    if (!mounted || !check.isUpdateAvailable) return;
-    setState(() => _availableUpdate = check);
   }
 
   @override
@@ -198,31 +187,6 @@ class _PatientDashboardState extends State<PatientDashboard>
               ],
             ),
             actions: [
-              if (_availableUpdate?.isUpdateAvailable == true)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.28),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF6EE7B7).withValues(alpha: 0.65),
-                    ),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.system_update_rounded, size: 18),
-                    color: Colors.white,
-                    tooltip:
-                        'Update to v${_availableUpdate!.remoteVersionName}',
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      showAppUpdateDialog(
-                        context,
-                        updateService: _updateService,
-                        checkResult: _availableUpdate!,
-                      );
-                    },
-                  ),
-                ),
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(

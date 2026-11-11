@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../l10n/l10n.dart';
+import '../../../services/app_update_service.dart';
 import '../../../services/e_hospital_service.dart';
+import '../../../ui/ui.dart';
 import '../presentation/profile_styles.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_info_row.dart';
@@ -18,11 +20,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   Map<String, dynamic>? _user;
   String? _errorMsg;
+  final AppUpdateService _updateService = AppUpdateService();
+  AppVersionInfo _appVersion = const AppVersionInfo(versionName: '1.0.0', versionCode: 1);
+  AppUpdateCheckResult? _updateCheck;
+  bool _checkingUpdate = false;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadUpdateStatus();
+  }
+
+  Future<void> _loadUpdateStatus() async {
+    if (!_updateService.isAndroidNative) return;
+    final installed = await _updateService.getInstalledVersion();
+    if (mounted) {
+      setState(() => _appVersion = installed);
+    }
+    final check = await _updateService.checkForUpdate();
+    if (mounted) {
+      setState(() => _updateCheck = check);
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    final check = await _updateService.checkForUpdate();
+    if (!mounted) return;
+    setState(() {
+      _checkingUpdate = false;
+      _updateCheck = check;
+    });
+    await showAppUpdateDialog(
+      context,
+      updateService: _updateService,
+      checkResult: check,
+    );
   }
 
   Future<void> _loadProfile() async {
@@ -146,12 +181,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           label: l10n.memberSinceLabel,
                           value: createdOn,
                         ),
+                        const SizedBox(height: 8),
+                        _ProfileActionCard(
+                          icon: Icons.settings_outlined,
+                          title: l10n.settingsTitle,
+                          subtitle: 'Notifications, AI model, and data sources',
+                          onTap: () => Navigator.pushNamed(context, "/settings"),
+                        ),
+                        if (_updateService.isAndroidNative)
+                          _ProfileActionCard(
+                            icon: Icons.system_update_outlined,
+                            title: 'App Updates',
+                            subtitle: _updateCheck?.isUpdateAvailable == true
+                                ? 'Update v${_updateCheck!.remoteVersionName} ready to install'
+                                : 'Installed ${_appVersion.displayLabel} — check for updates',
+                            highlight: _updateCheck?.isUpdateAvailable == true,
+                            loading: _checkingUpdate,
+                            onTap: _checkForUpdates,
+                          ),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _ProfileActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool highlight;
+  final bool loading;
+  final VoidCallback onTap;
+
+  const _ProfileActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.highlight = false,
+    this.loading = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = highlight ? Colors.green.shade700 : AppColors.primary;
+    return Container(
+      margin: ProfileStyles.rowMargin,
+      decoration: ProfileStyles.infoRowDecoration,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: AppRadii.radius(AppRadii.dialog),
+          onTap: loading ? null : onTap,
+          child: Padding(
+            padding: ProfileStyles.rowPadding,
+            child: Row(
+              children: [
+                Container(
+                  width: ProfileStyles.rowIconSize,
+                  height: ProfileStyles.rowIconSize,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: AppRadii.radius(AppRadii.md),
+                  ),
+                  child: Icon(icon, size: 20, color: accent),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
+                          color: highlight ? accent : AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (loading)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Icon(Icons.chevron_right_rounded, color: accent),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
