@@ -31,6 +31,7 @@ class VoiceTranscriptionClient {
           body: jsonEncode({
             'audio_base64': base64Audio,
             'filename': filename,
+            'transcribe_only': true,
           }),
         )
         .timeout(const Duration(seconds: 20));

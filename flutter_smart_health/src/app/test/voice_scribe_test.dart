@@ -72,6 +72,7 @@ void main() {
 
       expect(sentBody['audio_base64'], 'AAAA');
       expect(sentBody['filename'], 'voice_note.m4a');
+      expect(sentBody['transcribe_only'], isTrue);
       expect(transcript, 'My blood pressure is 120 over 80');
     });
 
@@ -180,18 +181,20 @@ void main() {
   });
 
   group('VoiceDictationController', () {
-    test('merges prefix with live transcription and handles transcribing/error states', () async {
+    test('merges prefix without duplication, locks during transcribing, and ignores stale callbacks', () async {
       final textController = TextEditingController(text: 'Notes:');
       addTearDown(textController.dispose);
 
       var mounted = true;
       final listeningStates = <bool>[];
+      final transcribingStates = <bool>[];
       final statusMessages = <String>[];
 
       final controller = VoiceDictationController(
         textController: textController,
         isMounted: () => mounted,
         onListeningChanged: listeningStates.add,
+        onTranscribingChanged: transcribingStates.add,
         onStatusMessage: statusMessages.add,
       );
 
@@ -200,6 +203,11 @@ void main() {
       expect(controller.isListening, isTrue);
       expect(listeningStates, [true]);
 
+      // Overlapping final + interim or duplicate repeats must not repeat words.
+      await _simulateNativeCallback('onSpeechResult', {
+        'finalResult': 'blood pressure',
+        'interimResult': 'blood pressure 118 over 76',
+      });
       await _simulateNativeCallback('onSpeechResult', {
         'finalResult': 'blood pressure 118 over 76',
         'interimResult': '',
@@ -216,12 +224,21 @@ void main() {
         'message': '',
       });
       expect(controller.isListening, isFalse);
-      expect(statusMessages, ['Transcribing voice note...']);
+      expect(controller.isTranscribing, isTrue);
+      expect(transcribingStates, [true]);
+      expect(statusMessages, ['Transcribing voice with OpenAI Whisper...']);
+
+      // Tapping toggle while transcribing must not start a parallel session.
+      final callsWhileBusy = recordedMethodCalls.length;
+      controller.toggle();
+      await pumpEventQueue();
+      expect(recordedMethodCalls.length, callsWhileBusy);
 
       await _simulateNativeCallback('onSpeechStatus', {
         'status': 'unsupported',
         'message': '',
       });
+      expect(controller.isTranscribing, isFalse);
       expect(
         statusMessages.last,
         isNot(contains('supported in Google Chrome or Edge')),
@@ -242,7 +259,58 @@ void main() {
       expect(listeningStates.length, countBeforeDispose);
       expect(recordedMethodCalls, contains('stopListening'));
 
+      // Stale callbacks after dispose must be ignored.
+      await _simulateNativeCallback('onSpeechResult', {
+        'finalResult': 'should not append',
+        'interimResult': '',
+      });
+      expect(textController.text, 'Notes: blood pressure 118 over 76');
+
       mounted = false;
+    });
+
+    testWidgets('VoiceDictationMicButton renders idle, recording, and Whisper busy states', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                VoiceDictationMicButton(
+                  isListening: false,
+                  isTranscribing: false,
+                  onPressed: () => taps++,
+                  idleIconColor: Colors.indigo,
+                  idleTooltip: 'Record voice',
+                ),
+                VoiceDictationMicButton(
+                  isListening: true,
+                  isTranscribing: false,
+                  onPressed: () => taps++,
+                  idleIconColor: Colors.indigo,
+                  idleTooltip: 'Record voice',
+                ),
+                VoiceDictationMicButton(
+                  isListening: false,
+                  isTranscribing: true,
+                  onPressed: () => taps++,
+                  idleIconColor: Colors.indigo,
+                  idleTooltip: 'Record voice',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.mic_none), findsOneWidget);
+      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.mic_none));
+      await tester.tap(find.byIcon(Icons.stop_rounded));
+      await tester.tap(find.byType(CircularProgressIndicator));
+      expect(taps, 2);
     });
   });
 }

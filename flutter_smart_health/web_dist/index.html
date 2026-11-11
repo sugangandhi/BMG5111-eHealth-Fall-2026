@@ -41,44 +41,65 @@
       mediaRecorder: null,
       activeStream: null,
       audioChunks: [],
-      usingAudioFallback: false,
-      capturedSpeech: false,
+      usingAudioRecorder: false,
+      _sessionId: 0,
       _pendingStatusCb: null,
       _pendingAudioCb: null,
 
-      _releaseStream: function() {
-        if (this.activeStream) {
+      _releaseStream: function(streamToStop) {
+        var target = streamToStop || this.activeStream;
+        if (target) {
           try {
-            var tracks = this.activeStream.getTracks();
+            var tracks = target.getTracks();
             for (var i = 0; i < tracks.length; i++) {
               tracks[i].stop();
             }
           } catch (e) {}
+        }
+        if (!streamToStop || target === this.activeStream) {
           this.activeStream = null;
         }
       },
 
-      _startMediaRecorderFallback: function(onStatusCallback, onAudioCallback) {
+      _mergeNonOverlappingSegment: function(accumulated, segment) {
+        var prev = (accumulated || '').trim();
+        var next = (segment || '').trim();
+        if (!next) return prev;
+        if (!prev) return next;
+        var prevLower = prev.toLowerCase();
+        var nextLower = next.toLowerCase();
+        if (nextLower.indexOf(prevLower) === 0) return next;
+        if (prevLower === nextLower || prevLower.slice(-nextLower.length) === nextLower) {
+          return prev;
+        }
+        return prev + ' ' + next;
+      },
+
+      _startWhisperAudioRecorder: function(sessionId, onStatusCallback, onAudioCallback) {
         var self = this;
         self._pendingStatusCb = onStatusCallback;
         self._pendingAudioCb = onAudioCallback;
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
-          self.isListening = false;
-          self.usingAudioFallback = false;
-          if (onStatusCallback) {
-            onStatusCallback('unsupported', 'Live microphone voice capture is unavailable in this browser or requires an HTTPS connection.');
-          }
-          return;
+          return false;
         }
 
-        navigator.mediaDevices.getUserMedia({ audio: true })
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        })
           .then(function(stream) {
+            if (sessionId !== self._sessionId || !self.isListening) {
+              self._releaseStream(stream);
+              return;
+            }
             self._releaseStream();
             self.activeStream = stream;
             self.audioChunks = [];
-            self.usingAudioFallback = true;
-            self.isListening = true;
+            self.usingAudioRecorder = true;
 
             var options = {};
             var mimeCandidates = [
@@ -97,47 +118,51 @@
               }
             }
 
-            self.mediaRecorder = options.mimeType
+            var recorder = options.mimeType
               ? new MediaRecorder(stream, options)
               : new MediaRecorder(stream);
+            self.mediaRecorder = recorder;
 
-            self.mediaRecorder.ondataavailable = function(e) {
+            recorder.ondataavailable = function(e) {
               if (e.data && e.data.size > 0) {
                 self.audioChunks.push(e.data);
               }
             };
-            self.mediaRecorder.onerror = function(e) {
+            recorder.onerror = function(e) {
+              if (sessionId !== self._sessionId) return;
               self.isListening = false;
-              self.usingAudioFallback = false;
+              self.usingAudioRecorder = false;
+              self.mediaRecorder = null;
               self._releaseStream();
               if (onStatusCallback) {
                 onStatusCallback('error', (e && e.error && e.error.message) || 'Audio recording error.');
               }
             };
-            self.mediaRecorder.start();
+            recorder.start(250);
             if (onStatusCallback) onStatusCallback('recording', '');
           })
           .catch(function(err) {
-            console.error('[ClinicalVoice] MediaRecorder fallback error:', err);
+            if (sessionId !== self._sessionId) return;
+            console.error('[ClinicalVoice] Whisper MediaRecorder error:', err);
             self.isListening = false;
-            self.usingAudioFallback = false;
+            self.usingAudioRecorder = false;
+            self.mediaRecorder = null;
             self._releaseStream();
             if (onStatusCallback) {
               onStatusCallback('error', (err && err.message) ? err.message : err.toString());
             }
           });
+        return true;
       },
 
-      startListening: function(onResultCallback, onStatusCallback, onAudioCallback) {
+      _startWebSpeechFallback: function(sessionId, onResultCallback, onStatusCallback) {
         var self = this;
-        self.capturedSpeech = false;
-        self.usingAudioFallback = false;
-        self._pendingStatusCb = onStatusCallback || null;
-        self._pendingAudioCb = onAudioCallback || null;
-
         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-          self._startMediaRecorderFallback(onStatusCallback, onAudioCallback);
+          self.isListening = false;
+          if (onStatusCallback) {
+            onStatusCallback('unsupported', 'Live microphone voice capture requires HTTPS or a browser with microphone support.');
+          }
           return;
         }
 
@@ -146,55 +171,43 @@
             try { this.recognition.abort(); } catch (e) {}
           }
           var rec = new SpeechRecognition();
-          var switchedToFallback = false;
-          rec.continuous = true;
-          rec.interimResults = true;
+          var committedTranscript = '';
+          rec.continuous = false;
+          rec.interimResults = false;
           rec.lang = 'en-US';
 
           rec.onstart = function() {
+            if (sessionId !== self._sessionId) return;
             self.isListening = true;
             if (onStatusCallback) onStatusCallback('listening', '');
           };
 
           rec.onresult = function(event) {
-            var interim = '';
-            var final = '';
-            for (var i = 0; i < event.results.length; ++i) {
+            if (sessionId !== self._sessionId) return;
+            var latest = '';
+            for (var i = event.resultIndex || 0; i < event.results.length; ++i) {
               if (event.results[i].isFinal) {
-                final += event.results[i][0].transcript + ' ';
-              } else {
-                interim += event.results[i][0].transcript;
+                latest = self._mergeNonOverlappingSegment(latest, event.results[i][0].transcript);
               }
             }
-            if (final.trim() || interim.trim()) {
-              self.capturedSpeech = true;
-            }
-            if (onResultCallback) {
-              onResultCallback(final.trim(), interim.trim());
+            if (latest) {
+              committedTranscript = self._mergeNonOverlappingSegment(committedTranscript, latest);
+              if (onResultCallback) {
+                onResultCallback(committedTranscript, '');
+              }
             }
           };
 
           rec.onerror = function(event) {
+            if (sessionId !== self._sessionId) return;
             var code = event && event.error ? event.error : 'Speech recognition error';
-            console.warn('[ClinicalVoice] Speech error:', code);
             if (code === 'aborted') return;
-            var fallbackEligible = (
-              code === 'service-not-allowed' ||
-              code === 'network' ||
-              code === 'language-not-supported'
-            );
-            if (fallbackEligible && !self.capturedSpeech && onAudioCallback) {
-              switchedToFallback = true;
-              self.recognition = null;
-              self._startMediaRecorderFallback(onStatusCallback, onAudioCallback);
-              return;
-            }
             self.isListening = false;
             if (onStatusCallback) onStatusCallback('error', code);
           };
 
           rec.onend = function() {
-            if (switchedToFallback) return;
+            if (sessionId !== self._sessionId) return;
             self.isListening = false;
             if (onStatusCallback) onStatusCallback('stopped', '');
           };
@@ -202,31 +215,53 @@
           this.recognition = rec;
           rec.start();
         } catch (err) {
-          console.error('[ClinicalVoice] Failed to start:', err);
-          if (!self.capturedSpeech && onAudioCallback) {
-            self._startMediaRecorderFallback(onStatusCallback, onAudioCallback);
-          } else if (onStatusCallback) {
-            onStatusCallback('error', err.toString());
-          }
+          self.isListening = false;
+          if (onStatusCallback) onStatusCallback('error', err.toString());
         }
+      },
+
+      startListening: function(onResultCallback, onStatusCallback, onAudioCallback) {
+        var self = this;
+        self._sessionId += 1;
+        var sessionId = self._sessionId;
+        self.isListening = true;
+        self.usingAudioRecorder = false;
+        self._pendingStatusCb = onStatusCallback || null;
+        self._pendingAudioCb = onAudioCallback || null;
+
+        if (self.recognition) {
+          try { self.recognition.abort(); } catch (e) {}
+          self.recognition = null;
+        }
+
+        // Prefer MediaRecorder -> OpenAI whisper-1 so dictation never repeats words
+        // (avoids Chromium Android SpeechRecognition duplicate-segment bug).
+        if (onAudioCallback && self._startWhisperAudioRecorder(sessionId, onStatusCallback, onAudioCallback)) {
+          return;
+        }
+
+        self._startWebSpeechFallback(sessionId, onResultCallback, onStatusCallback);
       },
 
       stopListening: function() {
         var self = this;
-        if (this.usingAudioFallback && this.mediaRecorder) {
+        var activeSessionId = self._sessionId;
+        self.isListening = false;
+
+        if (this.usingAudioRecorder && this.mediaRecorder) {
           var statusCb = this._pendingStatusCb;
           var audioCb = this._pendingAudioCb;
           var recorder = this.mediaRecorder;
           var chunks = this.audioChunks;
           var mimeType = (recorder.mimeType || 'audio/webm');
-          this.usingAudioFallback = false;
-          this.isListening = false;
+          this.usingAudioRecorder = false;
           this.mediaRecorder = null;
 
           recorder.onstop = function() {
             self._releaseStream();
+            if (activeSessionId !== self._sessionId) return;
             var audioBlob = new Blob(chunks, { type: mimeType });
-            if (!audioBlob || audioBlob.size === 0 || !audioCb) {
+            if (!audioBlob || audioBlob.size < 400 || !audioCb) {
               if (statusCb) statusCb('stopped', '');
               return;
             }
@@ -236,6 +271,7 @@
             if (statusCb) statusCb('transcribing', '');
             var reader = new FileReader();
             reader.onloadend = function() {
+              if (activeSessionId !== self._sessionId) return;
               var base64Data = (reader.result || '').toString().split(',')[1] || '';
               if (base64Data) {
                 audioCb(base64Data, ext);
@@ -259,11 +295,17 @@
           return;
         }
 
+        // If getUserMedia hasn't resolved yet, bump sessionId/isListening so it releases on resolve.
+        if (this._pendingAudioCb && !this.recognition) {
+          this._releaseStream();
+          if (this._pendingStatusCb) this._pendingStatusCb('stopped', '');
+          return;
+        }
+
         if (this.recognition) {
           try {
             this.recognition.stop();
           } catch (e) {}
-          this.isListening = false;
         }
       },
 

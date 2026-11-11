@@ -899,12 +899,14 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     private fun startVoiceDictation() {
+        if (isVoiceRecordingFallback) {
+            stopVoiceDictation()
+            return
+        }
         ensureRecordAudioPermission {
-            if (SpeechRecognizer.isRecognitionAvailable(this)) {
-                startNativeSpeechRecognizer()
-            } else {
-                startAudioCaptureFallback()
-            }
+            // Use MediaRecorder (.m4a) -> OpenAI whisper-1 as primary for single-pass
+            // zero-repetition clinical dictation, avoiding SpeechRecognizer duplicates.
+            startAudioCaptureFallback()
         }
     }
 
@@ -1043,6 +1045,7 @@ class MainActivity : FlutterFragmentActivity() {
                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
                 recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                recorder.setAudioChannels(1)
                 recorder.setAudioSamplingRate(16000)
                 recorder.setAudioEncodingBitRate(64000)
                 recorder.setOutputFile(outFile.absolutePath)
@@ -1054,7 +1057,11 @@ class MainActivity : FlutterFragmentActivity() {
                 emitVoiceStatus("recording", "")
             } catch (e: Exception) {
                 isVoiceRecordingFallback = false
-                emitVoiceStatus("error", "Could not start microphone: ${e.message ?: "error"}")
+                if (SpeechRecognizer.isRecognitionAvailable(this)) {
+                    startNativeSpeechRecognizer()
+                } else {
+                    emitVoiceStatus("error", "Could not start microphone: ${e.message ?: "error"}")
+                }
             }
         }
     }
@@ -1068,7 +1075,7 @@ class MainActivity : FlutterFragmentActivity() {
                     mediaRecorder?.stop()
                 } catch (_: Exception) {}
                 releaseMediaRecorder()
-                if (targetFile != null && targetFile.exists() && targetFile.length() > 0L) {
+                if (targetFile != null && targetFile.exists() && targetFile.length() >= 400L) {
                     emitVoiceStatus("transcribing", "")
                     ioScope.launch {
                         try {
@@ -1088,6 +1095,7 @@ class MainActivity : FlutterFragmentActivity() {
                         }
                     }
                 } else {
+                    targetFile?.delete()
                     emitVoiceStatus("stopped", "")
                 }
                 return@post

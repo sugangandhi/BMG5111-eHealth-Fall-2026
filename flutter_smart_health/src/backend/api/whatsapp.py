@@ -80,6 +80,17 @@ class VoiceTranscribeRequest(BaseModel):
     sample_text: Optional[str] = None
     patient_id: Optional[str] = "391"
     filename: Optional[str] = "recording.webm"
+    transcribe_only: bool = False
+
+
+AUDIO_MIME_TYPES = {
+    ".webm": "audio/webm",
+    ".m4a": "audio/mp4",
+    ".mp4": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+}
 
 class SimulateMessageRequest(BaseModel):
     phone: str = "613-261-6383"
@@ -255,23 +266,28 @@ async def handle_whatsapp_action(req: WhatsAppActionRequest):
     return {"success": False, "error": "Unknown action"}
 
 def transcribe_audio_whisper(audio_bytes: bytes, filename: str = "recording.webm") -> str:
-    """Invokes OpenAI Whisper API (whisper-1) with the real recorded audio."""
+    """Invokes OpenAI Whisper API (whisper-1) with deterministic zero-repetition decoding."""
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
+    if not api_key or not audio_bytes or len(audio_bytes) < 250:
         return ""
     try:
+        ext = os.path.splitext((filename or "recording.webm").strip().lower())[1]
+        safe_ext = ext if ext in AUDIO_MIME_TYPES else ".webm"
+        mime_type = AUDIO_MIME_TYPES[safe_ext]
         url = "https://api.openai.com/v1/audio/transcriptions"
         headers = {"Authorization": f"Bearer {api_key}"}
         files = {
-            "file": (filename, audio_bytes, "audio/webm")
+            "file": (f"recording{safe_ext}", audio_bytes, mime_type)
         }
         data = {
             "model": "whisper-1",
+            "language": "en",
+            "temperature": "0",
             "prompt": "Clinical consultation, patient medical symptoms, blood pressure, heart rate, medications, vital signs."
         }
         r = requests.post(url, headers=headers, files=files, data=data, timeout=30, verify=False)
         if r.status_code == 200:
-            return r.json().get("text", "")
+            return (r.json().get("text") or "").strip()
         else:
             print(f"[Whisper Error]: {r.status_code} {r.text}")
     except Exception as e:
@@ -292,7 +308,7 @@ async def voice_transcribe(req: VoiceTranscribeRequest):
             audio_bytes = base64.b64decode(req.audio_base64)
             raw_name = (req.filename or "recording.webm").strip().lower()
             ext = os.path.splitext(raw_name)[1]
-            safe_ext = ext if ext in {".webm", ".m4a", ".mp3", ".wav", ".ogg"} else ".webm"
+            safe_ext = ext if ext in AUDIO_MIME_TYPES else ".webm"
             whisper_text = transcribe_audio_whisper(audio_bytes, filename=f"recording{safe_ext}")
             if whisper_text:
                 spoken_text = whisper_text.strip()
@@ -315,7 +331,16 @@ async def voice_transcribe(req: VoiceTranscribeRequest):
             source = "web-speech-mic"
         else:
             source = "sample-telemetry"
-    
+
+    if req.transcribe_only:
+        return {
+            "transcription": spoken_text,
+            "response": "",
+            "confidence": 0.98 if source == "whisper-1" else 0.95,
+            "model": "whisper-1",
+            "source": source,
+        }
+
     # Process speech with ChatGPT
     from src.backend.clients.model_client import invoke_model
     response_text = invoke_model(

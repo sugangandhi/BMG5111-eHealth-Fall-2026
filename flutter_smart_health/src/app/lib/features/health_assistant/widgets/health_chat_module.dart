@@ -54,6 +54,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   final List<_HealthChatMessage> _messages = [];
   bool _isLoading = false;
   bool _isListening = false;
+  bool _isTranscribing = false;
   late final VoiceDictationController _voiceController;
   String _patientId = "1";
 
@@ -71,6 +72,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       textController: _controller,
       isMounted: () => mounted,
       onListeningChanged: (listening) => setState(() => _isListening = listening),
+      onTranscribingChanged: (transcribing) =>
+          setState(() => _isTranscribing = transcribing),
       onStatusMessage: _showVoiceStatus,
     );
     _loadPatientAndHistory();
@@ -531,58 +534,24 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             top: false,
             child: Row(
               children: [
-                IconButton(
-                  tooltip: _isListening ? "Listening to your voice... Tap to finish" : "Record voice (Tap to speak)",
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: _isListening
-                          ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isListening ? Icons.mic : Icons.mic_none,
-                      color: _isListening ? const Color(0xFFEF4444) : const Color(0xFF6366F1),
-                      size: 24,
-                    ),
-                  ),
+                VoiceDictationMicButton(
+                  isListening: _isListening,
+                  isTranscribing: _isTranscribing,
                   onPressed: _toggleListening,
+                  idleIconColor: const Color(0xFF6366F1),
+                  idleTooltip: 'Record voice with Whisper (Tap to speak)',
                 ),
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    enabled: !_isTranscribing,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (val) => _sendMessage(val),
-                    decoration: InputDecoration(
-                      hintText: _isListening
-                          ? "🔴 Listening to your voice... Speak now"
-                          : "Ask or speak your symptom...",
-                      hintStyle: TextStyle(
-                        color: _isListening ? const Color(0xFFEF4444) : Colors.grey.shade500,
-                        fontWeight: _isListening ? FontWeight.w500 : FontWeight.normal,
-                      ),
-                      filled: true,
-                      fillColor: _isListening ? const Color(0xFFFEF2F2) : Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: _isListening
-                            ? const BorderSide(color: Color(0xFFEF4444), width: 1.5)
-                            : BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: _isListening
-                            ? const BorderSide(color: Color(0xFFEF4444), width: 1.5)
-                            : BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: _isListening
-                            ? const BorderSide(color: Color(0xFFEF4444), width: 2.0)
-                            : BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
-                      ),
+                    decoration: buildVoiceComposerDecoration(
+                      isListening: _isListening,
+                      isTranscribing: _isTranscribing,
+                      idleHint: 'Ask or speak your symptom...',
+                      focusedIdleColor: Theme.of(context).primaryColor,
                     ),
                   ),
                 ),

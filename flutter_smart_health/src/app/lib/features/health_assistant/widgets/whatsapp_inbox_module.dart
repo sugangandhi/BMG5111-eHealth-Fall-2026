@@ -20,6 +20,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
   bool _isLoading = true;
   bool _isSending = false;
   bool _isListening = false;
+  bool _isTranscribing = false;
   late final VoiceDictationController _voiceController;
   int _patientId = 391;
   String _patientName = "Patient";
@@ -32,6 +33,8 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
       textController: _messageController,
       isMounted: () => mounted,
       onListeningChanged: (listening) => setState(() => _isListening = listening),
+      onTranscribingChanged: (transcribing) =>
+          setState(() => _isTranscribing = transcribing),
       onStatusMessage: _showVoiceStatus,
     );
     _loadPatientAndThread();
@@ -712,58 +715,25 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
             top: false,
             child: Row(
               children: [
-                IconButton(
-                  tooltip: _isListening ? "Listening to your voice... Tap to finish" : "Record voice to WhatsApp",
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: _isListening
-                          ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-                          : const Color(0xFF25D366).withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isListening ? Icons.mic : Icons.mic_none,
-                      color: _isListening ? const Color(0xFFEF4444) : const Color(0xFF075E54),
-                      size: 24,
-                    ),
-                  ),
+                VoiceDictationMicButton(
+                  isListening: _isListening,
+                  isTranscribing: _isTranscribing,
                   onPressed: _toggleListening,
+                  idleIconColor: const Color(0xFF075E54),
+                  idleBgColor: const Color(0xFF25D366).withValues(alpha: 0.12),
+                  idleTooltip: 'Record voice to WhatsApp with Whisper',
                 ),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
+                    enabled: !_isTranscribing,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (val) => _sendMessage(val),
-                    decoration: InputDecoration(
-                      hintText: _isListening
-                          ? "🔴 Listening to your voice... Speak now"
-                          : "Type WhatsApp message to clinic...",
-                      hintStyle: TextStyle(
-                        color: _isListening ? const Color(0xFFEF4444) : Colors.grey.shade500,
-                        fontWeight: _isListening ? FontWeight.w500 : FontWeight.normal,
-                      ),
-                      filled: true,
-                      fillColor: _isListening ? const Color(0xFFFEF2F2) : Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: _isListening
-                            ? const BorderSide(color: Color(0xFFEF4444), width: 1.5)
-                            : BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: _isListening
-                            ? const BorderSide(color: Color(0xFFEF4444), width: 1.5)
-                            : BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: _isListening
-                            ? const BorderSide(color: Color(0xFFEF4444), width: 2.0)
-                            : const BorderSide(color: Color(0xFF25D366), width: 1.5),
-                      ),
+                    decoration: buildVoiceComposerDecoration(
+                      isListening: _isListening,
+                      isTranscribing: _isTranscribing,
+                      idleHint: 'Type WhatsApp message to clinic...',
+                      focusedIdleColor: const Color(0xFF25D366),
                     ),
                   ),
                 ),
