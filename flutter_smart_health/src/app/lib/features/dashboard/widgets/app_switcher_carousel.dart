@@ -384,8 +384,8 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   }
 
   Widget _buildModuleCard(_AppModuleItem app, {required double height}) {
-    final bannerHeight = (height * 0.29).clamp(112.0, 162.0);
-    final compact = height < 490;
+    final bannerHeight = (height * 0.28).clamp(112.0, 166.0);
+    final compact = height < 500;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -432,7 +432,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                       },
                     ),
 
-                    SizedBox(height: compact ? 10 : 14),
+                    SizedBox(height: compact ? 10 : 12),
 
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -478,21 +478,21 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                           const SizedBox(height: 4),
                           Text(
                             app.description,
-                            maxLines: compact ? 2 : 3,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 13,
-                              height: 1.38,
+                              height: 1.35,
                               color: AppColors.textMuted,
                             ),
                           ),
-                          SizedBox(height: compact ? 10 : 14),
+                          SizedBox(height: compact ? 8 : 10),
                           Text(
                             app.heroMetric,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: compact ? 26 : 32,
+                              fontSize: compact ? 25 : 30,
                               fontWeight: FontWeight.w800,
                               color: AppColors.textDark,
                               letterSpacing: -0.6,
@@ -505,7 +505,17 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                       ),
                     ),
 
-                    const Spacer(),
+                    if (!compact) ...[
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: _buildModuleDetailWell(app),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ] else
+                      const Spacer(),
 
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -556,6 +566,389 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModuleDetailWell(_AppModuleItem app) {
+    final s = widget.summary;
+    final synced = s?.isLiveSynced ?? false;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: constraints.maxWidth,
+              child: _buildDetailBodyForKind(app, s, synced),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDetailBodyForKind(
+    _AppModuleItem app,
+    DashboardLiveSummary? s,
+    bool synced,
+  ) {
+    switch (app.kind) {
+      case DashboardModuleKind.vitals:
+        final cal = s?.caloriesCount != null ? '${s!.caloriesCount} kcal' : '-- kcal';
+        final sleep =
+            s?.sleepHours != null ? '${s!.sleepHours!.toStringAsFixed(1)} hrs' : '-- hrs';
+        return _buildTwoColumnDetail(
+          heading: 'Live Telemetry Summary',
+          trailing: synced ? 'Active' : 'Waiting',
+          accent: app.accentColor,
+          leftLabel: 'CALORIES BURNT',
+          leftVal: cal,
+          rightLabel: 'SLEEP LOGGED',
+          rightVal: sleep,
+        );
+
+      case DashboardModuleKind.history:
+        const ratios = [0.42, 0.58, 0.72, 0.50, 0.85, 0.68, 0.92, 0.78];
+        return _buildLabeledVisualWell(
+          title: 'Recent Check-In Activity',
+          tag: '${s?.vitalsHistoryCount ?? 0} total',
+          accent: app.accentColor,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: List.generate(ratios.length, (i) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Container(
+                    height: 28 * ratios[i],
+                    decoration: BoxDecoration(
+                      color: i >= 6
+                          ? app.accentColor
+                          : app.accentColor.withValues(alpha: 0.28),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        );
+
+      case DashboardModuleKind.insights:
+        final ecg = s?.ecgStatus ?? (synced ? 'Sinus Rhythm' : 'Not Synced');
+        return _buildLabeledVisualWell(
+          title: 'Cardio & Risk Screening',
+          tag: ecg,
+          accent: app.accentColor,
+          child: Row(
+            children: [
+              _miniChip('Guidelines', 'AHA Ready', app.softBackground, app.badgeTextColor),
+              const SizedBox(width: 8),
+              _miniChip('Sync Status', synced ? 'Verified' : 'Standby', Colors.white, AppColors.textDark),
+            ],
+          ),
+        );
+
+      case DashboardModuleKind.trends:
+        return _buildLabeledVisualWell(
+          title: '7-Day Physiological Curve',
+          tag: 'Within Range',
+          accent: app.accentColor,
+          child: Row(
+            children: [
+              _miniChip('HR Drift', '±4% Stable', app.softBackground, app.badgeTextColor),
+              const SizedBox(width: 8),
+              _miniChip('BP Benchmark', 'Optimal Tier', Colors.white, AppColors.textDark),
+            ],
+          ),
+        );
+
+      case DashboardModuleKind.sleep:
+        return _buildLabeledVisualWell(
+          title: 'Sleep Stage Distribution',
+          tag: 'Deep • REM • Core',
+          accent: app.accentColor,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: const SizedBox(
+                  height: 10,
+                  child: Row(
+                    children: [
+                      Expanded(flex: 25, child: ColoredBox(color: Color(0xFF5139A8))),
+                      Expanded(flex: 22, child: ColoredBox(color: Color(0xFF6E56CF))),
+                      Expanded(flex: 45, child: ColoredBox(color: Color(0xFFA78BFA))),
+                      Expanded(flex: 8, child: ColoredBox(color: Color(0xFFD97706))),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Deep 25%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+                    ),
+                  ),
+                  Flexible(
+                    child: Text(
+                      'REM 22%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+                    ),
+                  ),
+                  Flexible(
+                    child: Text(
+                      'Core 45%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+
+      case DashboardModuleKind.medications:
+        final total = s?.medicationsTotal ?? 0;
+        final taken = s?.medicationsTaken ?? 0;
+        final progress = total > 0 ? (taken / total).clamp(0.0, 1.0) : 0.0;
+        return _buildProgressWell(
+          title: 'Daily Dose Progress',
+          tag: total > 0 ? '$taken of $total taken' : 'No Rx Scheduled',
+          progress: progress,
+          accent: app.accentColor,
+        );
+
+      case DashboardModuleKind.symptoms:
+        final sev = s?.latestSymptomSeverity ?? 0;
+        final hasLogs = (s?.symptomsCount ?? 0) > 0;
+        final progress = hasLogs ? (sev / 5.0).clamp(0.1, 1.0) : 0.0;
+        return _buildProgressWell(
+          title: 'Comfort Severity Scale',
+          tag: hasLogs ? '$sev / 5 Severity' : 'All Clear (0/5)',
+          progress: progress,
+          accent: app.accentColor,
+        );
+
+      case DashboardModuleKind.goals:
+        final steps = s?.stepsCount ?? 0;
+        final progress = (steps / 10000).clamp(0.0, 1.0);
+        return _buildProgressWell(
+          title: 'Daily 10,000-Step Goal',
+          tag: '${(progress * 100).round()}% Complete',
+          progress: progress,
+          accent: app.accentColor,
+        );
+
+      case DashboardModuleKind.bmi:
+        final bmi = s?.latestBmi;
+        return _buildLabeledVisualWell(
+          title: 'Metabolic Range Reference',
+          tag: bmi != null ? '${bmi.toStringAsFixed(1)} kg/m²' : '18.5 - 24.9 Ideal',
+          accent: app.accentColor,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: const SizedBox(
+              height: 10,
+              child: Row(
+                children: [
+                  Expanded(flex: 18, child: ColoredBox(color: AppColors.primary)),
+                  Expanded(flex: 32, child: ColoredBox(color: AppColors.primaryAccent)),
+                  Expanded(flex: 25, child: ColoredBox(color: AppColors.amber)),
+                  Expanded(flex: 25, child: ColoredBox(color: AppColors.coral)),
+                ],
+              ),
+            ),
+          ),
+        );
+
+      case DashboardModuleKind.urgentCare:
+        final pos = s?.urgentCareQueuePosition;
+        final prog = pos != null ? (1.0 / pos.clamp(1, 10)).clamp(0.2, 0.95) : 0.0;
+        return _buildProgressWell(
+          title: 'Clinic Check-In Status',
+          tag: pos != null ? '#$pos in Line' : 'Ready for Pre-Check-In',
+          progress: prog,
+          accent: app.accentColor,
+        );
+
+      case DashboardModuleKind.clinicChat:
+        return _buildLabeledVisualWell(
+          title: 'Suggested Prompts',
+          tag: 'Voice + Text',
+          accent: app.accentColor,
+          child: Row(
+            children: [
+              _miniChip('Prompt 1', 'Analyze vitals', app.softBackground, app.badgeTextColor),
+              const SizedBox(width: 8),
+              _miniChip('Prompt 2', 'Read lab PDF', Colors.white, AppColors.textDark),
+            ],
+          ),
+        );
+
+      case DashboardModuleKind.devices:
+        final activeSrc = s?.wearableSourceLabel ?? 'Auto Detect';
+        return _buildLabeledVisualWell(
+          title: 'Connected Platform Pipeline',
+          tag: synced ? 'Live Origin Lock' : 'Standby',
+          accent: app.accentColor,
+          child: Row(
+            children: [
+              _miniChip('Primary', activeSrc, app.softBackground, app.badgeTextColor),
+              const SizedBox(width: 8),
+              _miniChip('Export', 'CSV • XML', Colors.white, AppColors.textDark),
+            ],
+          ),
+        );
+    }
+  }
+
+  Widget _buildTwoColumnDetail({
+    required String heading,
+    required String trailing,
+    required Color accent,
+    required String leftLabel,
+    required String leftVal,
+    required String rightLabel,
+    required String rightVal,
+  }) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildDetailHeaderRow(heading, trailing, accent),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            _miniChip(leftLabel, leftVal, Colors.white, AppColors.textDark),
+            const SizedBox(width: 8),
+            _miniChip(rightLabel, rightVal, Colors.white, AppColors.textDark),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailHeaderRow(String title, String trailing, Color accent) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          trailing,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: accent,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLabeledVisualWell({
+    required String title,
+    required String tag,
+    required Color accent,
+    required Widget child,
+  }) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildDetailHeaderRow(title, tag, accent),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildProgressWell({
+    required String title,
+    required String tag,
+    required double progress,
+    required Color accent,
+  }) {
+    return _buildLabeledVisualWell(
+      title: title,
+      tag: tag,
+      accent: accent,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: LinearProgressIndicator(
+          value: progress,
+          minHeight: 10,
+          backgroundColor: const Color(0xFFE2E8F0),
+          valueColor: AlwaysStoppedAnimation<Color>(accent),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniChip(String k, String v, Color bg, Color fg) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              k,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              v,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: fg),
+            ),
+          ],
         ),
       ),
     );

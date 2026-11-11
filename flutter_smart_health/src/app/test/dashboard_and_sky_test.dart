@@ -432,4 +432,71 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'All 12 AppSwitcherCarousel tabs render rich middle detail wells without overflow',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      const summary = DashboardLiveSummary(
+        isLiveSynced: true,
+        wearableSourceLabel: 'Samsung Health',
+        heartRateBpm: 72,
+        bloodPressure: '118/76',
+        ecgStatus: 'Sinus Rhythm',
+        vitalsHistoryCount: 15,
+        stepsCount: 9200,
+        caloriesCount: 510,
+        sleepHours: 7.8,
+        medicationsTotal: 3,
+        medicationsTaken: 2,
+        nextMedicationLabel: 'Lisinopril (9:00 PM)',
+        symptomsCount: 1,
+        latestSymptomName: 'Fatigue',
+        latestSymptomSeverity: 2,
+        latestBmi: 22.8,
+        latestBmiCategory: 'Normal',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppSwitcherCarousel(
+              summary: summary,
+              onSelectApp: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      const expectedHeadings = [
+        'Live Telemetry Summary',
+        'Recent Check-In Activity',
+        'Cardio & Risk Screening',
+        '7-Day Physiological Curve',
+        'Sleep Stage Distribution',
+        'Daily Dose Progress',
+        'Comfort Severity Scale',
+        'Daily 10,000-Step Goal',
+        'Metabolic Range Reference',
+        'Clinic Check-In Status',
+        'Suggested Prompts',
+        'Connected Platform Pipeline',
+      ];
+
+      for (int i = 0; i < expectedHeadings.length; i++) {
+        expect(find.text(expectedHeadings[i]), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        if (i < expectedHeadings.length - 1) {
+          await tester.tap(find.byIcon(Icons.chevron_right_rounded));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 420));
+        }
+      }
+    },
+  );
 }
