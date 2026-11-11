@@ -667,7 +667,88 @@ void main() {
 
       expect(result.success, isTrue);
       expect(result.sample?.steps, 5000);
-      expect(result.sample?.calories, isNull);
+      expect(result.sample?.calories, 1950);
+    },
+  );
+
+  test(
+    'Midnight reset reports 0 today steps and 0 cal while excluding yesterday intervals ending at 00:00:00',
+    () async {
+      final now = DateTime.now();
+      final dayStart = DateTime(now.year, now.month, now.day);
+      final yesterdayStart = dayStart.subtract(const Duration(hours: 6));
+      final fakeHealth = _FakeHealth(
+        initiallyGranted: {
+          HealthDataType.STEPS,
+          HealthDataType.HEART_RATE,
+          HealthDataType.ACTIVE_ENERGY_BURNED,
+          HealthDataType.TOTAL_CALORIES_BURNED,
+        },
+        points: [
+          HealthDataPoint(
+            uuid: 'yday-steps-midnight',
+            value: NumericHealthValue(numericValue: 5000),
+            type: HealthDataType.STEPS,
+            unit: HealthDataUnit.COUNT,
+            dateFrom: yesterdayStart,
+            dateTo: dayStart,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-phone',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+          HealthDataPoint(
+            uuid: 'yday-cal-midnight',
+            value: NumericHealthValue(numericValue: 240),
+            type: HealthDataType.ACTIVE_ENERGY_BURNED,
+            unit: HealthDataUnit.KILOCALORIE,
+            dateFrom: yesterdayStart,
+            dateTo: dayStart,
+            sourcePlatform: HealthPlatformType.googleHealthConnect,
+            sourceDeviceId: 'galaxy-phone',
+            sourceId: '',
+            sourceName: 'com.sec.android.app.shealth',
+          ),
+        ],
+      );
+
+      final google = GoogleHealthSyncService(
+        health: fakeHealth,
+        isWebOverride: false,
+        platformOverride: TargetPlatform.android,
+        aggregateMetricsProvider: (start, end, packageNames) async {
+          if (!start.isBefore(dayStart)) {
+            // Today after midnight: 0 steps, 0 active, small BMR should stay 0.
+            return {
+              'available': true,
+              'steps': 0,
+              'activeCalories': 0.0,
+              'totalCalories': 18.0,
+            };
+          }
+          // Yesterday aggregate
+          return {
+            'available': true,
+            'steps': 5000,
+            'activeCalories': 240.0,
+            'totalCalories': 1850.0,
+          };
+        },
+      );
+
+      final result = await google.readLatestSample(
+        patientId: '20',
+        preferredSourceKey: WearableSource.samsungHealth,
+      );
+
+      expect(result.success, isTrue);
+      expect(result.sample?.steps, 0);
+      expect(result.sample?.calories, 0);
+      expect(
+        result.sample?.sourceMetadata['sync_window'],
+        'today_midnight_reset',
+      );
+      expect(result.sample?.sourceMetadata['yesterday_steps'], 5000);
     },
   );
 }
