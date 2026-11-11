@@ -6,6 +6,7 @@ on:
       - flutter-whatsapp-ai-integration
     paths:
       - 'flutter_smart_health/src/app/**'
+      - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
 permissions:
@@ -32,7 +33,6 @@ jobs:
           cache: true
 
       - name: Cache deterministic CI debug keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 == '' }}
         uses: actions/cache@v4
         with:
           path: ~/.android
@@ -76,19 +76,24 @@ jobs:
           flutter build apk --release --build-number="${BUILD_NUMBER}" --build-name="${VERSION_NAME}"
           mkdir -p "${{ runner.temp }}/release-assets"
           cp build/app/outputs/flutter-apk/app-release.apk "${{ runner.temp }}/release-assets/app-release.apk"
-          BUILD_NUMBER="${BUILD_NUMBER}" VERSION_NAME="${VERSION_NAME}" python3 -c '
-          import json, os, datetime
+          BUILD_NUMBER="${BUILD_NUMBER}" VERSION_NAME="${VERSION_NAME}" python3 - <<'PY'
+          import datetime
+          import json
+          import os
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          sha = os.environ["GITHUB_SHA"][:7]
           payload = {
               "version_code": int(os.environ["BUILD_NUMBER"]),
               "version_name": os.environ["VERSION_NAME"],
-              "apk_url": f"https://github.com/{os.environ[\"GITHUB_REPOSITORY\"]}/releases/download/android-latest/app-release.apk",
-              "release_notes": f"Automated build from commit {os.environ[\"GITHUB_SHA\"][:7]}",
+              "apk_url": f"https://github.com/{repo}/releases/download/android-latest/app-release.apk",
+              "release_notes": f"Automated build from commit {sha}",
               "published_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
           }
           out_path = os.path.join(os.environ["RUNNER_TEMP"], "release-assets", "apk-version.json")
           with open(out_path, "w", encoding="utf-8") as f:
               json.dump(payload, f, indent=2)
-          '
+          PY
 
       - name: Publish APK to GitHub Release (android-latest)
         uses: softprops/action-gh-release@v2
