@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/widgets/dual_wave_horizon_background.dart';
 import '../../../l10n/l10n.dart';
 import '../../../ui/app_colors.dart';
 import '../../../ui/app_gradients.dart';
@@ -86,11 +87,12 @@ class _PatientDashboardState extends State<PatientDashboard>
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        backgroundColor: AppColors.bg,
-        surfaceTintColor: Colors.transparent,
+    return DualWaveHorizonBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
         elevation: 0,
         toolbarHeight: 68,
         centerTitle: false,
@@ -217,22 +219,22 @@ class _PatientDashboardState extends State<PatientDashboard>
                   child: Container(
                     width: 42,
                     height: 42,
-                    padding: const EdgeInsets.all(3.2),
+                    padding: const EdgeInsets.all(3.4),
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        begin: Alignment.bottomLeft,
-                        end: Alignment.topRight,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                         colors: [
                           Color(0xFF047857),
+                          Color(0xFF059669),
                           Color(0xFF10B981),
-                          Color(0xFF6EE7B7),
                         ],
-                        stops: [0.0, 0.55, 1.0],
+                        stops: [0.0, 0.5, 1.0],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0x2810B981),
+                          color: Color(0x38047857),
                           blurRadius: 8,
                           offset: Offset(0, 2),
                         ),
@@ -367,6 +369,7 @@ class _PatientDashboardState extends State<PatientDashboard>
                 ],
               ),
             ),
+      ),
     );
   }
 }

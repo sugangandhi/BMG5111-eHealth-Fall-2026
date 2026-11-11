@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_health_app/config/api_config.dart';
 import 'package:smart_health_app/core/widgets/atmospheric_sky_background.dart';
+import 'package:smart_health_app/core/widgets/dual_wave_horizon_background.dart';
 import 'package:smart_health_app/data/repositories/ehospital_repository.dart';
 import 'package:smart_health_app/features/dashboard/data/dashboard_layout_preferences.dart';
 import 'package:smart_health_app/features/dashboard/data/dashboard_summary_service.dart';
@@ -364,7 +365,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
 
       final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
-      expect(scaffold.backgroundColor, AppColors.bg);
+      expect(scaffold.backgroundColor, Colors.transparent);
+      expect(find.byType(DualWaveHorizonBackground), findsOneWidget);
       expect(find.byType(AtmosphericSkyBackground), findsNothing);
       expect(find.text('INTELLIGENT DIGITAL SOLUTION'), findsNothing);
       expect(find.byType(ModuleIllustrationBanner), findsWidgets);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/api_config.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/dual_wave_horizon_background.dart';
 import '../../../data/models/ehospital_models.dart';
 import '../../../l10n/l10n.dart';
 import '../../../services/e_hospital_auth_service.dart';
@@ -161,9 +162,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: GestureDetector(
+    return DualWaveHorizonBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: SafeArea(
@@ -214,6 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
