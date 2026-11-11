@@ -32,30 +32,43 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Cache deterministic CI debug keystore
+      - name: Cache deterministic CI signing keystore
         uses: actions/cache@v4
         with:
-          path: ~/.android
-          key: ci-android-debug-keystore-v1
+          path: ~/.ehospital-ci-signing
+          key: ci-android-release-env-keystore-v1
 
       - name: Prepare signing keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          SECRET_KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SECRET_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SECRET_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "${{ runner.temp }}/release.jks"
             echo "ANDROID_KEYSTORE_PATH=${{ runner.temp }}/release.jks" >> "$GITHUB_ENV"
-          elif [ ! -f "$HOME/.android/debug.keystore" ]; then
-            mkdir -p "$HOME/.android"
-            keytool -genkey -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
+            echo "ANDROID_KEYSTORE_PASSWORD=${SECRET_KS_PASS}" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=${SECRET_KEY_ALIAS}" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=${SECRET_KEY_PASS}" >> "$GITHUB_ENV"
+          else
+            mkdir -p "$HOME/.ehospital-ci-signing"
+            KS_PATH="$HOME/.ehospital-ci-signing/release-ci.jks"
+            if [ ! -f "$KS_PATH" ]; then
+              keytool -genkey -v \
+                -keystore "$KS_PATH" \
+                -storepass android \
+                -alias ehospitalci \
+                -keypass android \
+                -keyalg RSA \
+                -keysize 2048 \
+                -validity 10000 \
+                -dname "CN=eHospital CI,O=eHospital,C=US"
+            fi
+            echo "ANDROID_KEYSTORE_PATH=${KS_PATH}" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PASSWORD=android" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=ehospitalci" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=android" >> "$GITHUB_ENV"
           fi
 
       - name: Get Flutter dependencies & run tests
@@ -74,10 +87,6 @@ jobs:
 
       - name: Build versioned release APK
         working-directory: flutter_smart_health/src/app
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 10))
           VERSION_NAME="1.0.${BUILD_NUMBER}"
