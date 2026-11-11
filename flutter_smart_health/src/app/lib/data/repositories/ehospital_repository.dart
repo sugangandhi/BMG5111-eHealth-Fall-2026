@@ -62,14 +62,29 @@ class EHospitalRepository {
     String? timestamp,
   }) async {
     final id = patientId ?? await getCurrentPatientId() ?? 'unknown_user';
-    await _backendClient.postJson('/vitals/stress-snapshot', {
-      'patient_id': id,
-      if (hrvSdnn != null) 'hrv_sdnn': hrvSdnn,
-      if (restingHeartRate != null) 'resting_heart_rate': restingHeartRate,
-      if (respiratoryRate != null) 'respiratory_rate': respiratoryRate,
-      if (heartRate != null) 'heart_rate': heartRate,
-      'timestamp': timestamp ?? DateTime.now().toIso8601String(),
-    });
+    final ts = timestamp ?? DateTime.now().toUtc().toIso8601String();
+    try {
+      await _backendClient.postJson('/vitals/stress-snapshot', {
+        'patient_id': id,
+        if (hrvSdnn != null) 'hrv_sdnn': hrvSdnn,
+        if (restingHeartRate != null) 'resting_heart_rate': restingHeartRate,
+        if (respiratoryRate != null) 'respiratory_rate': respiratoryRate,
+        if (heartRate != null) 'heart_rate': heartRate,
+        'timestamp': ts,
+      });
+    } catch (_) {
+      // Seamless direct eHospital cloud write
+      try {
+        await _client.postJson('/table/wearable_vitals', {
+          'patient_id': id,
+          if (hrvSdnn != null) 'hrv_sdnn': hrvSdnn,
+          if (restingHeartRate != null) 'resting_heart_rate': restingHeartRate,
+          if (respiratoryRate != null) 'respiratory_rate': respiratoryRate,
+          if (heartRate != null) 'heart_rate': heartRate,
+          'timestamp': ts,
+        });
+      } catch (_) {}
+    }
   }
 
   Future<void> updateStressAnnotation({

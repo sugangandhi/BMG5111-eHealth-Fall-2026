@@ -66,6 +66,9 @@ class ApiConfig {
   );
 
   static String get backendBaseUrl {
+    if (_customBackendBaseUrl != null && _customBackendBaseUrl!.isNotEmpty) {
+      return _customBackendBaseUrl!;
+    }
     const defined = String.fromEnvironment('BACKEND_BASE_URL');
     if (defined.isNotEmpty) return defined;
     if (kIsWeb) {

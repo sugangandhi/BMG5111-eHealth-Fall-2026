@@ -13,20 +13,50 @@ abstract class WearableIngestionClient {
 
 class WearableIngestionRepository implements WearableIngestionClient {
   final ApiClient _client;
+  final ApiClient _cloudClient;
 
-  WearableIngestionRepository({ApiClient? client})
-    : _client = client ?? ApiClient();
+  WearableIngestionRepository({ApiClient? client, ApiClient? cloudClient})
+    : _client = client ?? ApiClient(),
+      _cloudClient =
+          cloudClient ?? ApiClient(baseUrl: ApiConfig.ehospitalBaseUrl);
 
   @override
   Future<WearableIngestionResult> ingest(WearableSample sample) async {
-    final decoded = await _client.postJson(
-      '/wearables/ingest',
-      sample.toJson(),
-    );
-    if (decoded is! Map<String, dynamic>) {
-      throw const ApiException('Backend returned an unexpected response.');
+    try {
+      final decoded = await _client.postJson(
+        '/wearables/ingest',
+        sample.toJson(),
+      );
+      if (decoded is Map<String, dynamic>) {
+        return WearableIngestionResult.fromJson(decoded);
+      }
+    } catch (_) {
+      // Local backend unreachable (e.g. mobile device on 5G cellular network).
+      // Seamlessly persist directly to central AWS App Runner eHospital cloud EHR.
+      try {
+        final payload = {
+          'patient_id': sample.patientId,
+          if (sample.heartRate != null) 'heart_rate': sample.heartRate,
+          if (sample.steps != null) 'steps': sample.steps,
+          if (sample.calories != null) 'calories': sample.calories,
+          if (sample.sleep != null) 'sleep': sample.sleep,
+          if (sample.stressScore != null) 'stress_score': sample.stressScore,
+          'timestamp': sample.timestamp.toUtc().toIso8601String(),
+        };
+        await _cloudClient.postJson('/table/wearable_vitals', payload);
+        return WearableIngestionResult(
+          status: 'ingested',
+          patientId: sample.patientId,
+          acceptedMetrics: sample.acceptedMetrics,
+          source: sample.source,
+          timestamp: sample.timestamp.toUtc().toIso8601String(),
+          recordedOn: DateTime.now().toUtc().toIso8601String(),
+        );
+      } catch (cloudErr) {
+        throw ApiException('Failed to sync wearable vitals: $cloudErr');
+      }
     }
-    return WearableIngestionResult.fromJson(decoded);
+    throw const ApiException('Backend returned an unexpected response.');
   }
 
   @override
