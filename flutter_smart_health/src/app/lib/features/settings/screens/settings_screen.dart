@@ -7,6 +7,7 @@ import '../../../data/repositories/model_invocation_settings_store.dart';
 import '../../../l10n/l10n.dart';
 import '../../../services/app_update_service.dart';
 import '../../../ui/ui.dart';
+import '../../dashboard/data/dashboard_layout_preferences.dart';
 import '../presentation/settings_styles.dart';
 import '../widgets/data_sources_dialog.dart';
 import '../widgets/settings_section_header.dart';
@@ -21,6 +22,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = false;
+  bool _gridViewEnabled = false;
   String _email = "";
   int? _patientId;
   ModelInvocationSettings? _modelInvocationSettings;
@@ -42,10 +44,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final rawId = prefs.get("patient_id");
     final modelSettings = await ModelInvocationSettingsStore().loadEffective();
     final version = await _updateService.getInstalledVersion();
+    final gridEnabled = await DashboardLayoutPreferences.isGridViewEnabled();
     _patientId = int.tryParse(rawId?.toString() ?? '');
     if (mounted) {
       setState(() {
         _notificationsEnabled = prefs.getBool("notifications_enabled_$_patientId") ?? false;
+        _gridViewEnabled = gridEnabled;
         _email = prefs.getString("patient_email") ?? "";
         _modelInvocationSettings = modelSettings;
         _appVersion = version;
@@ -57,6 +61,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _updateCheck = check);
       }
     }
+  }
+
+  Future<void> _toggleGridView(bool val) async {
+    await DashboardLayoutPreferences.setGridViewEnabled(val);
+    if (!mounted) return;
+    setState(() => _gridViewEnabled = val);
   }
 
   Future<void> _initNotifications() async {
@@ -199,6 +209,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: _toggleNotifications,
                       activeThumbColor: AppColors.primary,
                     ),
+                  ),
+                  const SettingsSectionHeader(title: 'Home Screen'),
+                  SettingsTile(
+                    icon: Icons.grid_view_rounded,
+                    title: 'Grid View Mode',
+                    subtitle: _gridViewEnabled
+                        ? 'Showing compact tile grid on Home'
+                        : 'Showing 12-card App Switcher carousel',
+                    trailing: Switch(
+                      key: const Key('settings-grid-view-switch'),
+                      value: _gridViewEnabled,
+                      onChanged: _toggleGridView,
+                      activeThumbColor: AppColors.primary,
+                    ),
+                    onTap: () => _toggleGridView(!_gridViewEnabled),
                   ),
                   SettingsSectionHeader(title: l10n.emergencySection),
                   SettingsTile(

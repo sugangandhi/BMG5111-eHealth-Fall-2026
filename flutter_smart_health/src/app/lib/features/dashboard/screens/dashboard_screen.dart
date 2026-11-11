@@ -4,9 +4,11 @@ import 'package:flutter/services.dart';
 import '../../../l10n/l10n.dart';
 import '../../../ui/app_colors.dart';
 import '../../../ui/app_gradients.dart';
+import '../data/dashboard_layout_preferences.dart';
 import '../data/dashboard_summary_service.dart';
 import '../presentation/dashboard_styles.dart';
 import '../widgets/app_switcher_carousel.dart';
+import '../widgets/ask_ai_shortcut_pill.dart';
 import '../widgets/dashboard_featured_card.dart';
 import '../widgets/dashboard_grid_card.dart';
 import '../widgets/dashboard_grid_row.dart';
@@ -34,6 +36,7 @@ class _PatientDashboardState extends State<PatientDashboard>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _summaryService = widget.summaryService ?? DashboardSummaryService();
+    _loadLayoutPreference();
     _loadSummary();
   }
 
@@ -46,7 +49,17 @@ class _PatientDashboardState extends State<PatientDashboard>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
+      _loadLayoutPreference();
       _loadSummary();
+    }
+  }
+
+  Future<void> _loadLayoutPreference() async {
+    final useGridView = await DashboardLayoutPreferences.isGridViewEnabled();
+    if (!mounted) return;
+    final showSwitcher = !useGridView;
+    if (_showAppSwitcher != showSwitcher) {
+      setState(() => _showAppSwitcher = showSwitcher);
     }
   }
 
@@ -64,6 +77,7 @@ class _PatientDashboardState extends State<PatientDashboard>
   Future<void> _open(String routeName) async {
     await Navigator.pushNamed(context, routeName);
     if (mounted) {
+      await _loadLayoutPreference();
       await _loadSummary();
     }
   }
@@ -177,35 +191,13 @@ class _PatientDashboardState extends State<PatientDashboard>
           ),
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A16202C),
-                  blurRadius: 6,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: IconButton(
-              icon: Icon(
-                _showAppSwitcher
-                    ? Icons.grid_view_rounded
-                    : Icons.view_carousel_rounded,
-                size: 19,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+            child: Center(
+              child: AskAiShortcutPill(
+                key: const Key('dashboard-ask-ai-shortcut'),
+                onTap: () => _open('/assistant'),
               ),
-              color: _showAppSwitcher ? AppColors.textDark : AppColors.primary,
-              tooltip: _showAppSwitcher
-                  ? "Switch to Grid View"
-                  : "Switch to App Switcher",
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                setState(() => _showAppSwitcher = !_showAppSwitcher);
-              },
             ),
           ),
           Container(

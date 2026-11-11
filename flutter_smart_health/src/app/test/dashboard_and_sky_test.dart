@@ -6,11 +6,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_health_app/config/api_config.dart';
 import 'package:smart_health_app/core/widgets/atmospheric_sky_background.dart';
 import 'package:smart_health_app/data/repositories/ehospital_repository.dart';
+import 'package:smart_health_app/features/dashboard/data/dashboard_layout_preferences.dart';
 import 'package:smart_health_app/features/dashboard/data/dashboard_summary_service.dart';
 import 'package:smart_health_app/features/dashboard/screens/dashboard_screen.dart';
 import 'package:smart_health_app/features/dashboard/widgets/app_switcher_carousel.dart';
+import 'package:smart_health_app/features/dashboard/widgets/ask_ai_shortcut_pill.dart';
+import 'package:smart_health_app/features/dashboard/widgets/dashboard_grid_card.dart';
 import 'package:smart_health_app/features/dashboard/widgets/module_illustration_banner.dart';
 import 'package:smart_health_app/features/profile/screens/profile_screen.dart';
+import 'package:smart_health_app/features/settings/screens/settings_screen.dart';
 import 'package:smart_health_app/l10n/generated/app_localizations.dart';
 import 'package:smart_health_app/ui/app_colors.dart';
 
@@ -254,17 +258,25 @@ void main() {
   );
 
   testWidgets(
-    'PatientDashboard removes top Emergency SOS icon from AppBar and keeps switcher + Profile',
+    'PatientDashboard removes top Emergency SOS and Grid icons and shows Ask AI shortcut + Profile',
     (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
+      tester.view.physicalSize = const Size(360, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      var openedAssistant = false;
 
       await tester.pumpWidget(
         MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          routes: {
+            '/assistant': (_) {
+              openedAssistant = true;
+              return const Scaffold(body: Text('Assistant Screen'));
+            },
+          },
           home: PatientDashboard(summaryService: _FakeDashboardSummaryService()),
         ),
       );
@@ -273,8 +285,18 @@ void main() {
 
       expect(find.byIcon(Icons.emergency_rounded), findsNothing);
       expect(find.byTooltip('Emergency SOS'), findsNothing);
-      expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.grid_view_rounded), findsNothing);
+      expect(find.byIcon(Icons.view_carousel_rounded), findsNothing);
+      expect(find.byType(AskAiShortcutPill), findsOneWidget);
+      expect(find.text('Ask AI'), findsOneWidget);
       expect(find.byIcon(Icons.person_rounded), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('dashboard-ask-ai-shortcut')));
+      await tester.pumpAndSettle();
+
+      expect(openedAssistant, isTrue);
+      expect(find.text('Assistant Screen'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -346,12 +368,52 @@ void main() {
       expect(find.byType(AtmosphericSkyBackground), findsNothing);
       expect(find.text('INTELLIGENT DIGITAL SOLUTION'), findsNothing);
       expect(find.byType(ModuleIllustrationBanner), findsWidgets);
+      expect(find.byType(AppSwitcherCarousel), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-      // Switch cleanly to light Grid View as well
-      await tester.tap(find.byIcon(Icons.grid_view_rounded));
+  testWidgets(
+    'SettingsScreen moves Grid View Mode toggle into Settings and Home honors preference',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'patient_id': 42});
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SettingsScreen(),
+        ),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.byIcon(Icons.view_carousel_rounded), findsOneWidget);
+
+      final gridSwitchFinder = find.byKey(const Key('settings-grid-view-switch'));
+      await tester.ensureVisible(gridSwitchFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Grid View Mode'), findsOneWidget);
+      expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
+      expect(tester.widget<Switch>(gridSwitchFinder).value, isFalse);
+
+      await tester.tap(gridSwitchFinder);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(gridSwitchFinder).value, isTrue);
+      expect(await DashboardLayoutPreferences.isGridViewEnabled(), isTrue);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: PatientDashboard(summaryService: _FakeDashboardSummaryService()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(AppSwitcherCarousel), findsNothing);
+      expect(find.byType(DashboardGridCard), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );

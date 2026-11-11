@@ -32,26 +32,31 @@ class SettingsTile extends StatelessWidget {
         color: backgroundColor,
         borderColor: borderColor,
       ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: AppRadii.radius(AppRadii.xl)),
-        contentPadding: SettingsStyles.tileContentPadding,
-        leading: Container(
-          width: SettingsStyles.iconSize,
-          height: SettingsStyles.iconSize,
-          decoration: SettingsStyles.iconDecoration(iconColor),
-          child: Icon(icon, size: 20, color: iconColor),
-        ),
-        title: Text(
-          title,
-          style: AppTypography.body.copyWith(
-            fontWeight: FontWeight.w600,
-            color: iconColor == AppColors.danger ? iconColor : AppColors.textDark,
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: AppRadii.radius(AppRadii.xl),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: AppRadii.radius(AppRadii.xl)),
+          contentPadding: SettingsStyles.tileContentPadding,
+          leading: Container(
+            width: SettingsStyles.iconSize,
+            height: SettingsStyles.iconSize,
+            decoration: SettingsStyles.iconDecoration(iconColor),
+            child: Icon(icon, size: 20, color: iconColor),
           ),
+          title: Text(
+            title,
+            style: AppTypography.body.copyWith(
+              fontWeight: FontWeight.w600,
+              color: iconColor == AppColors.danger ? iconColor : AppColors.textDark,
+            ),
+          ),
+          subtitle: subtitle == null ? null : Text(subtitle!, style: AppTypography.caption),
+          trailing: trailing ??
+              (onTap != null ? const Icon(Icons.chevron_right, color: AppColors.textMuted) : null),
+          onTap: onTap,
         ),
-        subtitle: subtitle == null ? null : Text(subtitle!, style: AppTypography.caption),
-        trailing: trailing ??
-            (onTap != null ? const Icon(Icons.chevron_right, color: AppColors.textMuted) : null),
-        onTap: onTap,
       ),
     );
   }
