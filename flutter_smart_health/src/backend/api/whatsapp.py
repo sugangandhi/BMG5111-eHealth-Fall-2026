@@ -79,6 +79,7 @@ class VoiceTranscribeRequest(BaseModel):
     audio_base64: Optional[str] = None
     sample_text: Optional[str] = None
     patient_id: Optional[str] = "391"
+    filename: Optional[str] = "recording.webm"
 
 class SimulateMessageRequest(BaseModel):
     phone: str = "613-261-6383"
@@ -289,12 +290,24 @@ async def voice_transcribe(req: VoiceTranscribeRequest):
     if req.audio_base64:
         try:
             audio_bytes = base64.b64decode(req.audio_base64)
-            whisper_text = transcribe_audio_whisper(audio_bytes)
+            raw_name = (req.filename or "recording.webm").strip().lower()
+            ext = os.path.splitext(raw_name)[1]
+            safe_ext = ext if ext in {".webm", ".m4a", ".mp3", ".wav", ".ogg"} else ".webm"
+            whisper_text = transcribe_audio_whisper(audio_bytes, filename=f"recording{safe_ext}")
             if whisper_text:
                 spoken_text = whisper_text.strip()
                 source = "whisper-1"
         except Exception as e:
             print(f"[Voice Transcribe Decode Error]: {e}")
+
+        if not spoken_text:
+            return {
+                "transcription": "",
+                "response": "",
+                "confidence": 0.0,
+                "model": "whisper-1",
+                "source": "whisper-unavailable",
+            }
 
     if not spoken_text:
         spoken_text = req.sample_text or "Check my latest heart rate and blood pressure from my Apple Watch."

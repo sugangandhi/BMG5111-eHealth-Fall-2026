@@ -1,12 +1,21 @@
 package com.example.smart_health_app
 
+import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.util.Base64
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.health.connect.client.HealthConnectClient
@@ -45,10 +54,19 @@ class MainActivity : FlutterFragmentActivity() {
     companion object {
         private const val HEALTH_APPS_CHANNEL = "com.example.smart_health_app/health_apps"
         private const val APP_UPDATER_CHANNEL = "com.example.smart_health_app/app_updater"
+        private const val VOICE_SCRIBE_CHANNEL = "com.example.smart_health_app/voice_scribe"
+        private const val REQUEST_RECORD_AUDIO = 4207
     }
 
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var voiceScribeChannel: MethodChannel? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var mediaRecorder: MediaRecorder? = null
+    private var recordedAudioFile: File? = null
+    private var isVoiceRecordingFallback = false
+    private var latestPartialTranscript = ""
+    private var pendingVoiceStartAction: (() -> Unit)? = null
 
     private data class HealthRecordProbeSpec(
         val label: String,
@@ -134,6 +152,25 @@ class MainActivity : FlutterFragmentActivity() {
                 "installApk" -> {
                     val path = call.argument<String>("path") ?: ""
                     result.success(installApk(path))
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        val voiceChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            VOICE_SCRIBE_CHANNEL,
+        )
+        voiceScribeChannel = voiceChannel
+        voiceChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startListening" -> {
+                    startVoiceDictation()
+                    result.success(true)
+                }
+                "stopListening" -> {
+                    stopVoiceDictation()
+                    result.success(true)
                 }
                 else -> result.notImplemented()
             }
@@ -859,5 +896,241 @@ class MainActivity : FlutterFragmentActivity() {
         } catch (_: Exception) {
             false
         }
+    }
+
+    private fun startVoiceDictation() {
+        ensureRecordAudioPermission {
+            if (SpeechRecognizer.isRecognitionAvailable(this)) {
+                startNativeSpeechRecognizer()
+            } else {
+                startAudioCaptureFallback()
+            }
+        }
+    }
+
+    private fun ensureRecordAudioPermission(onGranted: () -> Unit) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            onGranted()
+            return
+        }
+        pendingVoiceStartAction = onGranted
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.RECORD_AUDIO),
+            REQUEST_RECORD_AUDIO,
+        )
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_RECORD_AUDIO) {
+            val action = pendingVoiceStartAction
+            pendingVoiceStartAction = null
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                action?.invoke()
+            } else {
+                emitVoiceStatus(
+                    "error",
+                    "Microphone permission is required for voice dictation.",
+                )
+            }
+        }
+    }
+
+    private fun startNativeSpeechRecognizer() {
+        mainHandler.post {
+            try {
+                speechRecognizer?.destroy()
+                speechRecognizer = null
+                isVoiceRecordingFallback = false
+                latestPartialTranscript = ""
+
+                val recognizer = SpeechRecognizer.createSpeechRecognizer(this)
+                speechRecognizer = recognizer
+                recognizer.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        emitVoiceStatus("listening", "")
+                    }
+
+                    override fun onBeginningOfSpeech() {}
+                    override fun onRmsChanged(rmsdB: Float) {}
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+                    override fun onEndOfSpeech() {}
+
+                    override fun onError(error: Int) {
+                        if (latestPartialTranscript.isNotBlank()) {
+                            emitVoiceResult(latestPartialTranscript, "")
+                            latestPartialTranscript = ""
+                        }
+                        if (error == SpeechRecognizer.ERROR_NO_MATCH ||
+                            error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                        ) {
+                            emitVoiceStatus("stopped", "")
+                        } else if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                            emitVoiceStatus(
+                                "error",
+                                "Microphone permission denied. Allow mic access in Settings.",
+                            )
+                        } else {
+                            // Release SpeechRecognizer mic hold before falling back to MediaRecorder + Whisper.
+                            try {
+                                speechRecognizer?.destroy()
+                            } catch (_: Exception) {}
+                            speechRecognizer = null
+                            startAudioCaptureFallback()
+                        }
+                    }
+
+                    override fun onResults(results: Bundle?) {
+                        val matches = results
+                            ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val spoken = matches?.firstOrNull()?.trim().orEmpty()
+                        val resolved = if (spoken.isNotEmpty()) spoken else latestPartialTranscript
+                        latestPartialTranscript = ""
+                        if (resolved.isNotEmpty()) {
+                            emitVoiceResult(resolved, "")
+                        }
+                        emitVoiceStatus("stopped", "")
+                    }
+
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults
+                            ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val partial = matches?.firstOrNull()?.trim().orEmpty()
+                        if (partial.isNotEmpty()) {
+                            latestPartialTranscript = partial
+                            emitVoiceResult("", partial)
+                        }
+                    }
+
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                    )
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                }
+                emitVoiceStatus("listening", "")
+                recognizer.startListening(intent)
+            } catch (_: Exception) {
+                startAudioCaptureFallback()
+            }
+        }
+    }
+
+    private fun startAudioCaptureFallback() {
+        mainHandler.post {
+            try {
+                releaseMediaRecorder()
+                val outFile = File(cacheDir, "voice_note.m4a")
+                if (outFile.exists()) outFile.delete()
+                val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    MediaRecorder(this)
+                } else {
+                    @Suppress("DEPRECATION")
+                    MediaRecorder()
+                }
+                recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+                recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                recorder.setAudioSamplingRate(16000)
+                recorder.setAudioEncodingBitRate(64000)
+                recorder.setOutputFile(outFile.absolutePath)
+                recorder.prepare()
+                recorder.start()
+                mediaRecorder = recorder
+                recordedAudioFile = outFile
+                isVoiceRecordingFallback = true
+                emitVoiceStatus("recording", "")
+            } catch (e: Exception) {
+                isVoiceRecordingFallback = false
+                emitVoiceStatus("error", "Could not start microphone: ${e.message ?: "error"}")
+            }
+        }
+    }
+
+    private fun stopVoiceDictation() {
+        mainHandler.post {
+            if (isVoiceRecordingFallback) {
+                isVoiceRecordingFallback = false
+                val targetFile = recordedAudioFile
+                try {
+                    mediaRecorder?.stop()
+                } catch (_: Exception) {}
+                releaseMediaRecorder()
+                if (targetFile != null && targetFile.exists() && targetFile.length() > 0L) {
+                    emitVoiceStatus("transcribing", "")
+                    ioScope.launch {
+                        try {
+                            val bytes = targetFile.readBytes()
+                            val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                            targetFile.delete()
+                            mainHandler.post {
+                                voiceScribeChannel?.invokeMethod(
+                                    "onAudioCaptured",
+                                    mapOf("base64" to b64, "filename" to "voice_note.m4a"),
+                                )
+                            }
+                        } catch (e: Exception) {
+                            mainHandler.post {
+                                emitVoiceStatus("error", "Audio capture failed: ${e.message ?: "error"}")
+                            }
+                        }
+                    }
+                } else {
+                    emitVoiceStatus("stopped", "")
+                }
+                return@post
+            }
+
+            try {
+                speechRecognizer?.stopListening()
+            } catch (_: Exception) {
+                emitVoiceStatus("stopped", "")
+            }
+        }
+    }
+
+    private fun releaseMediaRecorder() {
+        try {
+            mediaRecorder?.reset()
+            mediaRecorder?.release()
+        } catch (_: Exception) {}
+        mediaRecorder = null
+    }
+
+    private fun emitVoiceResult(finalResult: String, interimResult: String) {
+        mainHandler.post {
+            voiceScribeChannel?.invokeMethod(
+                "onSpeechResult",
+                mapOf("finalResult" to finalResult, "interimResult" to interimResult),
+            )
+        }
+    }
+
+    private fun emitVoiceStatus(status: String, message: String) {
+        mainHandler.post {
+            voiceScribeChannel?.invokeMethod(
+                "onSpeechStatus",
+                mapOf("status" to status, "message" to message),
+            )
+        }
+    }
+
+    override fun onDestroy() {
+        speechRecognizer?.destroy()
+        speechRecognizer = null
+        releaseMediaRecorder()
+        super.onDestroy()
     }
 }

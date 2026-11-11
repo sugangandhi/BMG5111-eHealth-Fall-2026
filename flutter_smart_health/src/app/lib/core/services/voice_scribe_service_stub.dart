@@ -1,6 +1,6 @@
-typedef SpeechResultCallback = void Function(String finalResult, String interimResult);
-typedef SpeechStatusCallback = void Function(String status, String message);
-typedef AudioRecordingDoneCallback = void Function(String base64Audio);
+import 'voice_scribe_types.dart';
+
+export 'voice_scribe_types.dart';
 
 class VoiceScribeService {
   static bool get isSupported => false;
@@ -9,13 +9,19 @@ class VoiceScribeService {
     required SpeechResultCallback onResult,
     required SpeechStatusCallback onStatus,
   }) {
-    onStatus('unsupported', 'Live microphone speech recognition is supported in Chrome or Edge web browser.');
+    onStatus(
+      'unsupported',
+      'Microphone dictation is unavailable on this platform.',
+    );
   }
 
   static void stopListening() {}
 
   static void startRecordingAudio({required SpeechStatusCallback onStatus}) {
-    onStatus('unsupported', 'Audio recording is supported in Chrome or Edge web browser.');
+    onStatus(
+      'unsupported',
+      'Audio recording is unavailable on this platform.',
+    );
   }
 
   static void stopRecordingAudio({required AudioRecordingDoneCallback onDone}) {

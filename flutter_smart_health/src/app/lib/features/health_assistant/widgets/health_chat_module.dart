@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/api_config.dart';
-import '../../../core/services/voice_scribe_service.dart';
+import '../../../core/services/voice_dictation_helper.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/backend_api_service.dart';
 import 'whatsapp_inbox_module.dart';
@@ -54,7 +54,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   final List<_HealthChatMessage> _messages = [];
   bool _isLoading = false;
   bool _isListening = false;
-  String _speechBufferBeforeListening = "";
+  late final VoiceDictationController _voiceController;
   String _patientId = "1";
 
   static const List<String> _suggestedPrompts = [
@@ -67,7 +67,24 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   @override
   void initState() {
     super.initState();
+    _voiceController = VoiceDictationController(
+      textController: _controller,
+      isMounted: () => mounted,
+      onListeningChanged: (listening) => setState(() => _isListening = listening),
+      onStatusMessage: _showVoiceStatus,
+    );
     _loadPatientAndHistory();
+  }
+
+  void _showVoiceStatus(String message) {
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   Future<void> _loadPatientAndHistory() async {
@@ -151,7 +168,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   @override
   void dispose() {
-    VoiceScribeService.stopListening();
+    _voiceController.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -191,57 +208,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   }
 
   void _toggleListening() {
-    if (_isListening) {
-      VoiceScribeService.stopListening();
-      setState(() => _isListening = false);
-      return;
-    }
-
-    _speechBufferBeforeListening = _controller.text;
-    setState(() {
-      _isListening = true;
-    });
-
-    VoiceScribeService.startListening(
-      onResult: (finalResult, interimResult) {
-        if (!mounted) return;
-        final recognized = (finalResult.isNotEmpty ? finalResult : interimResult).trim();
-        if (recognized.isNotEmpty) {
-          final prefix = _speechBufferBeforeListening.trim();
-          final updated = prefix.isEmpty ? recognized : "$prefix $recognized";
-          setState(() {
-            _controller.text = updated;
-            _controller.selection = TextSelection.fromPosition(
-              TextPosition(offset: _controller.text.length),
-            );
-          });
-        }
-      },
-      onStatus: (status, message) {
-        if (!mounted) return;
-        if (status == 'stopped') {
-          setState(() => _isListening = false);
-        } else if (status == 'error' || status == 'unsupported') {
-          setState(() => _isListening = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                status == 'unsupported'
-                    ? "Live microphone voice dictation is supported in Google Chrome or Edge."
-                    : "Microphone note: $message. Please make sure microphone permission is granted.",
-              ),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-      },
-    );
+    _voiceController.toggle();
   }
 
   Future<void> _sendMessage([String? textToSend, bool isVoice = false]) async {
     if (_isListening) {
-      VoiceScribeService.stopListening();
-      setState(() => _isListening = false);
+      _voiceController.stop();
     }
     final text = (textToSend ?? _controller.text).trim();
     if (text.isEmpty || _isLoading) return;

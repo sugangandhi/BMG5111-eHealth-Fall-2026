@@ -39,29 +39,123 @@
       recognition: null,
       isListening: false,
       mediaRecorder: null,
+      activeStream: null,
       audioChunks: [],
-      
-      startListening: function(onResultCallback, onStatusCallback) {
-        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-          if (onStatusCallback) onStatusCallback('unsupported', 'Web Speech API is not supported in this browser. Please use Google Chrome or Edge.');
+      usingAudioFallback: false,
+      capturedSpeech: false,
+      _pendingStatusCb: null,
+      _pendingAudioCb: null,
+
+      _releaseStream: function() {
+        if (this.activeStream) {
+          try {
+            var tracks = this.activeStream.getTracks();
+            for (var i = 0; i < tracks.length; i++) {
+              tracks[i].stop();
+            }
+          } catch (e) {}
+          this.activeStream = null;
+        }
+      },
+
+      _startMediaRecorderFallback: function(onStatusCallback, onAudioCallback) {
+        var self = this;
+        self._pendingStatusCb = onStatusCallback;
+        self._pendingAudioCb = onAudioCallback;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+          self.isListening = false;
+          self.usingAudioFallback = false;
+          if (onStatusCallback) {
+            onStatusCallback('unsupported', 'Live microphone voice capture is unavailable in this browser or requires an HTTPS connection.');
+          }
           return;
         }
-        
+
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(function(stream) {
+            self._releaseStream();
+            self.activeStream = stream;
+            self.audioChunks = [];
+            self.usingAudioFallback = true;
+            self.isListening = true;
+
+            var options = {};
+            var mimeCandidates = [
+              'audio/webm;codecs=opus',
+              'audio/webm',
+              'audio/mp4',
+              'audio/ogg;codecs=opus',
+              'audio/ogg'
+            ];
+            if (typeof MediaRecorder.isTypeSupported === 'function') {
+              for (var i = 0; i < mimeCandidates.length; i++) {
+                if (MediaRecorder.isTypeSupported(mimeCandidates[i])) {
+                  options.mimeType = mimeCandidates[i];
+                  break;
+                }
+              }
+            }
+
+            self.mediaRecorder = options.mimeType
+              ? new MediaRecorder(stream, options)
+              : new MediaRecorder(stream);
+
+            self.mediaRecorder.ondataavailable = function(e) {
+              if (e.data && e.data.size > 0) {
+                self.audioChunks.push(e.data);
+              }
+            };
+            self.mediaRecorder.onerror = function(e) {
+              self.isListening = false;
+              self.usingAudioFallback = false;
+              self._releaseStream();
+              if (onStatusCallback) {
+                onStatusCallback('error', (e && e.error && e.error.message) || 'Audio recording error.');
+              }
+            };
+            self.mediaRecorder.start();
+            if (onStatusCallback) onStatusCallback('recording', '');
+          })
+          .catch(function(err) {
+            console.error('[ClinicalVoice] MediaRecorder fallback error:', err);
+            self.isListening = false;
+            self.usingAudioFallback = false;
+            self._releaseStream();
+            if (onStatusCallback) {
+              onStatusCallback('error', (err && err.message) ? err.message : err.toString());
+            }
+          });
+      },
+
+      startListening: function(onResultCallback, onStatusCallback, onAudioCallback) {
+        var self = this;
+        self.capturedSpeech = false;
+        self.usingAudioFallback = false;
+        self._pendingStatusCb = onStatusCallback || null;
+        self._pendingAudioCb = onAudioCallback || null;
+
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          self._startMediaRecorderFallback(onStatusCallback, onAudioCallback);
+          return;
+        }
+
         try {
           if (this.recognition) {
             try { this.recognition.abort(); } catch (e) {}
           }
           var rec = new SpeechRecognition();
+          var switchedToFallback = false;
           rec.continuous = true;
           rec.interimResults = true;
           rec.lang = 'en-US';
-          
+
           rec.onstart = function() {
-            window.clinicalVoice.isListening = true;
+            self.isListening = true;
             if (onStatusCallback) onStatusCallback('listening', '');
           };
-          
+
           rec.onresult = function(event) {
             var interim = '';
             var final = '';
@@ -72,30 +166,99 @@
                 interim += event.results[i][0].transcript;
               }
             }
+            if (final.trim() || interim.trim()) {
+              self.capturedSpeech = true;
+            }
             if (onResultCallback) {
               onResultCallback(final.trim(), interim.trim());
             }
           };
-          
+
           rec.onerror = function(event) {
-            console.warn('[ClinicalVoice] Speech error:', event.error);
-            if (onStatusCallback) onStatusCallback('error', event.error || 'Speech recognition error');
+            var code = event && event.error ? event.error : 'Speech recognition error';
+            console.warn('[ClinicalVoice] Speech error:', code);
+            if (code === 'aborted') return;
+            var fallbackEligible = (
+              code === 'service-not-allowed' ||
+              code === 'network' ||
+              code === 'language-not-supported'
+            );
+            if (fallbackEligible && !self.capturedSpeech && onAudioCallback) {
+              switchedToFallback = true;
+              self.recognition = null;
+              self._startMediaRecorderFallback(onStatusCallback, onAudioCallback);
+              return;
+            }
+            self.isListening = false;
+            if (onStatusCallback) onStatusCallback('error', code);
           };
-          
+
           rec.onend = function() {
-            window.clinicalVoice.isListening = false;
+            if (switchedToFallback) return;
+            self.isListening = false;
             if (onStatusCallback) onStatusCallback('stopped', '');
           };
-          
+
           this.recognition = rec;
           rec.start();
         } catch (err) {
           console.error('[ClinicalVoice] Failed to start:', err);
-          if (onStatusCallback) onStatusCallback('error', err.toString());
+          if (!self.capturedSpeech && onAudioCallback) {
+            self._startMediaRecorderFallback(onStatusCallback, onAudioCallback);
+          } else if (onStatusCallback) {
+            onStatusCallback('error', err.toString());
+          }
         }
       },
-      
+
       stopListening: function() {
+        var self = this;
+        if (this.usingAudioFallback && this.mediaRecorder) {
+          var statusCb = this._pendingStatusCb;
+          var audioCb = this._pendingAudioCb;
+          var recorder = this.mediaRecorder;
+          var chunks = this.audioChunks;
+          var mimeType = (recorder.mimeType || 'audio/webm');
+          this.usingAudioFallback = false;
+          this.isListening = false;
+          this.mediaRecorder = null;
+
+          recorder.onstop = function() {
+            self._releaseStream();
+            var audioBlob = new Blob(chunks, { type: mimeType });
+            if (!audioBlob || audioBlob.size === 0 || !audioCb) {
+              if (statusCb) statusCb('stopped', '');
+              return;
+            }
+            var ext = mimeType.indexOf('mp4') !== -1
+              ? 'recording.mp4'
+              : (mimeType.indexOf('ogg') !== -1 ? 'recording.ogg' : 'recording.webm');
+            if (statusCb) statusCb('transcribing', '');
+            var reader = new FileReader();
+            reader.onloadend = function() {
+              var base64Data = (reader.result || '').toString().split(',')[1] || '';
+              if (base64Data) {
+                audioCb(base64Data, ext);
+              } else if (statusCb) {
+                statusCb('error', 'Empty voice recording captured.');
+              }
+            };
+            reader.readAsDataURL(audioBlob);
+          };
+          try {
+            if (recorder.state !== 'inactive') {
+              recorder.stop();
+            } else {
+              self._releaseStream();
+              if (statusCb) statusCb('stopped', '');
+            }
+          } catch (e) {
+            self._releaseStream();
+            if (statusCb) statusCb('error', e.toString());
+          }
+          return;
+        }
+
         if (this.recognition) {
           try {
             this.recognition.stop();
@@ -112,6 +275,8 @@
         }
         navigator.mediaDevices.getUserMedia({ audio: true })
           .then(function(stream) {
+            self._releaseStream();
+            self.activeStream = stream;
             self.audioChunks = [];
             self.mediaRecorder = new MediaRecorder(stream);
             self.mediaRecorder.ondataavailable = function(e) {
@@ -124,6 +289,7 @@
           })
           .catch(function(err) {
             console.error('[ClinicalVoice] MediaRecorder error:', err);
+            self._releaseStream();
             if (onStatusCallback) onStatusCallback('error', err.toString());
           });
       },
@@ -131,11 +297,16 @@
       stopRecordingAudio: function(onDoneCallback) {
         var self = this;
         if (!this.mediaRecorder) {
+          this._releaseStream();
           if (onDoneCallback) onDoneCallback('');
           return;
         }
-        this.mediaRecorder.onstop = function() {
-          var audioBlob = new Blob(self.audioChunks, { type: 'audio/webm' });
+        var recorder = this.mediaRecorder;
+        var chunks = this.audioChunks;
+        this.mediaRecorder = null;
+        recorder.onstop = function() {
+          self._releaseStream();
+          var audioBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
           var reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = function() {
@@ -144,8 +315,9 @@
           };
         };
         try {
-          this.mediaRecorder.stop();
+          recorder.stop();
         } catch (e) {
+          self._releaseStream();
           if (onDoneCallback) onDoneCallback('');
         }
       }
