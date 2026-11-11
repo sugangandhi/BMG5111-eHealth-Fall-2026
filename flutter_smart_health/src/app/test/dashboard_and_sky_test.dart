@@ -367,7 +367,6 @@ void main() {
                 kind: kind,
                 progress: 0.35,
                 badgeText: kind.name,
-                overlayValueText: '73 bpm',
                 accentColor: AppColors.primary,
                 backgroundColor: AppColors.primarySoft,
               ),
@@ -378,6 +377,59 @@ void main() {
         expect(find.text(kind.name), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
+    },
+  );
+
+  testWidgets(
+    'Dashboard adapts synced health app source label and metrics dynamically',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'patient_id': '42',
+        'last_wearable_source': 'fitbit',
+      });
+      final service = DashboardSummaryService(
+        ehospitalRepository: _FakeEHospitalRepository({
+          'ecg': const [],
+          'vitals_history': const [],
+          'wearable_vitals': [
+            {
+              'timestamp': '2026-11-11T07:00:00Z',
+              'heart_rate': 68,
+              'steps': 2410,
+              'calories': 135,
+              'source': 'fitbit',
+            },
+          ],
+        }),
+      );
+      final fitbitSummary = await service.load();
+      expect(fitbitSummary.wearableSourceLabel, 'Fitbit');
+      expect(fitbitSummary.stepsCount, 2410);
+      expect(fitbitSummary.heartRateBpm, 68);
+
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: AppSwitcherCarousel(
+              summary: fitbitSummary,
+              onSelectApp: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Fitbit'), findsOneWidget);
+      expect(find.text('68 BPM'), findsOneWidget);
+      expect(find.text('2410 Steps'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 }

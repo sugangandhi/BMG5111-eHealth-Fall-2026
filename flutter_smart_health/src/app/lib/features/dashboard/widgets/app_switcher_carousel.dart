@@ -259,16 +259,19 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
 
   Widget _buildQuickSummaryStrip() {
     final s = widget.summary;
-    final steps = s?.stepsCount ?? 8420;
-    final hr = s?.heartRateBpm;
-    final sleep = s?.sleepHours;
+    final stepsValue = s?.stepsCount != null ? '${s!.stepsCount}' : '--';
+    final hrValue =
+        s?.heartRateBpm != null ? '${s!.heartRateBpm} bpm' : '-- bpm';
+    final sleepValue = s?.sleepHours != null
+        ? '${s!.sleepHours!.toStringAsFixed(1)} hrs'
+        : '-- hrs';
 
     return Row(
       children: [
         Expanded(
           child: _buildQuickPill(
             label: 'Steps',
-            value: '$steps',
+            value: stepsValue,
             bgColor: AppColors.tealSoft,
             labelColor: AppColors.tealDark,
             onTap: () => _jumpToKind(DashboardModuleKind.goals),
@@ -278,7 +281,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         Expanded(
           child: _buildQuickPill(
             label: 'Heart Rate',
-            value: '${hr ?? 78} bpm',
+            value: hrValue,
             bgColor: AppColors.coralSoft,
             labelColor: AppColors.coralDark,
             onTap: () => _jumpToKind(DashboardModuleKind.vitals),
@@ -288,7 +291,7 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         Expanded(
           child: _buildQuickPill(
             label: 'Sleep',
-            value: sleep != null ? '${sleep.toStringAsFixed(1)} hrs' : '7.5 hrs',
+            value: sleepValue,
             bgColor: AppColors.plumSoft,
             labelColor: AppColors.plumDark,
             onTap: () => _jumpToKind(DashboardModuleKind.sleep),
@@ -422,7 +425,6 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
                           kind: app.kind,
                           progress: _sceneController.value,
                           badgeText: app.statusText,
-                          overlayValueText: app.overlayMetric,
                           accentColor: app.accentColor,
                           backgroundColor: app.softBackground,
                           height: bannerHeight,
@@ -601,14 +603,17 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
   List<_AppModuleItem> _getAppsList() {
     final s = widget.summary;
     final synced = s?.isLiveSynced ?? false;
-    final hrText = s?.heartRateBpm != null ? '${s!.heartRateBpm} BPM' : '78 BPM';
-    final hrLower = s?.heartRateBpm != null ? '${s!.heartRateBpm} bpm' : '78 bpm';
-    final bpText = s?.bloodPressure ?? '120/80 mmHg';
-    final ecgText = s?.ecgStatus ?? 'Sinus Rhythm';
+    final sourceLabel = s?.wearableSourceLabel;
+    final hrText = s?.heartRateBpm != null ? '${s!.heartRateBpm} BPM' : '-- BPM';
+    final bpText = s?.bloodPressure ?? '--/--';
+    final ecgText = s?.ecgStatus ?? (synced ? 'Sinus Rhythm' : 'Not Synced');
     final histCount = s?.vitalsHistoryCount ?? 0;
-    final steps = s?.stepsCount ?? 8420;
-    final calories = s?.caloriesCount ?? 480;
-    final stepPct = ((steps / 10000) * 100).round().clamp(0, 100);
+    final steps = s?.stepsCount;
+    final stepsHero = steps != null ? '$steps Steps' : '-- Steps';
+    final caloriesText =
+        s?.caloriesCount != null ? '${s!.caloriesCount} kcal' : '-- kcal';
+    final stepPct =
+        steps != null ? ((steps / 10000) * 100).round().clamp(0, 100) : 0;
     final medsTotal = s?.medicationsTotal ?? 0;
     final medsTaken = s?.medicationsTaken ?? 0;
     final symptomsCount = s?.symptomsCount ?? 0;
@@ -624,12 +629,12 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         title: "Wearable Vitals",
         heroMetric: hrText,
         heroBadge: ecgText,
-        overlayMetric: hrLower,
-        description:
-            "Continuous live telemetry streaming heart rate, steps, blood pressure, and SpO2 directly from your wearable.",
-        statusText: synced ? "Live Sync" : "Monitor",
+        description: sourceLabel != null
+            ? "Continuous live telemetry synced from $sourceLabel, streaming heart rate, steps, and vitals."
+            : "Continuous live telemetry streaming heart rate, steps, blood pressure, and SpO2 directly from your wearable.",
+        statusText: sourceLabel ?? (synced ? "Live Sync" : "Connect App"),
         stat1Label: "DAILY STEPS",
-        stat1Value: "$steps Steps",
+        stat1Value: stepsHero,
         stat2Label: "BLOOD PRESSURE",
         stat2Value: bpText,
         route: "/vitals",
@@ -707,14 +712,14 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
         kind: DashboardModuleKind.sleep,
         title: "Sleep Analysis",
         heroMetric:
-            sleepHours != null ? "${sleepHours.toStringAsFixed(1)} hrs" : "7.5 hrs",
+            sleepHours != null ? "${sleepHours.toStringAsFixed(1)} hrs" : "-- hrs",
         heroBadge: "Stage Breakdown",
         description:
             "Review nightly Deep, REM, and Core sleep architecture alongside nocturnal SpO2 and resting HR recovery.",
-        statusText: sleepHours != null ? "Synced" : "Tracked",
+        statusText: sleepHours != null ? (sourceLabel ?? "Synced") : "Not Synced",
         stat1Label: "NIGHTLY SLEEP",
         stat1Value:
-            sleepHours != null ? "${sleepHours.toStringAsFixed(1)} Hours" : "7.5h Target",
+            sleepHours != null ? "${sleepHours.toStringAsFixed(1)} Hours" : "Not Recorded",
         stat2Label: "FEEDBACK",
         stat2Value: "Sleep Coach",
         route: "/sleep",
@@ -771,15 +776,15 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       _AppModuleItem(
         kind: DashboardModuleKind.goals,
         title: "Health Goals",
-        heroMetric: "$steps Steps",
+        heroMetric: stepsHero,
         heroBadge: "$stepPct% of Goal",
         description:
             "Track daily step counts, active calorie burn, and activity milestones aligned with your personal care plan.",
         statusText: "$stepPct% Done",
         stat1Label: "STEP TARGET",
-        stat1Value: "$steps / 10,000",
+        stat1Value: steps != null ? "$steps / 10,000" : "-- / 10,000",
         stat2Label: "CALORIES",
-        stat2Value: "$calories kcal",
+        stat2Value: caloriesText,
         route: "/goals",
         actionLabel: "Track Health Goals",
         accentColor: AppColors.primaryAccent,
@@ -851,13 +856,13 @@ class _AppSwitcherCarouselState extends State<AppSwitcherCarousel>
       _AppModuleItem(
         kind: DashboardModuleKind.devices,
         title: "Health App Hub",
-        heroMetric: synced ? "Connected" : "Connect App",
+        heroMetric: sourceLabel ?? (synced ? "Connected" : "Connect App"),
         heroBadge: "Android • Wearables",
         description:
             "Manage Health Connect, Samsung Health, Google Fit, and wearable telemetry origins or import records cleanly.",
-        statusText: synced ? "Active" : "Standby",
-        stat1Label: "COMPATIBILITY",
-        stat1Value: "Multi-App Sync",
+        statusText: sourceLabel != null ? "Synced" : (synced ? "Active" : "Standby"),
+        stat1Label: "ACTIVE SOURCE",
+        stat1Value: sourceLabel ?? "Auto Detect",
         stat2Label: "TELEMETRY SYNC",
         stat2Value: synced ? "Up to Date" : "Tap to Connect",
         route: "/devices",
@@ -875,7 +880,6 @@ class _AppModuleItem {
   final String title;
   final String heroMetric;
   final String heroBadge;
-  final String? overlayMetric;
   final String description;
   final String statusText;
   final String stat1Label;
@@ -893,7 +897,6 @@ class _AppModuleItem {
     required this.title,
     required this.heroMetric,
     required this.heroBadge,
-    this.overlayMetric,
     required this.description,
     required this.statusText,
     required this.stat1Label,

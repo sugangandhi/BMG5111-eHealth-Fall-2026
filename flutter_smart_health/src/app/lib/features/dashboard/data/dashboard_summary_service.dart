@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../data/models/wearable_models.dart';
 import '../../../data/repositories/ehospital_repository.dart';
 import '../../urgent_care/data/urgent_care_repository.dart';
 
 class DashboardLiveSummary {
   const DashboardLiveSummary({
     this.isLiveSynced = false,
+    this.wearableSourceLabel,
     this.heartRateBpm,
     this.bloodPressure,
     this.ecgStatus,
@@ -29,6 +31,7 @@ class DashboardLiveSummary {
   });
 
   final bool isLiveSynced;
+  final String? wearableSourceLabel;
   final int? heartRateBpm;
   final String? bloodPressure;
   final String? ecgStatus;
@@ -118,6 +121,7 @@ class DashboardSummaryService {
     int? steps;
     int? calories;
     double? sleepHours;
+    String? latestRowSource;
     if (wearableList.isNotEmpty) {
       wearableList.sort((a, b) {
         final ra = (a['timestamp'] ?? a['recorded_on'] ?? '').toString();
@@ -142,6 +146,13 @@ class DashboardSummaryService {
       heartRate ??= _asIntOrNull(latestWearable['heart_rate']);
       steps = _asIntOrNull(latestWearable['steps']);
       calories = _asIntOrNull(latestWearable['calories']);
+      final rawSrc =
+          (latestWearable is Map ? latestWearable['source'] : null)
+              ?.toString()
+              .trim();
+      if (rawSrc != null && rawSrc.isNotEmpty) {
+        latestRowSource = rawSrc;
+      }
       final sleepRaw = latestWearable['sleep'];
       if (sleepRaw is num && sleepRaw > 0) {
         // Wearable tables may store minutes or hours depending on source.
@@ -154,8 +165,14 @@ class DashboardSummaryService {
         wearableList.isNotEmpty ||
         urgentStatus != null;
 
+    final wearableSourceLabel = _resolveSourceLabel(
+      prefs.getString('last_wearable_source'),
+      latestRowSource,
+    );
+
     return DashboardLiveSummary(
       isLiveSynced: hasRemoteData,
+      wearableSourceLabel: wearableSourceLabel,
       heartRateBpm: heartRate,
       bloodPressure: bloodPressure,
       ecgStatus: ecgStatus,
@@ -261,5 +278,18 @@ class DashboardSummaryService {
     if (val is num) return val.round();
     if (val == null) return null;
     return double.tryParse(val.toString())?.round();
+  }
+
+  static String? _resolveSourceLabel(String? lastPref, String? latestRow) {
+    final candidate = [lastPref, latestRow]
+        .whereType<String>()
+        .map((s) => s.trim())
+        .firstWhere((s) => s.isNotEmpty, orElse: () => '');
+    if (candidate.isEmpty) return null;
+    final directLabel = WearableSource.labelFor(candidate);
+    if (directLabel != candidate) return directLabel;
+    final resolvedKey =
+        WearableSource.fromSourceIdentifier(candidate, fallback: candidate);
+    return WearableSource.labelFor(resolvedKey);
   }
 }

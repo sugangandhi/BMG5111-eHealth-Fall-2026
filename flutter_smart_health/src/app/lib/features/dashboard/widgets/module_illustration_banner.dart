@@ -25,7 +25,6 @@ class ModuleIllustrationBanner extends StatelessWidget {
   final DashboardModuleKind kind;
   final double progress;
   final String badgeText;
-  final String? overlayValueText;
   final Color accentColor;
   final Color backgroundColor;
   final double height;
@@ -35,7 +34,6 @@ class ModuleIllustrationBanner extends StatelessWidget {
     required this.kind,
     required this.progress,
     required this.badgeText,
-    this.overlayValueText,
     required this.accentColor,
     required this.backgroundColor,
     this.height = 148,
@@ -60,7 +58,6 @@ class ModuleIllustrationBanner extends StatelessWidget {
                 kind: kind,
                 progress: progress,
                 accentColor: accentColor,
-                overlayValueText: overlayValueText,
               ),
             ),
             Positioned(
@@ -122,13 +119,11 @@ class _ModuleScenePainter extends CustomPainter {
   final DashboardModuleKind kind;
   final double progress;
   final Color accentColor;
-  final String? overlayValueText;
 
   _ModuleScenePainter({
     required this.kind,
     required this.progress,
     required this.accentColor,
-    this.overlayValueText,
   });
 
   @override
@@ -332,31 +327,6 @@ class _ModuleScenePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0,
     );
-
-    // Floating HR pill gently bobbing right ahead of watch
-    if (overlayValueText != null && overlayValueText!.isNotEmpty) {
-      final pillOrigin = watchCenter + Offset(12, -24 + math.sin(walkFreq * 0.5) * 2);
-      const pillRect = Rect.fromLTWH(0, 0, 56, 22);
-      canvas.save();
-      canvas.translate(pillOrigin.dx, pillOrigin.dy);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(pillRect, const Radius.circular(11)),
-        Paint()..color = Colors.white.withValues(alpha: 0.94),
-      );
-      final tp = TextPainter(
-        text: TextSpan(
-          text: overlayValueText,
-          style: const TextStyle(
-            color: AppColors.coralDark,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: 54);
-      tp.paint(canvas, Offset((56 - tp.width) / 2, (22 - tp.height) / 2));
-      canvas.restore();
-    }
 
     canvas.restore();
   }
@@ -832,7 +802,6 @@ class _ModuleScenePainter extends CustomPainter {
   bool shouldRepaint(covariant _ModuleScenePainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.kind != kind ||
-        oldDelegate.accentColor != accentColor ||
-        oldDelegate.overlayValueText != overlayValueText;
+        oldDelegate.accentColor != accentColor;
   }
 }

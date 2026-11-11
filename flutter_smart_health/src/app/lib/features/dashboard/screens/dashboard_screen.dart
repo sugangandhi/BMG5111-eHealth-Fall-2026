@@ -22,7 +22,8 @@ class PatientDashboard extends StatefulWidget {
   State<PatientDashboard> createState() => _PatientDashboardState();
 }
 
-class _PatientDashboardState extends State<PatientDashboard> {
+class _PatientDashboardState extends State<PatientDashboard>
+    with WidgetsBindingObserver {
   bool _showAppSwitcher = true;
   DashboardLiveSummary _summary = const DashboardLiveSummary();
   bool _syncingSummary = false;
@@ -31,8 +32,22 @@ class _PatientDashboardState extends State<PatientDashboard> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _summaryService = widget.summaryService ?? DashboardSummaryService();
     _loadSummary();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadSummary();
+    }
   }
 
   Future<void> _loadSummary() async {
@@ -140,7 +155,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                             _syncingSummary
                                 ? "Syncing health data..."
                                 : (_summary.isLiveSynced
-                                    ? "Health Connect Synced"
+                                    ? "${_summary.wearableSourceLabel ?? 'Health Data'} Synced"
                                     : "Tap to sync telemetry"),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
