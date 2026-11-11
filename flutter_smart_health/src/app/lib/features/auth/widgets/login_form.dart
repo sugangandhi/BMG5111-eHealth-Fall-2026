@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/api_config.dart';
@@ -15,6 +16,7 @@ class LoginForm extends StatefulWidget {
   final String? error;
   final bool loading;
   final VoidCallback onSubmit;
+  final VoidCallback? onDemoLogin;
 
   const LoginForm({
     super.key,
@@ -26,6 +28,7 @@ class LoginForm extends StatefulWidget {
     required this.error,
     required this.loading,
     required this.onSubmit,
+    this.onDemoLogin,
   });
 
   @override
@@ -263,38 +266,61 @@ class _LoginFormState extends State<LoginForm> {
             ),
           ),
 
+          const SizedBox(height: 16),
+
+          // Divider
+          const Row(
+            children: [
+              Expanded(child: Divider(color: AppColors.border, height: 1)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  "or continue with",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: AppColors.border, height: 1)),
+            ],
+          ),
+
           const SizedBox(height: 14),
 
-          // Quick Demo Account Pill
-          InkWell(
-            onTap: () {
-              widget.emailController.text = "normal@demo.com";
-              widget.passwordController.text = "123456";
-              widget.onIdentityChanged("Patient");
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.tealSoft,
-                borderRadius: BorderRadius.circular(16),
+          // Google Sign-In Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton(
+              key: const Key('login_google_button'),
+              onPressed: widget.loading
+                  ? null
+                  : () => _showGoogleSignInNotice(context),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.textDark,
+                side: const BorderSide(color: LoginStyles.inputBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
               child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.touch_app_rounded,
-                    size: 16,
-                    color: AppColors.tealDark,
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CustomPaint(painter: _GoogleLogoPainter()),
                   ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Demo Patient: normal@demo.com / 123456 (Tap to fill)",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.tealDark,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  SizedBox(width: 10),
+                  Text(
+                    "Continue with Google",
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark,
                     ),
                   ),
                 ],
@@ -302,7 +328,43 @@ class _LoginFormState extends State<LoginForm> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+
+          // One-Tap Quick Demo Patient Login Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              key: const Key('login_demo_button'),
+              onPressed: widget.loading ? null : _triggerDemoLogin,
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.tealSoft,
+                foregroundColor: AppColors.tealDark,
+                side: BorderSide(
+                  color: AppColors.primaryAccent.withValues(alpha: 0.35),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              icon: const Icon(
+                Icons.bolt_rounded,
+                size: 19,
+                color: AppColors.tealDark,
+              ),
+              label: const Text(
+                "Quick Demo Login (normal@demo.com)",
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.tealDark,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 14),
 
           // Server Host Link
           Center(
@@ -589,4 +651,119 @@ class _LoginFormState extends State<LoginForm> {
       ),
     );
   }
+
+  void _triggerDemoLogin() {
+    widget.emailController.text = "normal@demo.com";
+    widget.passwordController.text = "123456";
+    widget.onIdentityChanged("Patient");
+    if (widget.onDemoLogin != null) {
+      widget.onDemoLogin!();
+    } else {
+      widget.onSubmit();
+    }
+  }
+
+  void _showGoogleSignInNotice(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: const Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CustomPaint(painter: _GoogleLogoPainter()),
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "Continue with Google",
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          "Google OAuth needs a configured OAuth Client ID for this app build. Use Quick Demo Login to access the live demo patient workspace right now.",
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 13.5,
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              "Use Email",
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _triggerDemoLogin();
+            },
+            icon: const Icon(Icons.bolt_rounded, size: 17),
+            label: const Text("Demo Patient Login"),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  const _GoogleLogoPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) * 0.42;
+    final strokeW = radius * 0.42;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    Paint arcPaint(Color c) => Paint()
+      ..color = c
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeW
+      ..strokeCap = StrokeCap.butt;
+
+    // Red top arc
+    canvas.drawArc(rect, -2.55, 1.95, false, arcPaint(const Color(0xFFEA4335)));
+    // Yellow bottom-left arc
+    canvas.drawArc(rect, 2.55, 1.18, false, arcPaint(const Color(0xFFFBBC05)));
+    // Green bottom arc
+    canvas.drawArc(rect, 0.55, 2.0, false, arcPaint(const Color(0xFF34A853)));
+    // Blue right-lower arc + horizontal G crossbar
+    canvas.drawArc(rect, -0.15, 0.78, false, arcPaint(const Color(0xFF4285F4)));
+    canvas.drawLine(
+      Offset(center.dx, center.dy + strokeW * 0.05),
+      Offset(center.dx + radius + strokeW * 0.35, center.dy + strokeW * 0.05),
+      Paint()
+        ..color = const Color(0xFF4285F4)
+        ..strokeWidth = strokeW * 0.85
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

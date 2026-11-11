@@ -152,6 +152,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleDemoLogin() async {
+    _emailController.text = "normal@demo.com";
+    _passwordController.text = "123456";
+    setState(() => _selectedIdentity = "Patient");
+    await _handleLogin();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,6 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             error: _error,
                             loading: _loading,
                             onSubmit: _handleLogin,
+                            onDemoLogin: _handleDemoLogin,
                           ),
                         ],
                       ),

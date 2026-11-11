@@ -97,9 +97,51 @@ void main() {
     expect(scaffold.backgroundColor, AppColors.bg);
     expect(find.byType(AtmosphericSkyBackground), findsNothing);
     expect(find.text('INTELLIGENT DIGITAL SOLUTION'), findsNothing);
-    expect(find.text('Welcome to eHospital'), findsOneWidget);
+    expect(find.text('Sign in to eHospital'), findsOneWidget);
     expect(find.byKey(const Key('login_email_field')), findsOneWidget);
     expect(find.byKey(const Key('login_password_field')), findsOneWidget);
+    expect(find.byKey(const Key('login_google_button')), findsOneWidget);
+    expect(find.byKey(const Key('login_demo_button')), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Quick Demo Login fills demo credentials and submits immediately', (
+    tester,
+  ) async {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    var selectedIdentity = 'Doctor';
+    var demoSubmitted = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: LoginForm(
+              emailController: emailController,
+              passwordController: passwordController,
+              selectedIdentity: selectedIdentity,
+              identityOptions: const ['Patient', 'Doctor'],
+              onIdentityChanged: (value) => selectedIdentity = value,
+              error: null,
+              loading: false,
+              onSubmit: () {},
+              onDemoLogin: () => demoSubmitted = true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('login_demo_button')));
+    await tester.pumpAndSettle();
+
+    expect(emailController.text, 'normal@demo.com');
+    expect(passwordController.text, '123456');
+    expect(selectedIdentity, 'Patient');
+    expect(demoSubmitted, isTrue);
   });
 }
