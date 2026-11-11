@@ -210,26 +210,70 @@ class _PatientDashboardState extends State<PatientDashboard>
           ),
           Container(
             margin: const EdgeInsets.only(left: 4, right: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A16202C),
-                  blurRadius: 6,
-                  offset: Offset(0, 2),
+            child: Tooltip(
+              message: l10n.profileTitle,
+              child: Material(
+                type: MaterialType.transparency,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    _open('/profile');
+                  },
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    padding: const EdgeInsets.all(3.2),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomLeft,
+                        end: Alignment.topRight,
+                        colors: [
+                          Color(0xFF047857),
+                          Color(0xFF10B981),
+                          Color(0xFF6EE7B7),
+                        ],
+                        stops: [0.0, 0.55, 1.0],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x2810B981),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(2.2),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFFE6F9F2),
+                              Color(0xFFDDF7F2),
+                            ],
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          size: 18,
+                          color: Color(0xFF065F46),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.person_rounded, size: 19),
-              color: AppColors.textDark,
-              tooltip: l10n.profileTitle,
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                _open('/profile');
-              },
+              ),
             ),
           ),
         ],
