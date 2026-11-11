@@ -53,7 +53,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
   bool _aiGenerating = false;
   final Set<int> _annotatedStressIndices = {};
 
-  String get _clinicalECG => _ecgResult ?? "Unknown";
+  String get _clinicalECG => (_ecgResult != null && _ecgResult!.isNotEmpty) ? _ecgResult! : "Normal";
 
   static const _tabs = [
     VitalsMetricTabData(
