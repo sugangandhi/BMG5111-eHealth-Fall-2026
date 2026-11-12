@@ -24,6 +24,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
   late final VoiceDictationController _voiceController;
   int _patientId = 391;
   String _patientName = "Patient";
+  String _userPhone = "6132616383";
   final Set<int> _expandedSoapMessageIds = {};
 
   @override
@@ -63,9 +64,11 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
     final prefs = await SharedPreferences.getInstance();
     final pid = prefs.getInt('patient_id') ?? 391;
     final name = prefs.getString('patient_username') ?? "Patient";
+    final phone = prefs.getString('patient_phone') ?? "6132616383";
     setState(() {
       _patientId = pid;
       _patientName = name;
+      _userPhone = phone;
     });
 
     await _fetchThread();
@@ -73,7 +76,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
 
   Future<void> _fetchThread() async {
     try {
-      final url = Uri.parse("${ApiConfig.backendBaseUrl}/api/whatsapp/threads/6132616383");
+      final url = Uri.parse("${ApiConfig.backendBaseUrl}/api/whatsapp/threads/$_userPhone");
       final response = await http.get(url).timeout(const Duration(seconds: 6));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -164,7 +167,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "phone": "6132616383",
+          "phone": _userPhone,
           "message": text,
           "patient_id": _patientId,
           "sender_name": _patientName
@@ -265,7 +268,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "phone": "6132616383",
+          "phone": _userPhone,
           "action": action,
           "patient_id": _patientId,
           "patient_name": _patientName,

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/api_config.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../l10n/l10n.dart';
+import '../../../services/e_hospital_auth_service.dart';
 import '../../../ui/app_colors.dart';
 import '../presentation/login_styles.dart';
 
@@ -37,6 +39,117 @@ class LoginForm extends StatefulWidget {
 
 class _LoginFormState extends State<LoginForm> {
   bool _obscurePassword = true;
+  bool _useWhatsAppAuth = true; // WhatsApp OTP is default
+  bool _otpSent = false;
+  bool _whatsappLoading = false;
+  String? _whatsappError;
+  String? _whatsappSuccessInfo;
+
+  final _phoneController = TextEditingController(text: "6132616383");
+  final _otpController = TextEditingController();
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSendWhatsAppOtp() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final phone = _phoneController.text.trim();
+    final cleanDigits = phone.replaceAll(RegExp(r'\D'), '');
+    if (cleanDigits.length < 10) {
+      setState(() {
+        _whatsappError = "Please enter a valid 10-digit mobile number.";
+      });
+      return;
+    }
+
+    setState(() {
+      _whatsappLoading = true;
+      _whatsappError = null;
+      _whatsappSuccessInfo = null;
+    });
+
+    try {
+      final res = await EHospitalAuthService.sendWhatsAppOtp(phone);
+      if (res['success'] == true) {
+        setState(() {
+          _otpSent = true;
+          _whatsappLoading = false;
+          _whatsappSuccessInfo = res['message']?.toString() ?? "Code sent to WhatsApp.";
+          if (res['demo_code'] != null) {
+            _whatsappSuccessInfo = "${_whatsappSuccessInfo!}\n(Demo bypass code: ${res['demo_code']})";
+          }
+        });
+      } else {
+        setState(() {
+          _whatsappLoading = false;
+          _whatsappError = res['error']?.toString() ?? "Failed to send code via WhatsApp.";
+        });
+      }
+    } on ApiException catch (e) {
+      setState(() {
+        _whatsappLoading = false;
+        _whatsappError = e.message;
+      });
+    } catch (e) {
+      setState(() {
+        _whatsappLoading = false;
+        _whatsappError = "Error connecting to server. Please check your network.";
+      });
+    }
+  }
+
+  Future<void> _handleVerifyWhatsAppOtp() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final phone = _phoneController.text.trim();
+    final code = _otpController.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _whatsappError = "Please enter the 6-digit code received on WhatsApp.";
+      });
+      return;
+    }
+
+    setState(() {
+      _whatsappLoading = true;
+      _whatsappError = null;
+    });
+
+    try {
+      final result = await EHospitalAuthService.loginWithWhatsAppOtp(
+        phone,
+        code,
+        selectedOption: widget.selectedIdentity,
+      );
+
+      if (!mounted) return;
+
+      if (result.authenticated) {
+        Navigator.pushReplacementNamed(context, "/dashboard");
+      } else {
+        setState(() {
+          _whatsappLoading = false;
+          _whatsappError = "Invalid verification code. Check your WhatsApp or use test code: 123456";
+        });
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _whatsappLoading = false;
+        _whatsappError = e.message;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _whatsappLoading = false;
+        _whatsappError = "Verification error: $e";
+      });
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -48,110 +161,570 @@ class _LoginFormState extends State<LoginForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Email Address Input
-          TextField(
-            key: const Key('login_email_field'),
-            controller: widget.emailController,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            cursorColor: AppColors.primary,
-            cursorWidth: 2.0,
-            style: const TextStyle(
-              fontSize: 15,
-              color: AppColors.textDark,
-              fontWeight: FontWeight.w500,
+          // Mode Selector Toggle (WhatsApp OTP vs Institutional Email)
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(16),
             ),
-            decoration: LoginStyles.inputDecoration(
-              hintText: l10n.emailAddressHint,
-              prefixIcon: const Icon(
-                Icons.mail_rounded,
-                color: AppColors.primary,
-                size: 20,
-              ),
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() {
+                      _useWhatsAppAuth = true;
+                      _whatsappError = null;
+                    }),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      decoration: BoxDecoration(
+                        color: _useWhatsAppAuth ? Colors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _useWhatsAppAuth
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.phone_android_rounded,
+                            size: 16,
+                            color: _useWhatsAppAuth
+                                ? const Color(0xFF25D366)
+                                : AppColors.textMuted,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            "WhatsApp OTP",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _useWhatsAppAuth
+                                  ? AppColors.textDark
+                                  : AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() {
+                      _useWhatsAppAuth = false;
+                      _whatsappError = null;
+                    }),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      decoration: BoxDecoration(
+                        color: !_useWhatsAppAuth ? Colors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: !_useWhatsAppAuth
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.mail_outline_rounded,
+                            size: 16,
+                            color: !_useWhatsAppAuth
+                                ? AppColors.primary
+                                : AppColors.textMuted,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            "Email / Passcode",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: !_useWhatsAppAuth
+                                  ? AppColors.textDark
+                                  : AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
 
-          // Password Input with Visibility Toggle
-          TextField(
-            key: const Key('login_password_field'),
-            controller: widget.passwordController,
-            obscureText: _obscurePassword,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => widget.onSubmit(),
-            cursorColor: AppColors.primary,
-            cursorWidth: 2.0,
-            style: const TextStyle(
-              fontSize: 15,
-              color: AppColors.textDark,
-              fontWeight: FontWeight.w500,
-            ),
-            decoration: LoginStyles.inputDecoration(
-              hintText: l10n.passwordHint,
-              prefixIcon: const Icon(
-                Icons.lock_rounded,
-                color: AppColors.primary,
-                size: 20,
+          // ── WHATSAPP OTP VIEW ────────────────────────────────────────────
+          if (_useWhatsAppAuth) ...[
+            if (!_otpSent) ...[
+              // Phone Input
+              TextField(
+                key: const Key('login_phone_field'),
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _handleSendWhatsAppOtp(),
+                cursorColor: const Color(0xFF25D366),
+                cursorWidth: 2.0,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: LoginStyles.inputDecoration(
+                  hintText: "Mobile Number (e.g. 613-261-6383)",
+                  prefixIcon: const Icon(
+                    Icons.phone_rounded,
+                    color: Color(0xFF25D366),
+                    size: 20,
+                  ),
+                ),
               ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_off_rounded
-                      : Icons.visibility_rounded,
+              const SizedBox(height: 8),
+
+              // Demo Helper
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_outlined,
+                      size: 13,
+                      color: Color(0xFF075E54),
+                    ),
+                    const SizedBox(width: 5),
+                    const Text(
+                      "Demo Mobile: ",
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _phoneController.text = "6132616383";
+                        });
+                      },
+                      child: const Text(
+                        "613-261-6383 (Sugan)",
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF075E54),
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Identity Dropdown Selector
+              DropdownButtonFormField<String>(
+                key: const Key('login_identity_dropdown_wa'),
+                initialValue: widget.selectedIdentity,
+                dropdownColor: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                icon: const Icon(
+                  Icons.unfold_more_rounded,
                   color: AppColors.textMuted,
                   size: 20,
                 ),
-                tooltip: _obscurePassword ? "Show password" : "Hide password",
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Identity Dropdown Selector
-          DropdownButtonFormField<String>(
-            key: const Key('login_identity_dropdown'),
-            initialValue: widget.selectedIdentity,
-            dropdownColor: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            icon: const Icon(
-              Icons.unfold_more_rounded,
-              color: AppColors.textMuted,
-              size: 20,
-            ),
-            style: const TextStyle(
-              fontSize: 15,
-              color: AppColors.textDark,
-              fontWeight: FontWeight.w600,
-            ),
-            items: [
-              for (final identity in widget.identityOptions)
-                DropdownMenuItem(
-                  value: identity,
-                  child: Text(
-                    identity,
-                    style: const TextStyle(color: AppColors.textDark),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w600,
+                ),
+                items: [
+                  for (final identity in widget.identityOptions)
+                    DropdownMenuItem(
+                      value: identity,
+                      child: Text(
+                        identity,
+                        style: const TextStyle(color: AppColors.textDark),
+                      ),
+                    ),
+                ],
+                onChanged: _whatsappLoading
+                    ? null
+                    : (value) {
+                        if (value != null) widget.onIdentityChanged(value);
+                      },
+                decoration: LoginStyles.inputDecoration(
+                  hintText: l10n.roleLabel,
+                  prefixIcon: const Icon(
+                    Icons.badge_rounded,
+                    color: Color(0xFF075E54),
+                    size: 20,
                   ),
                 ),
+              ),
+              const SizedBox(height: 20),
+
+              // Send Code via WhatsApp Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  key: const Key('login_send_otp_button'),
+                  onPressed: _whatsappLoading ? null : _handleSendWhatsAppOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  child: _whatsappLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.chat_rounded, size: 18, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text(
+                              "Send Code via WhatsApp",
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ] else ...[
+              // OTP Sent Confirmation Banner
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCF8C6),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF25D366).withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.mark_chat_read_rounded,
+                      color: Color(0xFF075E54),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Code dispatched to ${_phoneController.text} on WhatsApp",
+                            style: const TextStyle(
+                              color: Color(0xFF075E54),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            "Valid for 10 min · Universal test code: 123456",
+                            style: TextStyle(
+                              color: Color(0xFF128C7E),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 6-digit OTP Field
+              TextField(
+                key: const Key('login_otp_field'),
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                textAlign: TextAlign.center,
+                onSubmitted: (_) => _handleVerifyWhatsAppOtp(),
+                cursorColor: const Color(0xFF075E54),
+                cursorWidth: 2.0,
+                style: const TextStyle(
+                  fontSize: 22,
+                  letterSpacing: 6.0,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w800,
+                ),
+                decoration: LoginStyles.inputDecoration(
+                  hintText: "· · · · · ·",
+                  prefixIcon: const Icon(
+                    Icons.security_rounded,
+                    color: Color(0xFF075E54),
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Verify & Sign In Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  key: const Key('login_verify_otp_button'),
+                  onPressed: _whatsappLoading ? null : _handleVerifyWhatsAppOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF075E54),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  child: _whatsappLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Verify & Enter Portal",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Change phone / resend row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => setState(() {
+                      _otpSent = false;
+                      _otpController.clear();
+                      _whatsappError = null;
+                    }),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 14),
+                    label: const Text(
+                      "Change Number",
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _whatsappLoading ? null : _handleSendWhatsAppOtp,
+                    icon: const Icon(Icons.refresh_rounded, size: 14),
+                    label: const Text(
+                      "Resend Code",
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
             ],
-            onChanged: widget.loading
-                ? null
-                : (value) {
-                    if (value != null) widget.onIdentityChanged(value);
-                  },
-            decoration: LoginStyles.inputDecoration(
-              hintText: l10n.roleLabel,
-              prefixIcon: const Icon(
-                Icons.badge_rounded,
-                color: AppColors.primaryAccent,
-                size: 20,
+          ] else ...[
+            // ── EMAIL / PASSWORD VIEW ──────────────────────────────────────
+            // Email Address Input
+            TextField(
+              key: const Key('login_email_field'),
+              controller: widget.emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              cursorColor: AppColors.primary,
+              cursorWidth: 2.0,
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppColors.textDark,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: LoginStyles.inputDecoration(
+                hintText: l10n.emailAddressHint,
+                prefixIcon: const Icon(
+                  Icons.mail_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
               ),
             ),
-          ),
+            const SizedBox(height: 14),
+
+            // Password Input with Visibility Toggle
+            TextField(
+              key: const Key('login_password_field'),
+              controller: widget.passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => widget.onSubmit(),
+              cursorColor: AppColors.primary,
+              cursorWidth: 2.0,
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppColors.textDark,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: LoginStyles.inputDecoration(
+                hintText: l10n.passwordHint,
+                prefixIcon: const Icon(
+                  Icons.lock_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
+                  tooltip: _obscurePassword ? "Show password" : "Hide password",
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Identity Dropdown Selector
+            DropdownButtonFormField<String>(
+              key: const Key('login_identity_dropdown'),
+              initialValue: widget.selectedIdentity,
+              dropdownColor: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              icon: const Icon(
+                Icons.unfold_more_rounded,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppColors.textDark,
+                fontWeight: FontWeight.w600,
+              ),
+              items: [
+                for (final identity in widget.identityOptions)
+                  DropdownMenuItem(
+                    value: identity,
+                    child: Text(
+                      identity,
+                      style: const TextStyle(color: AppColors.textDark),
+                    ),
+                  ),
+              ],
+              onChanged: widget.loading
+                  ? null
+                  : (value) {
+                      if (value != null) widget.onIdentityChanged(value);
+                    },
+              decoration: LoginStyles.inputDecoration(
+                hintText: l10n.roleLabel,
+                prefixIcon: const Icon(
+                  Icons.badge_rounded,
+                  color: AppColors.primaryAccent,
+                  size: 20,
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+
+            // Primary Sign In Pill Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                key: const Key('login_email_submit_button'),
+                onPressed: widget.loading ? null : widget.onSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                child: widget.loading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Sign In",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ],
 
           // Error Banner if present
-          if (widget.error != null) ...[
+          if ((_useWhatsAppAuth ? _whatsappError : widget.error) != null) ...[
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -170,7 +743,7 @@ class _LoginFormState extends State<LoginForm> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          widget.error!,
+                          (_useWhatsAppAuth ? _whatsappError : widget.error)!,
                           style: const TextStyle(
                             color: AppColors.coralDark,
                             fontSize: 13,
@@ -218,53 +791,6 @@ class _LoginFormState extends State<LoginForm> {
               ),
             ),
           ],
-
-          const SizedBox(height: 22),
-
-          // Primary Sign In Pill Button
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: widget.loading ? null : widget.onSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              child: widget.loading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Sign In",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: 6),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 18,
-                          color: Colors.white,
-                        ),
-                      ],
-                    ),
-            ),
-          ),
 
           const SizedBox(height: 16),
 

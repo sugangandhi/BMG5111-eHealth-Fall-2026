@@ -740,6 +740,128 @@ async def auth_forgot_password(body: ForgotPasswordRequest):
     }
 
 
+class WhatsAppOtpSendRequest(BaseModel):
+    phone: str
+
+class WhatsAppOtpVerifyRequest(BaseModel):
+    phone: str
+    code: str
+    selectedOption: Optional[str] = "Patient"
+
+# In-memory OTP registry for WhatsApp phone authentication
+_WHATSAPP_OTP_STORE: dict[str, dict] = {}
+
+@app.post("/api/auth/whatsapp/send-otp")
+@app.post("/auth/whatsapp/send-otp")
+async def send_whatsapp_otp_main(body: WhatsAppOtpSendRequest):
+    import re, random, datetime
+    from agent.patient_matcher import send_whatsapp_message
+    
+    clean = re.sub(r"\D", "", body.phone)
+    if len(clean) < 10:
+        raise HTTPException(400, "Invalid phone number. Minimum 10 digits required.")
+    
+    key = clean[-10:]
+    code = f"{random.randint(100000, 999999)}"
+    expires_at = datetime.datetime.now() + datetime.timedelta(minutes=10)
+    _WHATSAPP_OTP_STORE[key] = {
+        "code": code,
+        "phone": clean,
+        "expires_at": expires_at,
+        "attempts": 0
+    }
+    
+    msg = (
+        f"🩺 *e-Hospital Login Verification*\n\n"
+        f"Your verification code is: *{code}*\n\n"
+        f"⏱️ Valid for 10 minutes.\n"
+        f"Do not share this code with anyone."
+    )
+    delivered = send_whatsapp_message(clean, msg)
+    
+    has_keys = bool(os.getenv("WHATSAPP_TOKEN") or os.getenv("TWILIO_ACCOUNT_SID"))
+    return {
+        "success": True,
+        "message": f"Verification code sent via WhatsApp to {clean[-4:].rjust(len(clean), '*')}",
+        "phone": clean,
+        "phone_key": key,
+        "expires_in_seconds": 600,
+        "demo_code": None if has_keys else code
+    }
+
+@app.post("/api/auth/whatsapp/verify-otp")
+@app.post("/auth/whatsapp/verify-otp")
+async def verify_whatsapp_otp_main(body: WhatsAppOtpVerifyRequest):
+    import re, datetime
+    from auth.jwt import create_access_token
+    from integrations.central_clinical_api import find_central_patient
+    from fhir.patient_loader import list_patients
+    
+    clean = re.sub(r"\D", "", body.phone)
+    key = clean[-10:] if len(clean) >= 10 else clean
+    code_input = body.code.strip()
+    
+    # Universal bypass for demo/testing
+    if code_input != "123456":
+        rec = _WHATSAPP_OTP_STORE.get(key)
+        if not rec:
+            raise HTTPException(400, "No pending verification code found. Please request a new code.")
+        if datetime.datetime.now() > rec["expires_at"]:
+            _WHATSAPP_OTP_STORE.pop(key, None)
+            raise HTTPException(400, "Verification code has expired. Please request a new one.")
+        if rec.get("attempts", 0) >= 5:
+            _WHATSAPP_OTP_STORE.pop(key, None)
+            raise HTTPException(400, "Too many failed attempts. Please request a new code.")
+        if rec["code"] != code_input:
+            rec["attempts"] = rec.get("attempts", 0) + 1
+            raise HTTPException(400, f"Invalid code. {5 - rec['attempts']} attempts remaining.")
+        _WHATSAPP_OTP_STORE.pop(key, None)
+        
+    # Resolve Patient
+    c_patient = find_central_patient(phone=clean)
+    patient_id = None
+    patient_name = None
+    patient_email = None
+    
+    if c_patient:
+        patient_id = c_patient.get("patient_id")
+        patient_name = c_patient.get("name")
+        patient_email = c_patient.get("email")
+    else:
+        # Check FHIR patients
+        for p in list_patients():
+            p_phone = re.sub(r"\D", "", p.get("phone", ""))[-10:]
+            if p_phone and p_phone == key:
+                patient_id = p.get("id")
+                patient_name = p.get("name")
+                patient_email = p.get("email")
+                break
+                
+    if not patient_id:
+        if key in ["6132616383", "6382761031"]:
+            patient_id = 391
+            patient_name = "Sugan"
+            patient_email = "sugan@demo.com"
+        else:
+            patient_id = int("9" + key[-4:])
+            patient_name = f"Patient {key[-4:]}"
+            patient_email = f"patient_{key}@ehospital.org"
+            
+    token = create_access_token({"sub": f"patient_{patient_id}_{key}"})
+    return {
+        "authenticated": True,
+        "patient_id": patient_id,
+        "user_id": patient_id,
+        "username": patient_name,
+        "name": patient_name,
+        "phone": clean,
+        "email": patient_email,
+        "selectedOption": body.selectedOption or "Patient",
+        "token": token
+    }
+
+
+
 class GoogleLoginRequest(BaseModel):
     access_token: Optional[str] = None
     credential: Optional[str] = None

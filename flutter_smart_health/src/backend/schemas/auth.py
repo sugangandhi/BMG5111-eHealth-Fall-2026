@@ -9,3 +9,14 @@ class LoginRequest(BaseModel):
     email: str
     password: str
     selectedOption: str = DEFAULT_EHOSPITAL_IDENTITY
+
+
+class SendWhatsAppOtpRequest(BaseModel):
+    phone: str
+
+
+class VerifyWhatsAppOtpRequest(BaseModel):
+    phone: str
+    code: str
+    selectedOption: str = DEFAULT_EHOSPITAL_IDENTITY
+

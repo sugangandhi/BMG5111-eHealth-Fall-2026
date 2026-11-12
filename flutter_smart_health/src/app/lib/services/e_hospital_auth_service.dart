@@ -22,4 +22,24 @@ class EHospitalAuthService {
   static Future<int?> getLoggedInPatientId() {
     return _repository.getLoggedInPatientId();
   }
+
+  static Future<String?> getLoggedInPhone() {
+    return _repository.getLoggedInPhone();
+  }
+
+  static Future<Map<String, dynamic>> sendWhatsAppOtp(String phone) {
+    return _repository.sendWhatsAppOtp(phone);
+  }
+
+  static Future<AuthLoginResult> loginWithWhatsAppOtp(
+    String phone,
+    String code, {
+    String selectedOption = 'Patient',
+  }) {
+    return _repository.loginWithWhatsAppOtp(
+      phone,
+      code,
+      selectedOption: selectedOption,
+    );
+  }
 }
