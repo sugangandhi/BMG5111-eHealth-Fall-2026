@@ -10,6 +10,8 @@ import httpx
 
 _env_file = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(_env_file)
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(Path(__file__).resolve().parents[3] / "backend" / ".env")
 load_dotenv()
 
 from fastapi import FastAPI

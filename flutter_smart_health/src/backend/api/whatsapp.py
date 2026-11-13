@@ -55,12 +55,17 @@ def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
     }
 
 def _save_threads(threads: Dict[str, Any]) -> None:
-    try:
-        THREADS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(THREADS_FILE, "w", encoding="utf-8") as f:
-            json.dump(threads, f, indent=2)
-    except Exception as e:
-        print(f"[WhatsApp] Failed to save threads file: {e}")
+    targets = [
+        THREADS_FILE,
+        Path(__file__).resolve().parents[4] / "backend" / "whatsapp_threads.json",
+    ]
+    for target in targets:
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "w", encoding="utf-8") as f:
+                json.dump(threads, f, indent=2)
+        except Exception as e:
+            print(f"[WhatsApp] Failed to save threads to {target}: {e}")
 
 class SendWhatsAppRequest(BaseModel):
     phone: str = "6132616383"
@@ -140,15 +145,19 @@ def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str
 async def get_whatsapp_thread(phone: str = "6132616383"):
     threads = _load_threads()
     clean_p = re.sub(r'\D', '', phone) or "6132616383"
-    thread = threads.get(clean_p) or threads.get("6132616383", [])
+    phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+    thread = threads.get(phone_10) or threads.get(clean_p) or threads.get(f"1{phone_10}") or threads.get("6132616383", [])
     return {"phone": clean_p, "messages": thread}
 
 @router.post('/api/whatsapp/send')
 async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
     """Sends a message within the in-app WhatsApp clinic hub."""
     clean_p = re.sub(r'\D', '', req.phone) or "6132616383"
+    phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
     threads = _load_threads()
-    thread = threads.setdefault(clean_p, [])
+    thread = threads.setdefault(phone_10, [])
+    if clean_p != phone_10:
+        threads[clean_p] = thread
 
     now_str = datetime.now().strftime("%I:%M %p")
     vitals = extract_vitals_from_text(req.message)
@@ -196,8 +205,13 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
 
     _save_threads(threads)
 
-    # Also forward via Meta Cloud API if configured
-    send_whatsapp_reply(clean_p, triage_result["reply_text"])
+    # Also forward via Meta Cloud API directly to the user's real WhatsApp
+    outbound = (
+        f"🩺 *e-Hospital Clinic Response*\n\n"
+        f"Regarding your message: \"{req.message}\"\n\n"
+        f"{triage_result['reply_text']}"
+    )
+    send_whatsapp_reply(clean_p, outbound)
 
     return {
         "success": True,
@@ -442,8 +456,18 @@ def post_vitals_to_central_cloud(patient_id: int, vitals: Dict[str, Any], raw_me
         print(f"[WhatsApp Sync Error]: {e}")
 
 def send_whatsapp_reply(to_phone: str, message: str) -> bool:
+    import urllib3
+    urllib3.disable_warnings()
+
     token = os.getenv('WHATSAPP_TOKEN')
     phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
+
+    if not token or not phone_id:
+        from dotenv import load_dotenv
+        load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+        load_dotenv(Path(__file__).resolve().parents[4] / "backend" / ".env")
+        token = os.getenv('WHATSAPP_TOKEN')
+        phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
 
     if token and phone_id:
         clean_to = re.sub(r'\D', '', to_phone)
@@ -459,8 +483,10 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
         }
         try:
             r = requests.post(url, headers=headers, json=payload, timeout=6, verify=False)
+            print(f"[WhatsApp Meta API] Outbound to {clean_to}: Status={r.status_code} Body={r.text}")
             return r.status_code in [200, 201]
-        except Exception:
+        except Exception as e:
+            print(f"[WhatsApp Meta API Error]: {e}")
             return False
 
     print(f"[WhatsApp Simulated Outbound to {to_phone}]: {message}")
@@ -496,14 +522,17 @@ async def receive_message(request: Request):
     if sender_phone and text_body:
         print(f"[WhatsApp Inbound] Phone={sender_phone}: \"{text_body}\"")
         vitals = extract_vitals_from_text(text_body)
-        
-        # Match or default patient ID 394 (Sahithya Sree) or 1
-        patient_id = 1
         clean_p = re.sub(r'\D', '', sender_phone)
+        phone_key = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+        
+        # Match patient ID dynamically
+        patient_id = 99211
         if '6383' in clean_p or 'sugan' in text_body.lower():
-            patient_id = 1
+            patient_id = 99211
         elif '394' in text_body:
             patient_id = 394
+        elif '391' in text_body:
+            patient_id = 391
 
         if vitals:
             post_vitals_to_central_cloud(patient_id, vitals, text_body)
@@ -512,7 +541,32 @@ async def receive_message(request: Request):
             summary = ", ".join(filter(None, [bp_str, hr_str]))
             reply = f"Hello! Your telemetry readings ({summary}) have been recorded and synchronized with your clinical chart in the e-Hospital system."
         else:
-            reply = "Hello! I am your Smart Health AI Assistant. Your message has been received by your clinic care team."
+            reply = "Hello! I am your Smart Health AI Assistant. Your message has been received by your clinic care team and synchronized with your portal."
+
+        # Save to In-App WhatsApp Thread for two-way synchronization
+        try:
+            threads = _load_threads()
+            thread = threads.setdefault(phone_key, [])
+            now_str = datetime.now().strftime("%I:%M %p")
+            thread.append({
+                "id": int(time.time() * 1000),
+                "role": "patient",
+                "sender_name": "Patient",
+                "text": text_body,
+                "vitals": vitals,
+                "timestamp": now_str
+            })
+            thread.append({
+                "id": int(time.time() * 1000) + 1,
+                "role": "bot",
+                "sender_name": "Intelligent Digital Solution Care Team",
+                "text": reply,
+                "vitals": vitals,
+                "timestamp": now_str
+            })
+            _save_threads(threads)
+        except Exception as e:
+            print(f"[WhatsApp Inbound Save Error]: {e}")
 
         send_whatsapp_reply(sender_phone, reply)
         return {"status": "ok", "processed": True, "vitals": vitals}

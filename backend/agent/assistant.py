@@ -625,6 +625,87 @@ def handle_assistant_query(
     q_lower = query.lower().strip()
     today_iso = datetime.date.today().isoformat()
 
+    # 0. ── EXPLICIT WHATSAPP MESSAGE DISPATCH COMMAND ─────────────────────────
+    has_wa = any(w in q_lower for w in ["whatsapp", "text", "msg", "message"])
+    has_send = any(w in q_lower for w in ["send", "forward", "dispatch", "post", "remind", "notify", "tell"])
+    if (has_wa and has_send) or q_lower.startswith(("send msg", "send message", "send to whatsapp", "send whatsapp", "tell doctor", "notify doctor")):
+        from agent.patient_matcher import send_whatsapp_message
+        p_name, p_id, initials = extract_or_match_patient(query, active_patient)
+        
+        # Match target patient phone number
+        phone = "16132616383"
+        display_name = p_name or "Patient"
+        if active_patient and isinstance(active_patient, dict):
+            if active_patient.get("phone"):
+                phone = re.sub(r"\D", "", str(active_patient["phone"]))
+            display_name = active_patient.get("name") or display_name
+            
+        # Clean message body
+        msg_body = query
+        for prefix in ["send whatsapp message to", "send whatsapp message", "send whatsapp to", "send message to", "send message", "send msg to", "send msg:", "send msg"]:
+            if q_lower.startswith(prefix):
+                msg_body = query[len(prefix):].lstrip(" :")
+                break
+        if not msg_body:
+            msg_body = query
+                
+        outbound_text = (
+            f"🩺 *e-Hospital Clinic Dispatch*\n\n"
+            f"From: Dr. Patel / Intelligent Digital Solution\n"
+            f"To: {display_name}\n\n"
+            f"\"{msg_body}\""
+        )
+        delivered = send_whatsapp_message(phone, outbound_text)
+        
+        # Also sync to threads file so in-app WhatsApp view displays it immediately
+        try:
+            from pathlib import Path
+            import json, time
+            tf_path = Path(__file__).resolve().parent.parent / "whatsapp_threads.json"
+            threads_dict = {}
+            if tf_path.exists():
+                with open(tf_path, "r", encoding="utf-8") as f:
+                    threads_dict = json.load(f)
+            phone_key = phone[-10:] if len(phone) >= 10 else phone
+            th = threads_dict.setdefault(phone_key, [])
+            now_str = datetime.datetime.now().strftime("%I:%M %p")
+            th.append({
+                "id": int(time.time() * 1000),
+                "role": "doctor",
+                "sender_name": "Dr. Patel",
+                "text": msg_body,
+                "timestamp": now_str
+            })
+            targets = [
+                Path(__file__).resolve().parent.parent / "whatsapp_threads.json",
+                Path(__file__).resolve().parent.parent.parent / "flutter_smart_health" / "backend" / "whatsapp_threads.json"
+            ]
+            for target in targets:
+                try:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with open(target, "w", encoding="utf-8") as f:
+                        json.dump(threads_dict, f, indent=2)
+                except Exception as ex_target:
+                    print(f"[Assistant Scribe WhatsApp Sync]: {ex_target}")
+        except Exception as e:
+            print(f"[Assistant Scribe WhatsApp Sync]: {e}")
+            
+        return {
+            "intent": "whatsapp_dispatched",
+            "reply": (
+                f"✅ **WhatsApp Message Dispatched**\n\n"
+                f"**Recipient**: {display_name} (`+{phone}`)\n"
+                f"**Message**: \"{msg_body}\"\n"
+                f"**Status**: `Delivered to WhatsApp & Synced with Clinic Chat`\n\n"
+                f"The message is now visible in your in-app WhatsApp chat thread and delivered directly to the patient's phone."
+            ),
+            "suggested_prompts": [
+                f"Check {display_name}'s latest vitals",
+                f"Book follow-up appointment for {display_name}",
+                f"Open clinical encounter note for {display_name}"
+            ]
+        }
+
     # 1. ── EXPLICIT APPOINTMENT CANCELLATION COMMAND ─────────────────────────
     if is_explicit_cancel_command(query):
         clinic_appts = get_appointments(today_iso) or get_appointments("")

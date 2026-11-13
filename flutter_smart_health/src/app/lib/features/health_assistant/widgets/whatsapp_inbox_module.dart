@@ -211,7 +211,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
   }
 
   Future<void> _launchExternalWhatsApp() async {
-    final uri = Uri.parse("https://wa.me/16132616383?text=Hi%20Intelligent%20Digital%20Solution,%20checking%20in%20from%20Smart%20Health%20Mobile%20App");
+    final uri = Uri.parse("https://wa.me/16134045586?text=Hi%20Intelligent%20Digital%20Solution,%20checking%20in%20from%20Smart%20Health%20Mobile%20App");
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {

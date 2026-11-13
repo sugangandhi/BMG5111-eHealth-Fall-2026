@@ -193,7 +193,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final defaultMsg = customMessage ??
         "Hi Doctor, this is patient #$_patientId. I have a question about my recent mobile health vitals.";
     final url = Uri.parse(
-      "https://wa.me/16132616383?text=${Uri.encodeComponent(defaultMsg)}",
+      "https://wa.me/16134045586?text=${Uri.encodeComponent(defaultMsg)}",
     );
     try {
       if (await canLaunchUrl(url)) {

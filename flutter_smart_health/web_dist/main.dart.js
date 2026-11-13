@@ -120297,7 +120297,7 @@ case 2:return A.t(o.at(-1),r)}})
 return A.v($async$ns,r)},
 ux(){var s=0,r=A.w(t.H),q
 var $async$ux=A.r(function(a,b){if(a===1)return A.t(b,r)
-for(;;)switch(s){case 0:q=A.dL("https://wa.me/16132616383?text=Hi%20Intelligent%20Digital%20Solution,%20checking%20in%20from%20Smart%20Health%20Mobile%20App",0,null)
+for(;;)switch(s){case 0:q=A.dL("https://wa.me/16134045586?text=Hi%20Intelligent%20Digital%20Solution,%20checking%20in%20from%20Smart%20Health%20Mobile%20App",0,null)
 s=5
 return A.j(A.Dt(q),$async$ux)
 case 5:s=b?2:4

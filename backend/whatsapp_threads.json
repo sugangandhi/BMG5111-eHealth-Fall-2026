@@ -1,41 +1,1104 @@
 {
-  "6135550192": [
-    {
-      "id": 1791139606623,
-      "role": "doctor",
-      "sender_name": "Dr. Sugan",
-      "text": "Hello Sarah, your blood pressure reading of 168/102 looks elevated. Please rest and we will follow up.",
-      "vitals": {},
-      "timestamp": "02:46 PM"
-    }
-  ],
   "6132616383": [
     {
       "id": 1791309686445,
       "role": "bot",
-      "sender_name": "e-Hospital Assistant",
-      "text": "Hello Sarah, thank you for updating e-Hospital. Your readings (BP: 138/88) have been recorded directly into your patient chart and synced with the Central Clinical Network.",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "Hello! Welcome to the PrimeCare WhatsApp Clinic channel. You can message us your symptoms, query your care plan, or log daily vitals here.",
+      "triage_level": "ROUTINE",
+      "alert_doctor": false,
+      "doctor_notice": "Meta Verified Clinic Desk Active",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Appointment with Intelligent Digital Solution",
+          "type": "book"
+        }
+      ],
       "vitals": {},
-      "timestamp": "02:01 PM"
+      "timestamp": "09:00 AM"
     },
     {
       "id": 1791309972075,
       "role": "patient",
-      "sender_name": "Sarah Khan",
-      "text": "Hi Doctor, my blood pressure this morning is 138/88 and my heart rate is 76.",
+      "sender_name": "Normal LLM Demo",
+      "text": "Hi Doctor, checking in. My blood pressure this morning is 125/82 and heart rate is 72.",
       "vitals": {
-        "bp": "138/88",
-        "hr": "76"
+        "blood_pressure": "125/82",
+        "heart_rate": 72
       },
-      "timestamp": "02:06 PM"
+      "timestamp": "09:15 AM"
     },
     {
       "id": 1791309972076,
       "role": "bot",
-      "sender_name": "e-Hospital Assistant",
-      "text": "Hello Sarah, thank you for updating e-Hospital. Your readings (BP: 138/88, HR: 76) have been recorded directly into your patient chart and synced with the Central Clinical Network.",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 125/82, HR: 72 BPM) have been recorded in your clinical chart and synchronized with the Central AWS Cloud Network. All readings are stable within normal range.",
+      "triage_level": "NORMAL_VITALS",
+      "alert_doctor": false,
+      "doctor_notice": "\u2705 Telemetry Verified & Synced with AWS Cloud Network",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "vitals": {
+        "blood_pressure": "125/82",
+        "heart_rate": 72
+      },
+      "timestamp": "09:16 AM"
+    },
+    {
+      "id": 1793647217901,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "Doctor, I'm experiencing mild chest tightness and slight shortness of breath.",
       "vitals": {},
-      "timestamp": "02:06 PM"
+      "timestamp": "02:20 PM"
+    },
+    {
+      "id": 1793647221590,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u26a0\ufe0f **CLINICAL TRIAGE NOTICE**: Your reported symptoms (chest tightness, slight shortness of breath) have been entered into your clinical chart and an urgent notice has been sent to Intelligent Digital Solution's triage desk.\n\nTo ensure your symptoms are promptly evaluated, would you like me to book an urgent same-day appointment with Intelligent Digital Solution, or check you into our walk-in Urgent Care queue right now?",
+      "triage_level": "URGENT",
+      "alert_doctor": true,
+      "doctor_notice": "\u26a0\ufe0f Urgent Clinical Notice Sent to Intelligent Digital Solution's Triage Desk",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Urgent Appointment with Intelligent Digital Solution",
+          "type": "book"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Join Urgent Care Clinic Queue",
+          "type": "route"
+        }
+      ],
+      "vitals": {},
+      "timestamp": "02:20 PM"
+    },
+    {
+      "id": 1793688654502,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "hello doctor I have a severe chest pain",
+      "vitals": {},
+      "timestamp": "01:50 AM"
+    },
+    {
+      "id": 1793688656069,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\ud83d\udea8 **EMERGENCY NOTICE TRANSMITTED**: An immediate STAT clinical alert has been sent directly to Intelligent Digital Solution and the clinic emergency triage team.\n\nBecause severe chest pain can indicate a life-threatening cardiac event, please do not delay care. Call 911 or proceed to the nearest Emergency Department immediately. If you are en route to our facility, tap below to check into our Urgent Care Queue.",
+      "triage_level": "EMERGENCY",
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Clinical Emergency Alert Sent to Intelligent Digital Solution & On-Call Team",
+      "actions": [
+        {
+          "id": "call_911",
+          "label": "\ud83d\udea8 Call 911 / Emergency",
+          "type": "tel"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Check In to Urgent Care Queue",
+          "type": "route"
+        },
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book STAT Consultation",
+          "type": "book"
+        }
+      ],
+      "vitals": {},
+      "timestamp": "01:50 AM"
+    },
+    {
+      "id": 1793690288466,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "hello doctor I have a severe chest pain",
+      "vitals": {},
+      "timestamp": "02:18 AM"
+    },
+    {
+      "id": 1793690290505,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "If you're experiencing severe chest pain, please seek immediate medical attention or call emergency services. For further assistance, contact our clinic as soon as possible.",
+      "vitals": {},
+      "timestamp": "02:18 AM"
+    },
+    {
+      "id": 1793690361524,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "hello doctor I have a severe chest pain",
+      "vitals": {},
+      "timestamp": "02:19 AM"
+    },
+    {
+      "id": 1793690361525,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\ud83d\udea8 **EMERGENCY NOTICE TRANSMITTED**: An immediate STAT clinical alert has been sent directly to Intelligent Digital Solution and the clinic triage team.\n\nBecause severe chest symptoms can indicate a life-threatening cardiac event, please do not delay care. Call 911 or proceed to the nearest Emergency Department immediately. If you are on the way to our facility, tap below to check into our Urgent Care Queue.",
+      "triage_level": "EMERGENCY",
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Clinical Emergency Alert Sent to Intelligent Digital Solution & On-Call Team",
+      "actions": [
+        {
+          "id": "call_911",
+          "label": "\ud83d\udea8 Call 911 / Emergency",
+          "type": "tel"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Check In to Urgent Care Queue",
+          "type": "route"
+        },
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Priority Consultation",
+          "type": "book"
+        }
+      ],
+      "vitals": {},
+      "timestamp": "02:19 AM"
+    },
+    {
+      "id": 1793690390869,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "Doctor, I am experiencing mild chest tightness and slight shortness of breath.",
+      "vitals": {},
+      "timestamp": "02:19 AM"
+    },
+    {
+      "id": 1793690390870,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u26a0\ufe0f **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and an urgent notice has been sent to Intelligent Digital Solution's triage desk.\n\nTo ensure your symptoms are promptly evaluated, would you like me to book an urgent same-day appointment with Intelligent Digital Solution, or check you into the walk-in Urgent Care clinic queue right now?",
+      "triage_level": "URGENT",
+      "alert_doctor": true,
+      "doctor_notice": "\u26a0\ufe0f Urgent Clinical Notice Sent to Intelligent Digital Solution's Triage Desk",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Urgent Appointment with Intelligent Digital Solution",
+          "type": "book"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Join Urgent Care Clinic Queue",
+          "type": "route"
+        }
+      ],
+      "vitals": {},
+      "timestamp": "02:19 AM"
+    },
+    {
+      "id": 1793690402973,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u2705 **APPOINTMENT CONFIRMED**: You are scheduled for an urgent consultation with Intelligent Digital Solution for **Today at 03:00 PM** (Ref: #APT-195).\n\nYour patient chart #391 and recent vitals telemetry have been prioritized for Intelligent Digital Solution's arrival.",
+      "triage_level": "APPOINTMENT_CONFIRMED",
+      "alert_doctor": true,
+      "doctor_notice": "\u2705 Priority Appointment Booked: #APT-195 for Patient #391",
+      "actions": [],
+      "vitals": {},
+      "timestamp": "02:20 AM"
+    },
+    {
+      "id": 1793690520643,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "My morning vitals: Blood pressure 125/82, Heart rate 74 BPM.",
+      "vitals": {
+        "blood_pressure": "125/82",
+        "systolic": 125,
+        "diastolic": 82,
+        "heart_rate": 74
+      },
+      "timestamp": "02:22 AM"
+    },
+    {
+      "id": 1793690520939,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 125/82, HR: 74 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "alert_doctor": false,
+      "doctor_notice": "\u2705 Telemetry Verified & Synced with AWS Cloud Network",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "vitals": {
+        "blood_pressure": "125/82",
+        "systolic": 125,
+        "diastolic": 82,
+        "heart_rate": 74
+      },
+      "timestamp": "02:22 AM"
+    },
+    {
+      "id": 1793690528261,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u2705 **APPOINTMENT CONFIRMED**: You are scheduled for an urgent consultation with Intelligent Digital Solution for **Today at 03:00 PM** (Ref: #APT-196).\n\nYour patient chart #391 and recent vitals telemetry have been prioritized for Intelligent Digital Solution's arrival.",
+      "triage_level": "APPOINTMENT_CONFIRMED",
+      "alert_doctor": true,
+      "doctor_notice": "\u2705 Priority Appointment Booked: #APT-196 for Patient #391",
+      "actions": [],
+      "vitals": {},
+      "timestamp": "02:22 AM"
+    },
+    {
+      "id": 1793690621127,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "Hi, can I please request a refill for my Amlodipine 5mg prescription?",
+      "vitals": {},
+      "timestamp": "02:23 AM"
+    },
+    {
+      "id": 1793690621128,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\ud83d\udccb **PRESCRIPTION REFILL QUEUED**: Your medication refill request has been submitted to Intelligent Digital Solution's clinical inbox for electronic authorization.\n\nStandard turnaround time is 2-4 hours directly to your registered pharmacy. Would you like to schedule a medication review appointment with Intelligent Digital Solution?",
+      "triage_level": "PHARMACY_REFILL",
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udccb Prescription Renewal Sent to Intelligent Digital Solution's Approval Desk",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Medication Review",
+          "type": "book"
+        }
+      ],
+      "vitals": {},
+      "timestamp": "02:23 AM"
+    },
+    {
+      "id": 1793690644910,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "no",
+      "vitals": {},
+      "timestamp": "02:24 AM"
+    },
+    {
+      "id": 1793690646642,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "Thank you for reaching out. If you have any specific health concerns or questions, please let us know. Would you like to book an appointment with Intelligent Digital Solution?",
+      "triage_level": "ROUTINE",
+      "alert_doctor": false,
+      "doctor_notice": "\u2139\ufe0f Patient Inquiry Logged in Care Notes",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Appointment with Intelligent Digital Solution",
+          "type": "book"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Urgent Care Queue",
+          "type": "route"
+        }
+      ],
+      "vitals": {},
+      "timestamp": "02:24 AM"
+    },
+    {
+      "id": 1793690668436,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "no",
+      "vitals": {},
+      "timestamp": "02:24 AM"
+    },
+    {
+      "id": 1793690669819,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "Thank you for reaching out. If you have a specific concern or question, please feel free to share more details. Would you like to book an appointment with Intelligent Digital Solution?",
+      "triage_level": "ROUTINE",
+      "alert_doctor": false,
+      "doctor_notice": "\u2139\ufe0f Patient Inquiry Logged in Care Notes",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Appointment with Intelligent Digital Solution",
+          "type": "book"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Urgent Care Queue",
+          "type": "route"
+        }
+      ],
+      "vitals": {},
+      "timestamp": "02:24 AM"
+    },
+    {
+      "id": 1793737621107,
+      "role": "patient",
+      "sender_name": "Patient",
+      "text": "hello doctor I have severe chest pain",
+      "vitals": {},
+      "timestamp": "03:27 PM"
+    },
+    {
+      "id": 1793737621365,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\ud83d\udea8 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Intelligent Digital Solution and the clinic's urgent triage team.\n\nBecause severe chest symptoms can indicate an acute coronary syndrome or critical cardiac event, please do not wait. Call 911 or proceed to the nearest emergency department immediately. You may also check into our walk-in Urgent Care queue below if you are currently en route.",
+      "triage_level": "EMERGENCY",
+      "ctas_level": 2,
+      "ctas_label": "CTAS Level 2",
+      "confidence_score": 0.98,
+      "uncertainty_flag": false,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Emergency Clinical Alert Sent to Intelligent Digital Solution & On-Call ER Team",
+      "actions": [
+        {
+          "id": "call_911",
+          "label": "\ud83d\udea8 Call 911 / Emergency",
+          "type": "tel"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Check In to Urgent Care Queue",
+          "type": "route"
+        },
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Priority Consultation",
+          "type": "book"
+        }
+      ],
+      "follow_up_chips": [],
+      "comorbidities": [
+        "Patient-reported medical history"
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-03 15:27 EST",
+        "patient_id": "391",
+        "subjective": "Patient #391 reported via secure mobile channel: \"hello doctor I have severe chest pain\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure Not reported, Heart Rate Not reported. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.",
+        "plan": "STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-03 15:27 EST | Patient ID: #391\n\nS (Subjective): Patient #391 reported via secure mobile channel: \"hello doctor I have severe chest pain\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure Not reported, Heart Rate Not reported. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.\nP (Plan): STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved."
+      },
+      "vitals": {},
+      "timestamp": "03:27 PM"
+    },
+    {
+      "id": 1793737629516,
+      "role": "patient",
+      "sender_name": "Patient",
+      "text": "Doctor I feel some tightness in my chest",
+      "vitals": {},
+      "timestamp": "03:27 PM"
+    },
+    {
+      "id": 1793737629685,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u26a0\ufe0f **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and flagged for Intelligent Digital Solution's triage desk.\n\nWould you like me to book a same-day urgent appointment with Intelligent Digital Solution, or check you into the walk-in Urgent Care clinic queue right now?",
+      "triage_level": "URGENT",
+      "ctas_level": 3,
+      "ctas_label": "CTAS Level 3",
+      "confidence_score": 0.94,
+      "uncertainty_flag": false,
+      "alert_doctor": true,
+      "doctor_notice": "\u26a0\ufe0f Urgent Clinical Notice Sent to Intelligent Digital Solution's Triage Desk",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Urgent Appointment with Intelligent Digital Solution",
+          "type": "book"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Join Urgent Care Clinic Queue",
+          "type": "route"
+        }
+      ],
+      "follow_up_chips": [
+        "Pain is tight / squeezing pressure",
+        "Symptoms started today",
+        "Discomfort radiates to left arm / jaw",
+        "Accompanied by mild shortness of breath"
+      ],
+      "comorbidities": [
+        "Patient-reported medical history"
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-03 15:27 EST",
+        "patient_id": "391",
+        "subjective": "Patient #391 reported via secure mobile channel: \"Doctor I feel some tightness in my chest\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure Not reported, Heart Rate Not reported. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 3 (Urgent - Moderate Acuity / Comorbid Escalation). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 94%.",
+        "plan": "Priority Review: Scheduled for urgent outpatient clinical evaluation with Intelligent Digital Solution / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-03 15:27 EST | Patient ID: #391\n\nS (Subjective): Patient #391 reported via secure mobile channel: \"Doctor I feel some tightness in my chest\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure Not reported, Heart Rate Not reported. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 3 (Urgent - Moderate Acuity / Comorbid Escalation). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 94%.\nP (Plan): Priority Review: Scheduled for urgent outpatient clinical evaluation with Intelligent Digital Solution / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist."
+      },
+      "vitals": {},
+      "timestamp": "03:27 PM"
+    },
+    {
+      "id": 1793737847544,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "Doctor, I'm experiencing mild chest tightness and slight shortness of breath.",
+      "vitals": {},
+      "timestamp": "03:30 PM"
+    },
+    {
+      "id": 1793737847745,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u26a0\ufe0f **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and flagged for Intelligent Digital Solution's triage desk.\n\nWould you like me to book a same-day urgent appointment with Intelligent Digital Solution, or check you into the walk-in Urgent Care clinic queue right now?",
+      "triage_level": "URGENT",
+      "ctas_level": 3,
+      "ctas_label": "CTAS Level 3",
+      "confidence_score": 0.94,
+      "uncertainty_flag": false,
+      "alert_doctor": true,
+      "doctor_notice": "\u26a0\ufe0f Urgent Clinical Notice Sent to Intelligent Digital Solution's Triage Desk",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Urgent Appointment with Intelligent Digital Solution",
+          "type": "book"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Join Urgent Care Clinic Queue",
+          "type": "route"
+        }
+      ],
+      "follow_up_chips": [
+        "Pain is tight / squeezing pressure",
+        "Symptoms started today",
+        "Discomfort radiates to left arm / jaw",
+        "Accompanied by mild shortness of breath"
+      ],
+      "comorbidities": [
+        "Patient-reported medical history"
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-03 15:30 EST",
+        "patient_id": "391",
+        "subjective": "Patient #391 reported via secure mobile channel: \"Doctor, I'm experiencing mild chest tightness and slight shortness of breath.\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure Not reported, Heart Rate Not reported. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 3 (Urgent - Moderate Acuity / Comorbid Escalation). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 94%.",
+        "plan": "Priority Review: Scheduled for urgent outpatient clinical evaluation with Intelligent Digital Solution / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-03 15:30 EST | Patient ID: #391\n\nS (Subjective): Patient #391 reported via secure mobile channel: \"Doctor, I'm experiencing mild chest tightness and slight shortness of breath.\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure Not reported, Heart Rate Not reported. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 3 (Urgent - Moderate Acuity / Comorbid Escalation). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 94%.\nP (Plan): Priority Review: Scheduled for urgent outpatient clinical evaluation with Intelligent Digital Solution / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist."
+      },
+      "vitals": {},
+      "timestamp": "03:30 PM"
+    },
+    {
+      "id": 1793737868925,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "hello doctor i have severe chest pain",
+      "vitals": {},
+      "timestamp": "03:31 PM"
+    },
+    {
+      "id": 1793737869135,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\ud83d\udea8 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Intelligent Digital Solution and the clinic's urgent triage team.\n\nBecause severe chest symptoms can indicate an acute coronary syndrome or critical cardiac event, please do not wait. Call 911 or proceed to the nearest emergency department immediately. You may also check into our walk-in Urgent Care queue below if you are currently en route.",
+      "triage_level": "EMERGENCY",
+      "ctas_level": 2,
+      "ctas_label": "CTAS Level 2",
+      "confidence_score": 0.98,
+      "uncertainty_flag": false,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Emergency Clinical Alert Sent to Intelligent Digital Solution & On-Call ER Team",
+      "actions": [
+        {
+          "id": "call_911",
+          "label": "\ud83d\udea8 Call 911 / Emergency",
+          "type": "tel"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Check In to Urgent Care Queue",
+          "type": "route"
+        },
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Priority Consultation",
+          "type": "book"
+        }
+      ],
+      "follow_up_chips": [],
+      "comorbidities": [
+        "Patient-reported medical history"
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-03 15:31 EST",
+        "patient_id": "391",
+        "subjective": "Patient #391 reported via secure mobile channel: \"hello doctor i have severe chest pain\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure Not reported, Heart Rate Not reported. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.",
+        "plan": "STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-03 15:31 EST | Patient ID: #391\n\nS (Subjective): Patient #391 reported via secure mobile channel: \"hello doctor i have severe chest pain\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure Not reported, Heart Rate Not reported. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.\nP (Plan): STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved."
+      },
+      "vitals": {},
+      "timestamp": "03:31 PM"
+    },
+    {
+      "id": 1793737919061,
+      "role": "patient",
+      "sender_name": "Normal LLM Demo",
+      "text": "my bp is 150/95 and pulse is 82",
+      "vitals": {
+        "blood_pressure": "150/95",
+        "systolic": 150,
+        "diastolic": 95,
+        "heart_rate": 82
+      },
+      "timestamp": "03:31 PM"
+    },
+    {
+      "id": 1793737919581,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u26a0\ufe0f **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and flagged for Intelligent Digital Solution's triage desk.\n\nWould you like me to book a same-day urgent appointment with Intelligent Digital Solution, or check you into the walk-in Urgent Care clinic queue right now?",
+      "triage_level": "URGENT",
+      "ctas_level": 3,
+      "ctas_label": "CTAS Level 3",
+      "confidence_score": 0.94,
+      "uncertainty_flag": false,
+      "alert_doctor": true,
+      "doctor_notice": "\u26a0\ufe0f Urgent Clinical Notice Sent to Intelligent Digital Solution's Triage Desk",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Urgent Appointment with Intelligent Digital Solution",
+          "type": "book"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Join Urgent Care Clinic Queue",
+          "type": "route"
+        }
+      ],
+      "follow_up_chips": [
+        "Pain is tight / squeezing pressure",
+        "Symptoms started today",
+        "Discomfort radiates to left arm / jaw",
+        "Accompanied by mild shortness of breath"
+      ],
+      "comorbidities": [
+        "Patient-reported medical history"
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-03 15:31 EST",
+        "patient_id": "391",
+        "subjective": "Patient #391 reported via secure mobile channel: \"my bp is 150/95 and pulse is 82\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 150/95, Heart Rate 82 BPM. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 3 (Urgent - Moderate Acuity / Comorbid Escalation). Guideline Reference: Hypertension Canada CPG: Stage 2 Hypertension (>=140/90 mmHg). Exceeds primary care target. Clinical follow-up recommended within 7 days.. Decision Engine Calibration Confidence: 94%.",
+        "plan": "Priority Review: Scheduled for urgent outpatient clinical evaluation with Intelligent Digital Solution / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-03 15:31 EST | Patient ID: #391\n\nS (Subjective): Patient #391 reported via secure mobile channel: \"my bp is 150/95 and pulse is 82\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 150/95, Heart Rate 82 BPM. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 3 (Urgent - Moderate Acuity / Comorbid Escalation). Guideline Reference: Hypertension Canada CPG: Stage 2 Hypertension (>=140/90 mmHg). Exceeds primary care target. Clinical follow-up recommended within 7 days.. Decision Engine Calibration Confidence: 94%.\nP (Plan): Priority Review: Scheduled for urgent outpatient clinical evaluation with Intelligent Digital Solution / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist."
+      },
+      "vitals": {
+        "blood_pressure": "150/95",
+        "systolic": 150,
+        "diastolic": 95,
+        "heart_rate": 82
+      },
+      "timestamp": "03:31 PM"
+    },
+    {
+      "id": 1793771126596,
+      "role": "patient",
+      "sender_name": "Patient",
+      "text": "[Forwarded from AI Chat]: will you able to send message to the dr",
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "12:45 AM"
+    },
+    {
+      "id": 1793771126597,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 138/88, HR: 82 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Clinical Emergency Dispatched from AI Chat to Intelligent Digital Solution",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-04 00:45 EST",
+        "patient_id": "1",
+        "subjective": "Patient #1 reported via secure mobile channel: \"will you able to send message to the dr\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Depression, Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-04 00:45 EST | Patient ID: #1\n\nS (Subjective): Patient #1 reported via secure mobile channel: \"will you able to send message to the dr\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Depression, Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "12:45 AM"
+    },
+    {
+      "id": 1793771134586,
+      "role": "patient",
+      "sender_name": "Patient",
+      "text": "[Forwarded from AI Chat]: will you able to send message to the dr",
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "12:45 AM"
+    },
+    {
+      "id": 1793771134587,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 138/88, HR: 82 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Clinical Emergency Dispatched from AI Chat to Intelligent Digital Solution",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-04 00:45 EST",
+        "patient_id": "1",
+        "subjective": "Patient #1 reported via secure mobile channel: \"will you able to send message to the dr\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Depression, Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-04 00:45 EST | Patient ID: #1\n\nS (Subjective): Patient #1 reported via secure mobile channel: \"will you able to send message to the dr\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Depression, Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "12:45 AM"
+    },
+    {
+      "id": 1793771322513,
+      "role": "patient",
+      "sender_name": "Patient",
+      "text": "[Forwarded from AI Chat]: I have a severe chest pain now",
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 76
+      },
+      "timestamp": "12:48 AM"
+    },
+    {
+      "id": 1793771322514,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\ud83d\udea8 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Intelligent Digital Solution and the clinic's urgent triage team.\n\nBecause severe chest symptoms can indicate an acute coronary syndrome or critical cardiac event, please do not wait. Call 911 or proceed to the nearest emergency department immediately. You may also check into our walk-in Urgent Care queue below if you are currently en route.",
+      "triage_level": "EMERGENCY",
+      "ctas_level": 2,
+      "ctas_label": "CTAS Level 2",
+      "confidence_score": 0.98,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Clinical Emergency Dispatched from AI Chat to Intelligent Digital Solution",
+      "actions": [
+        {
+          "id": "call_911",
+          "label": "\ud83d\udea8 Call 911 / Emergency",
+          "type": "tel"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Check In to Urgent Care Queue",
+          "type": "route"
+        },
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Priority Consultation",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-04 00:48 EST",
+        "patient_id": "1",
+        "subjective": "Patient #1 reported via secure mobile channel: \"I have a severe chest pain now\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 138/88, Heart Rate 76 BPM. Active EHR Comorbidities: Depression, Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.",
+        "plan": "STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-04 00:48 EST | Patient ID: #1\n\nS (Subjective): Patient #1 reported via secure mobile channel: \"I have a severe chest pain now\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 138/88, Heart Rate 76 BPM. Active EHR Comorbidities: Depression, Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.\nP (Plan): STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved."
+      },
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 76
+      },
+      "timestamp": "12:48 AM"
+    },
+    {
+      "id": 1793771324485,
+      "role": "patient",
+      "sender_name": "Patient",
+      "text": "[Forwarded from AI Chat]: will you able to send message to the dr",
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 76
+      },
+      "timestamp": "12:48 AM"
+    },
+    {
+      "id": 1793771324486,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 138/88, HR: 76 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Clinical Emergency Dispatched from AI Chat to Intelligent Digital Solution",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-04 00:48 EST",
+        "patient_id": "1",
+        "subjective": "Patient #1 reported via secure mobile channel: \"will you able to send message to the dr\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 138/88, Heart Rate 76 BPM. Active EHR Comorbidities: Depression, Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-04 00:48 EST | Patient ID: #1\n\nS (Subjective): Patient #1 reported via secure mobile channel: \"will you able to send message to the dr\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 138/88, Heart Rate 76 BPM. Active EHR Comorbidities: Depression, Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 76
+      },
+      "timestamp": "12:48 AM"
+    },
+    {
+      "id": 1793771647024,
+      "role": "patient",
+      "sender_name": "Patient",
+      "text": "[Forwarded from AI Chat]: will you able to send message to dr that i have severe chest pain",
+      "vitals": {
+        "blood_pressure": "150/95",
+        "heart_rate": 82
+      },
+      "timestamp": "12:54 AM"
+    },
+    {
+      "id": 1793771647025,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\ud83d\udea8 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Intelligent Digital Solution and the clinic's urgent triage team.\n\nBecause severe chest symptoms can indicate an acute coronary syndrome or critical cardiac event, please do not wait. Call 911 or proceed to the nearest emergency department immediately. You may also check into our walk-in Urgent Care queue below if you are currently en route.",
+      "triage_level": "EMERGENCY",
+      "ctas_level": 2,
+      "ctas_label": "CTAS Level 2",
+      "confidence_score": 0.98,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Clinical Emergency Dispatched from AI Chat to Intelligent Digital Solution",
+      "actions": [
+        {
+          "id": "call_911",
+          "label": "\ud83d\udea8 Call 911 / Emergency",
+          "type": "tel"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Check In to Urgent Care Queue",
+          "type": "route"
+        },
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Priority Consultation",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-04 00:54 EST",
+        "patient_id": "391",
+        "subjective": "Patient #391 reported via secure mobile channel: \"will you able to send message to dr that i have severe chest pain\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 150/95, Heart Rate 82 BPM. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.",
+        "plan": "STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-04 00:54 EST | Patient ID: #391\n\nS (Subjective): Patient #391 reported via secure mobile channel: \"will you able to send message to dr that i have severe chest pain\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 150/95, Heart Rate 82 BPM. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.\nP (Plan): STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved."
+      },
+      "vitals": {
+        "blood_pressure": "150/95",
+        "heart_rate": 82
+      },
+      "timestamp": "12:54 AM"
+    },
+    {
+      "id": 1793773565495,
+      "role": "patient",
+      "sender_name": "Patient",
+      "text": "[Forwarded from AI Chat]: \"I have severe chest pain and my left arm feels heavy. Can you check my vitals?\"",
+      "vitals": {
+        "blood_pressure": "150/95",
+        "heart_rate": 82
+      },
+      "timestamp": "01:26 AM"
+    },
+    {
+      "id": 1793773565496,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution's Clinic Care Team",
+      "text": "\ud83d\udea8 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Intelligent Digital Solution and the clinic's urgent triage team.\n\nBecause severe chest symptoms can indicate an acute coronary syndrome or critical cardiac event, please do not wait. Call 911 or proceed to the nearest emergency department immediately. You may also check into our walk-in Urgent Care queue below if you are currently en route.",
+      "triage_level": "EMERGENCY",
+      "ctas_level": 2,
+      "ctas_label": "CTAS Level 2",
+      "confidence_score": 0.98,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 STAT Clinical Emergency Dispatched from AI Chat to Intelligent Digital Solution",
+      "actions": [
+        {
+          "id": "call_911",
+          "label": "\ud83d\udea8 Call 911 / Emergency",
+          "type": "tel"
+        },
+        {
+          "id": "urgent_care",
+          "label": "\ud83c\udfe5 Check In to Urgent Care Queue",
+          "type": "route"
+        },
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Priority Consultation",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-04 01:26 EST",
+        "patient_id": "391",
+        "subjective": "Patient #391 reported via secure mobile channel: \"\"I have severe chest pain and my left arm feels heavy. Can you check my vitals?\"\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 150/95, Heart Rate 82 BPM. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.",
+        "plan": "STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution's Clinic Desk) ---\nTimestamp: 2026-11-04 01:26 EST | Patient ID: #391\n\nS (Subjective): Patient #391 reported via secure mobile channel: \"\"I have severe chest pain and my left arm feels heavy. Can you check my vitals?\"\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 150/95, Heart Rate 82 BPM. Active EHR Comorbidities: Patient-reported medical history. Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 2 (Emergent - High Risk / Potential Threat). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 98%.\nP (Plan): STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved."
+      },
+      "vitals": {
+        "blood_pressure": "150/95",
+        "heart_rate": 82
+      },
+      "timestamp": "01:26 AM"
+    },
+    {
+      "id": 1794550302467,
+      "role": "patient",
+      "sender_name": "Sugan (WhatsApp)",
+      "text": "Send message to doctor: My blood pressure is 120/80 today",
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "01:11 AM"
+    },
+    {
+      "id": 1794550302468,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 138/88, HR: 82 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 Dispatched from AI Chat Assistant to Clinical Care Team",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-13 01:11 EST",
+        "patient_id": "99211",
+        "subjective": "Patient #99211 reported via secure mobile channel: \"Send message to doctor: My blood pressure is 120/80 today\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution Clinic Desk) ---\nTimestamp: 2026-11-13 01:11 EST | Patient ID: #99211\n\nS (Subjective): Patient #99211 reported via secure mobile channel: \"Send message to doctor: My blood pressure is 120/80 today\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "01:11 AM"
+    },
+    {
+      "id": 1794550637741,
+      "role": "patient",
+      "sender_name": "Sugan (WhatsApp)",
+      "text": "send msg: I need a follow up on my blood pressure",
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "01:17 AM"
+    },
+    {
+      "id": 1794550637742,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 138/88, HR: 82 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 Dispatched from AI Chat Assistant to Clinical Care Team",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-13 01:17 EST",
+        "patient_id": "99211",
+        "subjective": "Patient #99211 reported via secure mobile channel: \"send msg: I need a follow up on my blood pressure\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution Clinic Desk) ---\nTimestamp: 2026-11-13 01:17 EST | Patient ID: #99211\n\nS (Subjective): Patient #99211 reported via secure mobile channel: \"send msg: I need a follow up on my blood pressure\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "01:17 AM"
+    },
+    {
+      "id": 1794550773882,
+      "role": "patient",
+      "sender_name": "Sugan (WhatsApp)",
+      "text": "Can you send a message to doctor: I took my meds and my HR is 75",
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "01:19 AM"
+    },
+    {
+      "id": 1794550773883,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 138/88, HR: 82 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 Dispatched from AI Chat Assistant to Clinical Care Team",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-13 01:19 EST",
+        "patient_id": "99211",
+        "subjective": "Patient #99211 reported via secure mobile channel: \"Can you send a message to doctor: I took my meds and my HR is 75\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution Clinic Desk) ---\nTimestamp: 2026-11-13 01:19 EST | Patient ID: #99211\n\nS (Subjective): Patient #99211 reported via secure mobile channel: \"Can you send a message to doctor: I took my meds and my HR is 75\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "01:19 AM"
+    },
+    {
+      "id": 1794550844306,
+      "role": "patient",
+      "sender_name": "Sugan (WhatsApp)",
+      "text": "Can you send a message to doctor: Blood pressure is stable today at 122/80",
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "01:20 AM"
+    },
+    {
+      "id": 1794550844307,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 138/88, HR: 82 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 Dispatched from AI Chat Assistant to Clinical Care Team",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-13 01:20 EST",
+        "patient_id": "99211",
+        "subjective": "Patient #99211 reported via secure mobile channel: \"Can you send a message to doctor: Blood pressure is stable today at 122/80\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution Clinic Desk) ---\nTimestamp: 2026-11-13 01:20 EST | Patient ID: #99211\n\nS (Subjective): Patient #99211 reported via secure mobile channel: \"Can you send a message to doctor: Blood pressure is stable today at 122/80\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 138/88, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "138/88",
+        "heart_rate": 82
+      },
+      "timestamp": "01:20 AM"
+    },
+    {
+      "id": 1794550845464,
+      "role": "doctor",
+      "sender_name": "Dr. Patel",
+      "text": "Sugan: Looking good Sugan! Keep taking your prescribed meds.",
+      "timestamp": "01:20 AM"
     }
   ]
 }

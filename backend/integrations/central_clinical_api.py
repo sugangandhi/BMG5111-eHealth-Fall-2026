@@ -8,7 +8,10 @@ import os
 import re
 import datetime
 import requests
+import urllib3
 from typing import Optional, List, Dict, Any
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 CENTRAL_API_BASE = os.getenv(
     "CENTRAL_CLINICAL_API_URL",
@@ -21,7 +24,7 @@ TIMEOUT = 8
 def check_central_api_health() -> Dict[str, Any]:
     """Checks live connectivity to the Central Clinical EMR Cloud."""
     try:
-        resp = requests.get(f"{CENTRAL_API_BASE}/", timeout=TIMEOUT)
+        resp = requests.get(f"{CENTRAL_API_BASE}/", timeout=TIMEOUT, verify=False)
         if resp.status_code == 200:
             data = resp.json()
             return {
@@ -39,7 +42,7 @@ def check_central_api_health() -> Dict[str, Any]:
 def fetch_central_patients() -> List[Dict[str, Any]]:
     """Retrieves registered patient records from the central clinical database."""
     try:
-        resp = requests.get(f"{CENTRAL_API_BASE}/table/patients_registration", timeout=TIMEOUT)
+        resp = requests.get(f"{CENTRAL_API_BASE}/table/patients_registration", timeout=TIMEOUT, verify=False)
         if resp.status_code == 200:
             return resp.json().get("data", [])
         return []
@@ -178,7 +181,7 @@ def post_central_vital(
 
     try:
         url = f"{CENTRAL_API_BASE}/table/vitals_history"
-        resp = requests.post(url, json=payload, timeout=TIMEOUT)
+        resp = requests.post(url, json=payload, timeout=TIMEOUT, verify=False)
         if resp.status_code in [200, 201]:
             data = resp.json()
             print(f"[Central EMR] Vitals successfully written to AWS database for patient {patient_id}")
@@ -209,7 +212,7 @@ def fetch_patient_vitals_history(patient_id: int, limit: int = 20) -> List[Dict[
                 "limit": int(limit)
             }
         }
-        resp = requests.post(url, json=payload, timeout=TIMEOUT)
+        resp = requests.post(url, json=payload, timeout=TIMEOUT, verify=False)
         if resp.status_code == 200:
             return resp.json().get("data", [])
         return []
@@ -239,7 +242,7 @@ def post_patient_message_to_doctor(
     }
     try:
         url = f"{CENTRAL_API_BASE}/table/message_pat_to_doctor"
-        resp = requests.post(url, json=payload, timeout=TIMEOUT)
+        resp = requests.post(url, json=payload, timeout=TIMEOUT, verify=False)
         if resp.status_code in [200, 201]:
             return {"success": True, "data": resp.json()}
         return {"success": False, "status_code": resp.status_code}
@@ -251,7 +254,7 @@ def fetch_central_appointments(limit: int = 50) -> List[Dict[str, Any]]:
     """Pulls live appointment schedules from the central clinical database."""
     try:
         url = f"{CENTRAL_API_BASE}/table/appointments"
-        resp = requests.get(url, timeout=TIMEOUT)
+        resp = requests.get(url, timeout=TIMEOUT, verify=False)
         if resp.status_code == 200:
             data = resp.json().get("data", [])
             return data[:limit]
@@ -283,7 +286,7 @@ def fetch_central_wearable_vitals(patient_id: int, limit: int = 5) -> List[Dict[
                 "limit": int(limit)
             }
         }
-        resp = requests.post(url, json=payload, timeout=TIMEOUT)
+        resp = requests.post(url, json=payload, timeout=TIMEOUT, verify=False)
         if resp.status_code == 200:
             return resp.json().get("data", [])
         return []
@@ -349,7 +352,7 @@ def post_central_wearable_vital(
 
     try:
         url = f"{CENTRAL_API_BASE}/table/wearable_vitals"
-        resp = requests.post(url, json=payload, timeout=TIMEOUT)
+        resp = requests.post(url, json=payload, timeout=TIMEOUT, verify=False)
         if resp.status_code in [200, 201]:
             return {"success": True, "data": resp.json()}
         return {"success": False, "status_code": resp.status_code, "error": resp.text}

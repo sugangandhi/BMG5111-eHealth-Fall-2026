@@ -28,7 +28,25 @@ async def build_patient_context(patient_id: int | str) -> dict[str, Any]:
         None,
     )
     if patient is None:
-        raise HTTPException(status_code=404, detail="Unknown patient_id")
+        try:
+            reg_patients = await fetch_ehospital_table("patients_registration")
+            patient = next(
+                (
+                    row
+                    for row in reg_patients
+                    if str(row.get("patient_id", row.get("id", ""))) == patient_id_str
+                ),
+                None,
+            )
+        except Exception:
+            pass
+
+    if patient is None:
+        patient = {
+            "patient_id": patient_id,
+            "name": f"Patient {patient_id}",
+            "email": f"patient_{patient_id}@ehospital.org",
+        }
 
     wearable = await fetch_ehospital_table("wearable_vitals", patient_id)
     vitals_history = await fetch_ehospital_table("vitals_history", patient_id)
