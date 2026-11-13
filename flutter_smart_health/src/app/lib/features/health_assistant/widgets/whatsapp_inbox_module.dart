@@ -366,6 +366,8 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                     itemBuilder: (context, index) {
                       final msg = _messages[index];
                       final isPatient = msg['role'] == 'patient';
+                      final isDoctor = msg['role'] == 'doctor';
+                      final isGreeting = msg['is_greeting'] == true || msg['triage_level'] == 'GREETING';
                       final vitals = msg['vitals'] as Map<String, dynamic>? ?? {};
                       final isEmergency = msg['triage_level'] == 'EMERGENCY';
                       final isUrgent = msg['triage_level'] == 'URGENT';
@@ -381,7 +383,9 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isPatient ? const Color(0xFFDCF8C6) : Colors.white,
+                            color: isPatient
+                                ? const Color(0xFFDCF8C6)
+                                : (isDoctor ? const Color(0xFFEFF6FF) : Colors.white),
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(12),
                               topRight: const Radius.circular(12),
@@ -392,7 +396,9 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                                 ? Border.all(color: const Color(0xFFEF4444), width: 1.5)
                                 : (!isPatient && isUrgent
                                     ? Border.all(color: const Color(0xFFF59E0B), width: 1.2)
-                                    : null),
+                                    : (isDoctor
+                                        ? Border.all(color: const Color(0xFF2563EB), width: 1.4)
+                                        : Border.all(color: Colors.grey.shade200, width: 0.8))),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.05),
@@ -404,25 +410,61 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (!isPatient) ...[
+                              if (isDoctor) ...[
                                 Row(
                                   children: [
-                                    Text(
-                                      msg['sender_name'] ?? "Intelligent Digital Solution's Care Team",
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: isEmergency ? const Color(0xFFDC2626) : const Color(0xFF075E54),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF1E40AF),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.medical_services_rounded, color: Colors.white, size: 10),
+                                          SizedBox(width: 4),
+                                          Text("ATTENDING PHYSICIAN", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                        ],
                                       ),
                                     ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      msg['sender_name'] ?? "Dr. Patel",
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                                    ),
                                     const SizedBox(width: 4),
-                                    if (isEmergency)
-                                      const Icon(Icons.emergency_rounded, color: Color(0xFFDC2626), size: 14)
-                                    else
-                                      const Icon(Icons.verified, color: Color(0xFF25D366), size: 12),
+                                    const Icon(Icons.verified, color: Color(0xFF2563EB), size: 13),
                                   ],
                                 ),
-                                if (doctorNotice != null && doctorNotice.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                              ] else if (!isPatient) ...[
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.smart_toy_outlined, color: Color(0xFF475569), size: 10),
+                                          SizedBox(width: 4),
+                                          Text("CLINIC AI BOT", style: TextStyle(color: Color(0xFF475569), fontSize: 9, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      msg['sender_name'] ?? "Smart Health Assistant",
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                                    ),
+                                  ],
+                                ),
+                                if (!isGreeting && doctorNotice != null && doctorNotice.isNotEmpty) ...[
                                   const SizedBox(height: 5),
                                   Container(
                                     width: double.infinity,
@@ -467,7 +509,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                                     ),
                                   ),
                                 ],
-                                if (msg['ctas_label'] != null) ...[
+                                if (!isGreeting && msg['ctas_label'] != null) ...[
                                   const SizedBox(height: 4),
                                   Wrap(
                                     spacing: 5,

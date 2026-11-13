@@ -101,18 +101,72 @@ def evaluate_clinical_case(
     patient_id: int | str,
     message: str,
     vitals: Dict[str, Any],
-    existing_history: Optional[List[Dict[str, Any]]] = None
+    existing_history: Optional[List[Dict[str, Any]]] = None,
+    patient_name: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Comprehensive multi-step clinical reasoning engine:
-    1. Comorbidity cross-correlation (EHR lookups)
-    2. Symptom & Red-flag triage (CTAS Levels 1-5)
-    3. Guideline-directed analysis (Hypertension Canada, Heart Rate)
-    4. Calibrated uncertainty estimation
-    5. Interactive SOCRATES exploration prompts
-    6. Structured Clinician SOAP Note generation
+    1. Greeting / icebreaker detection (friendly natural response, no clinical red-tape)
+    2. Comorbidity cross-correlation (EHR lookups)
+    3. Symptom & Red-flag triage (CTAS Levels 1-5)
+    4. Guideline-directed analysis (Hypertension Canada, Heart Rate)
+    5. Calibrated uncertainty estimation
+    6. Interactive SOCRATES exploration prompts
+    7. Structured Clinician SOAP Note generation
     """
-    text_lower = message.lower()
+    patient_first_name = "there"
+    if patient_name and str(patient_name).lower() not in ["patient", "unknown", "none", ""]:
+        clean_first = str(patient_name).split()[0].replace("(", "").replace(")", "").strip()
+        if clean_first:
+            patient_first_name = clean_first
+    elif str(patient_id) in ["99211", "cloud-99211"]:
+        patient_first_name = "Sugan"
+
+    text_lower = message.lower().strip()
+    clean_prompt = text_lower.strip("!.,? \t\n")
+
+    # Check for simple greeting / conversational icebreaker
+    greeting_phrases = {
+        "hi", "hello", "hey", "hi doctor", "hello doctor", "hi dr", "hello dr",
+        "good morning", "good afternoon", "good evening", "greetings", "hi there",
+        "hello there", "hey doctor", "how are you", "what can you do", "yo", "hola"
+    }
+    is_greeting = (clean_prompt in greeting_phrases) or (
+        clean_prompt.startswith(("hi ", "hello ", "hey ", "good morning ", "good evening ")) and
+        len(clean_prompt.split()) <= 4 and
+        not any(k in clean_prompt for k in ["pain", "hurt", "bp", "pressure", "heart", "bleed", "dizzy", "headache", "fever", "cough", "med", "pill"])
+    )
+    if is_greeting:
+        return {
+            "triage_level": "GREETING",
+            "is_greeting": True,
+            "ctas_level": None,
+            "ctas_label": None,
+            "confidence_score": 1.0,
+            "uncertainty_flag": False,
+            "alert_doctor": False,
+            "doctor_notice": "",
+            "reply_text": (
+                f"Hello {patient_first_name}! I am your Smart Health AI Assistant 🤖.\n\n"
+                "What can I do for you today? You can:\n"
+                "• 📊 Report your daily vitals (e.g. blood pressure, heart rate)\n"
+                "• 💬 Ask a health question or describe any symptoms\n"
+                "• 👨‍⚕️ Leave a message directly for Dr. Patel"
+            ),
+            "actions": [
+                {"id": "log_vitals", "label": "🩺 Log Today's Vitals", "type": "quick_reply"},
+                {"id": "contact_doctor", "label": "👨‍⚕️ Message Dr. Patel", "type": "quick_reply"}
+            ],
+            "follow_up_chips": [
+                "Log BP: 120/80, HR: 72",
+                "Ask a health question",
+                "Leave note for Dr. Patel"
+            ],
+            "comorbidities": [],
+            "guideline_eval": {},
+            "soap_note": {}
+        }
+
     comorbid_records = fetch_patient_comorbidities(patient_id)
     comorbid_names = [c.get("condition", "") for c in comorbid_records if c.get("condition")]
 
@@ -300,10 +354,35 @@ def evaluate_clinical_case(
             confidence_score = 0.92
             triage_level = "ROUTINE"
             doctor_notice = "ℹ️ Patient Inquiry Logged in Care Notes"
-            reply_text = "Your inquiry has been received by Intelligent Digital Solution care team. Would you like to schedule a consultation with Intelligent Digital Solution to discuss this?"
+            # Open-ended inquiry / health query: Call GPT (OpenAI) for a conversational, intelligent clinical reply!
+            try:
+                from src.backend.clients.model_client import invoke_model
+                sys_prompt = (
+                    "You are Smart Health AI Assistant, a professional, empathetic clinical AI assistant supporting patients in Ontario, Canada.\n"
+                    f"You are speaking with patient {patient_first_name}.\n"
+                    "Attending Physician: Dr. Patel.\n"
+                    "Guidelines:\n"
+                    "- State clearly that you are the automated clinic assistant, not replacing the physician.\n"
+                    "- Provide concise, clinically safe, and warm answers (under 70 words).\n"
+                    "- Offer to relay questions or schedule a review with Dr. Patel."
+                )
+                gpt_reply = invoke_model(prompt=message, system_prompt=sys_prompt)
+                if gpt_reply and len(gpt_reply.strip()) > 15:
+                    reply_text = gpt_reply.strip()
+                else:
+                    reply_text = (
+                        f"Hello {patient_first_name}! I have received your message: \"{message}\". "
+                        "How can I help you with this? Would you like to log symptoms, review vitals, or connect with Dr. Patel?"
+                    )
+            except Exception as ex_llm:
+                print(f"[Clinical Engine] LLM note: {ex_llm}")
+                reply_text = (
+                    f"Hello {patient_first_name}! I have received your message. "
+                    "How can I assist you today? You can share any symptoms, report vitals, or request a consultation with Dr. Patel."
+                )
             actions = [
-                {"id": "book_appointment", "label": "📅 Book Appointment with Intelligent Digital Solution", "type": "book"},
-                {"id": "urgent_care", "label": "🏥 Urgent Care Queue", "type": "route"}
+                {"id": "book_appointment", "label": "📅 Book Consultation with Dr. Patel", "type": "book"},
+                {"id": "contact_doctor", "label": "👨‍⚕️ Message Dr. Patel", "type": "quick_reply"}
             ]
 
     # Generate Clinician SOAP Note

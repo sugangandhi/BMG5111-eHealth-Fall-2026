@@ -131,14 +131,14 @@ def book_appointment_in_central_cloud(patient_id: int, reason: str = "Priority C
         "status": "Scheduled"
     }
 
-def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str, Any]) -> Dict[str, Any]:
+def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str, Any], patient_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Hospital clinical triage decision and action engine.
     Delegates to the unified clinical reasoning engine for comorbidity cross-referencing,
     Canadian CPG guidelines, calibrated uncertainty, SOCRATES chips, and SOAP note synthesis.
     """
     from src.backend.services.clinical_reasoning_engine import evaluate_clinical_case
-    return evaluate_clinical_case(patient_id, message, vitals)
+    return evaluate_clinical_case(patient_id, message, vitals, patient_name=patient_name)
 
 @router.get('/api/whatsapp/threads')
 @router.get('/api/whatsapp/threads/{phone}')
@@ -179,15 +179,17 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
         post_vitals_to_central_cloud(patient_id, vitals, req.message)
 
     # 3. Execute clinical triage engine
-    triage_result = clinical_triage_engine(patient_id, req.message, vitals)
+    triage_result = clinical_triage_engine(patient_id, req.message, vitals, patient_name=req.sender_name)
+    is_greeting = triage_result.get("is_greeting", False)
 
-    # 4. Clinic Care Team reply
+    # 4. Clinic AI Bot reply
     care_reply = {
         "id": int(time.time() * 1000) + 1,
         "role": "bot",
-        "sender_name": "Intelligent Digital Solution Care Team",
+        "sender_name": "Clinic AI Assistant 🤖",
         "text": triage_result["reply_text"],
         "triage_level": triage_result["triage_level"],
+        "is_greeting": is_greeting,
         "ctas_level": triage_result.get("ctas_level"),
         "ctas_label": triage_result.get("ctas_label"),
         "confidence_score": triage_result.get("confidence_score"),
@@ -206,11 +208,14 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
     _save_threads(threads)
 
     # Also forward via Meta Cloud API directly to the user's real WhatsApp
-    outbound = (
-        f"🩺 *e-Hospital Clinic Response*\n\n"
-        f"Regarding your message: \"{req.message}\"\n\n"
-        f"{triage_result['reply_text']}"
-    )
+    if is_greeting:
+        outbound = f"🩺 *e-Hospital Clinic*\n\n{triage_result['reply_text']}"
+    else:
+        outbound = (
+            f"🩺 *e-Hospital Clinic Response*\n\n"
+            f"Regarding your message: \"{req.message}\"\n\n"
+            f"{triage_result['reply_text']}"
+        )
     send_whatsapp_reply(clean_p, outbound)
 
     return {
