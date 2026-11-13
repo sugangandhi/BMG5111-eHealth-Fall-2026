@@ -536,12 +536,11 @@ async def receive_message(request: Request):
 
         if vitals:
             post_vitals_to_central_cloud(patient_id, vitals, text_body)
-            bp_str = f"BP: {vitals.get('blood_pressure')}" if vitals.get('blood_pressure') else ""
-            hr_str = f"HR: {vitals.get('heart_rate')} BPM" if vitals.get('heart_rate') else ""
-            summary = ", ".join(filter(None, [bp_str, hr_str]))
-            reply = f"Hello! Your telemetry readings ({summary}) have been recorded and synchronized with your clinical chart in the e-Hospital system."
-        else:
-            reply = "Hello! I am your Smart Health AI Assistant. Your message has been received by your clinic care team and synchronized with your portal."
+
+        triage = clinical_triage_engine(patient_id, text_body, vitals)
+        reply = triage.get("reply_text") or (
+            "Hello! Your message has been received by your e-Hospital clinic care team and synchronized with your clinical chart."
+        )
 
         # Save to In-App WhatsApp Thread for two-way synchronization
         try:

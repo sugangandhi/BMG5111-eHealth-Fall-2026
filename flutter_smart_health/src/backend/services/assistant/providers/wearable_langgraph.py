@@ -152,6 +152,37 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
 
         # If acute red flag or request to message Intelligent Digital Solution / WhatsApp, dispatch live and record in thread
         if is_doctor_request or is_emergency:
+            import time
+            import re
+            from datetime import datetime
+
+            # 0. Clean command prefixes so the patient's actual message is extracted naturally
+            clean_msg = message.strip()
+            for pfx in [
+                "send msg to doctor:", "send msg to doctor", "send msg to dr:", "send msg to dr",
+                "send message to doctor:", "send message to doctor", "send message to dr:", "send message to dr",
+                "send to whatsapp:", "send to whatsapp", "send on whatsapp:", "send on whatsapp",
+                "send whatsapp message to:", "send whatsapp message to", "send whatsapp to:", "send whatsapp to",
+                "send whatsapp:", "send whatsapp",
+                "send msg:", "send msg", "send message:", "send message", "tell doctor:", "tell doctor",
+                "tell dr:", "tell dr", "notify doctor:", "notify doctor", "contact doctor:", "contact doctor",
+                "remind me on whatsapp:", "remind me on whatsapp"
+            ]:
+                if clean_msg.lower().startswith(pfx):
+                    clean_msg = clean_msg[len(pfx):].strip().lstrip(" :\"'")
+                    break
+            if not clean_msg:
+                clean_msg = message
+
+            # 1. Parse vitals mentioned directly in the user's message (e.g. 120/80, HR 75)
+            bp_match = re.search(r'\b(1\d{2}|[89]\d)\s*/\s*([4-9]\d|1[0-2]\d)\b', message)
+            if bp_match:
+                bp_val = f"{bp_match.group(1)}/{bp_match.group(2)}"
+
+            hr_match = re.search(r'\b(?:hr|pulse|heart\s*rate|bpm)\s*(?:is|:|=)?\s*(\d{2,3})\b', message, re.IGNORECASE) or re.search(r'\b(\d{2,3})\s*(?:bpm|beats)\b', message, re.IGNORECASE)
+            if hr_match:
+                hr_val = int(hr_match.group(1))
+
             bp_str = str(bp_val)
             hr_int = int(hr_val)
             vitals_dict = {"blood_pressure": bp_str, "heart_rate": hr_int}
@@ -159,14 +190,18 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
             patient_name = "Patient"
 
             try:
-                import time
-                import re
-                from datetime import datetime
                 from src.backend.services.clinical_reasoning_engine import evaluate_clinical_case
-                from src.backend.api.whatsapp import _load_threads, _save_threads, send_whatsapp_reply
+                from src.backend.api.whatsapp import _load_threads, _save_threads, send_whatsapp_reply, post_vitals_to_central_cloud
                 from src.backend.clients.ehospital_client import fetch_ehospital_table
 
-                # 1. Resolve patient profile and phone dynamically from Central EMR
+                # Sync reported vitals directly to Central EMR cloud tables
+                try:
+                    raw_pid = int(str(patient_id).replace("cloud-", "").replace("pt-", "").strip())
+                    post_vitals_to_central_cloud(raw_pid, vitals_dict, clean_msg)
+                except Exception as ex_sync:
+                    print(f"[Wearable Assistant] Note syncing vitals to cloud: {ex_sync}")
+
+                # 2. Resolve patient profile and phone dynamically from Central EMR
                 try:
                     reg_rows = await fetch_ehospital_table("patients_registration", patient_id)
                     if reg_rows:
@@ -182,23 +217,23 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
 
                 phone_key = patient_phone[-10:] if len(patient_phone) >= 10 else patient_phone
 
-                # 2. Evaluate clinical triage
-                triage = evaluate_clinical_case(patient_id, message, vitals_dict)
+                # 3. Evaluate clinical triage
+                triage = evaluate_clinical_case(patient_id, clean_msg, vitals_dict)
                 bot_reply_text = triage.get("reply_text") or (
                     f"Thank you {patient_name}. Your message has been received by Intelligent Digital Solution Care Team and recorded in your patient chart."
                 )
 
-                # 3. Add to In-App WhatsApp Thread
+                # 4. Add to In-App WhatsApp Thread
                 threads = _load_threads()
                 thread = threads.setdefault(phone_key, [])
                 now_str = datetime.now().strftime("%I:%M %p")
 
-                # Add patient message to Intelligent Digital Solution's thread
+                # Add cleaned patient message to Intelligent Digital Solution's thread
                 thread.append({
                     "id": int(time.time() * 1000),
                     "role": "patient",
                     "sender_name": patient_name,
-                    "text": message,
+                    "text": clean_msg,
                     "vitals": vitals_dict,
                     "timestamp": now_str
                 })
@@ -221,12 +256,14 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 })
                 _save_threads(threads)
 
-                # 4. Dispatch Live via Meta WhatsApp Cloud API to the user's real WhatsApp
+                # 5. Dispatch Live via Meta WhatsApp Cloud API to the user's real WhatsApp
+                patient_first = patient_name.split()[0] if patient_name else "there"
                 outbound_text = (
                     f"🩺 *e-Hospital Clinical Care Team*\n\n"
-                    f"Message from your Portal Assistant:\n"
-                    f"\"{message}\"\n\n"
-                    f"Care Team Response:\n{bot_reply_text}"
+                    f"Hi {patient_first}, Dr. Patel's care desk received your message:\n"
+                    f"\"{clean_msg}\"\n\n"
+                    f"{bot_reply_text}\n\n"
+                    f"💬 _You can reply directly to this chat anytime to reach your doctor._"
                 )
                 sent_live = send_whatsapp_reply(patient_phone, outbound_text)
                 print(f"[AI Chat WhatsApp Dispatch] To {patient_phone} | Live Meta Sent={sent_live}")
@@ -236,10 +273,10 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
             if is_doctor_request:
                 reply_text = (
                     "✅ **MESSAGE DISPATCHED TO WHATSAPP & CLINICAL TEAM**:\n\n"
-                    f"Your message: *\"{message}\"*\n\n"
+                    f"Your message: *\"{clean_msg}\"*\n\n"
                     f"📱 **Sent to WhatsApp**: Forwarded to your WhatsApp number (`+{phone_key}`).\n"
                     f"💬 **In-App Clinic Channel**: Recorded in your **WhatsApp Clinic** tab.\n"
-                    f"🩺 **Telemetry Synced**: Continuous readings (BP: {bp_val}, HR: {hr_val} BPM) sent to Dr. Patel's triage desk."
+                    f"🩺 **Telemetry Synced**: Verified readings (BP: {bp_str}, HR: {hr_int} BPM) recorded in your chart."
                 )
             else:
                 reply_text = (

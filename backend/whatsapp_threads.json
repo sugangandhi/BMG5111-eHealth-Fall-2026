@@ -1094,11 +1094,92 @@
       "timestamp": "01:20 AM"
     },
     {
-      "id": 1794550845464,
-      "role": "doctor",
-      "sender_name": "Dr. Patel",
-      "text": "Sugan: Looking good Sugan! Keep taking your prescribed meds.",
-      "timestamp": "01:20 AM"
+      "id": 1794554963172,
+      "role": "patient",
+      "sender_name": "Sugan (WhatsApp)",
+      "text": "hello doctor, my blood pressure is 120/80 today",
+      "vitals": {
+        "blood_pressure": "120/80",
+        "heart_rate": 82
+      },
+      "timestamp": "02:29 AM"
+    },
+    {
+      "id": 1794554963173,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 120/80, HR: 82 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 Dispatched from AI Chat Assistant to Clinical Care Team",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-13 02:29 EST",
+        "patient_id": "99211",
+        "subjective": "Patient #99211 reported via secure mobile channel: \"hello doctor, my blood pressure is 120/80 today\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 120/80, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution Clinic Desk) ---\nTimestamp: 2026-11-13 02:29 EST | Patient ID: #99211\n\nS (Subjective): Patient #99211 reported via secure mobile channel: \"hello doctor, my blood pressure is 120/80 today\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 120/80, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "120/80",
+        "heart_rate": 82
+      },
+      "timestamp": "02:29 AM"
+    },
+    {
+      "id": 1794555008737,
+      "role": "patient",
+      "sender_name": "Sugan (WhatsApp)",
+      "text": "hello doctor, my blood pressure is 120/80 today",
+      "vitals": {
+        "blood_pressure": "120/80",
+        "heart_rate": 82
+      },
+      "timestamp": "02:30 AM"
+    },
+    {
+      "id": 1794555008738,
+      "role": "bot",
+      "sender_name": "Intelligent Digital Solution Care Team",
+      "text": "\u2705 **TELEMETRY SYNCED**: Your vital readings (BP: 120/80, HR: 82 BPM) have been verified and recorded in your central eHospital clinical chart. All readings are stable within target range under Canadian clinical guidelines.\n\nWould you like to schedule your next routine health checkup with Intelligent Digital Solution?",
+      "triage_level": "NORMAL_VITALS",
+      "ctas_level": 5,
+      "ctas_label": "CTAS Level 5",
+      "confidence_score": 0.97,
+      "alert_doctor": true,
+      "doctor_notice": "\ud83d\udea8 Dispatched from AI Chat Assistant to Clinical Care Team",
+      "actions": [
+        {
+          "id": "book_appointment",
+          "label": "\ud83d\udcc5 Book Routine Checkup",
+          "type": "book"
+        }
+      ],
+      "soap_note": {
+        "timestamp": "2026-11-13 02:30 EST",
+        "patient_id": "99211",
+        "subjective": "Patient #99211 reported via secure mobile channel: \"hello doctor, my blood pressure is 120/80 today\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.",
+        "objective": "Telemetry: Blood Pressure 120/80, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.",
+        "assessment": "Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.",
+        "plan": "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup.",
+        "formatted_summary": "--- CLINICAL SOAP NOTE (Intelligent Digital Solution Clinic Desk) ---\nTimestamp: 2026-11-13 02:30 EST | Patient ID: #99211\n\nS (Subjective): Patient #99211 reported via secure mobile channel: \"hello doctor, my blood pressure is 120/80 today\". Chief complaint presented asynchronously. Onset: Acute/Sub-acute.\nO (Objective): Telemetry: Blood Pressure 120/80, Heart Rate 82 BPM. Active EHR Comorbidities: Hypertension (Stage 1). Continuous telemetric baseline synced with Central AWS Cloud.\nA (Assessment): Acuity: CTAS 5 (Non-Urgent - Routine Care). Guideline Reference: No telemetry readings available. Decision Engine Calibration Confidence: 97%.\nP (Plan): Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
+      },
+      "vitals": {
+        "blood_pressure": "120/80",
+        "heart_rate": 82
+      },
+      "timestamp": "02:30 AM"
     }
   ]
 }
