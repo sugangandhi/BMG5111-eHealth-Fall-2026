@@ -9,6 +9,7 @@ from pathlib import Path
 import requests
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 router = APIRouter(tags=['whatsapp'])
@@ -402,7 +403,7 @@ async def verify_webhook(request: Request):
 
     if hub_mode == 'subscribe' and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
         print(f"[WhatsApp] Webhook verified successfully with token: {hub_verify_token}")
-        return int(hub_challenge) if hub_challenge and hub_challenge.isdigit() else hub_challenge
+        return PlainTextResponse(content=str(hub_challenge))
     
     print(f"[WhatsApp] Webhook verification failed. Received: {hub_verify_token}, Expected: {WHATSAPP_VERIFY_TOKEN}")
     raise HTTPException(status_code=403, detail='Verification failed')
@@ -505,6 +506,7 @@ async def receive_message(request: Request):
     sender_phone = None
     text_body = None
 
+    sender_name = "Patient"
     content_type = request.headers.get('content-type', '')
     if 'application/x-www-form-urlencoded' in content_type:
         form = await request.form()
@@ -517,23 +519,37 @@ async def receive_message(request: Request):
                 for entry in body.get('entry', []):
                     for change in entry.get('changes', []):
                         val = change.get('value', {})
+                        contacts = val.get('contacts', [])
+                        if contacts and contacts[0].get('profile', {}).get('name'):
+                            sender_name = contacts[0]['profile']['name']
                         msgs = val.get('messages', [])
                         if msgs:
-                            sender_phone = msgs[0].get('from')
-                            text_body = msgs[0].get('text', {}).get('body', '')
-        except Exception:
-            pass
+                            msg = msgs[0]
+                            sender_phone = msg.get('from')
+                            m_type = msg.get('type')
+                            if m_type == 'text':
+                                text_body = msg.get('text', {}).get('body', '')
+                            elif m_type == 'interactive':
+                                interactive = msg.get('interactive', {})
+                                text_body = interactive.get('button_reply', {}).get('title') or interactive.get('list_reply', {}).get('title') or ''
+                            elif m_type == 'button':
+                                text_body = msg.get('button', {}).get('text', '')
+                            elif not text_body:
+                                text_body = msg.get('text', {}).get('body', '')
+        except Exception as e:
+            print(f"[WhatsApp Inbound Webhook Parse Error]: {e}")
 
     if sender_phone and text_body:
-        print(f"[WhatsApp Inbound] Phone={sender_phone}: \"{text_body}\"")
+        print(f"[WhatsApp Inbound] Phone={sender_phone} Name={sender_name}: \"{text_body}\"")
         vitals = extract_vitals_from_text(text_body)
         clean_p = re.sub(r'\D', '', sender_phone)
         phone_key = clean_p[-10:] if len(clean_p) >= 10 else clean_p
         
         # Match patient ID dynamically
         patient_id = 99211
-        if '6383' in clean_p or 'sugan' in text_body.lower():
+        if '6383' in clean_p or 'sugan' in text_body.lower() or 'sugan' in sender_name.lower():
             patient_id = 99211
+            sender_name = "Sugan"
         elif '394' in text_body:
             patient_id = 394
         elif '391' in text_body:
@@ -542,7 +558,7 @@ async def receive_message(request: Request):
         if vitals:
             post_vitals_to_central_cloud(patient_id, vitals, text_body)
 
-        triage = clinical_triage_engine(patient_id, text_body, vitals)
+        triage = clinical_triage_engine(patient_id, text_body, vitals, patient_name=sender_name)
         reply = triage.get("reply_text") or (
             "Hello! Your message has been received by your e-Hospital clinic care team and synchronized with your clinical chart."
         )
@@ -555,7 +571,7 @@ async def receive_message(request: Request):
             thread.append({
                 "id": int(time.time() * 1000),
                 "role": "patient",
-                "sender_name": "Patient",
+                "sender_name": sender_name,
                 "text": text_body,
                 "vitals": vitals,
                 "timestamp": now_str
@@ -563,8 +579,9 @@ async def receive_message(request: Request):
             thread.append({
                 "id": int(time.time() * 1000) + 1,
                 "role": "bot",
-                "sender_name": "Intelligent Digital Solution Care Team",
+                "sender_name": "Clinic AI Assistant 🤖",
                 "text": reply,
+                "is_greeting": triage.get("is_greeting", False),
                 "vitals": vitals,
                 "timestamp": now_str
             })
