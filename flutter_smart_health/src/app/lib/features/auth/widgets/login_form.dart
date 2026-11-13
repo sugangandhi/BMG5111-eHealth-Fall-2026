@@ -45,7 +45,7 @@ class _LoginFormState extends State<LoginForm> {
   String? _whatsappError;
   String? _whatsappSuccessInfo;
 
-  final _phoneController = TextEditingController(text: "6132616383");
+  final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
 
   @override
@@ -61,7 +61,7 @@ class _LoginFormState extends State<LoginForm> {
     final cleanDigits = phone.replaceAll(RegExp(r'\D'), '');
     if (cleanDigits.length < 10) {
       setState(() {
-        _whatsappError = "Please enter a valid 10-digit mobile number.";
+        _whatsappError = "Please enter a valid mobile number with country code.";
       });
       return;
     }
@@ -79,9 +79,6 @@ class _LoginFormState extends State<LoginForm> {
           _otpSent = true;
           _whatsappLoading = false;
           _whatsappSuccessInfo = res['message']?.toString() ?? "Code sent to WhatsApp.";
-          if (res['demo_code'] != null) {
-            _whatsappSuccessInfo = "${_whatsappSuccessInfo!}\n(Demo bypass code: ${res['demo_code']})";
-          }
         });
       } else {
         setState(() {
@@ -132,7 +129,7 @@ class _LoginFormState extends State<LoginForm> {
       } else {
         setState(() {
           _whatsappLoading = false;
-          _whatsappError = "Invalid verification code. Check your WhatsApp or use test code: 123456";
+          _whatsappError = "Invalid verification code. Please check your WhatsApp and try again.";
         });
       }
     } on ApiException catch (e) {
@@ -172,6 +169,7 @@ class _LoginFormState extends State<LoginForm> {
               children: [
                 Expanded(
                   child: InkWell(
+                    key: const Key('login_tab_whatsapp'),
                     onTap: () => setState(() {
                       _useWhatsAppAuth = true;
                       _whatsappError = null;
@@ -203,14 +201,17 @@ class _LoginFormState extends State<LoginForm> {
                                 : AppColors.textMuted,
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            "WhatsApp OTP",
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: _useWhatsAppAuth
-                                  ? AppColors.textDark
-                                  : AppColors.textMuted,
+                          Flexible(
+                            child: Text(
+                              "WhatsApp OTP",
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _useWhatsAppAuth
+                                    ? AppColors.textDark
+                                    : AppColors.textMuted,
+                              ),
                             ),
                           ),
                         ],
@@ -220,6 +221,7 @@ class _LoginFormState extends State<LoginForm> {
                 ),
                 Expanded(
                   child: InkWell(
+                    key: const Key('login_tab_email'),
                     onTap: () => setState(() {
                       _useWhatsAppAuth = false;
                       _whatsappError = null;
@@ -251,14 +253,17 @@ class _LoginFormState extends State<LoginForm> {
                                 : AppColors.textMuted,
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            "Email / Passcode",
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: !_useWhatsAppAuth
-                                  ? AppColors.textDark
-                                  : AppColors.textMuted,
+                          Flexible(
+                            child: Text(
+                              "Email / Passcode",
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: !_useWhatsAppAuth
+                                    ? AppColors.textDark
+                                    : AppColors.textMuted,
+                              ),
                             ),
                           ),
                         ],
@@ -289,52 +294,12 @@ class _LoginFormState extends State<LoginForm> {
                   fontWeight: FontWeight.w600,
                 ),
                 decoration: LoginStyles.inputDecoration(
-                  hintText: "Mobile Number (e.g. 613-261-6383)",
+                  hintText: "Enter WhatsApp Mobile (e.g. +1 613-261-6383)",
                   prefixIcon: const Icon(
                     Icons.phone_rounded,
                     color: Color(0xFF25D366),
                     size: 20,
                   ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Demo Helper
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.verified_outlined,
-                      size: 13,
-                      color: Color(0xFF075E54),
-                    ),
-                    const SizedBox(width: 5),
-                    const Text(
-                      "Demo Mobile: ",
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          _phoneController.text = "6132616383";
-                        });
-                      },
-                      child: const Text(
-                        "613-261-6383 (Sugan)",
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: Color(0xFF075E54),
-                          fontWeight: FontWeight.w700,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
               const SizedBox(height: 14),
@@ -405,20 +370,23 @@ class _LoginFormState extends State<LoginForm> {
                             color: Colors.white,
                           ),
                         )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.chat_rounded, size: 18, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text(
-                              "Send Code via WhatsApp",
-                              style: TextStyle(
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                      : const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.chat_rounded, size: 18, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text(
+                                "Send Code via WhatsApp",
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                 ),
               ),
@@ -455,7 +423,7 @@ class _LoginFormState extends State<LoginForm> {
                           ),
                           const SizedBox(height: 2),
                           const Text(
-                            "Valid for 10 min · Universal test code: 123456",
+                            "Valid for 10 minutes. Please enter the 6-digit code received on WhatsApp.",
                             style: TextStyle(
                               color: Color(0xFF128C7E),
                               fontSize: 11.5,
@@ -521,24 +489,27 @@ class _LoginFormState extends State<LoginForm> {
                             color: Colors.white,
                           ),
                         )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Verify & Enter Portal",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                      : const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Verify & Enter Portal",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 18,
                                 color: Colors.white,
                               ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 18,
-                              color: Colors.white,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                 ),
               ),
@@ -854,41 +825,42 @@ class _LoginFormState extends State<LoginForm> {
             ),
           ),
 
-          const SizedBox(height: 10),
-
-          // One-Tap Quick Demo Patient Login Button
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              key: const Key('login_demo_button'),
-              onPressed: widget.loading ? null : _triggerDemoLogin,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: AppColors.tealSoft,
-                foregroundColor: AppColors.tealDark,
-                side: BorderSide(
-                  color: AppColors.primaryAccent.withValues(alpha: 0.35),
+          // One-Tap Quick Demo Patient Login Button (only in Email/Passcode view)
+          if (!_useWhatsAppAuth && widget.onDemoLogin != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                key: const Key('login_demo_button'),
+                onPressed: widget.loading ? null : _triggerDemoLogin,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: AppColors.tealSoft,
+                  foregroundColor: AppColors.tealDark,
+                  side: BorderSide(
+                    color: AppColors.primaryAccent.withValues(alpha: 0.35),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              icon: const Icon(
-                Icons.bolt_rounded,
-                size: 19,
-                color: AppColors.tealDark,
-              ),
-              label: const Text(
-                "Quick Demo Login (normal@demo.com)",
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
+                icon: const Icon(
+                  Icons.bolt_rounded,
+                  size: 19,
                   color: AppColors.tealDark,
+                ),
+                label: const Text(
+                  "Quick Demo Login (normal@demo.com)",
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.tealDark,
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
 
           const SizedBox(height: 14),
 

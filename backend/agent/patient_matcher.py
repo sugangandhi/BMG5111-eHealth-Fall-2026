@@ -22,9 +22,6 @@ def match_patient_by_phone(sender_phone: str):
         p_digits = normalize_phone(p.get('phone', ''))
         if p_digits and p_digits == target_digits:
             return p
-    # Dedicated tester fallback: map tester phone to Sugan (pt-001)
-    if target_digits in ["6132616383", "6382761031"] and patients:
-        return patients[0]
     return None
 
 def extract_vitals_from_text(text: str) -> dict:
@@ -124,6 +121,8 @@ def resolve_meta_phone_number_id(token: str):
     If only WHATSAPP_TOKEN is provided without WHATSAPP_PHONE_NUMBER_ID,
     automatically query Meta Graph API to discover the registered phone number ID.
     """
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
     if phone_id:
         return phone_id
@@ -131,7 +130,7 @@ def resolve_meta_phone_number_id(token: str):
         return None
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        resp = requests.get("https://graph.facebook.com/v20.0/me/phone_numbers", headers=headers, timeout=5)
+        resp = requests.get("https://graph.facebook.com/v20.0/me/phone_numbers", headers=headers, timeout=5, verify=False)
         if resp.status_code == 200:
             data = resp.json().get('data', [])
             if data and 'id' in data[0]:
@@ -148,8 +147,9 @@ def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
     Sends an outbound WhatsApp message using either:
     1. Meta WhatsApp Cloud API (WHATSAPP_TOKEN & WHATSAPP_PHONE_NUMBER_ID)
     2. Twilio WhatsApp API (TWILIO_ACCOUNT_SID & TWILIO_AUTH_TOKEN)
-    3. Simulated dispatch (when keys are not yet configured)
     """
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     token = os.getenv('WHATSAPP_TOKEN')
     phone_number_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID') or resolve_meta_phone_number_id(token)
     
@@ -176,7 +176,7 @@ def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
         }
 
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=6)
+            resp = requests.post(url, headers=headers, json=payload, timeout=8, verify=False)
             if resp.status_code in [200, 201]:
                 print(f"[WhatsApp] Automated reply sent via Meta to {clean_to}")
                 return True
@@ -198,7 +198,7 @@ def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
         to_str = f"whatsapp:+{clean_to}"
         url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
         try:
-            resp = requests.post(url, data={"From": twilio_from, "To": to_str, "Body": message_text}, auth=(twilio_sid, twilio_auth), timeout=6)
+            resp = requests.post(url, data={"From": twilio_from, "To": to_str, "Body": message_text}, auth=(twilio_sid, twilio_auth), timeout=8, verify=False)
             if resp.status_code in [200, 201]:
                 print(f"[WhatsApp] Automated reply sent via Twilio to {to_str}")
                 return True
@@ -209,10 +209,8 @@ def send_whatsapp_message(to_phone: str, message_text: str) -> bool:
             print(f"[WhatsApp] Twilio dispatch error: {err}")
             return False
 
-    # Option 3: Simulation Fallback
-    safe_print = message_text.encode('ascii', 'replace').decode('ascii')
-    print(f"[WhatsApp Simulation] Automated reply to {to_phone}: {safe_print}")
-    return True
+    print(f"[WhatsApp Error] No configured WhatsApp service to send message to {to_phone}")
+    return False
 
 async def process_whatsapp_message(sender_phone: str, text_body: str) -> dict:
     """

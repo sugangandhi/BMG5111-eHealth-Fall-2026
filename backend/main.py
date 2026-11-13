@@ -778,15 +778,15 @@ async def send_whatsapp_otp_main(body: WhatsAppOtpSendRequest):
         f"Do not share this code with anyone."
     )
     delivered = send_whatsapp_message(clean, msg)
+    if not delivered:
+        raise HTTPException(400, "Failed to deliver WhatsApp verification code. Please check that your number is correct, includes country code, and has active WhatsApp.")
     
-    has_keys = bool(os.getenv("WHATSAPP_TOKEN") or os.getenv("TWILIO_ACCOUNT_SID"))
     return {
         "success": True,
         "message": f"Verification code sent via WhatsApp to {clean[-4:].rjust(len(clean), '*')}",
         "phone": clean,
         "phone_key": key,
-        "expires_in_seconds": 600,
-        "demo_code": None if has_keys else code
+        "expires_in_seconds": 600
     }
 
 @app.post("/api/auth/whatsapp/verify-otp")
@@ -801,21 +801,20 @@ async def verify_whatsapp_otp_main(body: WhatsAppOtpVerifyRequest):
     key = clean[-10:] if len(clean) >= 10 else clean
     code_input = body.code.strip()
     
-    # Universal bypass for demo/testing
-    if code_input != "123456":
-        rec = _WHATSAPP_OTP_STORE.get(key)
-        if not rec:
-            raise HTTPException(400, "No pending verification code found. Please request a new code.")
-        if datetime.datetime.now() > rec["expires_at"]:
-            _WHATSAPP_OTP_STORE.pop(key, None)
-            raise HTTPException(400, "Verification code has expired. Please request a new one.")
-        if rec.get("attempts", 0) >= 5:
-            _WHATSAPP_OTP_STORE.pop(key, None)
-            raise HTTPException(400, "Too many failed attempts. Please request a new code.")
-        if rec["code"] != code_input:
-            rec["attempts"] = rec.get("attempts", 0) + 1
-            raise HTTPException(400, f"Invalid code. {5 - rec['attempts']} attempts remaining.")
+    rec = _WHATSAPP_OTP_STORE.get(key)
+    if not rec:
+        raise HTTPException(400, "No pending verification code found. Please request a new code.")
+    if datetime.datetime.now() > rec["expires_at"]:
         _WHATSAPP_OTP_STORE.pop(key, None)
+        raise HTTPException(400, "Verification code has expired. Please request a new one.")
+    if rec.get("attempts", 0) >= 5:
+        _WHATSAPP_OTP_STORE.pop(key, None)
+        raise HTTPException(400, "Too many failed attempts. Please request a new code.")
+    if rec["code"] != code_input:
+        rec["attempts"] = rec.get("attempts", 0) + 1
+        remaining = 5 - rec["attempts"]
+        raise HTTPException(400, f"Invalid verification code. {remaining} attempt(s) remaining.")
+    _WHATSAPP_OTP_STORE.pop(key, None)
         
     # Resolve Patient
     c_patient = find_central_patient(phone=clean)
@@ -838,14 +837,9 @@ async def verify_whatsapp_otp_main(body: WhatsAppOtpVerifyRequest):
                 break
                 
     if not patient_id:
-        if key in ["6132616383", "6382761031"]:
-            patient_id = 391
-            patient_name = "Sugan"
-            patient_email = "sugan@demo.com"
-        else:
-            patient_id = int("9" + key[-4:])
-            patient_name = f"Patient {key[-4:]}"
-            patient_email = f"patient_{key}@ehospital.org"
+        patient_id = int("9" + key[-4:])
+        patient_name = f"Patient {key[-4:]}"
+        patient_email = f"patient_{key}@ehospital.org"
             
     token = create_access_token({"sub": f"patient_{patient_id}_{key}"})
     return {

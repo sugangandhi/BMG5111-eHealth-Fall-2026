@@ -458,7 +458,7 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
             "text": {"body": message}
         }
         try:
-            r = requests.post(url, headers=headers, json=payload, timeout=6)
+            r = requests.post(url, headers=headers, json=payload, timeout=6, verify=False)
             return r.status_code in [200, 201]
         except Exception:
             return False
