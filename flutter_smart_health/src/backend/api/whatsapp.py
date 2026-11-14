@@ -56,17 +56,12 @@ def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
     }
 
 def _save_threads(threads: Dict[str, Any]) -> None:
-    targets = [
-        THREADS_FILE,
-        Path(__file__).resolve().parents[4] / "backend" / "whatsapp_threads.json",
-    ]
-    for target in targets:
-        try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with open(target, "w", encoding="utf-8") as f:
-                json.dump(threads, f, indent=2)
-        except Exception as e:
-            print(f"[WhatsApp] Failed to save threads to {target}: {e}")
+    try:
+        THREADS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(THREADS_FILE, "w", encoding="utf-8") as f:
+            json.dump(threads, f, indent=2)
+    except Exception as e:
+        print(f"[WhatsApp] Failed to save threads to {THREADS_FILE}: {e}")
 
 class SendWhatsAppRequest(BaseModel):
     phone: str = "6132616383"
@@ -470,8 +465,7 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
 
     if not token or not phone_id:
         from dotenv import load_dotenv
-        load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-        load_dotenv(Path(__file__).resolve().parents[4] / "backend" / ".env")
+        load_dotenv(Path(__file__).resolve().parents[3] / ".env")
         token = os.getenv('WHATSAPP_TOKEN')
         phone_id = os.getenv('WHATSAPP_PHONE_NUMBER_ID')
 
