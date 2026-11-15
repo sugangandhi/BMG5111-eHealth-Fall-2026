@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../models/ai_assistant_module_definition.dart';
 import '../widgets/ai_assistant_module_picker.dart';
 import '../widgets/health_chat_module.dart';
-import '../widgets/whatsapp_inbox_module.dart';
 
 class HealthAssistantScreen extends StatefulWidget {
   final WidgetBuilder? reportInterpreterBuilder;
@@ -52,13 +51,6 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
         icon: Icons.restaurant_outlined,
         builder: widget.nutritionMonitorBuilder ??
             (_) => const Center(child: Text('Nutrition Monitor Active')),
-      ),
-      AiAssistantModuleDefinition(
-        id: 'whatsapp-care',
-        label: 'WhatsApp Care Team',
-        description: 'Direct communication with Intelligent Digital Solution and clinic triage on WhatsApp.',
-        icon: Icons.message_rounded,
-        builder: (_) => const WhatsAppInboxModule(),
       ),
     ];
   }

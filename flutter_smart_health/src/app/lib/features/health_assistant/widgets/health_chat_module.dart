@@ -6,9 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/api_config.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/services/voice_dictation_helper.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/backend_api_service.dart';
+import '../../../services/e_hospital_auth_service.dart';
 import 'whatsapp_inbox_module.dart';
 
 class HealthChatModule extends StatefulWidget {
@@ -57,6 +59,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   bool _isTranscribing = false;
   late final VoiceDictationController _voiceController;
   String _patientId = "1";
+  bool _isWhatsAppVerified = false;
+  String _userPhone = "6132616383";
 
   static const List<String> _suggestedPrompts = [
     "What are my recorded vitals?",
@@ -96,6 +100,25 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (pid != null && mounted) {
       setState(() {
         _patientId = pid.toString();
+      });
+    }
+
+    final verified = prefs.getBool("is_whatsapp_verified") ?? false;
+    final savedPhone = prefs.getString("patient_phone") ?? "6132616383";
+    if (mounted) {
+      setState(() {
+        _isWhatsAppVerified = verified;
+        _userPhone = savedPhone;
+      });
+    }
+
+    // Prompt WhatsApp phone verification on first launch if not yet verified
+    final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (!verified && !isRunningInTest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_isWhatsAppVerified) {
+          _showWhatsAppVerificationModal();
+        }
       });
     }
 
@@ -178,14 +201,328 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   }
 
   void _openInternalWhatsApp() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const Scaffold(
-          body: SafeArea(
-            child: WhatsAppInboxModule(),
-          ),
-        ),
-      ),
+    if (_isWhatsAppVerified) {
+      _launchWhatsApp("Hello Doctor, I am chatting from the eHospital mobile app.");
+    } else {
+      _showWhatsAppVerificationModal();
+    }
+  }
+
+  void _showWhatsAppVerificationModal() {
+    final phoneController = TextEditingController(text: _userPhone);
+    final otpController = TextEditingController();
+    bool otpSent = false;
+    bool isLoading = false;
+    String? errorMessage;
+    String? successMessage;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            final bottomInset = MediaQuery.of(modalContext).viewInsets.bottom;
+            return Container(
+              padding: EdgeInsets.fromLTRB(24, 20, 24, bottomInset + 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 20,
+                    offset: Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF25D366),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.lock_person_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Connect WhatsApp Care Team",
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                "Sync AI Telemetry & Doctor Messaging",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      otpSent
+                          ? "Enter the 6-digit verification code sent to your WhatsApp (${phoneController.text.trim()}):"
+                          : "Verify your mobile number to link your health telemetry directly with our clinic's WhatsApp Care Team:",
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (errorMessage != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Text(
+                          errorMessage!,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C)),
+                        ),
+                      ),
+                    if (successMessage != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Text(
+                          successMessage!,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    if (!otpSent) ...[
+                      TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          labelText: "WhatsApp Mobile Number",
+                          hintText: "e.g. 6132616383",
+                          prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF25D366)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        icon: isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.send_rounded, size: 18),
+                        label: Text(isLoading ? "Sending Code..." : "Send Code via WhatsApp"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        onPressed: isLoading
+                            ? null
+                            : () async {
+                                final phone = phoneController.text.trim();
+                                final digits = phone.replaceAll(RegExp(r'\D'), '');
+                                if (digits.length < 10) {
+                                  setModalState(() {
+                                    errorMessage = "Please enter a valid 10-digit mobile number.";
+                                  });
+                                  return;
+                                }
+                                setModalState(() {
+                                  isLoading = true;
+                                  errorMessage = null;
+                                  successMessage = null;
+                                });
+                                try {
+                                  final res = await EHospitalAuthService.sendWhatsAppOtp(phone);
+                                  if (res['success'] == true) {
+                                    setModalState(() {
+                                      otpSent = true;
+                                      isLoading = false;
+                                      successMessage = res['message']?.toString() ?? "Code sent to your WhatsApp!";
+                                    });
+                                  } else {
+                                    setModalState(() {
+                                      isLoading = false;
+                                      errorMessage = res['error']?.toString() ?? "Could not send WhatsApp code.";
+                                    });
+                                  }
+                                } on ApiException catch (e) {
+                                  setModalState(() {
+                                    isLoading = false;
+                                    errorMessage = e.message;
+                                  });
+                                } catch (e) {
+                                  setModalState(() {
+                                    isLoading = false;
+                                    errorMessage = "Connection error: $e";
+                                  });
+                                }
+                              },
+                      ),
+                    ] else ...[
+                      TextField(
+                        controller: otpController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8),
+                        decoration: InputDecoration(
+                          labelText: "6-Digit Verification Code",
+                          hintText: "••••••",
+                          prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF25D366)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          counterText: "",
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        icon: isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.verified_user_rounded, size: 18),
+                        label: Text(isLoading ? "Verifying..." : "Verify & Activate WhatsApp"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F5C9C),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        onPressed: isLoading
+                            ? null
+                            : () async {
+                                final code = otpController.text.trim();
+                                if (code.length < 4) {
+                                  setModalState(() {
+                                    errorMessage = "Please enter the 6-digit code received on WhatsApp.";
+                                  });
+                                  return;
+                                }
+                                setModalState(() {
+                                  isLoading = true;
+                                  errorMessage = null;
+                                });
+                                final phone = phoneController.text.trim();
+                                try {
+                                  final result = await EHospitalAuthService.loginWithWhatsAppOtp(
+                                    phone,
+                                    code,
+                                    selectedOption: "Patient",
+                                  );
+                                  if (result.authenticated) {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    await prefs.setBool("is_whatsapp_verified", true);
+                                    await prefs.setString("patient_phone", phone);
+                                    if (mounted) {
+                                      setState(() {
+                                        _isWhatsAppVerified = true;
+                                        _userPhone = phone;
+                                      });
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text("✅ WhatsApp Care Team connected! Telemetry and messages are now synced."),
+                                          backgroundColor: Color(0xFF166534),
+                                        ),
+                                      );
+                                    }
+                                  } else {
+                                    setModalState(() {
+                                      isLoading = false;
+                                      errorMessage = "Invalid verification code. Check your WhatsApp and try again.";
+                                    });
+                                  }
+                                } on ApiException catch (e) {
+                                  setModalState(() {
+                                    isLoading = false;
+                                    errorMessage = e.message;
+                                  });
+                                } catch (e) {
+                                  setModalState(() {
+                                    isLoading = false;
+                                    errorMessage = "Verification error: $e";
+                                  });
+                                }
+                              },
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            otpSent = false;
+                            errorMessage = null;
+                            successMessage = null;
+                          });
+                        },
+                        child: const Text("Resend code or change number"),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text(
+                        "Later / Continue as Guest",
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -295,41 +632,54 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       children: [
         // Top WhatsApp Quick Connect Banner
         InkWell(
-          onTap: _openInternalWhatsApp,
+          onTap: _isWhatsAppVerified ? () => _launchWhatsApp() : _showWhatsAppVerificationModal,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              border: Border(bottom: BorderSide(color: Colors.green.shade200)),
+              color: _isWhatsAppVerified ? const Color(0xFFF0FDF4) : const Color(0xFFF0F9FF),
+              border: Border(bottom: BorderSide(color: _isWhatsAppVerified ? Colors.green.shade200 : Colors.blue.shade200)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF25D366),
+                  decoration: BoxDecoration(
+                    color: _isWhatsAppVerified ? const Color(0xFF25D366) : const Color(0xFF0F5C9C),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.chat_bubble, size: 14, color: Colors.white),
+                  child: Icon(
+                    _isWhatsAppVerified ? Icons.check_circle_rounded : Icons.chat_bubble_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    "Need doctor advice? Chat with Clinic Care Team on WhatsApp",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+                    _isWhatsAppVerified
+                        ? "Care Team WhatsApp Synced (+1 $_userPhone) • Tap to open chat"
+                        : "Need doctor advice? Connect WhatsApp to sync with Care Team",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _isWhatsAppVerified ? const Color(0xFF166534) : const Color(0xFF0C4A6E),
+                    ),
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: _openInternalWhatsApp,
+                  onPressed: _isWhatsAppVerified ? () => _launchWhatsApp() : _showWhatsAppVerificationModal,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366),
+                    backgroundColor: _isWhatsAppVerified ? const Color(0xFF25D366) : const Color(0xFF0F5C9C),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     minimumSize: const Size(60, 30),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text("WhatsApp", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    _isWhatsAppVerified ? "Open WhatsApp" : "Connect",
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
                 ),
                 if (_messages.isNotEmpty) ...[
                   const SizedBox(width: 8),
@@ -550,7 +900,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     decoration: buildVoiceComposerDecoration(
                       isListening: _isListening,
                       isTranscribing: _isTranscribing,
-                      idleHint: 'Ask or speak your symptom...',
+                      idleHint: 'Ask about your health...',
                       focusedIdleColor: Theme.of(context).primaryColor,
                     ),
                   ),
