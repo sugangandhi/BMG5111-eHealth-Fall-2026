@@ -60,7 +60,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   late final VoiceDictationController _voiceController;
   String _patientId = "1";
   bool _isWhatsAppVerified = false;
-  String _userPhone = "6132616383";
+  String _userPhone = "";
 
   static const List<String> _suggestedPrompts = [
     "What are my recorded vitals?",
@@ -104,7 +104,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     }
 
     final verified = prefs.getBool("is_whatsapp_verified") ?? false;
-    final savedPhone = prefs.getString("patient_phone") ?? "6132616383";
+    final savedPhone = prefs.getString("patient_phone") ?? "";
     if (mounted) {
       setState(() {
         _isWhatsAppVerified = verified;
@@ -339,7 +339,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
                           labelText: "WhatsApp Mobile Number",
-                          hintText: "e.g. 6132616383 or with country code",
+                          hintText: "Enter your phone with country code (e.g. +1... or +91...)",
                           prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF25D366)),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           filled: true,
@@ -559,14 +559,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   Future<void> _launchWhatsApp([String? customMessage]) async {
     final defaultMsg = customMessage ??
         "Hi Doctor, this is patient #$_patientId. I have a question about my recent mobile health vitals.";
-    final url = Uri.parse(
-      "https://wa.me/16134045586?text=${Uri.encodeComponent(defaultMsg)}",
-    );
+    final encoded = Uri.encodeComponent(defaultMsg);
+    final nativeUri = Uri.parse("whatsapp://send?phone=16134045586&text=$encoded");
+    final webUri = Uri.parse("https://wa.me/16134045586?text=$encoded");
+
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (await canLaunchUrl(nativeUri)) {
+        await launchUrl(nativeUri, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(webUri)) {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
       } else {
-        await launchUrl(url);
+        await launchUrl(webUri);
       }
     } catch (e) {
       if (mounted) {
@@ -687,7 +690,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 Expanded(
                   child: Text(
                     _isWhatsAppVerified
-                        ? "Care Team WhatsApp Synced (+1 $_userPhone) • Tap to open chat"
+                        ? "Care Team WhatsApp Synced (${_userPhone.isNotEmpty ? _userPhone : 'Connected'}) • Tap to open chat"
                         : "Need doctor advice? Connect WhatsApp to sync with Care Team",
                     style: TextStyle(
                       fontSize: 12,

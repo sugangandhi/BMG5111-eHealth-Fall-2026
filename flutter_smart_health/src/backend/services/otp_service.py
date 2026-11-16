@@ -36,9 +36,10 @@ def get_phone_key(phone_str: str) -> str:
     return digits[-10:] if len(digits) >= 10 else digits
 
 
-def dispatch_whatsapp_message(to_phone: str, message_text: str) -> bool:
+def dispatch_whatsapp_message(to_phone: str, message_text: str, code: str | None = None) -> bool:
     """
     Sends an outbound WhatsApp message using Meta Cloud API or Twilio.
+    Supports Meta pre-approved templates (for 24h bypass) or free-form text.
     """
     clean_digits = normalize_phone(to_phone)
     if len(clean_digits) == 10:
@@ -46,6 +47,7 @@ def dispatch_whatsapp_message(to_phone: str, message_text: str) -> bool:
 
     token = os.getenv("WHATSAPP_TOKEN")
     phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    template_name = os.getenv("WHATSAPP_OTP_TEMPLATE")
 
     # 1. Meta WhatsApp Cloud API
     if token and phone_number_id:
@@ -54,13 +56,37 @@ def dispatch_whatsapp_message(to_phone: str, message_text: str) -> bool:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        payload = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": clean_digits,
-            "type": "text",
-            "text": {"body": message_text},
-        }
+        if template_name and code:
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": clean_digits,
+                "type": "template",
+                "template": {
+                    "name": template_name,
+                    "language": {"code": os.getenv("WHATSAPP_TEMPLATE_LANG", "en_US")},
+                    "components": [
+                        {
+                            "type": "body",
+                            "parameters": [{"type": "text", "text": code}]
+                        },
+                        {
+                            "type": "button",
+                            "sub_type": "url",
+                            "index": "0",
+                            "parameters": [{"type": "text", "text": code}]
+                        }
+                    ]
+                }
+            }
+        else:
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": clean_digits,
+                "type": "text",
+                "text": {"body": message_text},
+            }
         try:
             resp = requests.post(url, headers=headers, json=payload, timeout=8, verify=False)
             if resp.status_code in [200, 201]:
@@ -114,6 +140,7 @@ async def generate_and_send_whatsapp_otp(phone: str) -> dict[str, Any]:
     phone_key = get_phone_key(clean_digits)
     code = f"{random.randint(100000, 999999)}"
     expires_at = datetime.now() + timedelta(minutes=OTP_VALIDITY_MINUTES)
+    logger.info(f"[WhatsApp OTP] Generated OTP {code} for phone {clean_digits} (key: {phone_key})")
 
     _OTP_STORE[phone_key] = {
         "code": code,
@@ -129,20 +156,23 @@ async def generate_and_send_whatsapp_otp(phone: str) -> dict[str, Any]:
         f"Never share this code with anyone."
     )
 
-    dispatched = dispatch_whatsapp_message(clean_digits, message_body)
+    dispatched = dispatch_whatsapp_message(clean_digits, message_body, code=code)
     if not dispatched:
         return {
             "success": False,
             "error": "Failed to send WhatsApp verification code. Please ensure your mobile number is registered with WhatsApp and includes your country code.",
         }
 
-    return {
+    res: dict[str, Any] = {
         "success": True,
         "message": f"Verification code sent via WhatsApp to {clean_digits[-4:].rjust(len(clean_digits), '*')}",
         "phone": clean_digits,
         "phone_key": phone_key,
         "expires_in_seconds": OTP_VALIDITY_MINUTES * 60,
     }
+    if os.getenv("EXPOSE_DEV_OTP", "false").lower() == "true":
+        res["dev_code"] = code
+    return res
 
 
 async def verify_whatsapp_otp(
