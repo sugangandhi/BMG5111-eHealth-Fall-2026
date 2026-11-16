@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/api_config.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/app_update_dialog.dart';
 import '../../../core/widgets/dual_wave_horizon_background.dart';
 import '../../../data/models/ehospital_models.dart';
 import '../../../l10n/l10n.dart';
+import '../../../services/app_update_service.dart';
 import '../../../services/e_hospital_auth_service.dart';
 import '../../../ui/app_colors.dart';
 import '../presentation/login_styles.dart';
@@ -39,6 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await _checkPrivacyConsent();
       if (mounted) await _checkMedicalDisclaimer();
       if (mounted) _checkAlreadyLoggedIn();
+      if (mounted) _checkAppUpdate();
     });
   }
 
@@ -102,6 +106,23 @@ class _LoginScreenState extends State<LoginScreen> {
     if (id != null && mounted) {
       Navigator.pushReplacementNamed(context, "/dashboard");
     }
+  }
+
+  Future<void> _checkAppUpdate() async {
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (isTest || kIsWeb) return;
+    try {
+      final updateService = AppUpdateService();
+      if (!updateService.isAndroidNative) return;
+      final check = await updateService.checkForUpdate();
+      if (check.isUpdateAvailable && mounted) {
+        await showAppUpdateDialog(
+          context,
+          updateService: updateService,
+          checkResult: check,
+        );
+      }
+    } catch (_) {}
   }
 
   Future<void> _handleLogin() async {

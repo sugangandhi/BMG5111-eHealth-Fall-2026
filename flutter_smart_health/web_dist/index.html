@@ -396,7 +396,7 @@
       }
 
       function fetchRemoteBuildId() {
-        return fetch('web-version?t=' + Date.now(), {
+        return fetch('/web-version?t=' + Date.now(), {
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-cache' }
         })
@@ -455,6 +455,9 @@
           checkForAppUpdate();
         }
       });
+
+      // Poll periodically so pushed web updates apply automatically
+      setInterval(checkForAppUpdate, 15000);
     })();
   </script>
 </body>

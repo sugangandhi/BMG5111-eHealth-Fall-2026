@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/widgets/app_update_dialog.dart';
 import '../../../core/widgets/dual_wave_horizon_background.dart';
 import '../../../l10n/l10n.dart';
+import '../../../services/app_update_service.dart';
 import '../../../ui/app_colors.dart';
 import '../../../ui/app_gradients.dart';
 import '../data/dashboard_layout_preferences.dart';
@@ -31,6 +34,8 @@ class _PatientDashboardState extends State<PatientDashboard>
   DashboardLiveSummary _summary = const DashboardLiveSummary();
   bool _syncingSummary = false;
   late final DashboardSummaryService _summaryService;
+  final AppUpdateService _updateService = AppUpdateService();
+  AppUpdateCheckResult? _availableUpdate;
 
   @override
   void initState() {
@@ -39,6 +44,24 @@ class _PatientDashboardState extends State<PatientDashboard>
     _summaryService = widget.summaryService ?? DashboardSummaryService();
     _loadLayoutPreference();
     _loadSummary();
+    _checkAppUpdate();
+  }
+
+  Future<void> _checkAppUpdate() async {
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (isTest || kIsWeb || !_updateService.isAndroidNative) return;
+    try {
+      final check = await _updateService.checkForUpdate();
+      if (!mounted) return;
+      if (check.isUpdateAvailable) {
+        setState(() => _availableUpdate = check);
+        showAppUpdateDialog(
+          context,
+          updateService: _updateService,
+          checkResult: check,
+        );
+      }
+    } catch (_) {}
   }
 
   @override
@@ -193,6 +216,30 @@ class _PatientDashboardState extends State<PatientDashboard>
           ),
         ),
         actions: [
+          if (_availableUpdate?.isUpdateAvailable == true)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.28),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF6EE7B7).withValues(alpha: 0.65),
+                ),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.system_update_rounded, size: 18),
+                color: Colors.white,
+                tooltip: 'Update to v${_availableUpdate!.remoteVersionName}',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  showAppUpdateDialog(
+                    context,
+                    updateService: _updateService,
+                    checkResult: _availableUpdate!,
+                  );
+                },
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
             child: Center(
