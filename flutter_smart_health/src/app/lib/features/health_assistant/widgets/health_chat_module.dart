@@ -339,14 +339,44 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
                           labelText: "WhatsApp Mobile Number",
-                          hintText: "e.g. 6132616383",
+                          hintText: "e.g. 6132616383 or with country code",
                           prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF25D366)),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF166534)),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                "First time? Message clinic 'Hi' on WhatsApp first to activate delivery:",
+                                style: TextStyle(fontSize: 11, color: Color(0xFF166534), fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              onPressed: () => _launchWhatsApp("Hi"),
+                              child: const Text("Say Hi 💬", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF166534))),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
                       ElevatedButton.icon(
                         icon: isLoading
                             ? const SizedBox(
