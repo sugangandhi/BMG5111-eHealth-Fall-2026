@@ -51,14 +51,7 @@ void main() {
       ),
     );
 
-    // Default tab is WhatsApp OTP
-    expect(find.byKey(const Key('login_phone_field')), findsOneWidget);
-    expect(find.byKey(const Key('login_send_otp_button')), findsOneWidget);
-
-    // Switch to Email / Passcode tab
-    await tester.tap(find.byKey(const Key('login_tab_email')));
-    await tester.pumpAndSettle();
-
+    // Email and password fields are shown immediately on start
     expect(find.byKey(const Key('login_email_field')), findsOneWidget);
     expect(find.byKey(const Key('login_password_field')), findsOneWidget);
     expect(find.text('Patient'), findsOneWidget);
@@ -107,12 +100,8 @@ void main() {
     expect(find.byType(AtmosphericSkyBackground), findsNothing);
     expect(find.text('INTELLIGENT DIGITAL SOLUTION'), findsNothing);
     expect(find.text('Sign in to eHospital'), findsOneWidget);
-    expect(find.byKey(const Key('login_phone_field')), findsOneWidget);
 
-    // Switch to Email tab
-    await tester.tap(find.byKey(const Key('login_tab_email')));
-    await tester.pumpAndSettle();
-
+    // Direct login controls
     expect(find.byKey(const Key('login_email_field')), findsOneWidget);
     expect(find.byKey(const Key('login_password_field')), findsOneWidget);
     expect(find.byKey(const Key('login_google_button')), findsOneWidget);
@@ -151,10 +140,7 @@ void main() {
       ),
     );
 
-    // Switch to Email tab to access Demo Login button
-    await tester.tap(find.byKey(const Key('login_tab_email')));
-    await tester.pumpAndSettle();
-
+    // Quick Demo Login button is directly accessible on the main screen
     await tester.tap(find.byKey(const Key('login_demo_button')));
     await tester.pumpAndSettle();
 

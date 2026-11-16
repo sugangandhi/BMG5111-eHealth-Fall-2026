@@ -1,17 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../config/api_config.dart';
-import '../../../core/network/api_exception.dart';
 import '../../../core/services/voice_dictation_helper.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/backend_api_service.dart';
 import '../../../services/e_hospital_auth_service.dart';
-import 'whatsapp_inbox_module.dart';
+import '../../../services/whatsapp_launcher_service.dart';
 
 class HealthChatModule extends StatefulWidget {
   const HealthChatModule({super.key});
@@ -559,25 +556,11 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   Future<void> _launchWhatsApp([String? customMessage]) async {
     final defaultMsg = customMessage ??
         "Hi Doctor, this is patient #$_patientId. I have a question about my recent mobile health vitals.";
-    final encoded = Uri.encodeComponent(defaultMsg);
-    final nativeUri = Uri.parse("whatsapp://send?phone=16134045586&text=$encoded");
-    final webUri = Uri.parse("https://wa.me/16134045586?text=$encoded");
-
-    try {
-      if (await canLaunchUrl(nativeUri)) {
-        await launchUrl(nativeUri, mode: LaunchMode.externalApplication);
-      } else if (await canLaunchUrl(webUri)) {
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
-      } else {
-        await launchUrl(webUri);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Could not launch WhatsApp: $e")),
-        );
-      }
-    }
+    await WhatsAppLauncherService.launchWhatsApp(
+      context: context,
+      phone: "16134045586",
+      message: defaultMsg,
+    );
   }
 
   void _toggleListening() {

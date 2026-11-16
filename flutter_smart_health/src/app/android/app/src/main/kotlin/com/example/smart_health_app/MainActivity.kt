@@ -55,6 +55,7 @@ class MainActivity : FlutterFragmentActivity() {
         private const val HEALTH_APPS_CHANNEL = "com.example.smart_health_app/health_apps"
         private const val APP_UPDATER_CHANNEL = "com.example.smart_health_app/app_updater"
         private const val VOICE_SCRIBE_CHANNEL = "com.example.smart_health_app/voice_scribe"
+        private const val WHATSAPP_LAUNCHER_CHANNEL = "com.example.smart_health_app/whatsapp_launcher"
         private const val REQUEST_RECORD_AUDIO = 4207
     }
 
@@ -171,6 +172,39 @@ class MainActivity : FlutterFragmentActivity() {
                 "stopListening" -> {
                     stopVoiceDictation()
                     result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            WHATSAPP_LAUNCHER_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "detectWhatsAppApps" -> {
+                    val hasRegular = isPackageInstalled("com.whatsapp")
+                    val hasBusiness = isPackageInstalled("com.whatsapp.w4b")
+                    result.success(mapOf(
+                        "hasRegular" to hasRegular,
+                        "hasBusiness" to hasBusiness,
+                    ))
+                }
+                "launchWhatsAppPackage" -> {
+                    val pkg = call.argument<String>("package") ?: "com.whatsapp"
+                    val phone = call.argument<String>("phone") ?: "16134045586"
+                    val text = call.argument<String>("text") ?: ""
+                    val uri = Uri.parse("https://api.whatsapp.com/send?phone=$phone&text=${Uri.encode(text)}")
+                    val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                        setPackage(pkg)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
                 }
                 else -> result.notImplemented()
             }
