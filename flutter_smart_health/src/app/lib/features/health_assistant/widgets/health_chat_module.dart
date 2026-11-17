@@ -58,6 +58,32 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   String _patientId = "1";
   bool _isWhatsAppVerified = false;
   String _userPhone = "";
+  bool _isDoctor = false;
+  String _selectedPatientName = "Sugan";
+  String _selectedPatientId = "99211";
+  String _selectedPatientPhone = "6132616383";
+  bool _doctorSendViaWhatsApp = true;
+
+  final List<Map<String, String>> _doctorPatients = [
+    {
+      "name": "Sugan",
+      "patient_id": "99211",
+      "phone": "6132616383",
+      "info": "Pt #99211 • Essential HTN",
+    },
+    {
+      "name": "Patient 391",
+      "patient_id": "391",
+      "phone": "6132616383",
+      "info": "Pt #391 • Type 2 Diabetes",
+    },
+    {
+      "name": "Patient 1",
+      "patient_id": "1",
+      "phone": "6132616383",
+      "info": "Pt #1 • AFib Monitor",
+    },
+  ];
 
   static const List<String> _suggestedPrompts = [
     "What are my recorded vitals?",
@@ -65,6 +91,15 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     "Explain my blood pressure trend",
     "How did I sleep last night?",
   ];
+
+  List<String> get _currentPrompts => _isDoctor
+      ? [
+          "Review $_selectedPatientName's blood pressure telemetry",
+          "Draft clinical follow-up for $_selectedPatientName",
+          "Check $_selectedPatientName against Hypertension Canada CPG",
+          "Schedule follow-up appointment with $_selectedPatientName",
+        ]
+      : _suggestedPrompts;
 
   @override
   void initState() {
@@ -93,10 +128,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   Future<void> _loadPatientAndHistory() async {
     final prefs = await SharedPreferences.getInstance();
+    final identity = prefs.getString("patient_identity") ?? "Patient";
+    final isDoctor = identity.toLowerCase() == "doctor";
+
     final pid = prefs.getInt("patient_id") ?? prefs.getString("patient_id");
-    if (pid != null && mounted) {
+    if (mounted) {
       setState(() {
-        _patientId = pid.toString();
+        _isDoctor = isDoctor;
+        if (isDoctor) {
+          _patientId = _selectedPatientId;
+        } else if (pid != null) {
+          _patientId = pid.toString();
+        }
       });
     }
 
@@ -109,9 +152,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       });
     }
 
-    // Prompt WhatsApp phone verification on first launch if not yet verified
+    // Prompt WhatsApp phone verification on first launch ONLY for patients, NOT doctors
     final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
-    if (!verified && !isRunningInTest) {
+    if (!isDoctor && !verified && !isRunningInTest) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_isWhatsAppVerified) {
           _showWhatsAppVerificationModal();
@@ -567,12 +610,65 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     _voiceController.toggle();
   }
 
+  Future<void> _sendDoctorWhatsAppMessage(String text) async {
+    _controller.clear();
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final res = await BackendApiService.doctorDispatchPatientMessage(
+        patientPhone: _selectedPatientPhone,
+        message: text,
+        patientName: _selectedPatientName,
+        patientId: int.tryParse(_selectedPatientId) ?? 99211,
+        doctorName: "Dr. Patel",
+      );
+
+      final liveSent = res['delivered_live'] == true;
+      if (mounted) {
+        setState(() {
+          _messages.add(_HealthChatMessage(
+            role: 'doctor',
+            text: "🩺 **Dr. Patel's Message to $_selectedPatientName**:\n\n$text\n\n*(Dispatched to WhatsApp `+$_selectedPatientPhone` • ${liveSent ? 'Delivered Live via Meta' : 'Recorded in Chart'})*",
+          ));
+        });
+        _persistMessagesLocally();
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text("✅ Dispatched message to $_selectedPatientName via WhatsApp"),
+            backgroundColor: const Color(0xFF166534),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text("Dispatch error: $e"),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
   Future<void> _sendMessage([String? textToSend, bool isVoice = false]) async {
     if (_isListening) {
       _voiceController.stop();
     }
     final text = (textToSend ?? _controller.text).trim();
     if (text.isEmpty || _isLoading) return;
+
+    if (_isDoctor && _doctorSendViaWhatsApp) {
+      await _sendDoctorWhatsAppMessage(text);
+      return;
+    }
 
     _controller.clear();
     setState(() {
@@ -642,91 +738,278 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     });
   }
 
+  Future<void> _confirmClearChatHistory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Clear Chat History?"),
+        content: const Text("Are you sure you want to clear your current conversation history?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Clear")),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await _clearChatHistory();
+    }
+  }
+
+  Widget _buildPatientHeader() {
+    return InkWell(
+      onTap: _isWhatsAppVerified ? () => _launchWhatsApp() : _showWhatsAppVerificationModal,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isWhatsAppVerified ? const Color(0xFFF0FDF4) : const Color(0xFFF0F9FF),
+          border: Border(bottom: BorderSide(color: _isWhatsAppVerified ? Colors.green.shade200 : Colors.blue.shade200)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: _isWhatsAppVerified ? const Color(0xFF25D366) : const Color(0xFF0F5C9C),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _isWhatsAppVerified ? Icons.check_circle_rounded : Icons.chat_bubble_rounded,
+                size: 14,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _isWhatsAppVerified
+                    ? "Care Team WhatsApp Synced (${_userPhone.isNotEmpty ? _userPhone : 'Connected'}) • Tap to open chat"
+                    : "Need doctor advice? Connect WhatsApp to sync with Care Team",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _isWhatsAppVerified ? const Color(0xFF166534) : const Color(0xFF0C4A6E),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: _isWhatsAppVerified ? () => _launchWhatsApp() : _showWhatsAppVerificationModal,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isWhatsAppVerified ? const Color(0xFF25D366) : const Color(0xFF0F5C9C),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                minimumSize: const Size(60, 30),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(
+                _isWhatsAppVerified ? "Open WhatsApp" : "Connect",
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (_messages.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: "Clear Chat History",
+                icon: const Icon(Icons.refresh_rounded, size: 20, color: Color(0xFF166534)),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: _confirmClearChatHistory,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDoctorHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        border: Border(bottom: BorderSide(color: Colors.green.shade200)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF075E54),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.medical_services_rounded,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  "Dr. Patel — Clinical Decision & Patient Dispatch",
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF075E54),
+                  ),
+                ),
+              ),
+              if (_messages.isNotEmpty)
+                IconButton(
+                  tooltip: "Clear History",
+                  icon: const Icon(Icons.refresh_rounded, size: 18, color: Color(0xFF075E54)),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: _confirmClearChatHistory,
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Text(
+                "Patient: ",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedPatientId,
+                      isDense: true,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                      items: _doctorPatients.map((p) {
+                        return DropdownMenuItem<String>(
+                          value: p["patient_id"],
+                          child: Text(
+                            "${p["name"]} (${p["info"]})",
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          final match = _doctorPatients.firstWhere((p) => p["patient_id"] == val);
+                          setState(() {
+                            _selectedPatientId = val;
+                            _patientId = val;
+                            _selectedPatientName = match["name"] ?? "Patient";
+                            _selectedPatientPhone = match["phone"] ?? "6132616383";
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDoctorComposerModeToggle() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _doctorSendViaWhatsApp = true),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _doctorSendViaWhatsApp ? const Color(0xFF25D366) : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: _doctorSendViaWhatsApp ? const Color(0xFF166534) : Colors.grey.shade300,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.chat_rounded,
+                    size: 13,
+                    color: _doctorSendViaWhatsApp ? Colors.white : Colors.grey.shade700,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    "WhatsApp $_selectedPatientName",
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: _doctorSendViaWhatsApp ? Colors.white : Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () => setState(() => _doctorSendViaWhatsApp = false),
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: !_doctorSendViaWhatsApp ? Theme.of(context).primaryColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: !_doctorSendViaWhatsApp ? Theme.of(context).primaryColor : Colors.grey.shade300,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.psychology_rounded,
+                    size: 13,
+                    color: !_doctorSendViaWhatsApp ? Colors.white : Colors.grey.shade700,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    "Consult Clinical AI",
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: !_doctorSendViaWhatsApp ? Colors.white : Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Top WhatsApp Quick Connect Banner
-        InkWell(
-          onTap: _isWhatsAppVerified ? () => _launchWhatsApp() : _showWhatsAppVerificationModal,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: _isWhatsAppVerified ? const Color(0xFFF0FDF4) : const Color(0xFFF0F9FF),
-              border: Border(bottom: BorderSide(color: _isWhatsAppVerified ? Colors.green.shade200 : Colors.blue.shade200)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: _isWhatsAppVerified ? const Color(0xFF25D366) : const Color(0xFF0F5C9C),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _isWhatsAppVerified ? Icons.check_circle_rounded : Icons.chat_bubble_rounded,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _isWhatsAppVerified
-                        ? "Care Team WhatsApp Synced (${_userPhone.isNotEmpty ? _userPhone : 'Connected'}) • Tap to open chat"
-                        : "Need doctor advice? Connect WhatsApp to sync with Care Team",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _isWhatsAppVerified ? const Color(0xFF166534) : const Color(0xFF0C4A6E),
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: _isWhatsAppVerified ? () => _launchWhatsApp() : _showWhatsAppVerificationModal,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isWhatsAppVerified ? const Color(0xFF25D366) : const Color(0xFF0F5C9C),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: const Size(60, 30),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: Text(
-                    _isWhatsAppVerified ? "Open WhatsApp" : "Connect",
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                if (_messages.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: "Clear Chat History",
-                    icon: const Icon(Icons.refresh_rounded, size: 20, color: Color(0xFF166534)),
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text("Clear Chat History?"),
-                          content: const Text("Are you sure you want to clear your current conversation history?"),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Clear")),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        await _clearChatHistory();
-                      }
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
+        // Top Header: Custom Doctor Header or Patient WhatsApp Connect Banner
+        _isDoctor ? _buildDoctorHeader() : _buildPatientHeader(),
 
         // Chat Message Feed or Empty State
         Expanded(
@@ -739,8 +1022,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   itemBuilder: (context, index) {
                     final msg = _messages[index];
                     final isUser = msg.role == 'user';
+                    final isDoctor = msg.role == 'doctor';
                     return Align(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isUser || isDoctor ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -748,13 +1032,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                           maxWidth: MediaQuery.of(context).size.width * 0.82,
                         ),
                         decoration: BoxDecoration(
-                          color: isUser ? Theme.of(context).primaryColor : Colors.white,
+                          color: isUser
+                              ? Theme.of(context).primaryColor
+                              : (isDoctor ? const Color(0xFFF0FDF4) : Colors.white),
                           borderRadius: BorderRadius.circular(16).copyWith(
-                            bottomRight: isUser ? const Radius.circular(0) : const Radius.circular(16),
-                            bottomLeft: !isUser ? const Radius.circular(0) : const Radius.circular(16),
+                            bottomRight: isUser || isDoctor ? const Radius.circular(0) : const Radius.circular(16),
+                            bottomLeft: !isUser && !isDoctor ? const Radius.circular(0) : const Radius.circular(16),
                           ),
                           border: Border.all(
-                            color: isUser ? Theme.of(context).primaryColor : Colors.grey.shade300,
+                            color: isUser
+                                ? Theme.of(context).primaryColor
+                                : (isDoctor ? const Color(0xFF86EFAC) : Colors.grey.shade300),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -771,17 +1059,25 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isUser ? (msg.isVoice ? Icons.mic : Icons.person) : Icons.smart_toy,
+                                  isDoctor
+                                      ? Icons.medical_services_rounded
+                                      : (isUser ? (msg.isVoice ? Icons.mic : Icons.person) : Icons.smart_toy),
                                   size: 14,
-                                  color: isUser ? Colors.white70 : Colors.blue.shade700,
+                                  color: isUser
+                                      ? Colors.white70
+                                      : (isDoctor ? const Color(0xFF166534) : Colors.blue.shade700),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isUser ? (msg.isVoice ? "You (Voice Scribe)" : "You") : "PrimeCare AI",
+                                  isDoctor
+                                      ? "Dr. Patel (Attending Physician)"
+                                      : (isUser ? (msg.isVoice ? "You (Voice Scribe)" : "You") : "PrimeCare AI"),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: isUser ? Colors.white70 : Colors.blue.shade700,
+                                    color: isUser
+                                        ? Colors.white70
+                                        : (isDoctor ? const Color(0xFF166534) : Colors.blue.shade700),
                                   ),
                                 ),
                                 if (msg.isVoice) ...[
@@ -810,7 +1106,14 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                       height: 1.4,
                                     ),
                                   )
-                                : Column(
+                                : isDoctor
+                                    ? MarkdownBody(
+                                        data: msg.text,
+                                        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                          p: const TextStyle(fontSize: 14, height: 1.45, color: Color(0xFF0F172A)),
+                                        ),
+                                      )
+                                    : Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       MarkdownBody(
@@ -877,12 +1180,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Theme.of(context).primaryColor),
+                    valueColor: AlwaysStoppedAnimation(
+                      _isDoctor && _doctorSendViaWhatsApp
+                          ? const Color(0xFF25D366)
+                          : Theme.of(context).primaryColor,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  "Analyzing clinical database...",
+                  _isDoctor && _doctorSendViaWhatsApp
+                      ? "Dispatching to $_selectedPatientName's WhatsApp via Meta..."
+                      : "Analyzing clinical database...",
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
@@ -898,39 +1207,64 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           ),
           child: SafeArea(
             top: false,
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                VoiceDictationMicButton(
-                  isListening: _isListening,
-                  isTranscribing: _isTranscribing,
-                  onPressed: _toggleListening,
-                  idleIconColor: const Color(0xFF6366F1),
-                  idleTooltip: 'Record voice with Whisper (Tap to speak)',
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    enabled: !_isTranscribing,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (val) => _sendMessage(val),
-                    decoration: buildVoiceComposerDecoration(
+                if (_isDoctor) ...[
+                  _buildDoctorComposerModeToggle(),
+                  const SizedBox(height: 6),
+                ],
+                Row(
+                  children: [
+                    VoiceDictationMicButton(
                       isListening: _isListening,
                       isTranscribing: _isTranscribing,
-                      idleHint: 'Ask about your health...',
-                      focusedIdleColor: Theme.of(context).primaryColor,
+                      onPressed: _toggleListening,
+                      idleIconColor: _isDoctor && _doctorSendViaWhatsApp
+                          ? const Color(0xFF25D366)
+                          : const Color(0xFF6366F1),
+                      idleTooltip: 'Record voice with Whisper (Tap to speak)',
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: _isLoading ? null : () => _sendMessage(),
-                  ),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        enabled: !_isTranscribing,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (val) => _sendMessage(val),
+                        decoration: buildVoiceComposerDecoration(
+                          isListening: _isListening,
+                          isTranscribing: _isTranscribing,
+                          idleHint: _isDoctor
+                              ? (_doctorSendViaWhatsApp
+                                  ? 'Message $_selectedPatientName on WhatsApp...'
+                                  : 'Ask clinical AI about $_selectedPatientName...')
+                              : 'Ask about your health...',
+                          focusedIdleColor: _isDoctor && _doctorSendViaWhatsApp
+                              ? const Color(0xFF25D366)
+                              : Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _isDoctor && _doctorSendViaWhatsApp
+                            ? const Color(0xFF25D366)
+                            : Theme.of(context).primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          _isDoctor && _doctorSendViaWhatsApp
+                              ? Icons.send_rounded
+                              : Icons.send,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onPressed: _isLoading ? null : () => _sendMessage(),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -953,24 +1287,28 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.08),
+                    color: _isDoctor
+                        ? const Color(0xFF075E54).withOpacity(0.1)
+                        : Theme.of(context).primaryColor.withOpacity(0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.favorite_rounded,
+                    _isDoctor ? Icons.medical_services_rounded : Icons.favorite_rounded,
                     size: 48,
-                    color: Theme.of(context).primaryColor,
+                    color: _isDoctor ? const Color(0xFF075E54) : Theme.of(context).primaryColor,
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  "Ask about your wellness data",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                Text(
+                  _isDoctor ? "Dr. Patel's Clinical Copilot" : "Ask about your wellness data",
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Real-time clinical AI assistant connected to your wearable & mobile health telemetry, appointments, and care team.",
+                  _isDoctor
+                      ? "Send clinical instructions directly to $_selectedPatientName's WhatsApp, review continuous Apple Watch & health telemetry, or consult Canadian CPG guidelines."
+                      : "Real-time clinical AI assistant connected to your wearable & mobile health telemetry, appointments, and care team.",
                   style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   textAlign: TextAlign.center,
                 ),
@@ -979,7 +1317,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   spacing: 8,
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
-                  children: _suggestedPrompts.map((prompt) {
+                  children: _currentPrompts.map((prompt) {
                     return ActionChip(
                       label: Text(prompt, style: const TextStyle(fontSize: 12)),
                       backgroundColor: Colors.grey.shade100,

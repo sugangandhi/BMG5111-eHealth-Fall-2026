@@ -17,12 +17,20 @@ router = APIRouter(tags=['whatsapp'])
 WHATSAPP_VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'ehospital_verified_2026')
 EHOSPITAL_BASE_URL = os.getenv('EHOSPITAL_BASE_URL', 'https://aetab8pjmb.us-east-1.awsapprunner.com').rstrip('/')
 
-THREADS_FILE = Path(__file__).resolve().parents[3] / "backend" / "whatsapp_threads.json"
+def _get_threads_file() -> Path:
+    p1 = Path(__file__).resolve().parents[1] / "whatsapp_threads.json"
+    p2 = Path(__file__).resolve().parents[3] / "backend" / "whatsapp_threads.json"
+    if p2.exists():
+        return p2
+    if p1.exists():
+        return p1
+    return p2
 
 def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
-    if THREADS_FILE.exists():
+    t_file = _get_threads_file()
+    if t_file.exists():
         try:
-            with open(THREADS_FILE, "r", encoding="utf-8") as f:
+            with open(t_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             pass
@@ -56,18 +64,28 @@ def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
     }
 
 def _save_threads(threads: Dict[str, Any]) -> None:
+    t_file = _get_threads_file()
     try:
-        THREADS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(THREADS_FILE, "w", encoding="utf-8") as f:
+        t_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(t_file, "w", encoding="utf-8") as f:
             json.dump(threads, f, indent=2)
     except Exception as e:
-        print(f"[WhatsApp] Failed to save threads to {THREADS_FILE}: {e}")
+        print(f"[WhatsApp] Failed to save threads to {t_file}: {e}")
 
 class SendWhatsAppRequest(BaseModel):
     phone: str = "6132616383"
     message: str
     patient_id: Optional[int] = 391
     sender_name: Optional[str] = "Patient"
+
+class DoctorDispatchMessageRequest(BaseModel):
+    doctor_name: Optional[str] = "Dr. Patel"
+    doctor_id: Optional[int] = 1
+    patient_id: Optional[int] = 99211
+    patient_name: Optional[str] = "Sugan"
+    patient_phone: str = "6132616383"
+    message: str
+    action_type: Optional[str] = "clinical_followup"
 
 class WhatsAppActionRequest(BaseModel):
     phone: str = "6132616383"
@@ -219,6 +237,121 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
         "vitals": vitals,
         "patient_message": patient_msg,
         "reply": care_reply,
+        "thread": thread
+    }
+
+@router.get('/api/doctor/patients')
+async def get_doctor_patient_roster():
+    """Returns the doctor's active patient roster for clinical review and messaging."""
+    return {
+        "patients": [
+            {
+                "patient_id": 99211,
+                "name": "Sugan",
+                "phone": "6132616383",
+                "condition": "Essential Hypertension",
+                "medication": "Amlodipine 5mg",
+                "last_reading": "120/80 mmHg (72 BPM)",
+                "status": "Active Telemetry"
+            },
+            {
+                "patient_id": 391,
+                "name": "Patient 391",
+                "phone": "6132616383",
+                "condition": "Type 2 Diabetes & Hypertension",
+                "medication": "Metformin 500mg, Lisinopril 10mg",
+                "last_reading": "125/82 mmHg (74 BPM)",
+                "status": "Stable"
+            },
+            {
+                "patient_id": 1,
+                "name": "Patient 1",
+                "phone": "6132616383",
+                "condition": "Paroxysmal Atrial Fibrillation",
+                "medication": "Metoprolol 25mg",
+                "last_reading": "HR 68 BPM (Irregular rhythm flagged)",
+                "status": "Requires Review"
+            },
+            {
+                "patient_id": 394,
+                "name": "Patient 394",
+                "phone": "6132616383",
+                "condition": "Post-Op Orthopedic Care",
+                "medication": "Acetaminophen PRN",
+                "last_reading": "Recovery on track",
+                "status": "Routine"
+            }
+        ]
+    }
+
+@router.post('/api/doctor/dispatch-patient-message')
+async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
+    """
+    Doctor-initiated clinical outbound message to a patient.
+    Dispatches directly to the patient's personal WhatsApp from the clinic's Meta account
+    and records to the patient's EHR and in-app thread under role: doctor.
+    """
+    clean_p = re.sub(r'\D', '', req.patient_phone) or "6132616383"
+    phone_key = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+    now_str = datetime.now().strftime("%I:%M %p")
+
+    doctor_title = req.doctor_name or "Dr. Patel"
+    if not doctor_title.startswith("Dr.") and not doctor_title.startswith("Dr "):
+        doctor_title = f"Dr. {doctor_title}"
+
+    # 1. Append to the patient's WhatsApp thread as a verified doctor message
+    threads = _load_threads()
+    thread = threads.setdefault(phone_key, [])
+    if clean_p != phone_key:
+        threads[clean_p] = thread
+
+    doctor_msg = {
+        "id": int(time.time() * 1000),
+        "role": "doctor",
+        "sender_name": f"{doctor_title} (Attending Physician)",
+        "text": req.message,
+        "action_type": req.action_type or "clinical_followup",
+        "patient_id": req.patient_id,
+        "patient_name": req.patient_name,
+        "patient_phone": clean_p,
+        "timestamp": now_str
+    }
+    thread.append(doctor_msg)
+    _save_threads(threads)
+
+    # 2. Record to Central AWS EHR doctor_to_patient_message table
+    try:
+        from datetime import timezone
+        now_iso = datetime.now(timezone.utc).isoformat()
+        msg_payload = {
+            "doctor_id": req.doctor_id or 1,
+            "patient_id": req.patient_id or 99211,
+            "message": req.message,
+            "sent_at": now_iso
+        }
+        requests.post(f"{EHOSPITAL_BASE_URL}/table/doctor_to_patient_message", json=msg_payload, timeout=5, verify=False)
+    except Exception as ex_ehr:
+        print(f"[Doctor Dispatch EHR Sync Note]: {ex_ehr}")
+
+    # 3. Format official clinic WhatsApp outbound message
+    patient_display = req.patient_name or "Patient"
+    outbound_text = (
+        f"🩺 *e-Hospital Clinic — Message from {doctor_title}*\n\n"
+        f"Hello {patient_display},\n\n"
+        f"{req.message}\n\n"
+        f"— {doctor_title}, Attending Physician\n"
+        f"🏥 *e-Hospital PrimeCare Clinic*"
+    )
+
+    # 4. Dispatch live via Meta WhatsApp Cloud API to patient's real WhatsApp
+    meta_sent = send_whatsapp_reply(clean_p, outbound_text)
+
+    return {
+        "success": True,
+        "delivered_live": meta_sent,
+        "message": doctor_msg,
+        "patient_phone": clean_p,
+        "patient_name": req.patient_name,
         "thread": thread
     }
 

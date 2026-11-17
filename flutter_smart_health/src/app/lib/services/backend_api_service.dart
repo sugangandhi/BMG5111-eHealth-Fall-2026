@@ -1,3 +1,5 @@
+import '../config/api_config.dart';
+import '../core/network/api_client.dart';
 import '../data/repositories/assistant_repository.dart';
 import '../data/models/assistant_models.dart';
 
@@ -7,6 +9,27 @@ export '../core/network/api_exception.dart';
 // New code should prefer AssistantRepository directly.
 class BackendApiService {
   static final AssistantRepository _repository = AssistantRepository();
+  static final ApiClient _apiClient = ApiClient(baseUrlProvider: () => ApiConfig.backendBaseUrl);
+
+  static Future<Map<String, dynamic>> doctorDispatchPatientMessage({
+    required String patientPhone,
+    required String message,
+    String? patientName,
+    int? patientId,
+    String doctorName = "Dr. Patel",
+  }) async {
+    final res = await _apiClient.postJson('/api/doctor/dispatch-patient-message', {
+      'patient_phone': patientPhone,
+      'message': message,
+      'patient_name': patientName ?? 'Patient',
+      'patient_id': patientId ?? 99211,
+      'doctor_name': doctorName,
+    });
+    if (res is Map) {
+      return Map<String, dynamic>.from(res);
+    }
+    return {'success': false};
+  }
 
   static Future<AssistantChatReply> assistantChat({
     required String patientId,
