@@ -823,6 +823,100 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     );
   }
 
+  void _showAddCustomContactDialog() {
+    final nameController = TextEditingController();
+    final phoneController = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF075E54)),
+            SizedBox(width: 8),
+            Text(
+              "Add Contact / Patient",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Enter any contact or patient phone number to test sending messages directly from Dr. Patel's WhatsApp:",
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: "Contact / Patient Name",
+                hintText: "e.g. Sarah / Caregiver",
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: "Phone Number",
+                hintText: "e.g. 613-261-6383",
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF075E54),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              final name = nameController.text.trim();
+              final rawPhone = phoneController.text.trim();
+              final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
+              if (phone.isEmpty) return;
+              final cleanName = name.isEmpty ? "Contact ($rawPhone)" : name;
+              final newId = "custom_${DateTime.now().millisecondsSinceEpoch}";
+              setState(() {
+                _doctorPatients.insert(0, {
+                  "name": cleanName,
+                  "patient_id": newId,
+                  "phone": phone,
+                  "info": "Custom • $rawPhone",
+                });
+                _selectedPatientId = newId;
+                _selectedPatientName = cleanName;
+                _selectedPatientPhone = phone;
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("✅ Added $cleanName to patient dispatch list"),
+                  backgroundColor: const Color(0xFF166534),
+                ),
+              );
+            },
+            child: const Text("Add & Select"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDoctorHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -912,6 +1006,34 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                         }
                       },
                     ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _showAddCustomContactDialog,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF075E54),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.person_add_rounded, size: 14, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        "Add Contact",
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
