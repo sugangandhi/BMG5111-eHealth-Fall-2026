@@ -79,7 +79,7 @@ class SendWhatsAppRequest(BaseModel):
     sender_name: Optional[str] = "Patient"
 
 class DoctorDispatchMessageRequest(BaseModel):
-    doctor_name: Optional[str] = "Dr. Patel"
+    doctor_name: Optional[str] = "Dr. Sugan"
     doctor_id: Optional[int] = 1
     patient_id: Optional[int] = 99211
     patient_name: Optional[str] = "Sugan"
@@ -297,7 +297,7 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     phone_key = clean_p[-10:] if len(clean_p) >= 10 else clean_p
     now_str = datetime.now().strftime("%I:%M %p")
 
-    doctor_title = req.doctor_name or "Dr. Patel"
+    doctor_title = req.doctor_name or "Dr. Sugan"
     if not doctor_title.startswith("Dr.") and not doctor_title.startswith("Dr "):
         doctor_title = f"Dr. {doctor_title}"
 

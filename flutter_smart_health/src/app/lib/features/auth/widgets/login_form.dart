@@ -16,7 +16,7 @@ class LoginForm extends StatefulWidget {
   final String? error;
   final bool loading;
   final VoidCallback onSubmit;
-  final VoidCallback? onDemoLogin;
+  final void Function(String role)? onDemoLogin;
 
   const LoginForm({
     super.key,
@@ -362,7 +362,7 @@ class _LoginFormState extends State<LoginForm> {
                         color: AppColors.primary,
                       ),
                       label: const Text(
-                        "Demo Doctor",
+                        "Demo Doctor (Dr. Sugan)",
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12.5,
@@ -721,7 +721,7 @@ class _LoginFormState extends State<LoginForm> {
       widget.onIdentityChanged("Patient");
     }
     if (widget.onDemoLogin != null) {
-      widget.onDemoLogin!();
+      widget.onDemoLogin!(role);
     } else {
       widget.onSubmit();
     }

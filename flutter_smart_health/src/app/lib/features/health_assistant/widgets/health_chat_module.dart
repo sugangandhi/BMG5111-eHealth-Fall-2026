@@ -62,6 +62,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   bool _isWhatsAppVerified = false;
   String _userPhone = "";
   bool _isDoctor = false;
+  String _doctorName = "Dr. Sugan";
   String _selectedPatientName = "Sugan";
   String _selectedPatientId = "6132616383";
   String _selectedPatientPhone = "6132616383";
@@ -69,7 +70,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   Timer? _liveSyncTimer;
   bool _isLiveSyncing = false;
 
-  List<Map<String, String>> _doctorPatients = [
+  static final List<Map<String, String>> _defaultPatients = [
     {
       "name": "Sugan",
       "patient_id": "6132616383",
@@ -89,6 +90,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       "info": "Pt #1 • AFib Monitor",
     },
   ];
+
+  late List<Map<String, String>> _doctorPatients = List.from(_defaultPatients);
 
   static const List<String> _suggestedPrompts = [
     "What are my recorded vitals?",
@@ -152,38 +155,77 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   Future<void> _loadPatientAndHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final identity = prefs.getString("patient_identity") ?? "Patient";
-    final isDoctor = identity.toLowerCase() == "doctor";
+    final email = prefs.getString("patient_email") ?? "";
+    final isDoctor = identity.toLowerCase() == "doctor" ||
+        email.toLowerCase().contains("doctor") ||
+        email.toLowerCase().contains("sugan");
 
     final pid = prefs.getInt("patient_id") ?? prefs.getString("patient_id");
     final verified = prefs.getBool("is_whatsapp_verified") ?? false;
     final savedPhone = prefs.getString("patient_phone") ?? "";
 
-    if (isDoctor) {
-      final savedContactsJson = prefs.getString("doctor_persisted_contacts_v2");
-      if (savedContactsJson != null && savedContactsJson.isNotEmpty) {
-        try {
-          final List<dynamic> decoded = jsonDecode(savedContactsJson);
-          final List<Map<String, String>> loaded = [];
-          for (final item in decoded) {
-            if (item is Map) {
-              loaded.add(item.map((k, v) => MapEntry(k.toString(), v.toString())));
+    var doctorName = prefs.getString("patient_username") ?? "Dr. Sugan";
+    if (doctorName.toLowerCase().contains("ava") ||
+        doctorName.toLowerCase().contains("patient") ||
+        doctorName.trim().isEmpty) {
+      doctorName = "Dr. Sugan";
+    }
+    if (!doctorName.startsWith("Dr.") && !doctorName.startsWith("Dr ")) {
+      doctorName = "Dr. $doctorName";
+    }
+
+    // Always load persisted contacts so they are NEVER lost on refresh
+    final savedContactsJson = prefs.getString("doctor_persisted_contacts_v2");
+    List<Map<String, String>> combinedContacts = List.from(_defaultPatients);
+    if (savedContactsJson != null && savedContactsJson.isNotEmpty) {
+      try {
+        final List<dynamic> decoded = jsonDecode(savedContactsJson);
+        final List<Map<String, String>> loaded = [];
+        for (final item in decoded) {
+          if (item is Map) {
+            loaded.add(item.map((k, v) => MapEntry(k.toString(), v.toString())));
+          }
+        }
+        if (loaded.isNotEmpty) {
+          final Set<String> seenPhones = {};
+          final List<Map<String, String>> merged = [];
+          for (final c in loaded) {
+            final p = c["phone"] ?? "";
+            if (p.isNotEmpty && seenPhones.add(p)) {
+              merged.add(c);
             }
           }
-          if (loaded.isNotEmpty) {
-            _doctorPatients = loaded;
-            _selectedPatientId = _doctorPatients.first["patient_id"] ?? "6132616383";
-            _selectedPatientName = _doctorPatients.first["name"] ?? "Patient";
-            _selectedPatientPhone = _doctorPatients.first["phone"] ?? "6132616383";
+          for (final def in _defaultPatients) {
+            final p = def["phone"] ?? "";
+            if (seenPhones.add(p)) {
+              merged.add(def);
+            }
           }
-        } catch (e) {
-          debugPrint("[HealthChat] Error loading persisted contacts: $e");
+          combinedContacts = merged;
         }
+      } catch (e) {
+        debugPrint("[HealthChat] Error loading persisted contacts: $e");
       }
+    }
+
+    final lastSelectedId = prefs.getString("doctor_selected_patient_id");
+    Map<String, String> selected = combinedContacts.first;
+    if (lastSelectedId != null && lastSelectedId.isNotEmpty) {
+      final match = combinedContacts.firstWhere(
+        (c) => c["patient_id"] == lastSelectedId || c["phone"] == lastSelectedId,
+        orElse: () => combinedContacts.first,
+      );
+      selected = match;
     }
 
     if (mounted) {
       setState(() {
         _isDoctor = isDoctor;
+        _doctorName = doctorName;
+        _doctorPatients = combinedContacts;
+        _selectedPatientId = selected["patient_id"] ?? "6132616383";
+        _selectedPatientName = selected["name"] ?? "Patient";
+        _selectedPatientPhone = selected["phone"] ?? "6132616383";
         if (isDoctor) {
           _patientId = _selectedPatientPhone.isNotEmpty ? _selectedPatientPhone : _selectedPatientId;
         } else if (pid != null) {
@@ -295,7 +337,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   final name = senderName.isNotEmpty ? senderName : _selectedPatientName;
                   formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
                 } else if (mappedRole == 'doctor') {
-                  formattedText = "🩺 **Dr. Patel (Outbound)**:\n\n$text";
+                  formattedText = "🩺 **$_doctorName (Outbound)**:\n\n$text";
                 } else {
                   formattedText = "🤖 **Clinic Assistant**:\n\n$text";
                 }
@@ -352,9 +394,269 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString("doctor_persisted_contacts_v2", jsonEncode(_doctorPatients));
+      await prefs.setString("doctor_selected_patient_id", _selectedPatientId);
     } catch (e) {
       debugPrint("[HealthChat] Error saving contacts: $e");
     }
+  }
+
+  Future<void> _deleteDoctorContact(String phone) async {
+    setState(() {
+      _doctorPatients.removeWhere((p) => p["phone"] == phone);
+      if (_selectedPatientPhone == phone) {
+        final fallback = _doctorPatients.first;
+        _selectedPatientId = fallback["patient_id"] ?? "6132616383";
+        _selectedPatientName = fallback["name"] ?? "Patient";
+        _selectedPatientPhone = fallback["phone"] ?? "6132616383";
+        _patientId = _selectedPatientPhone;
+      }
+    });
+    await _saveDoctorContactsToPrefs();
+  }
+
+  Future<void> _pickContactFromDevice() async {
+    try {
+      final contact = await WhatsAppLauncherService.pickDeviceContact();
+      if (contact != null) {
+        final name = contact['name'] ?? 'Contact';
+        final rawPhone = contact['rawPhone'] ?? contact['phone'] ?? '';
+        final phone = contact['phone'] ?? '';
+        if (phone.isEmpty) return;
+
+        await _persistMessagesLocally();
+
+        final newContact = {
+          "name": name,
+          "patient_id": phone,
+          "phone": phone,
+          "info": "Phone Contact • $rawPhone",
+        };
+
+        setState(() {
+          _doctorPatients.removeWhere((p) => p["phone"] == phone);
+          _doctorPatients.insert(0, newContact);
+          _selectedPatientId = phone;
+          _selectedPatientName = name;
+          _selectedPatientPhone = phone;
+          _patientId = phone;
+        });
+
+        await _saveDoctorContactsToPrefs();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("✅ Added & Selected $name ($rawPhone)"),
+              backgroundColor: const Color(0xFF166534),
+            ),
+          );
+        }
+
+        await _loadMessagesForCurrentPatient();
+        await _syncWhatsAppThreadSilently();
+        return;
+      }
+    } catch (e) {
+      debugPrint("[HealthChat] Pick contact error: $e");
+    }
+
+    if (mounted) {
+      _showManageContactsModal();
+    }
+  }
+
+  void _showManageContactsModal() {
+    final searchController = TextEditingController();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            final query = searchController.text.trim().toLowerCase();
+            final filtered = _doctorPatients.where((p) {
+              final name = (p["name"] ?? "").toLowerCase();
+              final phone = (p["phone"] ?? "").toLowerCase();
+              final info = (p["info"] ?? "").toLowerCase();
+              return name.contains(query) || phone.contains(query) || info.contains(query);
+            }).toList();
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.72,
+              minChildSize: 0.45,
+              maxChildSize: 0.94,
+              expand: false,
+              builder: (_, scrollController) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.contacts_rounded, color: Color(0xFF075E54)),
+                              SizedBox(width: 8),
+                              Text(
+                                "Contacts Book",
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF075E54),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: const Icon(Icons.contacts_outlined, size: 16),
+                                label: const Text("Phone", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _pickContactFromDevice();
+                                },
+                              ),
+                              const SizedBox(width: 4),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF075E54),
+                                  foregroundColor: Colors.white,
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.add, size: 15),
+                                label: const Text("Add", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _showAddCustomContactDialog();
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: searchController,
+                        onChanged: (_) => setModalState(() {}),
+                        decoration: InputDecoration(
+                          hintText: "Search contacts by name or phone...",
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          isDense: true,
+                          filled: true,
+                          fillColor: const Color(0xFFF1F5F9),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  "No contacts found. Tap '+ Add' to save one.",
+                                  style: TextStyle(color: Color(0xFF64748B)),
+                                ),
+                              )
+                            : ListView.separated(
+                                controller: scrollController,
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (_, idx) {
+                                  final contact = filtered[idx];
+                                  final isSelected = contact["patient_id"] == _selectedPatientId ||
+                                      contact["phone"] == _selectedPatientPhone;
+                                  final isDefault = _defaultPatients.any((d) => d["patient_id"] == contact["patient_id"]);
+
+                                  return ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    leading: CircleAvatar(
+                                      backgroundColor: isSelected ? const Color(0xFF075E54) : const Color(0xFFE2E8F0),
+                                      foregroundColor: isSelected ? Colors.white : const Color(0xFF1E293B),
+                                      child: Text(
+                                        (contact["name"] ?? "P").substring(0, 1).toUpperCase(),
+                                        style: const TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            contact["name"] ?? "Patient",
+                                            style: TextStyle(
+                                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                              color: isSelected ? const Color(0xFF075E54) : const Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          const Text(
+                                            "Active",
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF166534),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    subtitle: Text(
+                                      "${contact["phone"]} • ${contact["info"] ?? ''}",
+                                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                    ),
+                                    trailing: !isDefault
+                                        ? IconButton(
+                                            tooltip: "Delete Contact",
+                                            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                                            onPressed: () async {
+                                              await _deleteDoctorContact(contact["phone"] ?? "");
+                                              setModalState(() {});
+                                            },
+                                          )
+                                        : null,
+                                    onTap: () {
+                                      Navigator.pop(ctx);
+                                      if (contact["patient_id"] != null) {
+                                        _onDoctorPatientChanged(contact["patient_id"]!);
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _clearChatHistory() async {
@@ -370,7 +672,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     await _persistMessagesLocally();
 
     final match = _doctorPatients.firstWhere(
-      (p) => p["patient_id"] == newPatientId,
+      (p) => p["patient_id"] == newPatientId || p["phone"] == newPatientId,
       orElse: () => _doctorPatients.first,
     );
 
@@ -380,6 +682,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       _selectedPatientPhone = match["phone"] ?? "6132616383";
       _patientId = _selectedPatientPhone; // Keep ID as phone number itself
     });
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("doctor_selected_patient_id", _selectedPatientId);
 
     // 2. Load conversation history for newly selected patient
     await _loadMessagesForCurrentPatient();
@@ -779,7 +1084,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         message: text,
         patientName: _selectedPatientName,
         patientId: int.tryParse(_selectedPatientPhone) ?? (int.tryParse(_selectedPatientId) ?? 99211),
-        doctorName: "Dr. Patel",
+        doctorName: _doctorName,
       );
 
       final liveSent = res['delivered_live'] == true;
@@ -787,7 +1092,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         setState(() {
           _messages.add(_HealthChatMessage(
             role: 'doctor',
-            text: "🩺 **Dr. Patel's Message to $_selectedPatientName**:\n\n$text\n\n*(Dispatched to WhatsApp `+$_selectedPatientPhone` • ${liveSent ? 'Delivered Live via Meta' : 'Recorded in Chart'})*",
+            text: "🩺 **$_doctorName's Message to $_selectedPatientName**:\n\n$text\n\n*(Dispatched to WhatsApp `+$_selectedPatientPhone` • ${liveSent ? 'Delivered Live via Meta' : 'Recorded in Chart'})*",
           ));
         });
         await _persistMessagesLocally();
@@ -968,7 +1273,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               const SizedBox(width: 8),
               IconButton(
                 tooltip: "Clear Chat History",
-                icon: const Icon(Icons.refresh_rounded, size: 20, color: Color(0xFF166534)),
+                icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFF166534)),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -1116,19 +1421,19 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Row(
                   children: [
                     Text(
-                      "Dr. Patel — Live WhatsApp Hub",
-                      style: TextStyle(
+                      "$_doctorName — Live WhatsApp Hub",
+                      style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF075E54),
                       ),
                     ),
-                    SizedBox(width: 6),
-                    Text(
+                    const SizedBox(width: 6),
+                    const Text(
                       "🟢 2-Way Live Sync",
                       style: TextStyle(
                         fontSize: 10.5,
@@ -1199,13 +1504,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               InkWell(
-                onTap: _showAddCustomContactDialog,
+                onTap: _pickContactFromDevice,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: const Color(0xFF075E54),
                     borderRadius: BorderRadius.circular(8),
@@ -1213,14 +1518,72 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.person_add_rounded, size: 14, color: Colors.white),
+                      Icon(Icons.contacts_rounded, size: 13, color: Colors.white),
                       SizedBox(width: 4),
                       Text(
-                        "Add Contact",
+                        "Phone",
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: _showManageContactsModal,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.menu_book_rounded, size: 13, color: Color(0xFF0F172A)),
+                      SizedBox(width: 4),
+                      Text(
+                        "Book",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: _showAddCustomContactDialog,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF075E54)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 14, color: Color(0xFF075E54)),
+                      SizedBox(width: 2),
+                      Text(
+                        "Add",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF075E54),
                         ),
                       ),
                     ],
@@ -1317,7 +1680,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               WhatsAppLauncherService.launchWhatsApp(
                 context: context,
                 phone: _selectedPatientPhone,
-                message: "Hello $_selectedPatientName, this is Dr. Patel following up on your health.",
+                message: "Hello $_selectedPatientName, this is $_doctorName following up on your health.",
               );
             },
             borderRadius: BorderRadius.circular(999),
@@ -1416,7 +1779,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                 const SizedBox(width: 4),
                                 Text(
                                   isDoctor
-                                      ? "Dr. Patel (Attending Physician)"
+                                      ? "$_doctorName (Attending Physician)"
                                       : (isUser
                                           ? (_isDoctor ? "$_selectedPatientName (WhatsApp)" : (msg.isVoice ? "You (Voice Scribe)" : "You"))
                                           : "PrimeCare AI"),
@@ -1648,7 +2011,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  _isDoctor ? "Dr. Patel's Clinical Copilot" : "Ask about your wellness data",
+                  _isDoctor ? "$_doctorName's Clinical Copilot" : "Ask about your wellness data",
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   textAlign: TextAlign.center,
                 ),

@@ -133,7 +133,7 @@ void main() {
               error: null,
               loading: false,
               onSubmit: () {},
-              onDemoLogin: () => demoSubmitted = true,
+              onDemoLogin: (_) => demoSubmitted = true,
             ),
           ),
         ),

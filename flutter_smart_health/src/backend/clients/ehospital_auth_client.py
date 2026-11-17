@@ -39,16 +39,16 @@ async def authenticate_ehospital_user(
 
     # Fast-path demo doctor credentials
     clean_email = email.strip().lower()
-    if clean_email in {"doctor@demo.com", "drpatel@demo.com", "doctor@ehospital.com", "patel@demo.com"} or (selected_option == "Doctor" and "demo" in clean_email):
+    if clean_email in {"doctor@demo.com", "drpatel@demo.com", "doctor@ehospital.com", "patel@demo.com", "sugan@demo.com", "drsugan@demo.com"} or (selected_option == "Doctor" and "demo" in clean_email):
         return {
             "id": 1,
             "doctor_id": 1,
             "patient_id": 1,
             "user_id": 1,
             "FName": "Dr.",
-            "LName": "Patel",
-            "name": "Dr. Patel",
-            "username": "Dr. Patel (Attending Physician)",
+            "LName": "Sugan",
+            "name": "Dr. Sugan",
+            "username": "Dr. Sugan (Attending Physician)",
             "email": "doctor@demo.com",
             "selectedOption": "Doctor",
         }
@@ -102,7 +102,11 @@ def normalize_ehospital_login(
     patient_id = (
         _first_present(payload, "patient_id", "user_id", "id")
         if selected_option == DEFAULT_EHOSPITAL_IDENTITY
-        else _first_present(payload, "patient_id", "doctor_id", "user_id", "id")
+        else (
+            _first_present(payload, "patient_id", "doctor_id", "user_id", "id")
+            if selected_option == "Doctor"
+            else _first_present(payload, "patient_id")
+        )
     )
     email = _first_present(payload, "email", "EmailId", "Email_Id")
     username = _display_name(payload) or str(email or "")

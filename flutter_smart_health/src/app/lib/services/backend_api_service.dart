@@ -16,7 +16,7 @@ class BackendApiService {
     required String message,
     String? patientName,
     int? patientId,
-    String doctorName = "Dr. Patel",
+    String doctorName = "Dr. Sugan",
   }) async {
     final res = await _apiClient.postJson('/api/doctor/dispatch-patient-message', {
       'patient_phone': patientPhone,

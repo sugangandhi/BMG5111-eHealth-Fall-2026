@@ -137,6 +137,11 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = context.l10n.passwordRequiredError);
       return;
     }
+
+    if (email.contains("doctor") || email.contains("sugan")) {
+      _selectedIdentity = "Doctor";
+    }
+
     setState(() {
       _loading = true;
       _error = null;

@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.ContactsContract
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -57,6 +58,7 @@ class MainActivity : FlutterFragmentActivity() {
         private const val VOICE_SCRIBE_CHANNEL = "com.example.smart_health_app/voice_scribe"
         private const val WHATSAPP_LAUNCHER_CHANNEL = "com.example.smart_health_app/whatsapp_launcher"
         private const val REQUEST_RECORD_AUDIO = 4207
+        private const val PICK_CONTACT_REQUEST_CODE = 4021
     }
 
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -68,6 +70,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var isVoiceRecordingFallback = false
     private var latestPartialTranscript = ""
     private var pendingVoiceStartAction: (() -> Unit)? = null
+    private var pendingContactResult: MethodChannel.Result? = null
 
     private data class HealthRecordProbeSpec(
         val label: String,
@@ -206,7 +209,59 @@ class MainActivity : FlutterFragmentActivity() {
                         result.success(false)
                     }
                 }
+                "pickContact" -> {
+                    pickPhoneContact(result)
+                }
                 else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun pickPhoneContact(result: MethodChannel.Result) {
+        if (pendingContactResult != null) {
+            try {
+                pendingContactResult?.success(null)
+            } catch (_: Exception) {}
+            pendingContactResult = null
+        }
+        pendingContactResult = result
+        val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+        try {
+            startActivityForResult(intent, PICK_CONTACT_REQUEST_CODE)
+        } catch (e: Exception) {
+            pendingContactResult?.error("PICK_FAILED", e.message, null)
+            pendingContactResult = null
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == PICK_CONTACT_REQUEST_CODE) {
+            val pending = pendingContactResult
+            pendingContactResult = null
+            if (pending != null) {
+                if (resultCode == RESULT_OK && data?.data != null) {
+                    try {
+                        val contactUri: Uri = data.data!!
+                        val projection = arrayOf(
+                            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            ContactsContract.CommonDataKinds.Phone.NUMBER
+                        )
+                        contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                                val numberIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                                val name = if (nameIdx >= 0) cursor.getString(nameIdx) else ""
+                                val number = if (numberIdx >= 0) cursor.getString(numberIdx) else ""
+                                pending.success(mapOf("name" to name, "phone" to number))
+                                return
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // ignore and fall through to null
+                    }
+                }
+                pending.success(null)
             }
         }
     }

@@ -430,7 +430,7 @@ class _WhatsAppInboxModuleState extends State<WhatsAppInboxModule> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      msg['sender_name'] ?? "Dr. Patel",
+                                      msg['sender_name'] ?? "Dr. Sugan",
                                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
                                     ),
                                     const SizedBox(width: 4),

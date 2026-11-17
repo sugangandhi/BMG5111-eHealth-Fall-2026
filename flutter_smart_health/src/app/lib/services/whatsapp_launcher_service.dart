@@ -45,6 +45,28 @@ class WhatsAppLauncherService {
     return const WhatsAppDetectionResult(hasRegular: false, hasBusiness: false);
   }
 
+  static Future<Map<String, String>?> pickDeviceContact() async {
+    if (!isAndroidNative) return null;
+    try {
+      final res = await _channel.invokeMapMethod<String, dynamic>('pickContact');
+      if (res != null) {
+        final name = (res['name'] ?? '').toString().trim();
+        final rawPhone = (res['phone'] ?? '').toString().trim();
+        final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
+        if (phone.isNotEmpty) {
+          return {
+            'name': name.isNotEmpty ? name : 'Contact ($phone)',
+            'phone': phone,
+            'rawPhone': rawPhone,
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('[WhatsAppLauncherService] pickDeviceContact error: $e');
+    }
+    return null;
+  }
+
   static Future<bool> launchDirectPackage({
     required String package,
     String phone = '16134045586',

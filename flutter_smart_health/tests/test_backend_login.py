@@ -137,7 +137,7 @@ def test_non_patient_payload_does_not_fabricate_patient_id():
 
 def test_remote_login_network_failure_returns_gateway_error(monkeypatch):
     class FailingClient:
-        def __init__(self, timeout):
+        def __init__(self, timeout=None, **kwargs):
             self.timeout = timeout
 
         async def __aenter__(self):

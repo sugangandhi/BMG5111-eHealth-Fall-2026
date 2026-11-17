@@ -225,7 +225,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 # 3. Evaluate clinical triage
                 triage = evaluate_clinical_case(patient_id, clean_msg, vitals_dict, patient_phone=patient_phone, patient_name=patient_name)
                 bot_reply_text = triage.get("reply_text") or (
-                    f"Thank you {patient_name}. Your message has been received by Dr. Patel's Care Team and recorded in your patient chart."
+                    f"Thank you {patient_name}. Your message has been received by Dr. Sugan's Care Team and recorded in your patient chart."
                 )
 
                 # 4. Add to In-App WhatsApp Thread
@@ -233,7 +233,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 thread = threads.setdefault(phone_key, [])
                 now_str = datetime.now().strftime("%I:%M %p")
 
-                # Add cleaned patient message to Dr. Patel's thread
+                # Add cleaned patient message to Dr. Sugan's thread
                 thread.append({
                     "id": int(time.time() * 1000),
                     "role": "patient",
@@ -242,7 +242,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                     "vitals": vitals_dict,
                     "timestamp": now_str
                 })
-                # Add Dr. Patel Care Team reply to thread
+                # Add Dr. Sugan Care Team reply to thread
                 thread.append({
                     "id": int(time.time() * 1000) + 1,
                     "role": "bot",
@@ -265,7 +265,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 patient_first = patient_name.split()[0] if patient_name else "there"
                 outbound_text = (
                     f"🩺 *e-Hospital Clinical Care Team*\n\n"
-                    f"Hi {patient_first}, Dr. Patel's care desk received your message:\n"
+                    f"Hi {patient_first}, Dr. Sugan's care desk received your message:\n"
                     f"\"{clean_msg}\"\n\n"
                     f"{bot_reply_text}\n\n"
                     f"💬 _You can reply directly to this chat anytime to reach your doctor._"
@@ -317,9 +317,9 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
             f"Active Patient ID: {patient_id}\n"
             f"Clinical Telemetry Data:\n{telemetry_str}\n\n"
             "CLINICAL & INTEGRATION RULES:\n"
-            "- You are directly integrated with Dr. Patel's clinical triage desk and WhatsApp clinical queue.\n"
-            "- NEVER state that you 'cannot message Dr. Patel' or 'am unable to message the doctor on your behalf'.\n"
-            "- If the patient asks to message or contact the doctor, confirm that their message and vitals are forwarded directly to Dr. Patel.\n"
+            "- You are directly integrated with Dr. Sugan's clinical triage desk and WhatsApp clinical queue.\n"
+            "- NEVER state that you 'cannot message Dr. Sugan' or 'am unable to message the doctor on your behalf'.\n"
+            "- If the patient asks to message or contact the doctor, confirm that their message and vitals are forwarded directly to Dr. Sugan.\n"
             "- Emphasize clinical red flags and remind the patient to tap the WhatsApp button at the top to access the direct doctor triage channel.\n"
             "Provide empathetic, clinically accurate, evidence-based responses.\n"
         )

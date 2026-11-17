@@ -270,16 +270,16 @@ def evaluate_clinical_case(
                 "What can I do for you today? You can:\n"
                 "• 📊 Report your daily vitals (e.g. blood pressure, heart rate)\n"
                 "• 💬 Ask a health question or describe any symptoms\n"
-                "• 👨‍⚕️ Leave a message directly for Dr. Patel"
+                "• 👨‍⚕️ Leave a message directly for Dr. Sugan"
             ),
             "actions": [
                 {"id": "log_vitals", "label": "🩺 Log Today's Vitals", "type": "quick_reply"},
-                {"id": "contact_doctor", "label": "👨‍⚕️ Message Dr. Patel", "type": "quick_reply"}
+                {"id": "contact_doctor", "label": "👨‍⚕️ Message Dr. Sugan", "type": "quick_reply"}
             ],
             "follow_up_chips": [
                 "Log BP: 120/80, HR: 72",
                 "Ask a health question",
-                "Leave note for Dr. Patel"
+                "Leave note for Dr. Sugan"
             ],
             "comorbidities": [],
             "guideline_eval": {},
@@ -361,9 +361,9 @@ def evaluate_clinical_case(
         ctas_level = 1 if ("unconscious" in text_lower or "cannot breathe" in text_lower or "cardiac arrest" in text_lower) else 2
         confidence_score = 0.98
         triage_level = "EMERGENCY"
-        doctor_notice = "🚨 STAT Emergency Clinical Alert Sent to Dr. Patel & ER Triage Team"
+        doctor_notice = "🚨 STAT Emergency Clinical Alert Sent to Dr. Sugan & ER Triage Team"
         reply_text = (
-            "🚨 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Dr. Patel and the clinic's urgent triage team.\n\n"
+            "🚨 **EMERGENCY CLINICAL ALERT**: An immediate STAT notice has been dispatched to Dr. Sugan and the clinic's urgent triage team.\n\n"
             "Because severe chest symptoms can indicate an acute coronary syndrome or critical cardiac event, please do not wait. "
             "Call 911 or proceed to the nearest emergency department immediately. You may also check into our walk-in Urgent Care queue below if you are currently en route."
         )
@@ -384,13 +384,13 @@ def evaluate_clinical_case(
         elif has_diabetes:
             comorbid_context_note = " Atypical cardiovascular symptoms are frequent in diabetic patients; an objective evaluation is indicated."
 
-        doctor_notice = "⚠️ Urgent Clinical Notice Sent to Dr. Patel's Triage Desk"
+        doctor_notice = "⚠️ Urgent Clinical Notice Sent to Dr. Sugan's Triage Desk"
         reply_text = (
-            f"⚠️ **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and flagged for Dr. Patel's triage desk.{comorbid_context_note}\n\n"
-            "Would you like me to book a same-day urgent appointment with Dr. Patel, or check you into the walk-in Urgent Care clinic queue right now?"
+            f"⚠️ **CLINICAL TRIAGE NOTICE**: Your reported symptoms have been entered into your clinical chart and flagged for Dr. Sugan's triage desk.{comorbid_context_note}\n\n"
+            "Would you like me to book a same-day urgent appointment with Dr. Sugan, or check you into the walk-in Urgent Care clinic queue right now?"
         )
         actions = [
-            {"id": "book_appointment", "label": "📅 Book Urgent Appointment with Dr. Patel", "type": "book"},
+            {"id": "book_appointment", "label": "📅 Book Urgent Appointment with Dr. Sugan", "type": "book"},
             {"id": "urgent_care", "label": "🏥 Join Urgent Care Clinic Queue", "type": "route"}
         ]
         # Provide SOCRATES interactive symptom exploration chips
@@ -416,14 +416,14 @@ def evaluate_clinical_case(
             # Format official appointment notification
             outbound_friend_msg = (
                 f"🩺 *e-Hospital Clinic — Caregiver & Contact Notification*\n\n"
-                f"Hello! This is an official care coordination notification on behalf of Dr. Patel regarding {patient_first_name}.\n\n"
-                f"{patient_first_name} has an appointment scheduled at e-Hospital PrimeCare Clinic with Dr. Patel:\n"
+                f"Hello! This is an official care coordination notification on behalf of Dr. Sugan regarding {patient_first_name}.\n\n"
+                f"{patient_first_name} has an appointment scheduled at e-Hospital PrimeCare Clinic with Dr. Sugan:\n"
                 f"• 📅 Date & Time: Today at 03:00 PM\n"
                 f"• 📍 Location: 100 Clinic Way, Suite 402, Ottawa ON\n"
-                f"• 👨‍⚕️ Provider: Dr. Patel, Attending Physician\n"
+                f"• 👨‍⚕️ Provider: Dr. Sugan, Attending Physician\n"
                 f"• 📋 Reference: #APT-195\n\n"
                 f"Please reply to this WhatsApp line if you have any questions or require care coordination.\n"
-                f"— Dr. Patel, Attending Physician\n"
+                f"— Dr. Sugan, Attending Physician\n"
                 f"🏥 *e-Hospital PrimeCare Clinic*"
             )
             try:
@@ -435,24 +435,24 @@ def evaluate_clinical_case(
             doctor_notice = f"ℹ️ Contact Notification Sent to {raw_phone} for Patient #{patient_id}"
             reply_text = (
                 f"✅ **APPOINTMENT DETAILS DISPATCHED TO YOUR FRIEND**:\n\n"
-                f"An official appointment notification on behalf of **Dr. Patel** has been sent via WhatsApp to **{raw_phone}**.\n\n"
+                f"An official appointment notification on behalf of **Dr. Sugan** has been sent via WhatsApp to **{raw_phone}**.\n\n"
                 f"• 📱 **Recipient**: Your contact (`{raw_phone}`)\n"
-                f"• 👨‍⚕️ **Sender**: Dr. Patel's Clinic Care Team (`+1 613-404-5586`)\n"
+                f"• 👨‍⚕️ **Sender**: Dr. Sugan's Clinic Care Team (`+1 613-404-5586`)\n"
                 f"• 📋 **Details Included**: Appointment time (03:00 PM), clinic address (Suite 402), and reference #APT-195.\n\n"
                 f"Your friend can reply directly to the WhatsApp message if they need to coordinate with the clinic."
             )
         else:
             doctor_notice = "ℹ️ Patient Inquired About Contact Notification"
             reply_text = (
-                f"✅ **YES, ABSOLUTELY!** I can dispatch an official appointment notification to your friend on behalf of **Dr. Patel**.\n\n"
-                f"Because Dr. Patel's clinic WhatsApp (`+1 613-404-5586`) is active and verified, I will send them the appointment details, date/time, and clinic address.\n\n"
+                f"✅ **YES, ABSOLUTELY!** I can dispatch an official appointment notification to your friend on behalf of **Dr. Sugan**.\n\n"
+                f"Because Dr. Sugan's clinic WhatsApp (`+1 613-404-5586`) is active and verified, I will send them the appointment details, date/time, and clinic address.\n\n"
                 f"📲 **Please reply with your friend's phone number** (for example: *\"Send to 613-xxx-xxxx\"* or *\"Her number is 613-261-6383\"*), and I will dispatch the confirmation immediately!"
             )
         actions = []
         follow_up_chips = [
             "Send to 613-261-6383",
             "What was my BP earlier today?",
-            "Schedule appointment with Dr. Patel"
+            "Schedule appointment with Dr. Sugan"
         ]
 
     elif is_sched:
@@ -488,12 +488,12 @@ def evaluate_clinical_case(
                 f"Your reminder has been registered in your care plan. I will alert you at {extracted_time_str}!"
             )
             actions = [
-                {"id": "book_appointment", "label": "📅 Book Appointment with Dr. Patel", "type": "book"}
+                {"id": "book_appointment", "label": "📅 Book Appointment with Dr. Sugan", "type": "book"}
             ]
             follow_up_chips = [
                 "What was my BP earlier?",
                 "Notify my friend about appointment",
-                "Message Dr. Patel"
+                "Message Dr. Sugan"
             ]
         else:
             apt_id = int(time.time()) % 10000
@@ -507,17 +507,17 @@ def evaluate_clinical_case(
 
             doctor_notice = f"📅 Appointment Scheduled: #APT-{apt_id} for Patient #{patient_id} ({extracted_time_str})"
             reply_text = (
-                f"✅ **APPOINTMENT CONFIRMED WITH DR. PATEL**:\n\n"
+                f"✅ **APPOINTMENT CONFIRMED WITH DR. SUGAN**:\n\n"
                 f"• 📅 **Date & Time**: {extracted_time_str}\n"
-                f"• 👨‍⚕️ **Attending Physician**: Dr. Patel, MD\n"
+                f"• 👨‍⚕️ **Attending Physician**: Dr. Sugan, MD\n"
                 f"• 🏥 **Location**: e-Hospital PrimeCare Clinic, Suite 402, Ottawa ON\n"
                 f"• 📋 **Reference ID**: #APT-{apt_id}\n"
                 f"• 🩺 **Clinical Records**: Synced with Central AWS EHR\n\n"
-                f"Your chart and recent vitals have been attached for Dr. Patel's review.\n\n"
-                f"💬 *Would you like me to send a confirmation message to a friend or caregiver on Dr. Patel's behalf? Reply with their phone number to notify them!*"
+                f"Your chart and recent vitals have been attached for Dr. Sugan's review.\n\n"
+                f"💬 *Would you like me to send a confirmation message to a friend or caregiver on Dr. Sugan's behalf? Reply with their phone number to notify them!*"
             )
             actions = [
-                {"id": "contact_doctor", "label": "👨‍⚕️ Message Dr. Patel", "type": "quick_reply"}
+                {"id": "contact_doctor", "label": "👨‍⚕️ Message Dr. Sugan", "type": "quick_reply"}
             ]
             follow_up_chips = [
                 "Send appointment to my friend",
@@ -552,13 +552,13 @@ def evaluate_clinical_case(
                 f"Here are the vital readings recorded from your recent chat history and EHR records:\n\n"
                 f"{history_bullet_str}\n\n"
                 f"• **Latest Reading**: BP **{bp_val} mmHg**, Heart Rate **{hr_val} BPM** (recorded at {ts_val}).\n"
-                f"• **Clinical Evaluation**: Readings are stable within target range (<130/80 mmHg) under Hypertension Canada guidelines and synchronized with Dr. Patel's clinic desk.\n\n"
-                f"Would you like to log new vitals today or schedule a consultation with Dr. Patel?"
+                f"• **Clinical Evaluation**: Readings are stable within target range (<130/80 mmHg) under Hypertension Canada guidelines and synchronized with Dr. Sugan's clinic desk.\n\n"
+                f"Would you like to log new vitals today or schedule a consultation with Dr. Sugan?"
             )
         else:
             reply_text = (
                 f"📊 **CHAT MEMORY & VITALS SUMMARY**:\n\n"
-                f"Hello {patient_first_name}, I checked your clinical history. Your baseline telemetry on file with Dr. Patel's clinic is:\n\n"
+                f"Hello {patient_first_name}, I checked your clinical history. Your baseline telemetry on file with Dr. Sugan's clinic is:\n\n"
                 f"• **Blood Pressure**: 120/80 mmHg\n"
                 f"• **Heart Rate**: 72 BPM\n"
                 f"• **Status**: Active Telemetry / Normotensive\n\n"
@@ -566,7 +566,7 @@ def evaluate_clinical_case(
             )
         actions = [
             {"id": "log_vitals", "label": "🩺 Log New Vitals", "type": "quick_reply"},
-            {"id": "book_appointment", "label": "📅 Book Appointment with Dr. Patel", "type": "book"}
+            {"id": "book_appointment", "label": "📅 Book Appointment with Dr. Sugan", "type": "book"}
         ]
         follow_up_chips = [
             "Log BP: 120/80, HR: 72",
@@ -578,10 +578,10 @@ def evaluate_clinical_case(
         ctas_level = 4
         confidence_score = 0.96
         triage_level = "PHARMACY_REFILL"
-        doctor_notice = "📋 Prescription Renewal Sent to Dr. Patel's Approval Desk"
+        doctor_notice = "📋 Prescription Renewal Sent to Dr. Sugan's Approval Desk"
         reply_text = (
-            "📋 **PRESCRIPTION REFILL QUEUED**: Your medication refill request has been logged and submitted to Dr. Patel's clinical inbox for electronic authorization.\n\n"
-            "Standard turnaround time is 2-4 hours directly to your registered pharmacy. Would you like to schedule a routine medication review with Dr. Patel?"
+            "📋 **PRESCRIPTION REFILL QUEUED**: Your medication refill request has been logged and submitted to Dr. Sugan's clinical inbox for electronic authorization.\n\n"
+            "Standard turnaround time is 2-4 hours directly to your registered pharmacy. Would you like to schedule a routine medication review with Dr. Sugan?"
         )
         actions = [
             {"id": "book_appointment", "label": "📅 Book Medication Review", "type": "book"}
@@ -596,7 +596,7 @@ def evaluate_clinical_case(
             reply_text = (
                 f"⚠️ **ELEVATED TELEMETRY NOTED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been recorded in your clinical chart. "
                 f"{htn_eval.get('guideline')}\n\n"
-                "We have notified Dr. Patel's care desk. Would you like to schedule a blood pressure review appointment or check into Urgent Care?"
+                "We have notified Dr. Sugan's care desk. Would you like to schedule a blood pressure review appointment or check into Urgent Care?"
             )
             actions = [
                 {"id": "book_appointment", "label": "📅 Book Blood Pressure Review", "type": "book"},
@@ -622,7 +622,7 @@ def evaluate_clinical_case(
             reply_text = (
                 f"✅ **TELEMETRY SYNCED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been verified and recorded in your central eHospital clinical chart. "
                 "All readings are stable within target range under Canadian clinical guidelines.\n\n"
-                "Would you like to schedule your next routine health checkup with Dr. Patel?"
+                "Would you like to schedule your next routine health checkup with Dr. Sugan?"
             )
             actions = [
                 {"id": "book_appointment", "label": "📅 Book Routine Checkup", "type": "book"}
@@ -638,7 +638,7 @@ def evaluate_clinical_case(
             doctor_notice = "🔍 Atypical Presentation: Physician Review Flagged"
             reply_text = (
                 "🔍 **CLINICAL INQUIRY LOGGED**: Your symptoms have been logged into your chart. Because generalized or non-specific symptoms can stem from various causes, "
-                "Dr. Patel's triage desk has been notified. Please share if you have any fever, chest discomfort, or pain, or tap below to schedule a consultation."
+                "Dr. Sugan's triage desk has been notified. Please share if you have any fever, chest discomfort, or pain, or tap below to schedule a consultation."
             )
             follow_up_chips = [
                 "Symptoms include fatigue / body aches",
@@ -647,7 +647,7 @@ def evaluate_clinical_case(
                 "Started within the last 24 hours"
             ]
             actions = [
-                {"id": "book_appointment", "label": "📅 Book Consultation with Dr. Patel", "type": "book"},
+                {"id": "book_appointment", "label": "📅 Book Consultation with Dr. Sugan", "type": "book"},
                 {"id": "urgent_care", "label": "🏥 Walk-In Urgent Care Queue", "type": "route"}
             ]
         else:
@@ -671,14 +671,14 @@ def evaluate_clinical_case(
                 sys_prompt = (
                     "You are Smart Health AI Assistant, a professional, empathetic clinical AI assistant supporting patients in Ontario, Canada.\n"
                     f"You are speaking with patient {patient_first_name}.\n"
-                    "Attending Physician: Dr. Patel (e-Hospital PrimeCare Clinic).\n"
+                    "Attending Physician: Dr. Sugan (e-Hospital PrimeCare Clinic).\n"
                     f"{recent_vitals_summary}\n"
                     f"Recent Chat History:\n{turns_str}\n\n"
                     "Guidelines:\n"
                     "- State clearly that you are the automated clinic assistant, not replacing the physician.\n"
                     "- Reference past vitals or conversation if relevant.\n"
                     "- Provide concise, clinically safe, and warm answers (under 80 words).\n"
-                    "- Offer to relay questions or schedule a review with Dr. Patel."
+                    "- Offer to relay questions or schedule a review with Dr. Sugan."
                 )
                 gpt_reply = invoke_model(prompt=message, system_prompt=sys_prompt)
                 if gpt_reply and len(gpt_reply.strip()) > 15:
@@ -686,17 +686,17 @@ def evaluate_clinical_case(
                 else:
                     reply_text = (
                         f"Hello {patient_first_name}! I have received your message: \"{message}\". "
-                        "How can I help you with this? Would you like to log symptoms, review vitals, or connect with Dr. Patel?"
+                        "How can I help you with this? Would you like to log symptoms, review vitals, or connect with Dr. Sugan?"
                     )
             except Exception as ex_llm:
                 print(f"[Clinical Engine] LLM note: {ex_llm}")
                 reply_text = (
                     f"Hello {patient_first_name}! I have received your message. "
-                    "How can I assist you today? You can share any symptoms, report vitals, or request a consultation with Dr. Patel."
+                    "How can I assist you today? You can share any symptoms, report vitals, or request a consultation with Dr. Sugan."
                 )
             actions = [
-                {"id": "book_appointment", "label": "📅 Book Consultation with Dr. Patel", "type": "book"},
-                {"id": "contact_doctor", "label": "👨‍⚕️ Message Dr. Patel", "type": "quick_reply"}
+                {"id": "book_appointment", "label": "📅 Book Consultation with Dr. Sugan", "type": "book"},
+                {"id": "contact_doctor", "label": "👨‍⚕️ Message Dr. Sugan", "type": "quick_reply"}
             ]
 
     # Generate Clinician SOAP Note
@@ -737,7 +737,7 @@ def generate_clinician_soap_note(
     confidence_score: float
 ) -> Dict[str, str]:
     """
-    Synthesizes an automated, structured physician SOAP note for Dr. Patel's EHR intake desk.
+    Synthesizes an automated, structured physician SOAP note for Dr. Sugan's EHR intake desk.
     """
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M EST")
     bp = vitals.get("blood_pressure", "Not reported")
@@ -772,14 +772,14 @@ def generate_clinician_soap_note(
     if ctas_level <= 2:
         plan = "STAT Escalation: Advised immediate 911 / Emergency Department care. Flagged on-call clinician queue. Telemetry preserved."
     elif ctas_level == 3:
-        plan = "Priority Review: Scheduled for urgent outpatient clinical evaluation with Dr. Patel / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist."
+        plan = "Priority Review: Scheduled for urgent outpatient clinical evaluation with Dr. Sugan / Urgent Care triage. 12-lead ECG and lab panel recommended if symptoms persist."
     elif ctas_level == 4:
         plan = "Ambulatory Follow-up: Electronic medication refill queue / scheduled routine review within 1-2 weeks. Continue daily home telemetry."
     else:
         plan = "Routine Maintenance: Continued lifestyle counseling, vitals tracking, and routine periodic checkup."
 
     summary = (
-        f"--- CLINICAL SOAP NOTE (Dr. Patel Clinic Desk) ---\n"
+        f"--- CLINICAL SOAP NOTE (Dr. Sugan Clinic Desk) ---\n"
         f"Timestamp: {timestamp} | Patient ID: #{patient_id}\n\n"
         f"S (Subjective): {subjective}\n"
         f"O (Objective): {objective}\n"
