@@ -14,7 +14,8 @@ import '../../../services/e_hospital_auth_service.dart';
 import '../../../services/whatsapp_launcher_service.dart';
 
 class HealthChatModule extends StatefulWidget {
-  const HealthChatModule({super.key});
+  final VoidCallback? onBack;
+  const HealthChatModule({super.key, this.onBack});
 
   @override
   State<HealthChatModule> createState() => _HealthChatModuleState();
@@ -51,6 +52,7 @@ class _HealthChatMessage {
 }
 
 class _HealthChatModuleState extends State<HealthChatModule> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<_HealthChatMessage> _messages = [];
@@ -69,6 +71,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   bool _doctorSendViaWhatsApp = true;
   Timer? _liveSyncTimer;
   bool _isLiveSyncing = false;
+
+  String _sanitizeName(String text) {
+    return text
+        .replaceAll("Dr. Patel", "Dr. Sugan")
+        .replaceAll("Dr Patel", "Dr. Sugan")
+        .replaceAll("Patel", "Sugan");
+  }
 
   static final List<Map<String, String>> _defaultPatients = [
     {
@@ -165,10 +174,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final savedPhone = prefs.getString("patient_phone") ?? "";
 
     var doctorName = prefs.getString("patient_username") ?? "Dr. Sugan";
-    if (doctorName.toLowerCase().contains("ava") ||
+    if (doctorName.toLowerCase().contains("patel") ||
+        doctorName.toLowerCase().contains("ava") ||
         doctorName.toLowerCase().contains("patient") ||
         doctorName.trim().isEmpty) {
       doctorName = "Dr. Sugan";
+      await prefs.setString("patient_username", "Dr. Sugan");
     }
     if (!doctorName.startsWith("Dr.") && !doctorName.startsWith("Dr ")) {
       doctorName = "Dr. $doctorName";
@@ -265,7 +276,15 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       try {
         final List<dynamic> decoded = jsonDecode(cached);
         final cachedList = decoded
-            .map((m) => _HealthChatMessage.fromJson(m as Map<String, dynamic>))
+            .map((m) {
+              final raw = _HealthChatMessage.fromJson(m as Map<String, dynamic>);
+              return _HealthChatMessage(
+                role: raw.role,
+                text: _sanitizeName(raw.text),
+                isVoice: raw.isVoice,
+                timestamp: raw.timestamp,
+              );
+            })
             .toList();
         if (mounted) {
           setState(() {
@@ -316,8 +335,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           for (final item in serverMsgs) {
             if (item is Map) {
               final rawRole = item['role']?.toString().toLowerCase() ?? 'patient';
-              final text = item['text']?.toString() ?? '';
-              final senderName = item['sender_name']?.toString() ?? '';
+              final rawText = item['text']?.toString() ?? '';
+              final text = _sanitizeName(rawText);
+              final senderName = _sanitizeName(item['sender_name']?.toString() ?? '');
               if (text.isEmpty) continue;
 
               final String mappedRole = (rawRole == 'patient' || rawRole == 'user')
@@ -1615,311 +1635,145 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     );
   }
 
-  Widget _buildDoctorHeader() {
+  Widget _buildGeminiTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
-        border: Border(bottom: BorderSide(color: Colors.green.shade200)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF075E54),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.medical_services_rounded,
-                  size: 14,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(
-                      "$_doctorName — Live WhatsApp Hub",
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF075E54),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      "🟢 2-Way Live Sync",
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF166534),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: "Sync WhatsApp Now",
-                icon: const Icon(Icons.sync_rounded, size: 18, color: Color(0xFF075E54)),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onPressed: () => _syncWhatsAppThreadSilently(showToast: true),
-              ),
-              const SizedBox(width: 8),
-              if (_messages.isNotEmpty)
-                IconButton(
-                  tooltip: "Clear History for $_selectedPatientName",
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: _confirmClearChatHistory,
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Text(
-                "Patient: ",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade300),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedPatientId,
-                      isDense: true,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w600),
-                      items: _doctorPatients.map((p) {
-                        return DropdownMenuItem<String>(
-                          value: p["patient_id"],
-                          child: Text(
-                            "${p["name"]} (${p["info"]})",
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          _onDoctorPatientChanged(val);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              InkWell(
-                onTap: _pickContactFromDevice,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF075E54),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.contacts_rounded, size: 13, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        "Phone",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              InkWell(
-                onTap: _showManageContactsModal,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.menu_book_rounded, size: 13, color: Color(0xFF0F172A)),
-                      SizedBox(width: 4),
-                      Text(
-                        "Book",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              InkWell(
-                onTap: _showAddCustomContactDialog,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  height: 32,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF075E54)),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, size: 14, color: Color(0xFF075E54)),
-                      SizedBox(width: 2),
-                      Text(
-                        "Add",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF075E54),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDoctorComposerModeToggle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(
         children: [
-          InkWell(
-            onTap: () => setState(() => _doctorSendViaWhatsApp = true),
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: _doctorSendViaWhatsApp ? const Color(0xFF25D366) : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: _doctorSendViaWhatsApp ? const Color(0xFF166534) : Colors.grey.shade300,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.chat_rounded,
-                    size: 13,
-                    color: _doctorSendViaWhatsApp ? Colors.white : Colors.grey.shade700,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    "WhatsApp $_selectedPatientName",
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: _doctorSendViaWhatsApp ? Colors.white : Colors.grey.shade700,
+          // Left: Hamburger Menu (opens Drawer)
+          IconButton(
+            tooltip: "Chat Histories & Patients",
+            icon: const Icon(Icons.menu_rounded, size: 24, color: Color(0xFF0F172A)),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
+          const SizedBox(width: 4),
+
+          // Center: Patient Selector Dropdown Pill (Gemini Flash-Lite style)
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: PopupMenuButton<String>(
+                initialValue: _selectedPatientId,
+                onSelected: (val) {
+                  _onDoctorPatientChanged(val);
+                },
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                offset: const Offset(0, 40),
+                itemBuilder: (ctx) => _doctorPatients.map((p) {
+                  final isSelected = p["patient_id"] == _selectedPatientId || p["phone"] == _selectedPatientPhone;
+                  return PopupMenuItem<String>(
+                    value: p["patient_id"],
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 12,
+                          backgroundColor: isSelected ? const Color(0xFF075E54) : const Color(0xFFE2E8F0),
+                          foregroundColor: isSelected ? Colors.white : const Color(0xFF1E293B),
+                          child: Text(
+                            (p["name"] ?? "P").substring(0, 1).toUpperCase(),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                p["name"] ?? "Patient",
+                                style: TextStyle(
+                                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                  color: isSelected ? const Color(0xFF075E54) : const Color(0xFF0F172A),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                "ID: ${p["patient_id"] ?? p["phone"]} • ${p["info"] ?? ''}",
+                                style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF166534)),
+                      ],
                     ),
+                  );
+                }).toList(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          _selectedPatientName,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF64748B)),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: () => setState(() => _doctorSendViaWhatsApp = false),
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+
+          // Right: + Contact Icon Button (matching phone settings)
+          IconButton(
+            tooltip: "Add / Create Contact",
+            icon: Container(
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: !_doctorSendViaWhatsApp ? Theme.of(context).primaryColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: !_doctorSendViaWhatsApp ? Theme.of(context).primaryColor : Colors.grey.shade300,
-                ),
+                color: const Color(0xFF075E54).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.psychology_rounded,
-                    size: 13,
-                    color: !_doctorSendViaWhatsApp ? Colors.white : Colors.grey.shade700,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    "Consult Clinical AI",
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: !_doctorSendViaWhatsApp ? Colors.white : Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
+              child: const Icon(Icons.person_add_rounded, size: 18, color: Color(0xFF075E54)),
             ),
+            onPressed: _showAddContactModalSheet,
           ),
-          const Spacer(),
-          InkWell(
-            onTap: () {
-              WhatsAppLauncherService.launchWhatsApp(
-                context: context,
-                phone: _selectedPatientPhone,
-                message: "Hello $_selectedPatientName, this is $_doctorName following up on your health.",
-              );
-            },
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
+
+          // Right: Doctor Avatar (DS)
+          Container(
+            margin: const EdgeInsets.only(left: 4),
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              color: Color(0xFF075E54),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Text(
+              "DS",
+              style: TextStyle(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: const Color(0xFF25D366)),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.open_in_new_rounded, size: 12, color: Color(0xFF166534)),
-                  SizedBox(width: 4),
-                  Text(
-                    "Open WhatsApp App",
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
-                  ),
-                ],
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
               ),
             ),
           ),
@@ -1928,334 +1782,425 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Top Header: Custom Doctor Header or Patient WhatsApp Connect Banner
-        _isDoctor ? _buildDoctorHeader() : _buildPatientHeader(),
-
-        // Meta 24-Hour Outreach Notice & Template Initialization for Doctors
-        if (_isDoctor) _buildDoctorOutreachBanner(),
-
-        // Chat Message Feed or Empty State
-        Expanded(
-          child: _messages.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = _messages[index];
-                    final isUser = msg.role == 'user';
-                    final isDoctor = msg.role == 'doctor';
-                    final isOutgoing = _isDoctor ? isDoctor : isUser;
-
-                    return Align(
-                      alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.82,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isOutgoing
-                              ? (_isDoctor ? const Color(0xFFF0FDF4) : Theme.of(context).primaryColor)
-                              : (isUser && _isDoctor ? const Color(0xFFF8FAFC) : Colors.white),
-                          borderRadius: BorderRadius.circular(16).copyWith(
-                            bottomRight: isOutgoing ? const Radius.circular(0) : const Radius.circular(16),
-                            bottomLeft: !isOutgoing ? const Radius.circular(0) : const Radius.circular(16),
-                          ),
-                          border: Border.all(
-                            color: isOutgoing
-                                ? (_isDoctor ? const Color(0xFF86EFAC) : Theme.of(context).primaryColor)
-                                : (isUser && _isDoctor ? const Color(0xFFCBD5E1) : Colors.grey.shade300),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isDoctor
-                                      ? Icons.medical_services_rounded
-                                      : (isUser
-                                          ? (_isDoctor ? Icons.chat_bubble_rounded : (msg.isVoice ? Icons.mic : Icons.person))
-                                          : Icons.smart_toy),
-                                  size: 14,
-                                  color: isOutgoing
-                                      ? (_isDoctor ? const Color(0xFF166534) : Colors.white70)
-                                      : (_isDoctor && isUser ? const Color(0xFF0284C7) : Colors.blue.shade700),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  isDoctor
-                                      ? "$_doctorName (Attending Physician)"
-                                      : (isUser
-                                          ? (_isDoctor ? "$_selectedPatientName (WhatsApp)" : (msg.isVoice ? "You (Voice Scribe)" : "You"))
-                                          : "PrimeCare AI"),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: isOutgoing
-                                        ? (_isDoctor ? const Color(0xFF166534) : Colors.white70)
-                                        : (_isDoctor && isUser ? const Color(0xFF0369A1) : Colors.blue.shade700),
-                                  ),
-                                ),
-                                if (msg.isVoice) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white24,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Text(
-                                      "Whisper",
-                                      style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            isOutgoing && !_isDoctor
-                                ? Text(
-                                    msg.text,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14.5,
-                                      height: 1.4,
-                                    ),
-                                  )
-                                : isDoctor
-                                    ? MarkdownBody(
-                                        data: msg.text,
-                                        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                                          p: const TextStyle(fontSize: 14, height: 1.45, color: Color(0xFF0F172A)),
-                                        ),
-                                      )
-                                    : Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      MarkdownBody(
-                                        data: msg.text,
-                                        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                                          p: const TextStyle(fontSize: 14, height: 1.45, color: Colors.black87),
-                                        ),
-                                      ),
-                                      if (msg.text.contains("INTELLIGENT DIGITAL SOLUTION") || msg.text.contains("Intelligent Digital Solution") || msg.text.contains("STAT") || msg.text.contains("chest pain") || msg.text.contains("911")) ...[
-                                        const SizedBox(height: 10),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: [
-                                            ElevatedButton.icon(
-                                              icon: const Icon(Icons.chat_bubble, size: 13),
-                                              label: const Text("Open Intelligent Digital Solution's WhatsApp Triage", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(0xFF075E54),
-                                                foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                              ),
-                                              onPressed: _openInternalWhatsApp,
-                                            ),
-                                            if (msg.text.contains("911") || msg.text.contains("STAT") || msg.text.contains("severe")) ...[
-                                              ElevatedButton.icon(
-                                                icon: const Icon(Icons.phone_in_talk, size: 13),
-                                                label: const Text("Call 911", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: const Color(0xFFDC2626),
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                                ),
-                                                onPressed: () async {
-                                                  final uri = Uri.parse("tel:911");
-                                                  if (await canLaunchUrl(uri)) await launchUrl(uri);
-                                                },
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-
-        // Loading indicator
-        if (_isLoading)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(
-                      _isDoctor && _doctorSendViaWhatsApp
-                          ? const Color(0xFF25D366)
-                          : Theme.of(context).primaryColor,
-                    ),
+  void _showAddContactModalSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  _isDoctor && _doctorSendViaWhatsApp
-                      ? "Dispatching to $_selectedPatientName's WhatsApp via Meta..."
-                      : "Analyzing clinical database...",
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-          ),
-
-        // Input field & Send button
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey.shade200)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isDoctor) ...[
-                  _buildDoctorComposerModeToggle(),
-                  const SizedBox(height: 6),
+              ),
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Icon(Icons.person_add_rounded, color: Color(0xFF075E54), size: 22),
+                  SizedBox(width: 10),
+                  Text(
+                    "Add or Select Contact",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                  ),
                 ],
-                Row(
-                  children: [
-                    VoiceDictationMicButton(
-                      isListening: _isListening,
-                      isTranscribing: _isTranscribing,
-                      onPressed: _toggleListening,
-                      idleIconColor: _isDoctor && _doctorSendViaWhatsApp
-                          ? const Color(0xFF25D366)
-                          : const Color(0xFF6366F1),
-                      idleTooltip: 'Record voice with Whisper (Tap to speak)',
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        enabled: !_isTranscribing,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (val) => _sendMessage(val),
-                        decoration: buildVoiceComposerDecoration(
-                          isListening: _isListening,
-                          isTranscribing: _isTranscribing,
-                          idleHint: _isDoctor
-                              ? (_doctorSendViaWhatsApp
-                                  ? 'Message $_selectedPatientName on WhatsApp...'
-                                  : 'Ask clinical AI about $_selectedPatientName...')
-                              : 'Ask about your health...',
-                          focusedIdleColor: _isDoctor && _doctorSendViaWhatsApp
-                              ? const Color(0xFF25D366)
-                              : Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: _isDoctor && _doctorSendViaWhatsApp
-                            ? const Color(0xFF25D366)
-                            : Theme.of(context).primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          _isDoctor && _doctorSendViaWhatsApp
-                              ? Icons.send_rounded
-                              : Icons.send,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        onPressed: _isLoading ? null : () => _sendMessage(),
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                "Create a new patient record or import directly from your phone's address book.",
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 16),
+              // Option 1: Create New Contact
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
-              ],
-            ),
+                tileColor: const Color(0xFFF8FAFC),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF075E54).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.person_add_alt_1_rounded, color: Color(0xFF075E54)),
+                ),
+                title: const Text("Create New Contact", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                subtitle: const Text("Enter patient name, phone number, and clinical info", style: TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showAddCustomContactDialog();
+                },
+              ),
+              const SizedBox(height: 10),
+              // Option 2: Import from Phone Contacts
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                tileColor: const Color(0xFFF8FAFC),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.contacts_rounded, color: Color(0xFF0284C7)),
+                ),
+                title: const Text("Select from Phone Contacts", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                subtitle: const Text("Import a contact directly from your Android address book", style: TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _pickContactFromDevice();
+                },
+              ),
+              const SizedBox(height: 10),
+              // Option 3: Manage Contacts Directory
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                tileColor: const Color(0xFFF8FAFC),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF64748B).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.menu_book_rounded, color: Color(0xFF475569)),
+                ),
+                title: const Text("Contacts Directory", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                subtitle: const Text("Search, switch, or manage saved patient contacts", style: TextStyle(fontSize: 11)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showManageContactsModal();
+                },
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildGeminiHistoryDrawer() {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drawer Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFFFF6F61),
+                                  Color(0xFFFFA000),
+                                  Color(0xFF4285F4),
+                                  Color(0xFF9C27B0),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            "Patient History",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        tooltip: "Close",
+                        icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF64748B)),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Physician: $_doctorName • e-Hospital",
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 14),
+                  // New Conversation Button (Gemini Style)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF075E54),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text(
+                        "New Patient Outreach",
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _showAddContactModalSheet();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Section Title
+            const Padding(
+              padding: EdgeInsets.fromLTRB(18, 12, 18, 6),
+              child: Text(
+                "RECENT CONVERSATIONS (BY PATIENT ID)",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+            ),
+            // Patient History List (patient ID as name)
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                itemCount: _doctorPatients.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (context, idx) {
+                  final p = _doctorPatients[idx];
+                  final isSelected = p["patient_id"] == _selectedPatientId ||
+                      p["phone"] == _selectedPatientPhone;
+                  final patientIdDisplay = p["patient_id"] ?? p["phone"] ?? "6132616383";
+
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      if (p["patient_id"] != null) {
+                        _onDoctorPatientChanged(p["patient_id"]!);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFFF0FDF4) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFF86EFAC) : Colors.transparent,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: isSelected ? const Color(0xFF075E54) : const Color(0xFFE2E8F0),
+                            foregroundColor: isSelected ? Colors.white : const Color(0xFF334155),
+                            child: Text(
+                              (p["name"] ?? "P").substring(0, 1).toUpperCase(),
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        "Patient #$patientIdDisplay",
+                                        style: TextStyle(
+                                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                                          fontSize: 13,
+                                          color: isSelected ? const Color(0xFF075E54) : const Color(0xFF0F172A),
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFDCFCE7),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          "Active",
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            color: Color(0xFF166534),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "${p["name"]} • ${p["info"] ?? 'Patient Record'}",
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const Divider(height: 1),
+            // Bottom Action
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Column(
+                children: [
+                  if (widget.onBack != null)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        widget.onBack?.call();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.dashboard_customize_rounded, size: 16, color: Color(0xFF0F172A)),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "AI Tools Menu (Reports, Nutrition)",
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Color(0xFF64748B)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "e-Hospital Clinical Suite • $_doctorName",
+                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGeminiEmptyState() {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: _isDoctor
-                        ? const Color(0xFF075E54).withOpacity(0.1)
-                        : Theme.of(context).primaryColor.withOpacity(0.08),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _isDoctor ? Icons.medical_services_rounded : Icons.favorite_rounded,
-                    size: 48,
-                    color: _isDoctor ? const Color(0xFF075E54) : Theme.of(context).primaryColor,
+                // Colorful Google Gemini Sparkle Star Icon
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [
+                      Color(0xFFFF6F61),
+                      Color(0xFFFFA000),
+                      Color(0xFF4285F4),
+                      Color(0xFF9C27B0),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ).createShader(bounds),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 56,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  _isDoctor ? "$_doctorName's Clinical Copilot" : "Ask about your wellness data",
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                const Text(
+                  "Ready when you are",
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: -0.5,
+                  ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
-                  _isDoctor
-                      ? "Send clinical instructions directly to $_selectedPatientName's WhatsApp, review continuous Apple Watch & health telemetry, or consult Canadian CPG guidelines."
-                      : "Real-time clinical AI assistant connected to your wearable & mobile health telemetry, appointments, and care team.",
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  "$_doctorName's Clinical Copilot & WhatsApp Gateway",
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
+                const SizedBox(height: 28),
+                // Action Suggestions Cards (matching Gemini format)
+                Column(
                   children: _currentPrompts.map((prompt) {
-                    return ActionChip(
-                      label: Text(prompt, style: const TextStyle(fontSize: 12)),
-                      backgroundColor: Colors.grey.shade100,
-                      side: BorderSide(color: Colors.grey.shade300),
-                      onPressed: () => _sendMessage(prompt),
+                    IconData icon = Icons.chat_bubble_outline_rounded;
+                    if (prompt.contains("blood pressure") || prompt.contains("vital") || prompt.contains("heart")) {
+                      icon = Icons.favorite_outline_rounded;
+                    } else if (prompt.contains("follow-up") || prompt.contains("care") || prompt.contains("sleep")) {
+                      icon = Icons.assignment_outlined;
+                    } else if (prompt.contains("CPG") || prompt.contains("trend")) {
+                      icon = Icons.verified_outlined;
+                    }
+                    return _buildGeminiPromptTile(
+                      icon: icon,
+                      text: prompt,
+                      onTap: () => _sendMessage(prompt),
                     );
                   }).toList(),
                 ),
@@ -2264,6 +2209,459 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildGeminiPromptTile({
+    required IconData icon,
+    required String text,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: const Color(0xFF0F172A)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+              const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF94A3B8)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGeminiComposer() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Mode Toggle Pill (Chat | Task style in Gemini)
+            if (_isDoctor)
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() => _doctorSendViaWhatsApp = true),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _doctorSendViaWhatsApp ? const Color(0xFF075E54) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_rounded,
+                                size: 12,
+                                color: _doctorSendViaWhatsApp ? Colors.white : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                "WhatsApp $_selectedPatientName",
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _doctorSendViaWhatsApp ? Colors.white : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _doctorSendViaWhatsApp = false),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: !_doctorSendViaWhatsApp ? Theme.of(context).primaryColor : Colors.transparent,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 12,
+                                color: !_doctorSendViaWhatsApp ? Colors.white : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                "Clinical AI",
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: !_doctorSendViaWhatsApp ? Colors.white : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Floating Rounded Input Bar (Gemini Style)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Left + action button
+                  IconButton(
+                    tooltip: "Add / Create Contact",
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 22, color: Color(0xFF075E54)),
+                    onPressed: _showAddContactModalSheet,
+                  ),
+                  // Center Text Field
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      enabled: !_isTranscribing,
+                      maxLines: 4,
+                      minLines: 1,
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (val) {
+                        if (val.trim().isNotEmpty) {
+                          _sendMessage();
+                        }
+                      },
+                      decoration: InputDecoration(
+                        hintText: _isDoctor
+                            ? (_doctorSendViaWhatsApp
+                                ? "Message $_selectedPatientName on WhatsApp..."
+                                : "Ask clinical AI about $_selectedPatientName...")
+                            : "Ask about your health...",
+                        hintStyle: const TextStyle(fontSize: 13.5, color: Color(0xFF94A3B8)),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      ),
+                    ),
+                  ),
+                  // Mic button
+                  IconButton(
+                    tooltip: _isListening ? "Listening..." : "Voice Dictation",
+                    icon: Icon(
+                      _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      size: 22,
+                      color: _isListening ? Colors.redAccent : const Color(0xFF64748B),
+                    ),
+                    onPressed: _toggleListening,
+                  ),
+                  // Circular Send Button
+                  Container(
+                    margin: const EdgeInsets.only(right: 2),
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: _isDoctor && _doctorSendViaWhatsApp
+                          ? const Color(0xFF075E54)
+                          : Theme.of(context).primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      tooltip: "Send",
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.arrow_upward_rounded, size: 20, color: Colors.white),
+                      onPressed: _isLoading ? null : () => _sendMessage(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageList() {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: _messages.length,
+      itemBuilder: (context, index) {
+        final msg = _messages[index];
+        final isUser = msg.role == 'user';
+        final isDoctor = msg.role == 'doctor';
+        final isOutgoing = _isDoctor ? isDoctor : isUser;
+        final displayText = _sanitizeName(msg.text);
+
+        return Align(
+          alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.82,
+            ),
+            decoration: BoxDecoration(
+              color: isOutgoing
+                  ? (_isDoctor ? const Color(0xFFF0FDF4) : Theme.of(context).primaryColor)
+                  : (isUser && _isDoctor ? const Color(0xFFF8FAFC) : Colors.white),
+              borderRadius: BorderRadius.circular(16).copyWith(
+                bottomRight: isOutgoing ? const Radius.circular(0) : const Radius.circular(16),
+                bottomLeft: !isOutgoing ? const Radius.circular(0) : const Radius.circular(16),
+              ),
+              border: Border.all(
+                color: isOutgoing
+                    ? (_isDoctor ? const Color(0xFF86EFAC) : Theme.of(context).primaryColor)
+                    : (isUser && _isDoctor ? const Color(0xFFCBD5E1) : Colors.grey.shade300),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isDoctor
+                          ? Icons.medical_services_rounded
+                          : (isUser
+                              ? (_isDoctor ? Icons.chat_bubble_rounded : (msg.isVoice ? Icons.mic : Icons.person))
+                              : Icons.smart_toy),
+                      size: 14,
+                      color: isOutgoing
+                          ? (_isDoctor ? const Color(0xFF166534) : Colors.white70)
+                          : (_isDoctor && isUser ? const Color(0xFF0284C7) : Colors.blue.shade700),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isDoctor
+                          ? "$_doctorName (Attending Physician)"
+                          : (isUser
+                              ? (_isDoctor ? "$_selectedPatientName (WhatsApp)" : (msg.isVoice ? "You (Voice Scribe)" : "You"))
+                              : "PrimeCare AI"),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: isOutgoing
+                            ? (_isDoctor ? const Color(0xFF166534) : Colors.white70)
+                            : (_isDoctor && isUser ? const Color(0xFF0369A1) : Colors.blue.shade700),
+                      ),
+                    ),
+                    if (msg.isVoice) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          "Whisper",
+                          style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 6),
+                isOutgoing && !_isDoctor
+                    ? Text(
+                        displayText,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14.5,
+                          height: 1.4,
+                        ),
+                      )
+                    : isDoctor
+                        ? MarkdownBody(
+                            data: displayText,
+                            styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                              p: const TextStyle(fontSize: 14, height: 1.45, color: Color(0xFF0F172A)),
+                            ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MarkdownBody(
+                                data: displayText,
+                                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                  p: const TextStyle(fontSize: 14, height: 1.45, color: Colors.black87),
+                                ),
+                              ),
+                              if (displayText.contains("INTELLIGENT DIGITAL SOLUTION") ||
+                                  displayText.contains("Intelligent Digital Solution") ||
+                                  displayText.contains("STAT") ||
+                                  displayText.contains("chest pain") ||
+                                  displayText.contains("911")) ...[
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.chat_bubble, size: 13),
+                                      label: const Text(
+                                        "Open Intelligent Digital Solution's WhatsApp Triage",
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF075E54),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                      ),
+                                      onPressed: _openInternalWhatsApp,
+                                    ),
+                                    if (displayText.contains("911") || displayText.contains("STAT") || displayText.contains("severe")) ...[
+                                      ElevatedButton.icon(
+                                        icon: const Icon(Icons.phone_in_talk, size: 13),
+                                        label: const Text("Call 911", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFFDC2626),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                        ),
+                                        onPressed: () async {
+                                          final uri = Uri.parse("tel:911");
+                                          if (await canLaunchUrl(uri)) await launchUrl(uri);
+                                        },
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFFF8FAFC),
+      drawer: _isDoctor ? _buildGeminiHistoryDrawer() : null,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Header: Custom Gemini-style Doctor Header or Patient Header
+            _isDoctor ? _buildGeminiTopBar() : _buildPatientHeader(),
+
+            // Meta 24-Hour Outreach Notice & Template Initialization for Doctors
+            if (_isDoctor) _buildDoctorOutreachBanner(),
+
+            // Chat Message Feed or Gemini Hero Empty State
+            Expanded(
+              child: _messages.isEmpty
+                  ? _buildGeminiEmptyState()
+                  : _buildMessageList(),
+            ),
+
+            // Loading indicator
+            if (_isLoading)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(
+                          _isDoctor && _doctorSendViaWhatsApp
+                              ? const Color(0xFF075E54)
+                              : Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isDoctor && _doctorSendViaWhatsApp
+                          ? "Dispatching to $_selectedPatientName's WhatsApp via Meta..."
+                          : "Analyzing clinical telemetry...",
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Gemini-Style Bottom Composer
+            _buildGeminiComposer(),
+          ],
+        ),
+      ),
     );
   }
 }

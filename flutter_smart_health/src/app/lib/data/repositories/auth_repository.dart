@@ -39,9 +39,15 @@ class AuthRepository {
           return AuthLoginResult.rejected;
         }
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('patient_identity', user.selectedOption);
+        final isDoctor = user.selectedOption.toLowerCase() == "doctor" ||
+            user.email.toLowerCase().contains("doctor") ||
+            user.email.toLowerCase().contains("sugan");
+        final finalUsername = isDoctor
+            ? "Dr. Sugan"
+            : user.username.replaceAll("Dr. Patel", "Dr. Sugan").replaceAll("Patel", "Sugan");
+        await prefs.setString('patient_identity', isDoctor ? "Doctor" : user.selectedOption);
         await prefs.setString('patient_email', user.email);
-        await prefs.setString('patient_username', user.username);
+        await prefs.setString('patient_username', finalUsername);
         if (user.patientId == null) {
           await prefs.remove('patient_id');
           return const AuthLoginResult(
@@ -92,10 +98,16 @@ class AuthRepository {
         final data = Map<String, dynamic>.from(decoded);
         final user = EHospitalUser.fromJson(data);
         final prefs = await SharedPreferences.getInstance();
+        final isDoctor = user.selectedOption.toLowerCase() == "doctor" ||
+            user.email.toLowerCase().contains("doctor") ||
+            user.email.toLowerCase().contains("sugan");
+        final finalUsername = isDoctor
+            ? "Dr. Sugan"
+            : user.username.replaceAll("Dr. Patel", "Dr. Sugan").replaceAll("Patel", "Sugan");
 
-        await prefs.setString('patient_identity', user.selectedOption);
+        await prefs.setString('patient_identity', isDoctor ? "Doctor" : user.selectedOption);
         await prefs.setString('patient_email', user.email);
-        await prefs.setString('patient_username', user.username);
+        await prefs.setString('patient_username', finalUsername);
         await prefs.setString('patient_phone', cleanPhone);
 
         if (user.patientId == null) {

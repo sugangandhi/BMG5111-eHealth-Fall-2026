@@ -34,7 +34,15 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
         label: 'Chat',
         description: 'Ask AI questions about your vitals, health trends, and medications.',
         icon: Icons.chat_bubble_outline_rounded,
-        builder: (_) => const HealthChatModule(),
+        builder: (_) => HealthChatModule(
+          onBack: () {
+            if (mounted) {
+              setState(() {
+                _activeModule = null;
+              });
+            }
+          },
+        ),
       ),
       AiAssistantModuleDefinition(
         id: 'report-analyze',
@@ -60,25 +68,28 @@ class _HealthAssistantScreenState extends State<HealthAssistantScreen> {
   @override
   Widget build(BuildContext context) {
     final isInsideModule = _activeModule != null;
+    final isInsideChat = isInsideModule && _activeModule!.id == 'health-chat';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isInsideModule ? _activeModule!.label : 'Choose an AI tool',
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
-        leading: isInsideModule
-            ? IconButton(
-                tooltip: 'Back',
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  setState(() {
-                    _activeModule = null;
-                  });
-                },
-              )
-            : null,
-      ),
+      appBar: isInsideChat
+          ? null
+          : AppBar(
+              title: Text(
+                isInsideModule ? _activeModule!.label : 'Choose an AI tool',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+              leading: isInsideModule
+                  ? IconButton(
+                      tooltip: 'Back',
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () {
+                        setState(() {
+                          _activeModule = null;
+                        });
+                      },
+                    )
+                  : null,
+            ),
       body: isInsideModule
           ? _activeModule!.builder(context)
           : AiAssistantModulePicker(
