@@ -9,7 +9,7 @@ from pathlib import Path
 import requests
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse
 from pydantic import BaseModel
 
 router = APIRouter(tags=['whatsapp'])
@@ -296,6 +296,185 @@ class CreatePatientRequest(BaseModel):
     phone: str
     notes: Optional[str] = ""
     doctor_name: Optional[str] = "Dr. Sugan"
+
+@router.get('/api/doctor/database-dump')
+async def get_doctor_database_dump():
+    """Returns the full SQLite clinical database dump as JSON for verification."""
+    try:
+        from src.backend.services.clinical_database import get_database_dump
+        return get_database_dump()
+    except Exception as e:
+        return {"error": str(e), "total_patients": 0, "total_messages": 0, "patients": [], "messages": []}
+
+@router.get('/database', response_class=HTMLResponse)
+@router.get('/db', response_class=HTMLResponse)
+@router.get('/api/doctor/database', response_class=HTMLResponse)
+async def view_database_dashboard():
+    """Renders a visual web inspector to verify patients, contacts, and chat history in the SQLite database."""
+    try:
+        from src.backend.services.clinical_database import get_database_dump
+        dump = get_database_dump()
+    except Exception as e:
+        dump = {"db_path": "unknown", "total_patients": 0, "total_messages": 0, "patients": [], "messages": []}
+
+    patients_rows = ""
+    for p in dump.get("patients", []):
+        patients_rows += f"""
+        <tr>
+            <td style="font-weight: 600; color: #0f172a;">{p.get('name', '')}</td>
+            <td style="font-family: monospace; color: #0284c7;">+{p.get('phone', '')}</td>
+            <td><span class="badge badge-active">{p.get('status', 'Active')}</span></td>
+            <td>{p.get('doctor_id', 'Dr. Sugan')}</td>
+            <td style="font-size: 12px; color: #64748b;">{p.get('created_at', '')[:19].replace('T', ' ')}</td>
+            <td style="font-size: 12px; color: #64748b;">{p.get('last_active', '')[:19].replace('T', ' ')}</td>
+        </tr>
+        """
+    if not patients_rows:
+        patients_rows = "<tr><td colspan='6' style='text-align:center; padding: 24px; color:#94a3b8;'>No registered patients yet. Add one via the mobile app or WhatsApp.</td></tr>"
+
+    messages_rows = ""
+    for m in dump.get("messages", []):
+        role = m.get("sender_role", "")
+        role_badge = '<span class="badge badge-doc">🩺 Doctor</span>' if role == 'doctor' else (
+            '<span class="badge badge-ai">🤖 Clinic AI</span>' if role in ['bot', 'assistant'] else
+            '<span class="badge badge-patient">👤 Patient</span>'
+        )
+        is_voice = m.get("is_voice") or "🎙️" in str(m.get("text", ""))
+        voice_badge = '<span class="badge badge-voice">🎙️ Voice Note</span>' if is_voice else '<span class="badge badge-text">💬 Text</span>'
+        clean_text = str(m.get("text", "")).replace("<", "&lt;").replace(">", "&gt;")
+        msg_id_display = str(m.get("message_id") or f"id_{m.get('id')}")
+        if len(msg_id_display) > 28:
+            msg_id_display = msg_id_display[:14] + "..." + msg_id_display[-10:]
+
+        messages_rows += f"""
+        <tr>
+            <td style="font-weight: 600;">#{m.get('id')}</td>
+            <td>{role_badge}</td>
+            <td style="font-family: monospace; font-size: 12px;">+{m.get('patient_phone', '')}</td>
+            <td>{voice_badge}</td>
+            <td style="max-width: 420px; word-break: break-word;">{clean_text}</td>
+            <td style="font-size: 12px; color: #64748b;">{m.get('timestamp', '')}</td>
+            <td style="font-family: monospace; font-size: 11px; color: #64748b;" title="{m.get('message_id', '')}">{msg_id_display}</td>
+        </tr>
+        """
+    if not messages_rows:
+        messages_rows = "<tr><td colspan='7' style='text-align:center; padding: 24px; color:#94a3b8;'>No messages recorded in database yet.</td></tr>"
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Records Database Inspector | Dr. Sugan</title>
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }}
+        body {{ background-color: #f8fafc; color: #1e293b; padding: 24px; }}
+        .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }}
+        .title h1 {{ font-size: 22px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; }}
+        .title p {{ font-size: 13px; color: #64748b; margin-top: 4px; }}
+        .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }}
+        .stat-card {{ background: #ffffff; padding: 18px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }}
+        .stat-label {{ font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; }}
+        .stat-value {{ font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 6px; }}
+        .section-card {{ background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.05); margin-bottom: 28px; overflow: hidden; }}
+        .section-header {{ padding: 16px 20px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }}
+        .section-header h2 {{ font-size: 16px; font-weight: 700; color: #1e293b; }}
+        table {{ width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }}
+        th {{ background: #f8fafc; color: #475569; font-weight: 600; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; }}
+        td {{ padding: 12px 16px; border-bottom: 1px solid #f1f5f9; }}
+        tr:hover td {{ background: #f8fafc; }}
+        .badge {{ display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }}
+        .badge-active {{ background: #dcfce7; color: #15803d; }}
+        .badge-doc {{ background: #e0f2fe; color: #0369a1; }}
+        .badge-patient {{ background: #fef3c7; color: #b45309; }}
+        .badge-ai {{ background: #ede9fe; color: #6d28d9; }}
+        .badge-voice {{ background: #fce7f3; color: #be185d; }}
+        .badge-text {{ background: #f1f5f9; color: #475569; }}
+        .btn {{ background: #0284c7; color: #ffffff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }}
+        .btn:hover {{ background: #0369a1; }}
+        .btn-outline {{ background: #ffffff; color: #475569; border: 1px solid #cbd5e1; }}
+        .btn-outline:hover {{ background: #f1f5f9; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">
+            <h1>🏥 Clinical EMR Database Inspector</h1>
+            <p>Persistent SQLite Database (WAL Mode) • Attached Doctor: <strong>Dr. Sugan</strong> • <code>{dump.get('db_path')}</code></p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <a href="/api/doctor/database-dump" target="_blank" class="btn btn-outline">Raw JSON Dump</a>
+            <button onclick="window.location.reload();" class="btn">🔄 Refresh Data</button>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Patients in DB</div>
+            <div class="stat-value">{dump.get('total_patients', 0)}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Chat Messages</div>
+            <div class="stat-value">{dump.get('total_messages', 0)}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Primary Attending</div>
+            <div class="stat-value" style="font-size: 20px; color: #0284c7;">Dr. Sugan</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Database Engine</div>
+            <div class="stat-value" style="font-size: 20px; color: #166534;">SQLite (WAL)</div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-header">
+            <h2>👥 Registered Patients &amp; Contacts (<code>doctor_patients</code>)</h2>
+            <span style="font-size: 12px; color: #64748b;">{dump.get('total_patients', 0)} registered</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Patient Name</th>
+                    <th>Phone Number</th>
+                    <th>Status</th>
+                    <th>Assigned Doctor</th>
+                    <th>Registered At</th>
+                    <th>Last Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                {patients_rows}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section-card">
+        <div class="section-header">
+            <h2>💬 Clinical Chat History &amp; Transcribed Voice Notes (<code>patient_chat_messages</code>)</h2>
+            <span style="font-size: 12px; color: #64748b;">Showing latest {dump.get('total_messages', 0)} messages</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Sender Role</th>
+                    <th>Patient Phone</th>
+                    <th>Type</th>
+                    <th>Message Text / Voice Note Transcript</th>
+                    <th>Time</th>
+                    <th>Meta Message ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {messages_rows}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html, status_code=200)
 
 @router.get('/api/doctor/patients')
 async def get_doctor_patient_roster():

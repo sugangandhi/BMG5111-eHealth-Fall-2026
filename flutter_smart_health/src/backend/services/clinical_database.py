@@ -327,3 +327,30 @@ def add_chat_message(
         "audio_url": audio_url,
         "created_at": now_iso,
     }
+
+def get_database_dump() -> Dict[str, Any]:
+    """Returns a full inspection dump of the clinical database for monitoring and verification."""
+    init_db()
+    with get_db() as conn:
+        cursor_p = conn.execute("""
+            SELECT phone, name, clinical_notes, doctor_id, status, created_at, last_active, unread_count
+            FROM doctor_patients
+            ORDER BY datetime(last_active) DESC;
+        """)
+        patients = [dict(r) for r in cursor_p.fetchall()]
+
+        cursor_m = conn.execute("""
+            SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
+                   timestamp, status, vitals_json, is_voice, audio_url, created_at
+            FROM patient_chat_messages
+            ORDER BY id DESC LIMIT 200;
+        """)
+        messages = [dict(r) for r in cursor_m.fetchall()]
+
+        return {
+            "db_path": str(DB_PATH),
+            "total_patients": len(patients),
+            "total_messages": len(messages),
+            "patients": patients,
+            "messages": messages,
+        }
