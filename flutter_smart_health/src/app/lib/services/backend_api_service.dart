@@ -49,6 +49,51 @@ class BackendApiService {
     return {'success': false};
   }
 
+  static Future<List<Map<String, dynamic>>> getDoctorPatients() async {
+    try {
+      final res = await _apiClient.getJson('/api/doctor/patients');
+      if (res is Map && res['patients'] is List) {
+        return List<Map<String, dynamic>>.from(
+          (res['patients'] as List).map((p) => Map<String, dynamic>.from(p as Map)),
+        );
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> createDoctorPatient({
+    required String name,
+    required String phone,
+    String notes = '',
+    String doctorName = 'Dr. Sugan',
+  }) async {
+    try {
+      final res = await _apiClient.postJson('/api/doctor/patients', {
+        'name': name,
+        'phone': phone,
+        'notes': notes,
+        'doctor_name': doctorName,
+      });
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (_) {}
+    return {'success': false};
+  }
+
+  static Future<List<Map<String, dynamic>>> getDoctorChatHistory(String phone) async {
+    try {
+      final clean = phone.replaceAll(RegExp(r'\D'), '');
+      final res = await _apiClient.getJson('/api/doctor/chat-history/$clean');
+      if (res is Map && res['messages'] is List) {
+        return List<Map<String, dynamic>>.from(
+          (res['messages'] as List).map((m) => Map<String, dynamic>.from(m as Map)),
+        );
+      }
+    } catch (_) {}
+    return [];
+  }
+
   static Future<AssistantChatReply> assistantChat({
     required String patientId,
     required String message,

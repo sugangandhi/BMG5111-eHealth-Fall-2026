@@ -115,7 +115,32 @@ AUDIO_MIME_TYPES = {
     ".mp3": "audio/mpeg",
     ".wav": "audio/wav",
     ".ogg": "audio/ogg",
+    ".oga": "audio/ogg",
 }
+
+def download_meta_whatsapp_media(media_id: str) -> tuple[Optional[bytes], str]:
+    """Downloads an audio or media file from Meta WhatsApp Cloud API using the media ID."""
+    token = os.getenv('WHATSAPP_TOKEN')
+    if not token or not media_id:
+        return None, ""
+    try:
+        url = f"https://graph.facebook.com/v20.0/{media_id}"
+        headers = {"Authorization": f"Bearer {token}"}
+        r = requests.get(url, headers=headers, timeout=15)
+        if r.status_code == 200:
+            data = r.json()
+            media_url = data.get("url")
+            mime = data.get("mime_type", "audio/ogg")
+            if media_url:
+                r_bin = requests.get(media_url, headers=headers, timeout=30)
+                if r_bin.status_code == 200:
+                    return r_bin.content, mime
+        else:
+            print(f"[Meta Media Info Error]: {r.status_code} {r.text}")
+    except Exception as e:
+        print(f"[Meta Media Download Exception]: {e}")
+    return None, ""
+
 
 class SimulateMessageRequest(BaseModel):
     phone: str = "613-261-6383"
@@ -160,15 +185,21 @@ def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str
     from src.backend.services.clinical_reasoning_engine import evaluate_clinical_case
     return evaluate_clinical_case(patient_id, message, vitals, patient_name=patient_name, patient_phone=patient_phone)
 
+@router.get('/api/doctor/chat-history/{phone}')
 @router.get('/api/whatsapp/threads')
 @router.get('/api/whatsapp/threads/{phone}')
 async def get_whatsapp_thread(phone: str = "6132616383"):
-    threads = _load_threads()
     clean_p = re.sub(r'\D', '', phone) or "6132616383"
+    try:
+        from src.backend.services.clinical_database import get_patient_messages
+        db_msgs = get_patient_messages(clean_p)
+        if db_msgs:
+            return {"phone": clean_p, "messages": db_msgs}
+    except Exception as ex_db:
+        print(f"[Clinical DB Get Thread Error]: {ex_db}")
+    threads = _load_threads()
     phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
     thread = threads.get(clean_p) or threads.get(phone_10) or threads.get(f"1{phone_10}") or []
-    if not thread and (clean_p in ["6132616383", "16132616383"]):
-        thread = threads.get("6132616383", [])
     return {"phone": clean_p, "messages": thread}
 
 @router.post('/api/whatsapp/send')
@@ -248,49 +279,33 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
         "thread": thread
     }
 
+class CreatePatientRequest(BaseModel):
+    name: str
+    phone: str
+    notes: Optional[str] = ""
+    doctor_name: Optional[str] = "Dr. Sugan"
+
 @router.get('/api/doctor/patients')
 async def get_doctor_patient_roster():
-    """Returns the doctor's active patient roster for clinical review and messaging."""
-    return {
-        "patients": [
-            {
-                "patient_id": 99211,
-                "name": "Sugan",
-                "phone": "6132616383",
-                "condition": "Essential Hypertension",
-                "medication": "Amlodipine 5mg",
-                "last_reading": "120/80 mmHg (72 BPM)",
-                "status": "Active Telemetry"
-            },
-            {
-                "patient_id": 391,
-                "name": "Patient 391",
-                "phone": "6132616383",
-                "condition": "Type 2 Diabetes & Hypertension",
-                "medication": "Metformin 500mg, Lisinopril 10mg",
-                "last_reading": "125/82 mmHg (74 BPM)",
-                "status": "Stable"
-            },
-            {
-                "patient_id": 1,
-                "name": "Patient 1",
-                "phone": "6132616383",
-                "condition": "Paroxysmal Atrial Fibrillation",
-                "medication": "Metoprolol 25mg",
-                "last_reading": "HR 68 BPM (Irregular rhythm flagged)",
-                "status": "Requires Review"
-            },
-            {
-                "patient_id": 394,
-                "name": "Patient 394",
-                "phone": "6132616383",
-                "condition": "Post-Op Orthopedic Care",
-                "medication": "Acetaminophen PRN",
-                "last_reading": "Recovery on track",
-                "status": "Routine"
-            }
-        ]
-    }
+    """Returns the doctor's active patient roster from the persistent clinical database."""
+    try:
+        from src.backend.services.clinical_database import get_patients
+        return {"patients": get_patients()}
+    except Exception as e:
+        print(f"[Clinical DB Get Patients Error]: {e}")
+        return {"patients": []}
+
+@router.post('/api/doctor/patients')
+@router.post('/api/doctor/contacts')
+async def create_doctor_patient(req: CreatePatientRequest):
+    """Creates or updates a patient record permanently in the clinical database."""
+    try:
+        from src.backend.services.clinical_database import upsert_patient
+        p = upsert_patient(req.phone, req.name, req.notes or "", doctor_id=req.doctor_name or "Dr. Sugan")
+        return {"success": True, "patient": p}
+    except Exception as e:
+        print(f"[Clinical DB Create Patient Error]: {e}")
+        return {"success": False, "error": str(e)}
 
 @router.post('/api/doctor/dispatch-patient-message')
 async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
@@ -330,7 +345,21 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     thread.append(doctor_msg)
     _save_threads(threads)
 
-    # 2. Record to Central AWS EHR doctor_to_patient_message table
+    # 2. Record to persistent clinical database
+    try:
+        from src.backend.services.clinical_database import add_chat_message, upsert_patient
+        upsert_patient(clean_p, name=req.patient_name or f"Patient {clean_p[-4:]}", doctor_id=doctor_title)
+        add_chat_message(
+            patient_phone=clean_p,
+            sender_role="doctor",
+            sender_name=f"{doctor_title} (Attending Physician)",
+            text=req.message,
+            status="sent",
+        )
+    except Exception as ex_db:
+        print(f"[Clinical DB Doctor Dispatch Error]: {ex_db}")
+
+    # 3. Record to Central AWS EHR doctor_to_patient_message table
     try:
         from datetime import timezone
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -822,6 +851,23 @@ async def receive_message(request: Request):
                             m_type = msg.get('type')
                             if m_type == 'text':
                                 text_body = msg.get('text', {}).get('body', '')
+                            elif m_type in ['audio', 'voice']:
+                                audio_obj = msg.get(m_type, {}) or {}
+                                media_id = audio_obj.get('id')
+                                print(f"[WhatsApp Inbound] Audio/Voice Note received with Media ID: {media_id}")
+                                if media_id:
+                                    audio_bytes, mime = download_meta_whatsapp_media(media_id)
+                                    if audio_bytes:
+                                        spoken = transcribe_audio_whisper(audio_bytes, filename="voice.ogg")
+                                        if spoken:
+                                            text_body = f"🎙️ [Voice Note]: \"{spoken}\""
+                                            print(f"[WhatsApp Whisper Transcribed]: {spoken}")
+                                        else:
+                                            text_body = "🎙️ [Voice Note received - transcription unavailable]"
+                                    else:
+                                        text_body = "🎙️ [Voice Note received]"
+                                else:
+                                    text_body = "🎙️ [Voice Note received]"
                             elif m_type == 'interactive':
                                 interactive = msg.get('interactive', {})
                                 text_body = interactive.get('button_reply', {}).get('title') or interactive.get('list_reply', {}).get('title') or ''
@@ -855,6 +901,31 @@ async def receive_message(request: Request):
         reply = triage.get("reply_text") or (
             "Hello! Your message has been received by your e-Hospital clinic care team and synchronized with your clinical chart."
         )
+
+        # Save to Persistent Clinical Database
+        try:
+            from src.backend.services.clinical_database import add_chat_message, upsert_patient
+            is_voice = "🎙️ [Voice Note]" in (text_body or "")
+            upsert_patient(clean_p, name=sender_name, doctor_id="Dr. Sugan")
+            add_chat_message(
+                patient_phone=clean_p,
+                sender_role="patient",
+                sender_name=sender_name,
+                text=text_body,
+                vitals=vitals,
+                is_voice=is_voice,
+                status="delivered",
+            )
+            add_chat_message(
+                patient_phone=clean_p,
+                sender_role="bot",
+                sender_name="Clinic AI Assistant 🤖",
+                text=reply,
+                vitals=vitals,
+                status="delivered",
+            )
+        except Exception as ex_db:
+            print(f"[Clinical DB Inbound Save Error]: {ex_db}")
 
         # Save to In-App WhatsApp Thread for two-way synchronization
         try:

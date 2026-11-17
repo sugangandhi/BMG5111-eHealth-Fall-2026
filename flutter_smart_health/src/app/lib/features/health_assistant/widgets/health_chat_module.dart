@@ -79,28 +79,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         .replaceAll("Patel", "Sugan");
   }
 
-  static final List<Map<String, String>> _defaultPatients = [
-    {
-      "name": "Sugan",
-      "patient_id": "6132616383",
-      "phone": "6132616383",
-      "info": "Pt #99211 • Essential HTN",
-    },
-    {
-      "name": "Patient 391",
-      "patient_id": "391",
-      "phone": "6132616383",
-      "info": "Pt #391 • Type 2 Diabetes",
-    },
-    {
-      "name": "Patient 1",
-      "patient_id": "1",
-      "phone": "6132616383",
-      "info": "Pt #1 • AFib Monitor",
-    },
-  ];
+  static final List<Map<String, String>> _defaultPatients = [];
 
-  late List<Map<String, String>> _doctorPatients = List.from(_defaultPatients);
+  late List<Map<String, String>> _doctorPatients = [];
 
   static const List<String> _suggestedPrompts = [
     "What are my recorded vitals?",
@@ -185,43 +166,61 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       doctorName = "Dr. $doctorName";
     }
 
-    // Always load persisted contacts so they are NEVER lost on refresh
+    // Always load persisted contacts from local cache
     final savedContactsJson = prefs.getString("doctor_persisted_contacts_v2");
-    List<Map<String, String>> combinedContacts = List.from(_defaultPatients);
+    List<Map<String, String>> combinedContacts = [];
     if (savedContactsJson != null && savedContactsJson.isNotEmpty) {
       try {
         final List<dynamic> decoded = jsonDecode(savedContactsJson);
-        final List<Map<String, String>> loaded = [];
         for (final item in decoded) {
           if (item is Map) {
-            loaded.add(item.map((k, v) => MapEntry(k.toString(), v.toString())));
+            combinedContacts.add(item.map((k, v) => MapEntry(k.toString(), v.toString())));
           }
-        }
-        if (loaded.isNotEmpty) {
-          final Set<String> seenPhones = {};
-          final List<Map<String, String>> merged = [];
-          for (final c in loaded) {
-            final p = c["phone"] ?? "";
-            if (p.isNotEmpty && seenPhones.add(p)) {
-              merged.add(c);
-            }
-          }
-          for (final def in _defaultPatients) {
-            final p = def["phone"] ?? "";
-            if (seenPhones.add(p)) {
-              merged.add(def);
-            }
-          }
-          combinedContacts = merged;
         }
       } catch (e) {
         debugPrint("[HealthChat] Error loading persisted contacts: $e");
       }
     }
 
+    // Real-time synchronization from persistent Central Database
+    if (isDoctor) {
+      try {
+        final remotePatients = await BackendApiService.getDoctorPatients();
+        if (remotePatients.isNotEmpty) {
+          final List<Map<String, String>> loadedRemote = [];
+          for (final rp in remotePatients) {
+            final pPhone = (rp["phone"] ?? rp["patient_id"] ?? "").toString();
+            final pName = (rp["name"] ?? "").toString();
+            final pCond = (rp["condition"] ?? rp["notes"] ?? "").toString();
+            if (pPhone.isNotEmpty) {
+              loadedRemote.add({
+                "name": pName.isNotEmpty ? pName : "Patient $pPhone",
+                "patient_id": pPhone,
+                "phone": pPhone,
+                "info": pCond,
+              });
+            }
+          }
+          if (loadedRemote.isNotEmpty) {
+            combinedContacts = loadedRemote;
+            await prefs.setString("doctor_persisted_contacts_v2", jsonEncode(combinedContacts));
+          }
+        }
+      } catch (e) {
+        debugPrint("[HealthChat] Error syncing doctor patients from DB: $e");
+      }
+    }
+
     final lastSelectedId = prefs.getString("doctor_selected_patient_id");
-    Map<String, String> selected = combinedContacts.first;
-    if (lastSelectedId != null && lastSelectedId.isNotEmpty) {
+    Map<String, String> selected = combinedContacts.isNotEmpty
+        ? combinedContacts.first
+        : {
+            "name": "Select Patient",
+            "patient_id": "",
+            "phone": "",
+            "info": "",
+          };
+    if (lastSelectedId != null && lastSelectedId.isNotEmpty && combinedContacts.isNotEmpty) {
       final match = combinedContacts.firstWhere(
         (c) => c["patient_id"] == lastSelectedId || c["phone"] == lastSelectedId,
         orElse: () => combinedContacts.first,
@@ -234,16 +233,16 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         _isDoctor = isDoctor;
         _doctorName = doctorName;
         _doctorPatients = combinedContacts;
-        _selectedPatientId = selected["patient_id"] ?? "6132616383";
-        _selectedPatientName = selected["name"] ?? "Patient";
-        _selectedPatientPhone = selected["phone"] ?? "6132616383";
+        _selectedPatientId = selected["patient_id"] ?? "";
+        _selectedPatientName = selected["name"] ?? "Select Patient";
+        _selectedPatientPhone = selected["phone"] ?? "";
         if (isDoctor) {
           _patientId = _selectedPatientPhone.isNotEmpty ? _selectedPatientPhone : _selectedPatientId;
         } else if (pid != null) {
           _patientId = pid.toString();
         }
         _isWhatsAppVerified = verified;
-        _userPhone = savedPhone;
+        _userPhone = isDoctor ? (savedPhone.isNotEmpty ? savedPhone : "16134045586") : savedPhone;
       });
     }
 
@@ -292,7 +291,6 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             _messages.addAll(cachedList);
           });
           _scrollToBottom();
-          return;
         }
       } catch (e) {
         debugPrint("[HealthChat] Local history decode error: $e");
@@ -302,6 +300,57 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         setState(() {
           _messages.clear();
         });
+      }
+    }
+
+    // Also pull from persistent Central Database if doctor
+    if (_isDoctor && _selectedPatientPhone.isNotEmpty) {
+      try {
+        final serverMsgs = await BackendApiService.getDoctorChatHistory(_selectedPatientPhone);
+        if (serverMsgs.isNotEmpty && mounted) {
+          final List<_HealthChatMessage> loaded = [];
+          for (final item in serverMsgs) {
+            final rawRole = item['role']?.toString().toLowerCase() ?? 'patient';
+            final text = _sanitizeName(item['text']?.toString() ?? '');
+            final senderName = _sanitizeName(item['sender_name']?.toString() ?? '');
+            final isVoice = item['isVoice'] == true || text.startsWith("🎙️ [Voice Note]");
+            String mappedRole = 'assistant';
+            if (rawRole == 'patient' || rawRole == 'user') {
+              mappedRole = 'user';
+            } else if (rawRole == 'doctor') {
+              mappedRole = 'doctor';
+            }
+            String formattedText;
+            if (mappedRole == 'user') {
+              final name = senderName.isNotEmpty ? senderName : _selectedPatientName;
+              if (text.startsWith("🎙️ [Voice Note]")) {
+                formattedText = "🎙️ **$name (Voice Note via WhatsApp)**:\n\n${text.replaceFirst('🎙️ [Voice Note]:', '').trim()}";
+              } else {
+                formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
+              }
+            } else if (mappedRole == 'doctor') {
+              formattedText = "🩺 **$_doctorName (Outbound)**:\n\n$text";
+            } else {
+              formattedText = "🤖 **Clinic Assistant**:\n\n$text";
+            }
+            loaded.add(_HealthChatMessage(
+              role: mappedRole,
+              text: formattedText,
+              isVoice: isVoice,
+              timestamp: DateTime.tryParse(item['created_at']?.toString() ?? ''),
+            ));
+          }
+          if (loaded.isNotEmpty && mounted) {
+            setState(() {
+              _messages.clear();
+              _messages.addAll(loaded);
+            });
+            await _persistMessagesLocally();
+            _scrollToBottom();
+          }
+        }
+      } catch (e) {
+        debugPrint("[HealthChat] Server history load error: $e");
       }
     }
   }
@@ -356,7 +405,11 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 String formattedText;
                 if (mappedRole == 'user') {
                   final name = senderName.isNotEmpty ? senderName : _selectedPatientName;
-                  formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
+                  if (text.startsWith("🎙️ [Voice Note]")) {
+                    formattedText = "🎙️ **$name (Voice Note via WhatsApp)**:\n\n${text.replaceFirst('🎙️ [Voice Note]:', '').trim()}";
+                  } else {
+                    formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
+                  }
                 } else if (mappedRole == 'doctor') {
                   formattedText = "🩺 **$_doctorName (Outbound)**:\n\n$text";
                 } else {
@@ -425,11 +478,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     setState(() {
       _doctorPatients.removeWhere((p) => p["phone"] == phone);
       if (_selectedPatientPhone == phone) {
-        final fallback = _doctorPatients.first;
-        _selectedPatientId = fallback["patient_id"] ?? "6132616383";
-        _selectedPatientName = fallback["name"] ?? "Patient";
-        _selectedPatientPhone = fallback["phone"] ?? "6132616383";
-        _patientId = _selectedPatientPhone;
+        if (_doctorPatients.isNotEmpty) {
+          final fallback = _doctorPatients.first;
+          _selectedPatientId = fallback["patient_id"] ?? "";
+          _selectedPatientName = fallback["name"] ?? "Select Patient";
+          _selectedPatientPhone = fallback["phone"] ?? "";
+          _patientId = _selectedPatientPhone;
+        } else {
+          _selectedPatientId = "";
+          _selectedPatientName = "Select Patient";
+          _selectedPatientPhone = "";
+          _patientId = "";
+        }
       }
     });
     await _saveDoctorContactsToPrefs();
@@ -463,6 +523,14 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         });
 
         await _saveDoctorContactsToPrefs();
+
+        // Permanently record to Central Database
+        BackendApiService.createDoctorPatient(
+          name: name,
+          phone: phone,
+          notes: "Phone Contact • $rawPhone",
+          doctorName: _doctorName,
+        );
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1368,6 +1436,15 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (text.isEmpty || _isLoading) return;
 
     if (_isDoctor && _doctorSendViaWhatsApp) {
+      if (_selectedPatientPhone.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("⚠️ Please select or add a patient contact before sending."),
+            backgroundColor: Color(0xFFB91C1C),
+          ),
+        );
+        return;
+      }
       await _sendDoctorWhatsAppMessage(text);
       return;
     }
@@ -1613,8 +1690,14 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 _patientId = phone;
               });
 
-              // Permanently persist to SharedPreferences
+              // Permanently persist to SharedPreferences & Central Database
               await _saveDoctorContactsToPrefs();
+              BackendApiService.createDoctorPatient(
+                name: cleanName,
+                phone: phone,
+                notes: "Saved Contact • $rawPhone",
+                doctorName: _doctorName,
+              );
 
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1663,7 +1746,15 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 },
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 offset: const Offset(0, 40),
-                itemBuilder: (ctx) => _doctorPatients.map((p) {
+                itemBuilder: (ctx) => _doctorPatients.isEmpty
+                    ? [
+                        const PopupMenuItem<String>(
+                          enabled: false,
+                          value: '',
+                          child: Text("No patients added yet. Tap + on right to add."),
+                        ),
+                      ]
+                    : _doctorPatients.map((p) {
                   final isSelected = p["patient_id"] == _selectedPatientId || p["phone"] == _selectedPatientPhone;
                   return PopupMenuItem<String>(
                     value: p["patient_id"],
@@ -1726,7 +1817,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          _selectedPatientName,
+                          _doctorPatients.isEmpty ? "Select Patient" : _selectedPatientName,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 14,
@@ -2002,7 +2093,30 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             ),
             // Patient History List (patient ID as name)
             Expanded(
-              child: ListView.separated(
+              child: _doctorPatients.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.people_outline_rounded, size: 40, color: Colors.grey.shade400),
+                            const SizedBox(height: 10),
+                            const Text(
+                              "No Patient Chats Yet",
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF64748B)),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              "Tap '+ New Patient Outreach' above to add a contact or select from your phone book.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 itemCount: _doctorPatients.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 4),
@@ -2186,24 +2300,83 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 28),
-                // Action Suggestions Cards (matching Gemini format)
-                Column(
-                  children: _currentPrompts.map((prompt) {
-                    IconData icon = Icons.chat_bubble_outline_rounded;
-                    if (prompt.contains("blood pressure") || prompt.contains("vital") || prompt.contains("heart")) {
-                      icon = Icons.favorite_outline_rounded;
-                    } else if (prompt.contains("follow-up") || prompt.contains("care") || prompt.contains("sleep")) {
-                      icon = Icons.assignment_outlined;
-                    } else if (prompt.contains("CPG") || prompt.contains("trend")) {
-                      icon = Icons.verified_outlined;
-                    }
-                    return _buildGeminiPromptTile(
-                      icon: icon,
-                      text: prompt,
-                      onTap: () => _sendMessage(prompt),
-                    );
-                  }).toList(),
-                ),
+                if (_isDoctor && _doctorPatients.isEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.person_add_alt_1_rounded, size: 36, color: Color(0xFF075E54)),
+                        const SizedBox(height: 10),
+                        const Text(
+                          "No Patients in Clinical Database",
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF0F172A)),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          "Add a patient contact or import from your phone to start real-time two-way WhatsApp clinical outreach.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 11),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  side: const BorderSide(color: Color(0xFF0284C7)),
+                                  foregroundColor: const Color(0xFF0284C7),
+                                ),
+                                icon: const Icon(Icons.contacts_rounded, size: 16),
+                                label: const Text("Phone Book", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                onPressed: _pickContactFromDevice,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 11),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  backgroundColor: const Color(0xFF075E54),
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: const Icon(Icons.add_rounded, size: 16),
+                                label: const Text("Add Contact", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                onPressed: _showAddCustomContactDialog,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  // Action Suggestions Cards (matching Gemini format)
+                  Column(
+                    children: _currentPrompts.map((prompt) {
+                      IconData icon = Icons.chat_bubble_outline_rounded;
+                      if (prompt.contains("blood pressure") || prompt.contains("vital") || prompt.contains("heart")) {
+                        icon = Icons.favorite_outline_rounded;
+                      } else if (prompt.contains("follow-up") || prompt.contains("care") || prompt.contains("sleep")) {
+                        icon = Icons.assignment_outlined;
+                      } else if (prompt.contains("CPG") || prompt.contains("trend")) {
+                        icon = Icons.verified_outlined;
+                      }
+                      return _buildGeminiPromptTile(
+                        icon: icon,
+                        text: prompt,
+                        onTap: () => _sendMessage(prompt),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
             ),
           ),

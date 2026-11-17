@@ -53,3 +53,8 @@ logs/
 
 # ── Local state / thread storage ──────────────────────────────────────────────
 flutter_smart_health/backend/
+*.db
+*.db-shm
+*.db-wal
+flutter_smart_health/src/backend/data/*.db*
+flutter_smart_health/whatsapp_threads.json

@@ -48,6 +48,9 @@ class AuthRepository {
         await prefs.setString('patient_identity', isDoctor ? "Doctor" : user.selectedOption);
         await prefs.setString('patient_email', user.email);
         await prefs.setString('patient_username', finalUsername);
+        if (isDoctor) {
+          await prefs.setString('patient_phone', '16134045586');
+        }
         if (user.patientId == null) {
           await prefs.remove('patient_id');
           return const AuthLoginResult(

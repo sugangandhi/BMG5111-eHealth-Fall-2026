@@ -136,7 +136,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (confirm == true && context.mounted) {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      // Remove authentication and session credentials only.
+      // Retain doctor clinical contacts, local database records, and chat logs.
+      await prefs.remove('patient_identity');
+      await prefs.remove('patient_email');
+      await prefs.remove('patient_username');
+      await prefs.remove('patient_id');
+      await prefs.remove('patient_phone');
+      await prefs.remove('patient_token');
+      await prefs.remove('auth_token');
+      await prefs.remove('doctor_selected_patient_id');
       Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     }
   }
