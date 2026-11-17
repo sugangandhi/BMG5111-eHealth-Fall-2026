@@ -626,7 +626,22 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
         try:
             r = requests.post(url, headers=headers, json=payload, timeout=6, verify=False)
             print(f"[WhatsApp Meta API] Outbound to {clean_to}: Status={r.status_code} Body={r.text}")
-            return r.status_code in [200, 201]
+            if r.status_code in [200, 201]:
+                return True
+            
+            # If free-form text fails (e.g. outside 24h window), automatically fallback to pre-approved template
+            template_payload = {
+                "messaging_product": "whatsapp",
+                "to": clean_to,
+                "type": "template",
+                "template": {
+                    "name": "hello_world",
+                    "language": {"code": "en_US"}
+                }
+            }
+            r_tmpl = requests.post(url, headers=headers, json=template_payload, timeout=6, verify=False)
+            print(f"[WhatsApp Meta API Template Fallback] Outbound to {clean_to}: Status={r_tmpl.status_code} Body={r_tmpl.text}")
+            return r_tmpl.status_code in [200, 201]
         except Exception as e:
             print(f"[WhatsApp Meta API Error]: {e}")
             return False
