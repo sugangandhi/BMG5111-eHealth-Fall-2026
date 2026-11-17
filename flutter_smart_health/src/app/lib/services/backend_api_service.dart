@@ -31,6 +31,24 @@ class BackendApiService {
     return {'success': false};
   }
 
+  static Future<Map<String, dynamic>> initializeWhatsAppChannel({
+    required String patientPhone,
+    String? patientName,
+    String doctorName = "Dr. Sugan",
+    String? welcomeMessage,
+  }) async {
+    final res = await _apiClient.postJson('/api/doctor/initialize-whatsapp-channel', {
+      'patient_phone': patientPhone,
+      'patient_name': patientName ?? 'Patient',
+      'doctor_name': doctorName,
+      'welcome_message': welcomeMessage,
+    });
+    if (res is Map) {
+      return Map<String, dynamic>.from(res);
+    }
+    return {'success': false};
+  }
+
   static Future<AssistantChatReply> assistantChat({
     required String patientId,
     required String message,

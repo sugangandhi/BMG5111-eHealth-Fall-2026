@@ -248,6 +248,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     // Load messages from local cache for this specific patient
     await _loadMessagesForCurrentPatient();
+    _prefillDoctorWelcomeMessageIfApplicable();
 
     // Start 2-way real-time WhatsApp sync timer for doctors
     if (isDoctor && !isRunningInTest) {
@@ -453,6 +454,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         }
 
         await _loadMessagesForCurrentPatient();
+        _prefillDoctorWelcomeMessageIfApplicable();
         await _syncWhatsAppThreadSilently();
         return;
       }
@@ -688,6 +690,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     // 2. Load conversation history for newly selected patient
     await _loadMessagesForCurrentPatient();
+    _prefillDoctorWelcomeMessageIfApplicable();
 
     // 3. Immediately pull latest WhatsApp messages from backend
     await _syncWhatsAppThreadSilently();
@@ -1119,6 +1122,175 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         _scrollToBottom();
       }
     }
+  }
+
+  void _prefillDoctorWelcomeMessageIfApplicable() {
+    if (!_isDoctor) return;
+    final current = _controller.text.trim();
+    final defaultPattern = RegExp(
+      r'^Hello .*, this is .* from e-Hospital PrimeCare Clinic following up on your care plan\.$',
+    );
+    final hasNoPatientMessage = !_messages.any((m) => m.role == 'user');
+
+    if (current.isEmpty || defaultPattern.hasMatch(current)) {
+      if (hasNoPatientMessage) {
+        _controller.text =
+            "Hello $_selectedPatientName, this is $_doctorName from e-Hospital PrimeCare Clinic following up on your care plan.";
+      }
+    }
+  }
+
+  Future<void> _launchWhatsAppToPatient() async {
+    final cleanPhone = _selectedPatientPhone.replaceAll(RegExp(r'\D'), '');
+    final msg = _controller.text.trim().isNotEmpty
+        ? _controller.text.trim()
+        : "Hello $_selectedPatientName, this is $_doctorName from e-Hospital PrimeCare Clinic.";
+    await WhatsAppLauncherService.launchWhatsApp(
+      context: context,
+      phone: cleanPhone.isNotEmpty ? cleanPhone : "16134045586",
+      message: msg,
+    );
+  }
+
+  Future<void> _sendOfficialWelcomeTemplate() async {
+    setState(() => _isLoading = true);
+    try {
+      final welcomeText = _controller.text.trim().isNotEmpty ? _controller.text.trim() : null;
+      final res = await BackendApiService.initializeWhatsAppChannel(
+        patientPhone: _selectedPatientPhone,
+        patientName: _selectedPatientName,
+        doctorName: _doctorName,
+        welcomeMessage: welcomeText,
+      );
+
+      final liveSent = res['delivered_live'] == true;
+      if (mounted) {
+        setState(() {
+          _messages.add(_HealthChatMessage(
+            role: 'bot',
+            text: "📢 **Official Meta Outreach Template Dispatched to +$_selectedPatientPhone**\n\n"
+                "• **Recipient**: $_selectedPatientName\n"
+                "• **Physician**: $_doctorName\n"
+                "• **Channel Status**: ${liveSent ? '✅ Delivered Live to WhatsApp (24h Window Open)' : 'Queued for Delivery'}\n\n"
+                "*(An official registered clinic notification was dispatched from `+1 (613) 404-5586` to open the direct messaging window)*",
+          ));
+          if (welcomeText != null && welcomeText.isNotEmpty) {
+            _messages.add(_HealthChatMessage(
+              role: 'doctor',
+              text: "🩺 **$_doctorName's Welcome Note to $_selectedPatientName**:\n\n$welcomeText",
+            ));
+            _controller.clear();
+          }
+        });
+        await _persistMessagesLocally();
+        _syncWhatsAppThreadSilently();
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              liveSent
+                  ? "✅ Welcome template delivered live to $_selectedPatientName! 24h window active."
+                  : "✅ Welcome template queued for $_selectedPatientName.",
+            ),
+            backgroundColor: const Color(0xFF166534),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text("Template dispatch error: $e"),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Widget _buildDoctorOutreachBanner() {
+    final hasPatientReply = _messages.any((m) => m.role == 'user');
+    if (hasPatientReply) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x80F59E0B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.mark_chat_unread_rounded, size: 16, color: Color(0xFFB45309)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Meta 24h Window Notice for $_selectedPatientName",
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            "WhatsApp requires an official registered template to open the 24-hour service window before regular text messages can be delivered to recipients who haven't messaged the clinic first.",
+            style: TextStyle(fontSize: 11, color: Color(0xFF78350F), height: 1.3),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF075E54),
+                  foregroundColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.send_rounded, size: 14),
+                label: const Text(
+                  "📢 Send Welcome Template",
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                ),
+                onPressed: _isLoading ? null : _sendOfficialWelcomeTemplate,
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF166534),
+                  side: const BorderSide(color: Color(0xFF166534)),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                label: const Text(
+                  "📱 Open in App",
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                ),
+                onPressed: _launchWhatsAppToPatient,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _sendMessage([String? textToSend, bool isVoice = false]) async {
@@ -1715,6 +1887,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       children: [
         // Top Header: Custom Doctor Header or Patient WhatsApp Connect Banner
         _isDoctor ? _buildDoctorHeader() : _buildPatientHeader(),
+
+        // Meta 24-Hour Outreach Notice & Template Initialization for Doctors
+        if (_isDoctor) _buildDoctorOutreachBanner(),
 
         // Chat Message Feed or Empty State
         Expanded(
