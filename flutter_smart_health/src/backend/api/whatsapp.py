@@ -389,18 +389,22 @@ async def get_whatsapp_status():
 
 @router.get('/webhook/whatsapp')
 @router.get('/webhook/whatsapp/')
+@router.get('/webhooks/whatsapp')
+@router.get('/webhooks/whatsapp/')
 @router.get('/api/whatsapp/webhook')
+@router.get('/api/whatsapp/webhook/')
 async def verify_webhook(request: Request):
     """Meta WhatsApp Cloud API Verification challenge handshake."""
-    hub_mode = request.query_params.get('hub.mode')
+    hub_mode = (request.query_params.get('hub.mode') or "").strip().lower()
     hub_challenge = request.query_params.get('hub.challenge')
-    hub_verify_token = request.query_params.get('hub.verify_token')
+    hub_verify_token = (request.query_params.get('hub.verify_token') or "").strip()
+    expected_token = WHATSAPP_VERIFY_TOKEN.strip()
 
-    if hub_mode == 'subscribe' and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
+    if hub_mode == 'subscribe' and hub_verify_token == expected_token:
         print(f"[WhatsApp] Webhook verified successfully with token: {hub_verify_token}")
         return PlainTextResponse(content=str(hub_challenge))
     
-    print(f"[WhatsApp] Webhook verification failed. Received: {hub_verify_token}, Expected: {WHATSAPP_VERIFY_TOKEN}")
+    print(f"[WhatsApp] Webhook verification failed. Received: '{hub_verify_token}', Expected: '{expected_token}'")
     raise HTTPException(status_code=403, detail='Verification failed')
 
 def extract_vitals_from_text(text: str) -> Dict[str, Any]:
@@ -494,7 +498,10 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
 
 @router.post('/webhook/whatsapp')
 @router.post('/webhook/whatsapp/')
+@router.post('/webhooks/whatsapp')
+@router.post('/webhooks/whatsapp/')
 @router.post('/api/whatsapp/webhook')
+@router.post('/api/whatsapp/webhook/')
 async def receive_message(request: Request):
     """Receives inbound messages from Meta WhatsApp Cloud API or Twilio."""
     sender_phone = None
