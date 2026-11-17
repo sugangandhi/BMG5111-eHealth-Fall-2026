@@ -169,8 +169,17 @@ def delete_patient(phone: str) -> bool:
         cursor = conn.execute("DELETE FROM doctor_patients WHERE phone = ?;", (clean_p,))
         return cursor.rowcount > 0
 
+def is_message_processed(msg_id: str) -> bool:
+    """Checks if a message ID has already been recorded in patient_chat_messages."""
+    if not msg_id:
+        return False
+    init_db()
+    with get_db() as conn:
+        cursor = conn.execute("SELECT 1 FROM patient_chat_messages WHERE message_id = ? LIMIT 1;", (str(msg_id),))
+        return cursor.fetchone() is not None
+
 def get_patient_messages(phone: str) -> List[Dict[str, Any]]:
-    """Retrieves all chat messages for a patient phone number."""
+    """Retrieves all chat messages for a patient phone number, deduplicated."""
     init_db()
     clean_p = clean_phone_number(phone)
     if not clean_p:
@@ -187,7 +196,23 @@ def get_patient_messages(phone: str) -> List[Dict[str, Any]]:
         """, (clean_p, phone_10, f"%{phone_10}"))
         rows = cursor.fetchall()
         messages = []
+        seen_msg_ids = set()
+        seen_text_signatures = set()
         for row in rows:
+            mid = row["message_id"] or str(row["id"])
+            if mid and mid in seen_msg_ids:
+                continue
+            if mid:
+                seen_msg_ids.add(mid)
+
+            # Deduplicate identical message signatures to prevent webhook retry clutter
+            norm_content = re.sub(r'[\s\*\_]+', ' ', (row["text"] or "")).strip().lower()
+            sig = (row["sender_role"], norm_content)
+            if norm_content and sig in seen_text_signatures:
+                continue
+            if norm_content:
+                seen_text_signatures.add(sig)
+
             vitals = {}
             if row["vitals_json"]:
                 try:
@@ -196,7 +221,7 @@ def get_patient_messages(phone: str) -> List[Dict[str, Any]]:
                     pass
             messages.append({
                 "id": row["id"],
-                "message_id": row["message_id"],
+                "message_id": row["message_id"] or str(row["id"]),
                 "role": row["sender_role"],
                 "sender_name": row["sender_name"],
                 "channel": row["channel"],
@@ -221,12 +246,45 @@ def add_chat_message(
     audio_url: str = "",
     status: str = "sent",
     custom_timestamp: Optional[str] = None,
+    custom_msg_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Records a message to the patient's persistent chat log in the database."""
     init_db()
     clean_p = clean_phone_number(patient_phone)
     if not clean_p:
         raise ValueError("Cannot log message without a valid patient phone number")
+
+    # If custom_msg_id provided and already processed, return existing message immediately
+    if custom_msg_id:
+        with get_db() as conn:
+            cursor = conn.execute("""
+                SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
+                       timestamp, status, vitals_json, is_voice, audio_url, created_at
+                FROM patient_chat_messages
+                WHERE message_id = ? LIMIT 1;
+            """, (str(custom_msg_id),))
+            existing_row = cursor.fetchone()
+            if existing_row:
+                evitals = {}
+                if existing_row["vitals_json"]:
+                    try:
+                        evitals = json.loads(existing_row["vitals_json"])
+                    except Exception:
+                        pass
+                return {
+                    "id": existing_row["id"],
+                    "message_id": existing_row["message_id"],
+                    "role": existing_row["sender_role"],
+                    "sender_name": existing_row["sender_name"],
+                    "channel": existing_row["channel"],
+                    "text": existing_row["text"],
+                    "timestamp": existing_row["timestamp"],
+                    "status": existing_row["status"],
+                    "vitals": evitals,
+                    "isVoice": bool(existing_row["is_voice"]),
+                    "audio_url": existing_row["audio_url"],
+                    "created_at": existing_row["created_at"],
+                }
 
     # Ensure patient contact exists in DB
     existing_patient = get_patient(clean_p)
@@ -240,12 +298,12 @@ def add_chat_message(
             conn.execute("UPDATE doctor_patients SET last_active = ? WHERE phone = ?;", (now_iso, clean_p))
 
     now_display = custom_timestamp or datetime.now().strftime("%I:%M %p")
-    msg_id = f"msg_{int(time.time() * 1000)}_{sender_role[:3]}"
+    msg_id = custom_msg_id or f"msg_{int(time.time() * 1000)}_{sender_role[:3]}"
     vitals_str = json.dumps(vitals) if vitals else "{}"
 
     with get_db() as conn:
         cursor = conn.execute("""
-            INSERT INTO patient_chat_messages (
+            INSERT OR IGNORE INTO patient_chat_messages (
                 message_id, patient_phone, sender_role, sender_name, channel,
                 text, timestamp, status, vitals_json, is_voice, audio_url, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);

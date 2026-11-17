@@ -16,6 +16,7 @@ router = APIRouter(tags=['whatsapp'])
 
 WHATSAPP_VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'ehospital_verified_2026')
 EHOSPITAL_BASE_URL = os.getenv('EHOSPITAL_BASE_URL', 'https://aetab8pjmb.us-east-1.awsapprunner.com').rstrip('/')
+PROCESSED_WAMS: set[str] = set()
 
 def _get_threads_file() -> Path:
     p1 = Path(__file__).resolve().parents[1] / "whatsapp_threads.json"
@@ -200,7 +201,18 @@ async def get_whatsapp_thread(phone: str = "6132616383"):
     threads = _load_threads()
     phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
     thread = threads.get(clean_p) or threads.get(phone_10) or threads.get(f"1{phone_10}") or []
-    return {"phone": clean_p, "messages": thread}
+    # Deduplicate fallback thread messages
+    deduped = []
+    seen = set()
+    for m in thread:
+        mid = m.get("message_id") or str(m.get("id", ""))
+        txt_norm = re.sub(r'[\s\*\_]+', ' ', (m.get("text") or "")).strip().lower()
+        key = mid if mid else (m.get("role"), txt_norm)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(m)
+    return {"phone": clean_p, "messages": deduped}
 
 @router.post('/api/whatsapp/send')
 async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
@@ -827,6 +839,7 @@ async def receive_message(request: Request):
     """Receives inbound messages from Meta WhatsApp Cloud API or Twilio."""
     sender_phone = None
     text_body = None
+    msg_id = None
 
     sender_name = "Patient"
     content_type = request.headers.get('content-type', '')
@@ -834,6 +847,7 @@ async def receive_message(request: Request):
         form = await request.form()
         sender_phone = str(form.get('From', '')).replace('whatsapp:', '').strip()
         text_body = str(form.get('Body', '')).strip()
+        msg_id = str(form.get('MessageSid', '')).strip() or None
     else:
         try:
             body = await request.json()
@@ -847,6 +861,19 @@ async def receive_message(request: Request):
                         msgs = val.get('messages', [])
                         if msgs:
                             msg = msgs[0]
+                            msg_id = msg.get('id')
+                            if msg_id:
+                                if msg_id in PROCESSED_WAMS:
+                                    print(f"[WhatsApp Webhook Deduplication] Message ID '{msg_id}' already in PROCESSED_WAMS. Acknowledging 200 OK immediately.")
+                                    return PlainTextResponse("OK", status_code=200)
+                                from src.backend.services.clinical_database import is_message_processed
+                                if is_message_processed(msg_id):
+                                    print(f"[WhatsApp Webhook Deduplication] Message ID '{msg_id}' already in clinical DB. Acknowledging 200 OK immediately.")
+                                    return PlainTextResponse("OK", status_code=200)
+                                PROCESSED_WAMS.add(msg_id)
+                                if len(PROCESSED_WAMS) > 10000:
+                                    PROCESSED_WAMS.clear()
+
                             sender_phone = msg.get('from')
                             m_type = msg.get('type')
                             if m_type == 'text':
@@ -915,6 +942,7 @@ async def receive_message(request: Request):
                 vitals=vitals,
                 is_voice=is_voice,
                 status="delivered",
+                custom_msg_id=msg_id,
             )
             add_chat_message(
                 patient_phone=clean_p,
@@ -923,6 +951,7 @@ async def receive_message(request: Request):
                 text=reply,
                 vitals=vitals,
                 status="delivered",
+                custom_msg_id=f"reply_{msg_id}" if msg_id else None,
             )
         except Exception as ex_db:
             print(f"[Clinical DB Inbound Save Error]: {ex_db}")
@@ -937,28 +966,31 @@ async def receive_message(request: Request):
             if clean_p != phone_key:
                 threads[clean_p] = thread
             now_str = datetime.now().strftime("%I:%M %p")
-            thread.append({
-                "id": int(time.time() * 1000),
-                "role": "patient",
-                "sender_name": sender_name,
-                "text": text_body,
-                "vitals": vitals,
-                "timestamp": now_str
-            })
-            thread.append({
-                "id": int(time.time() * 1000) + 1,
-                "role": "bot",
-                "sender_name": "Clinic AI Assistant 🤖",
-                "text": reply,
-                "is_greeting": triage.get("is_greeting", False),
-                "vitals": vitals,
-                "timestamp": now_str
-            })
-            _save_threads(threads)
+            if not any(m.get("message_id") == msg_id for m in thread if msg_id):
+                thread.append({
+                    "id": int(time.time() * 1000),
+                    "message_id": msg_id,
+                    "role": "patient",
+                    "sender_name": sender_name,
+                    "text": text_body,
+                    "vitals": vitals,
+                    "timestamp": now_str
+                })
+                thread.append({
+                    "id": int(time.time() * 1000) + 1,
+                    "message_id": f"reply_{msg_id}" if msg_id else None,
+                    "role": "bot",
+                    "sender_name": "Clinic AI Assistant 🤖",
+                    "text": reply,
+                    "is_greeting": triage.get("is_greeting", False),
+                    "vitals": vitals,
+                    "timestamp": now_str
+                })
+                _save_threads(threads)
         except Exception as e:
             print(f"[WhatsApp Inbound Save Error]: {e}")
 
         send_whatsapp_reply(sender_phone, reply)
-        return {"status": "ok", "processed": True, "vitals": vitals}
+        return PlainTextResponse("OK", status_code=200)
 
-    return {"status": "ok", "processed": False}
+    return PlainTextResponse("OK", status_code=200)

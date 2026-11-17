@@ -22,12 +22,14 @@ class HealthChatModule extends StatefulWidget {
 }
 
 class _HealthChatMessage {
+  final String? id;
   final String role; // 'user' | 'assistant' | 'doctor'
   final String text;
   final bool isVoice;
   final DateTime timestamp;
 
   _HealthChatMessage({
+    this.id,
     required this.role,
     required this.text,
     this.isVoice = false,
@@ -35,6 +37,7 @@ class _HealthChatMessage {
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
+        'id': id,
         'role': role,
         'text': text,
         'isVoice': isVoice,
@@ -42,6 +45,7 @@ class _HealthChatMessage {
       };
 
   factory _HealthChatMessage.fromJson(Map<String, dynamic> json) => _HealthChatMessage(
+        id: json['id']?.toString(),
         role: json['role'] as String? ?? 'user',
         text: json['text'] as String? ?? '',
         isVoice: json['isVoice'] == true,
@@ -267,6 +271,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     }
   }
 
+  String _extractCoreMessageText(String raw) {
+    var s = raw.trim();
+    // Strip decorated prefixes from user, bot, doctor, outreach
+    s = s.replaceAll(RegExp(r'^🎙️\s*(\*\*.*?\*\*:|\[Voice Note\]:?)\s*', caseSensitive: false), '');
+    s = s.replaceAll(RegExp(r'^(💬|🩺|🤖|📢)\s*\*\*.*?\*\*:\s*', caseSensitive: false), '');
+    // Strip markdown formatting symbols and punctuation
+    s = s.replaceAll(RegExp(r'[\*\#\_\"\`\n\r]'), ' ');
+    s = s.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+    return s;
+  }
+
   Future<void> _loadMessagesForCurrentPatient() async {
     final prefs = await SharedPreferences.getInstance();
     final cacheKey = _currentChatHistoryKey;
@@ -274,23 +289,39 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (cached != null && cached.isNotEmpty) {
       try {
         final List<dynamic> decoded = jsonDecode(cached);
-        final cachedList = decoded
-            .map((m) {
-              final raw = _HealthChatMessage.fromJson(m as Map<String, dynamic>);
-              return _HealthChatMessage(
-                role: raw.role,
-                text: _sanitizeName(raw.text),
-                isVoice: raw.isVoice,
-                timestamp: raw.timestamp,
-              );
-            })
-            .toList();
+        final List<_HealthChatMessage> deduplicatedCache = [];
+        final Set<String> seenCacheIds = {};
+        final Set<String> seenCacheCores = {};
+        for (final m in decoded) {
+          if (m is Map) {
+            final raw = _HealthChatMessage.fromJson(Map<String, dynamic>.from(m));
+            final core = _extractCoreMessageText(raw.text);
+            final msgId = raw.id;
+            if (msgId != null && msgId.isNotEmpty && seenCacheIds.contains(msgId)) {
+              continue;
+            }
+            if (core.isNotEmpty && seenCacheCores.contains(core)) {
+              continue;
+            }
+            if (msgId != null && msgId.isNotEmpty) seenCacheIds.add(msgId);
+            if (core.isNotEmpty) seenCacheCores.add(core);
+
+            deduplicatedCache.add(_HealthChatMessage(
+              id: msgId,
+              role: raw.role,
+              text: _sanitizeName(raw.text),
+              isVoice: raw.isVoice,
+              timestamp: raw.timestamp,
+            ));
+          }
+        }
         if (mounted) {
           setState(() {
             _messages.clear();
-            _messages.addAll(cachedList);
+            _messages.addAll(deduplicatedCache);
           });
           _scrollToBottom();
+          await _persistMessagesLocally();
         }
       } catch (e) {
         debugPrint("[HealthChat] Local history decode error: $e");
@@ -309,11 +340,22 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         final serverMsgs = await BackendApiService.getDoctorChatHistory(_selectedPatientPhone);
         if (serverMsgs.isNotEmpty && mounted) {
           final List<_HealthChatMessage> loaded = [];
+          final Set<String> seenServerIds = {};
+          final Set<String> seenServerCores = {};
           for (final item in serverMsgs) {
             final rawRole = item['role']?.toString().toLowerCase() ?? 'patient';
             final text = _sanitizeName(item['text']?.toString() ?? '');
             final senderName = _sanitizeName(item['sender_name']?.toString() ?? '');
+            final rawMsgId = (item['message_id'] ?? item['id'] ?? '').toString().trim();
             final isVoice = item['isVoice'] == true || text.startsWith("🎙️ [Voice Note]");
+            if (text.isEmpty) continue;
+
+            final core = _extractCoreMessageText(text);
+            if (rawMsgId.isNotEmpty && seenServerIds.contains(rawMsgId)) continue;
+            if (core.isNotEmpty && seenServerCores.contains(core)) continue;
+            if (rawMsgId.isNotEmpty) seenServerIds.add(rawMsgId);
+            if (core.isNotEmpty) seenServerCores.add(core);
+
             String mappedRole = 'assistant';
             if (rawRole == 'patient' || rawRole == 'user') {
               mappedRole = 'user';
@@ -324,7 +366,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             if (mappedRole == 'user') {
               final name = senderName.isNotEmpty ? senderName : _selectedPatientName;
               if (text.startsWith("🎙️ [Voice Note]")) {
-                formattedText = "🎙️ **$name (Voice Note via WhatsApp)**:\n\n${text.replaceFirst('🎙️ [Voice Note]:', '').trim()}";
+                formattedText = "🎙️ **$name (Voice Note via WhatsApp)**:\n\n${text.replaceFirst(RegExp(r'^🎙️\s*\[Voice Note\]:?\s*'), '').trim()}";
               } else {
                 formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
               }
@@ -334,6 +376,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               formattedText = "🤖 **Clinic Assistant**:\n\n$text";
             }
             loaded.add(_HealthChatMessage(
+              id: rawMsgId.isNotEmpty ? rawMsgId : null,
               role: mappedRole,
               text: formattedText,
               isVoice: isVoice,
@@ -387,18 +430,24 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               final rawText = item['text']?.toString() ?? '';
               final text = _sanitizeName(rawText);
               final senderName = _sanitizeName(item['sender_name']?.toString() ?? '');
+              final rawMsgId = (item['message_id'] ?? item['id'] ?? '').toString().trim();
               if (text.isEmpty) continue;
 
               final String mappedRole = (rawRole == 'patient' || rawRole == 'user')
                   ? 'user'
                   : (rawRole == 'doctor' ? 'doctor' : 'assistant');
 
-              // Deduplicate by comparing trimmed message body text
-              final bool exists = _messages.any((m) {
-                final cleanedExisting = m.text.replaceAll(RegExp(r'[\*\#\_]'), '').trim();
-                final cleanedIncoming = text.replaceAll(RegExp(r'[\*\#\_]'), '').trim();
-                return cleanedExisting.contains(cleanedIncoming) || cleanedIncoming.contains(cleanedExisting);
-              });
+              final coreIncoming = _extractCoreMessageText(text);
+
+              // Deduplicate by comparing message ID or core text content
+              final bool exists = (rawMsgId.isNotEmpty && _messages.any((m) => m.id != null && m.id == rawMsgId)) ||
+                  _messages.any((m) {
+                    final coreExisting = _extractCoreMessageText(m.text);
+                    return coreExisting.isNotEmpty &&
+                        (coreExisting == coreIncoming ||
+                         coreExisting.contains(coreIncoming) ||
+                         coreIncoming.contains(coreExisting));
+                  });
 
               if (!exists) {
                 hasNew = true;
@@ -406,7 +455,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 if (mappedRole == 'user') {
                   final name = senderName.isNotEmpty ? senderName : _selectedPatientName;
                   if (text.startsWith("🎙️ [Voice Note]")) {
-                    formattedText = "🎙️ **$name (Voice Note via WhatsApp)**:\n\n${text.replaceFirst('🎙️ [Voice Note]:', '').trim()}";
+                    formattedText = "🎙️ **$name (Voice Note via WhatsApp)**:\n\n${text.replaceFirst(RegExp(r'^🎙️\s*\[Voice Note\]:?\s*'), '').trim()}";
                   } else {
                     formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
                   }
@@ -417,8 +466,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 }
 
                 _messages.add(_HealthChatMessage(
+                  id: rawMsgId.isNotEmpty ? rawMsgId : null,
                   role: mappedRole,
                   text: formattedText,
+                  isVoice: text.startsWith("🎙️ [Voice Note]") || item['isVoice'] == true,
                 ));
               }
             }
@@ -441,8 +492,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           }
         }
       }
-    } catch (_) {
-      // Non-blocking silent background sync
+    } catch (e) {
+      debugPrint("[HealthChat] Live WhatsApp polling sync error: $e");
     } finally {
       if (mounted) {
         setState(() {
