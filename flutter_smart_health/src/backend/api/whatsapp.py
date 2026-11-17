@@ -145,14 +145,14 @@ def book_appointment_in_central_cloud(patient_id: int, reason: str = "Priority C
         "status": "Scheduled"
     }
 
-def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str, Any], patient_name: Optional[str] = None) -> Dict[str, Any]:
+def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str, Any], patient_name: Optional[str] = None, patient_phone: Optional[str] = None) -> Dict[str, Any]:
     """
     Hospital clinical triage decision and action engine.
     Delegates to the unified clinical reasoning engine for comorbidity cross-referencing,
     Canadian CPG guidelines, calibrated uncertainty, SOCRATES chips, and SOAP note synthesis.
     """
     from src.backend.services.clinical_reasoning_engine import evaluate_clinical_case
-    return evaluate_clinical_case(patient_id, message, vitals, patient_name=patient_name)
+    return evaluate_clinical_case(patient_id, message, vitals, patient_name=patient_name, patient_phone=patient_phone)
 
 @router.get('/api/whatsapp/threads')
 @router.get('/api/whatsapp/threads/{phone}')
@@ -193,7 +193,7 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
         post_vitals_to_central_cloud(patient_id, vitals, req.message)
 
     # 3. Execute clinical triage engine
-    triage_result = clinical_triage_engine(patient_id, req.message, vitals, patient_name=req.sender_name)
+    triage_result = clinical_triage_engine(patient_id, req.message, vitals, patient_name=req.sender_name, patient_phone=clean_p)
     is_greeting = triage_result.get("is_greeting", False)
 
     # 4. Clinic AI Bot reply
@@ -692,7 +692,7 @@ async def receive_message(request: Request):
         if vitals:
             post_vitals_to_central_cloud(patient_id, vitals, text_body)
 
-        triage = clinical_triage_engine(patient_id, text_body, vitals, patient_name=sender_name)
+        triage = clinical_triage_engine(patient_id, text_body, vitals, patient_name=sender_name, patient_phone=clean_p)
         reply = triage.get("reply_text") or (
             "Hello! Your message has been received by your e-Hospital clinic care team and synchronized with your clinical chart."
         )

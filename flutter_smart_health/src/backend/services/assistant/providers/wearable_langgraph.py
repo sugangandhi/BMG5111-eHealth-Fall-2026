@@ -90,6 +90,11 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
         clean_pid = str(patient_id).replace("cloud-", "").replace("pt-", "").strip()
         pid_num = int(clean_pid) if clean_pid.isdigit() else 1
 
+        patient_phone = "6132616383"
+        patient_name = "Patient"
+        if str(clean_pid) in ["99211", "cloud-99211"]:
+            patient_name = "Sugan"
+
         # 1. Fetch patient context and wearable vitals
         context = await build_patient_context(patient_id)
         metric = classify_wearable_metric_query(message)
@@ -218,9 +223,9 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 phone_key = patient_phone[-10:] if len(patient_phone) >= 10 else patient_phone
 
                 # 3. Evaluate clinical triage
-                triage = evaluate_clinical_case(patient_id, clean_msg, vitals_dict)
+                triage = evaluate_clinical_case(patient_id, clean_msg, vitals_dict, patient_phone=patient_phone, patient_name=patient_name)
                 bot_reply_text = triage.get("reply_text") or (
-                    f"Thank you {patient_name}. Your message has been received by Intelligent Digital Solution Care Team and recorded in your patient chart."
+                    f"Thank you {patient_name}. Your message has been received by Dr. Patel's Care Team and recorded in your patient chart."
                 )
 
                 # 4. Add to In-App WhatsApp Thread
@@ -228,7 +233,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 thread = threads.setdefault(phone_key, [])
                 now_str = datetime.now().strftime("%I:%M %p")
 
-                # Add cleaned patient message to Intelligent Digital Solution's thread
+                # Add cleaned patient message to Dr. Patel's thread
                 thread.append({
                     "id": int(time.time() * 1000),
                     "role": "patient",
@@ -237,11 +242,11 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                     "vitals": vitals_dict,
                     "timestamp": now_str
                 })
-                # Add Intelligent Digital Solution Care Team reply to thread
+                # Add Dr. Patel Care Team reply to thread
                 thread.append({
                     "id": int(time.time() * 1000) + 1,
                     "role": "bot",
-                    "sender_name": "Intelligent Digital Solution Care Team",
+                    "sender_name": "Clinic AI Assistant 🤖",
                     "text": bot_reply_text,
                     "triage_level": triage.get("triage_level", "Routine"),
                     "ctas_level": triage.get("ctas_level"),
@@ -271,13 +276,16 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 print(f"[AI Chat Dispatch Error]: {e}")
 
             if is_doctor_request:
-                reply_text = (
-                    "✅ **MESSAGE DISPATCHED TO WHATSAPP & CLINICAL TEAM**:\n\n"
-                    f"Your message: *\"{clean_msg}\"*\n\n"
-                    f"📱 **Sent to WhatsApp**: Forwarded to your WhatsApp number (`+{phone_key}`).\n"
-                    f"💬 **In-App Clinic Channel**: Recorded in your **WhatsApp Clinic** tab.\n"
-                    f"🩺 **Telemetry Synced**: Verified readings (BP: {bp_str}, HR: {hr_int} BPM) recorded in your chart."
-                )
+                if triage.get("triage_level") in ["SCHEDULING", "FRIEND_NOTIFICATION", "CHAT_MEMORY"]:
+                    reply_text = triage.get("reply_text")
+                else:
+                    reply_text = (
+                        "✅ **MESSAGE DISPATCHED TO WHATSAPP & CLINICAL TEAM**:\n\n"
+                        f"Your message: *\"{clean_msg}\"*\n\n"
+                        f"📱 **Sent to WhatsApp**: Forwarded to your WhatsApp number (`+{phone_key}`).\n"
+                        f"💬 **In-App Clinic Channel**: Recorded in your **WhatsApp Clinic** tab.\n"
+                        f"🩺 **Telemetry Synced**: Verified readings (BP: {bp_str}, HR: {hr_int} BPM) recorded in your chart."
+                    )
             else:
                 reply_text = (
                     "🚨 **STAT CLINICAL EMERGENCY ALERT TRANSMITTED TO WHATSAPP**:\n\n"
@@ -286,6 +294,22 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 )
             return AssistantChatResponse(reply=reply_text, results=[AssistantTextResult(content=reply_text)])
 
+        # Early check for Chat Memory, Scheduling, or Friend Notification in direct conversational inquiries
+        try:
+            from src.backend.services.clinical_reasoning_engine import evaluate_clinical_case
+            direct_triage = evaluate_clinical_case(
+                patient_id,
+                message,
+                {"blood_pressure": bp_val, "heart_rate": hr_val},
+                patient_phone=patient_phone,
+                patient_name="Patient"
+            )
+            if direct_triage.get("triage_level") in ["CHAT_MEMORY", "SCHEDULING", "FRIEND_NOTIFICATION"]:
+                direct_reply = direct_triage.get("reply_text")
+                return AssistantChatResponse(reply=direct_reply, results=[AssistantTextResult(content=direct_reply)])
+        except Exception as ex_dt:
+            print(f"[Wearable Direct Triage Note]: {ex_dt}")
+
         # 2. Build system prompt
         system_prompt = (
             "You are Smart Health AI, a clinical medical reasoning copilot for patients and attending physicians in Ontario, Canada.\n"
@@ -293,9 +317,9 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
             f"Active Patient ID: {patient_id}\n"
             f"Clinical Telemetry Data:\n{telemetry_str}\n\n"
             "CLINICAL & INTEGRATION RULES:\n"
-            "- You are directly integrated with Intelligent Digital Solution's clinical triage desk and WhatsApp clinical queue.\n"
-            "- NEVER state that you 'cannot message Intelligent Digital Solution' or 'am unable to message the doctor on your behalf'.\n"
-            "- If the patient asks to message or contact the doctor, confirm that their message and vitals are forwarded directly to Intelligent Digital Solution.\n"
+            "- You are directly integrated with Dr. Patel's clinical triage desk and WhatsApp clinical queue.\n"
+            "- NEVER state that you 'cannot message Dr. Patel' or 'am unable to message the doctor on your behalf'.\n"
+            "- If the patient asks to message or contact the doctor, confirm that their message and vitals are forwarded directly to Dr. Patel.\n"
             "- Emphasize clinical red flags and remind the patient to tap the WhatsApp button at the top to access the direct doctor triage channel.\n"
             "Provide empathetic, clinically accurate, evidence-based responses.\n"
         )
