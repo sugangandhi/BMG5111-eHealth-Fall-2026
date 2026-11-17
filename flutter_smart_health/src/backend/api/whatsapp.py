@@ -354,11 +354,19 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
         f"🏥 *e-Hospital PrimeCare Clinic*"
     )
 
-    # 4. If this is a first-time contact with no inbound patient message, send the registered template to wake up their device
+    # 4. Check if patient has replied (opening Meta's 24h Customer Service Window)
     has_patient_reply = any(m.get('role') in {'patient', 'user'} for m in thread)
-    if not has_patient_reply:
-        print(f"[Doctor Dispatch] No inbound messages from {clean_p} yet. Dispatching hello_world template to ensure channel delivery.")
-        send_whatsapp_template(clean_p, template_name="hello_world")
+    template_already_sent = any(
+        m.get('action_type') == 'channel_initialization' or m.get('template_sent')
+        for m in thread[:-1]
+    )
+
+    template_dispatched = False
+    if not has_patient_reply and not template_already_sent:
+        print(f"[Doctor Dispatch] First-time outreach to {clean_p}. Dispatching hello_world template once to ping device.")
+        template_dispatched = send_whatsapp_template(clean_p, template_name="hello_world")
+        doctor_msg['template_sent'] = True
+        _save_threads(threads)
 
     # 5. Dispatch live via Meta WhatsApp Cloud API to patient's real WhatsApp
     meta_sent = send_whatsapp_reply(clean_p, outbound_text)
@@ -366,6 +374,9 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     return {
         "success": True,
         "delivered_live": meta_sent,
+        "template_dispatched": template_dispatched,
+        "window_open": has_patient_reply,
+        "waiting_for_reply": not has_patient_reply,
         "message": doctor_msg,
         "patient_phone": clean_p,
         "patient_name": req.patient_name,

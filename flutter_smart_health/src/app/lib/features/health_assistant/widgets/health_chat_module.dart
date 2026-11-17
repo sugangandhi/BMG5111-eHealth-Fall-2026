@@ -1091,11 +1091,19 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       );
 
       final liveSent = res['delivered_live'] == true;
+      final windowOpen = res['window_open'] == true;
+      final templateSent = res['template_dispatched'] == true;
+      final statusNote = windowOpen
+          ? "Delivered Live to WhatsApp (24h Window Active)"
+          : (templateSent
+              ? "Meta Template Dispatched • Awaiting Patient Reply"
+              : (liveSent ? "Delivered Live via Meta" : "Recorded in Chart"));
+
       if (mounted) {
         setState(() {
           _messages.add(_HealthChatMessage(
             role: 'doctor',
-            text: "🩺 **$_doctorName's Message to $_selectedPatientName**:\n\n$text\n\n*(Dispatched to WhatsApp `+$_selectedPatientPhone` • ${liveSent ? 'Delivered Live via Meta' : 'Recorded in Chart'})*",
+            text: "🩺 **$_doctorName's Message to $_selectedPatientName**:\n\n$text\n\n*(Dispatched to WhatsApp `+$_selectedPatientPhone` • $statusNote)*",
           ));
         });
         await _persistMessagesLocally();
@@ -1216,61 +1224,100 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   Widget _buildDoctorOutreachBanner() {
     final hasPatientReply = _messages.any((m) => m.role == 'user');
     if (hasPatientReply) {
-      return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF86EFAC)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                "🟢 Meta 24-Hour Window Active — Direct two-way messaging unlocked with $_selectedPatientName",
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
+    final hasSentOutreach = _messages.any(
+      (m) => m.role == 'doctor' || m.text.contains("Template Dispatched") || m.text.contains("Outreach Template"),
+    );
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      margin: const EdgeInsets.fromLTRB(14, 6, 14, 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
+        color: hasSentOutreach ? const Color(0xFFEFF6FF) : const Color(0xFFFEF3C7),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x80F59E0B)),
+        border: Border.all(
+          color: hasSentOutreach ? const Color(0xFF93C5FD) : const Color(0x80F59E0B),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.mark_chat_unread_rounded, size: 16, color: Color(0xFFB45309)),
+              Icon(
+                hasSentOutreach ? Icons.hourglass_top_rounded : Icons.mark_chat_unread_rounded,
+                size: 16,
+                color: hasSentOutreach ? const Color(0xFF1D4ED8) : const Color(0xFFB45309),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "Meta 24h Window Notice for $_selectedPatientName",
-                  style: const TextStyle(
+                  hasSentOutreach
+                      ? "Awaiting Patient's Reply ('Hi') from $_selectedPatientName"
+                      : "Meta 24h Window Notice for $_selectedPatientName",
+                  style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF92400E),
+                    color: hasSentOutreach ? const Color(0xFF1E40AF) : const Color(0xFF92400E),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            "WhatsApp requires an official registered template to open the 24-hour service window before regular text messages can be delivered to recipients who haven't messaged the clinic first.",
-            style: TextStyle(fontSize: 11, color: Color(0xFF78350F), height: 1.3),
+          Text(
+            hasSentOutreach
+                ? "Meta WhatsApp Cloud API policy requires the recipient to reply once (e.g. text 'Hi') to open the 24-hour window. Once they reply, all your custom doctor messages deliver immediately."
+                : "WhatsApp requires an official registered template to open the 24-hour service window before regular text messages can be delivered to recipients who haven't messaged the clinic first.",
+            style: TextStyle(
+              fontSize: 11,
+              color: hasSentOutreach ? const Color(0xFF1E3A8A) : const Color(0xFF78350F),
+              height: 1.3,
+            ),
           ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 6,
             children: [
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF075E54),
-                  foregroundColor: Colors.white,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              if (!hasSentOutreach)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF075E54),
+                    foregroundColor: Colors.white,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.send_rounded, size: 14),
+                  label: const Text(
+                    "📢 Send Welcome Template",
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                  ),
+                  onPressed: _isLoading ? null : _sendOfficialWelcomeTemplate,
                 ),
-                icon: const Icon(Icons.send_rounded, size: 14),
-                label: const Text(
-                  "📢 Send Welcome Template",
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
-                ),
-                onPressed: _isLoading ? null : _sendOfficialWelcomeTemplate,
-              ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF166534),
