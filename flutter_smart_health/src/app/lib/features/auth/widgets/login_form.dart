@@ -328,40 +328,93 @@ class _LoginFormState extends State<LoginForm> {
             ),
           ),
 
-          // One-Tap Quick Demo Patient Login Button
+          // Quick Demo Roles: Doctor & Patient
           if (widget.onDemoLogin != null) ...[
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                key: const Key('login_demo_button'),
-                onPressed: widget.loading ? null : _triggerDemoLogin,
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: AppColors.tealSoft,
-                  foregroundColor: AppColors.tealDark,
-                  side: BorderSide(
-                    color: AppColors.primaryAccent.withValues(alpha: 0.35),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(999),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      key: const Key('login_demo_doctor_button'),
+                      onPressed: widget.loading
+                          ? null
+                          : () => _triggerDemoLoginWithRole('Doctor'),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: widget.selectedIdentity == 'Doctor'
+                            ? AppColors.primarySoft
+                            : Colors.white,
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(
+                          color: AppColors.primary.withValues(
+                            alpha: widget.selectedIdentity == 'Doctor' ? 0.8 : 0.35,
+                          ),
+                          width: widget.selectedIdentity == 'Doctor' ? 1.6 : 1.0,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.medical_services_rounded,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      label: const Text(
+                        "Demo Doctor",
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                icon: const Icon(
-                  Icons.bolt_rounded,
-                  size: 19,
-                  color: AppColors.tealDark,
-                ),
-                label: const Text(
-                  "Quick Demo Login (normal@demo.com)",
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.tealDark,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      key: const Key('login_demo_button'),
+                      onPressed: widget.loading
+                          ? null
+                          : () => _triggerDemoLoginWithRole('Patient'),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: widget.selectedIdentity == 'Patient'
+                            ? AppColors.tealSoft
+                            : Colors.white,
+                        foregroundColor: AppColors.tealDark,
+                        side: BorderSide(
+                          color: AppColors.primaryAccent.withValues(
+                            alpha: widget.selectedIdentity == 'Patient' ? 0.8 : 0.35,
+                          ),
+                          width: widget.selectedIdentity == 'Patient' ? 1.6 : 1.0,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.person_rounded,
+                        size: 17,
+                        color: AppColors.tealDark,
+                      ),
+                      label: const Text(
+                        "Demo Patient",
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.tealDark,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
 
@@ -654,9 +707,19 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   void _triggerDemoLogin() {
-    widget.emailController.text = "normal@demo.com";
-    widget.passwordController.text = "123456";
-    widget.onIdentityChanged("Patient");
+    _triggerDemoLoginWithRole('Patient');
+  }
+
+  void _triggerDemoLoginWithRole(String role) {
+    if (role == 'Doctor') {
+      widget.emailController.text = "doctor@demo.com";
+      widget.passwordController.text = "123456";
+      widget.onIdentityChanged("Doctor");
+    } else {
+      widget.emailController.text = "normal@demo.com";
+      widget.passwordController.text = "123456";
+      widget.onIdentityChanged("Patient");
+    }
     if (widget.onDemoLogin != null) {
       widget.onDemoLogin!();
     } else {

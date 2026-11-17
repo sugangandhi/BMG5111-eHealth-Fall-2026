@@ -174,10 +174,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleDemoLogin() async {
-    _emailController.text = "normal@demo.com";
-    _passwordController.text = "123456";
-    setState(() => _selectedIdentity = "Patient");
+  Future<void> _handleDemoLogin([String? role]) async {
+    final targetRole = role ?? _selectedIdentity;
+    if (targetRole == 'Doctor') {
+      _emailController.text = "doctor@demo.com";
+      _passwordController.text = "123456";
+      setState(() => _selectedIdentity = "Doctor");
+    } else {
+      _emailController.text = "normal@demo.com";
+      _passwordController.text = "123456";
+      setState(() => _selectedIdentity = "Patient");
+    }
     await _handleLogin();
   }
 
