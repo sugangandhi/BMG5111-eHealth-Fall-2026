@@ -160,7 +160,9 @@ async def get_whatsapp_thread(phone: str = "6132616383"):
     threads = _load_threads()
     clean_p = re.sub(r'\D', '', phone) or "6132616383"
     phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
-    thread = threads.get(phone_10) or threads.get(clean_p) or threads.get(f"1{phone_10}") or threads.get("6132616383", [])
+    thread = threads.get(clean_p) or threads.get(phone_10) or threads.get(f"1{phone_10}") or []
+    if not thread and (clean_p in ["6132616383", "16132616383"]):
+        thread = threads.get("6132616383", [])
     return {"phone": clean_p, "messages": thread}
 
 @router.post('/api/whatsapp/send')
@@ -301,7 +303,10 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
 
     # 1. Append to the patient's WhatsApp thread as a verified doctor message
     threads = _load_threads()
-    thread = threads.setdefault(phone_key, [])
+    thread = threads.get(clean_p) or threads.get(phone_key)
+    if thread is None:
+        thread = []
+        threads[phone_key] = thread
     if clean_p != phone_key:
         threads[clean_p] = thread
 
@@ -700,7 +705,12 @@ async def receive_message(request: Request):
         # Save to In-App WhatsApp Thread for two-way synchronization
         try:
             threads = _load_threads()
-            thread = threads.setdefault(phone_key, [])
+            thread = threads.get(clean_p) or threads.get(phone_key)
+            if thread is None:
+                thread = []
+                threads[phone_key] = thread
+            if clean_p != phone_key:
+                threads[clean_p] = thread
             now_str = datetime.now().strftime("%I:%M %p")
             thread.append({
                 "id": int(time.time() * 1000),

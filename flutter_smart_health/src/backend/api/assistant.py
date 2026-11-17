@@ -115,7 +115,7 @@ async def get_assistant_history(patient_id: str) -> dict:
     threads = _load_ai_chat_threads()
     pid_str = str(patient_id)
     if pid_str not in threads:
-        threads[pid_str] = list(DEFAULT_AI_CHAT_SEED)
+        threads[pid_str] = []
         _save_ai_chat_threads(threads)
     return {"patient_id": pid_str, "messages": threads[pid_str]}
 

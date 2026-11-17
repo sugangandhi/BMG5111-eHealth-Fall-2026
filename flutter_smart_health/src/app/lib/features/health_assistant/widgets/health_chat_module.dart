@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../config/api_config.dart';
 import '../../../core/services/voice_dictation_helper.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/backend_api_service.dart';
@@ -18,7 +21,7 @@ class HealthChatModule extends StatefulWidget {
 }
 
 class _HealthChatMessage {
-  final String role; // 'user' | 'assistant'
+  final String role; // 'user' | 'assistant' | 'doctor'
   final String text;
   final bool isVoice;
   final DateTime timestamp;
@@ -60,14 +63,16 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   String _userPhone = "";
   bool _isDoctor = false;
   String _selectedPatientName = "Sugan";
-  String _selectedPatientId = "99211";
+  String _selectedPatientId = "6132616383";
   String _selectedPatientPhone = "6132616383";
   bool _doctorSendViaWhatsApp = true;
+  Timer? _liveSyncTimer;
+  bool _isLiveSyncing = false;
 
-  final List<Map<String, String>> _doctorPatients = [
+  List<Map<String, String>> _doctorPatients = [
     {
       "name": "Sugan",
-      "patient_id": "99211",
+      "patient_id": "6132616383",
       "phone": "6132616383",
       "info": "Pt #99211 • Essential HTN",
     },
@@ -101,6 +106,24 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         ]
       : _suggestedPrompts;
 
+  String _historyKeyFor(String phoneOrId) {
+    final clean = phoneOrId.replaceAll(RegExp(r'\D'), '');
+    final idPart = clean.isNotEmpty ? clean : phoneOrId.trim();
+    if (_isDoctor) {
+      return "doctor_chat_history_$idPart";
+    } else {
+      return "patient_chat_history_$idPart";
+    }
+  }
+
+  String get _currentChatHistoryKey {
+    if (_isDoctor) {
+      return _historyKeyFor(_selectedPatientPhone.isNotEmpty ? _selectedPatientPhone : _selectedPatientId);
+    } else {
+      return _historyKeyFor(_userPhone.isNotEmpty ? _userPhone : _patientId);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -132,21 +155,40 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final isDoctor = identity.toLowerCase() == "doctor";
 
     final pid = prefs.getInt("patient_id") ?? prefs.getString("patient_id");
+    final verified = prefs.getBool("is_whatsapp_verified") ?? false;
+    final savedPhone = prefs.getString("patient_phone") ?? "";
+
+    if (isDoctor) {
+      final savedContactsJson = prefs.getString("doctor_persisted_contacts_v2");
+      if (savedContactsJson != null && savedContactsJson.isNotEmpty) {
+        try {
+          final List<dynamic> decoded = jsonDecode(savedContactsJson);
+          final List<Map<String, String>> loaded = [];
+          for (final item in decoded) {
+            if (item is Map) {
+              loaded.add(item.map((k, v) => MapEntry(k.toString(), v.toString())));
+            }
+          }
+          if (loaded.isNotEmpty) {
+            _doctorPatients = loaded;
+            _selectedPatientId = _doctorPatients.first["patient_id"] ?? "6132616383";
+            _selectedPatientName = _doctorPatients.first["name"] ?? "Patient";
+            _selectedPatientPhone = _doctorPatients.first["phone"] ?? "6132616383";
+          }
+        } catch (e) {
+          debugPrint("[HealthChat] Error loading persisted contacts: $e");
+        }
+      }
+    }
+
     if (mounted) {
       setState(() {
         _isDoctor = isDoctor;
         if (isDoctor) {
-          _patientId = _selectedPatientId;
+          _patientId = _selectedPatientPhone.isNotEmpty ? _selectedPatientPhone : _selectedPatientId;
         } else if (pid != null) {
           _patientId = pid.toString();
         }
-      });
-    }
-
-    final verified = prefs.getBool("is_whatsapp_verified") ?? false;
-    final savedPhone = prefs.getString("patient_phone") ?? "";
-    if (mounted) {
-      setState(() {
         _isWhatsAppVerified = verified;
         _userPhone = savedPhone;
       });
@@ -162,50 +204,137 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       });
     }
 
-    // 1. First load from local SharedPreferences cache for instantaneous display
-    final cached = prefs.getString("ai_chat_cache_$_patientId");
+    // Load messages from local cache for this specific patient
+    await _loadMessagesForCurrentPatient();
+
+    // Start 2-way real-time WhatsApp sync timer for doctors
+    if (isDoctor && !isRunningInTest) {
+      _startLiveSyncTimer();
+      _syncWhatsAppThreadSilently();
+    }
+  }
+
+  Future<void> _loadMessagesForCurrentPatient() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = _currentChatHistoryKey;
+    final cached = prefs.getString(cacheKey);
     if (cached != null && cached.isNotEmpty) {
       try {
         final List<dynamic> decoded = jsonDecode(cached);
         final cachedList = decoded
             .map((m) => _HealthChatMessage.fromJson(m as Map<String, dynamic>))
             .toList();
-        if (mounted && cachedList.isNotEmpty) {
+        if (mounted) {
           setState(() {
             _messages.clear();
             _messages.addAll(cachedList);
           });
           _scrollToBottom();
+          return;
         }
       } catch (e) {
-        debugPrint("[HealthChat] Cache decode error: $e");
+        debugPrint("[HealthChat] Local history decode error: $e");
       }
-    }
-
-    // 2. Sync from backend history endpoint
-    try {
-      final backendHistory = await BackendApiService.getAssistantHistory(_patientId);
-      if (backendHistory.isNotEmpty && mounted) {
-        final serverMessages = backendHistory
-            .map((m) => _HealthChatMessage(
-                  role: m['role']?.toString() ?? 'user',
-                  text: m['text']?.toString() ?? '',
-                  isVoice: m['isVoice'] == true,
-                  timestamp: m['timestamp'] != null
-                      ? DateTime.tryParse(m['timestamp'].toString())
-                      : null,
-                ))
-            .toList();
-
+    } else {
+      if (mounted) {
         setState(() {
           _messages.clear();
-          _messages.addAll(serverMessages);
         });
-        _persistMessagesLocally();
-        _scrollToBottom();
       }
-    } catch (e) {
-      debugPrint("[HealthChat] Backend history sync error: $e");
+    }
+  }
+
+  void _startLiveSyncTimer() {
+    final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (isRunningInTest) return;
+    _liveSyncTimer?.cancel();
+    _liveSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && _isDoctor && _doctorSendViaWhatsApp && !_isLoading) {
+        _syncWhatsAppThreadSilently();
+      }
+    });
+  }
+
+  Future<void> _syncWhatsAppThreadSilently({bool showToast = false}) async {
+    if (_isLiveSyncing) return;
+    _isLiveSyncing = true;
+    try {
+      final cleanPhone = _selectedPatientPhone.replaceAll(RegExp(r'\D'), '');
+      if (cleanPhone.isEmpty) return;
+
+      final url = Uri.parse("${ApiConfig.backendBaseUrl}/api/whatsapp/threads/$cleanPhone");
+      final resp = await http.get(url).timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data is Map && data['messages'] is List) {
+          final List<dynamic> serverMsgs = data['messages'];
+          bool hasNew = false;
+
+          for (final item in serverMsgs) {
+            if (item is Map) {
+              final rawRole = item['role']?.toString().toLowerCase() ?? 'patient';
+              final text = item['text']?.toString() ?? '';
+              final senderName = item['sender_name']?.toString() ?? '';
+              if (text.isEmpty) continue;
+
+              final String mappedRole = (rawRole == 'patient' || rawRole == 'user')
+                  ? 'user'
+                  : (rawRole == 'doctor' ? 'doctor' : 'assistant');
+
+              // Deduplicate by comparing trimmed message body text
+              final bool exists = _messages.any((m) {
+                final cleanedExisting = m.text.replaceAll(RegExp(r'[\*\#\_]'), '').trim();
+                final cleanedIncoming = text.replaceAll(RegExp(r'[\*\#\_]'), '').trim();
+                return cleanedExisting.contains(cleanedIncoming) || cleanedIncoming.contains(cleanedExisting);
+              });
+
+              if (!exists) {
+                hasNew = true;
+                String formattedText;
+                if (mappedRole == 'user') {
+                  final name = senderName.isNotEmpty ? senderName : _selectedPatientName;
+                  formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
+                } else if (mappedRole == 'doctor') {
+                  formattedText = "🩺 **Dr. Patel (Outbound)**:\n\n$text";
+                } else {
+                  formattedText = "🤖 **Clinic Assistant**:\n\n$text";
+                }
+
+                _messages.add(_HealthChatMessage(
+                  role: mappedRole,
+                  text: formattedText,
+                ));
+              }
+            }
+          }
+
+          if (hasNew && mounted) {
+            setState(() {});
+            await _persistMessagesLocally();
+            _scrollToBottom();
+          }
+
+          if (showToast && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text("✅ Synced latest WhatsApp messages for $_selectedPatientName"),
+                backgroundColor: const Color(0xFF166534),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      }
+    } catch (_) {
+      // Non-blocking silent background sync
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLiveSyncing = false;
+        });
+      } else {
+        _isLiveSyncing = false;
+      }
     }
   }
 
@@ -213,9 +342,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final list = _messages.map((m) => m.toJson()).toList();
-      await prefs.setString("ai_chat_cache_$_patientId", jsonEncode(list));
+      await prefs.setString(_currentChatHistoryKey, jsonEncode(list));
     } catch (e) {
       debugPrint("[HealthChat] Error saving cache: $e");
+    }
+  }
+
+  Future<void> _saveDoctorContactsToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("doctor_persisted_contacts_v2", jsonEncode(_doctorPatients));
+    } catch (e) {
+      debugPrint("[HealthChat] Error saving contacts: $e");
     }
   }
 
@@ -224,16 +362,35 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       _messages.clear();
     });
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove("ai_chat_cache_$_patientId");
-    try {
-      await BackendApiService.clearAssistantHistory(_patientId);
-    } catch (e) {
-      debugPrint("[HealthChat] Error clearing backend history: $e");
-    }
+    await prefs.remove(_currentChatHistoryKey);
+  }
+
+  Future<void> _onDoctorPatientChanged(String newPatientId) async {
+    // 1. Persist current messages for previous patient
+    await _persistMessagesLocally();
+
+    final match = _doctorPatients.firstWhere(
+      (p) => p["patient_id"] == newPatientId,
+      orElse: () => _doctorPatients.first,
+    );
+
+    setState(() {
+      _selectedPatientId = match["patient_id"] ?? newPatientId;
+      _selectedPatientName = match["name"] ?? "Patient";
+      _selectedPatientPhone = match["phone"] ?? "6132616383";
+      _patientId = _selectedPatientPhone; // Keep ID as phone number itself
+    });
+
+    // 2. Load conversation history for newly selected patient
+    await _loadMessagesForCurrentPatient();
+
+    // 3. Immediately pull latest WhatsApp messages from backend
+    await _syncWhatsAppThreadSilently();
   }
 
   @override
   void dispose() {
+    _liveSyncTimer?.cancel();
     _voiceController.dispose();
     _controller.dispose();
     _scrollController.dispose();
@@ -621,7 +778,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         patientPhone: _selectedPatientPhone,
         message: text,
         patientName: _selectedPatientName,
-        patientId: int.tryParse(_selectedPatientId) ?? 99211,
+        patientId: int.tryParse(_selectedPatientPhone) ?? (int.tryParse(_selectedPatientId) ?? 99211),
         doctorName: "Dr. Patel",
       );
 
@@ -633,7 +790,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             text: "🩺 **Dr. Patel's Message to $_selectedPatientName**:\n\n$text\n\n*(Dispatched to WhatsApp `+$_selectedPatientPhone` • ${liveSent ? 'Delivered Live via Meta' : 'Recorded in Chart'})*",
           ));
         });
-        _persistMessagesLocally();
+        await _persistMessagesLocally();
+        _syncWhatsAppThreadSilently();
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text("✅ Dispatched message to $_selectedPatientName via WhatsApp"),
@@ -847,7 +1005,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Enter any contact or patient phone number to test sending messages directly from Dr. Patel's WhatsApp:",
+              "Enter any contact or patient phone number to permanently save and enable 2-way live WhatsApp messaging:",
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 14),
@@ -866,7 +1024,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 labelText: "Phone Number",
-                hintText: "e.g. 613-261-6383",
+                hintText: "e.g. 613-261-6383 or 1613...",
                 isDense: true,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -884,33 +1042,49 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () {
+            onPressed: () async {
               final name = nameController.text.trim();
               final rawPhone = phoneController.text.trim();
               final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
               if (phone.isEmpty) return;
               final cleanName = name.isEmpty ? "Contact ($rawPhone)" : name;
-              final newId = "custom_${DateTime.now().millisecondsSinceEpoch}";
+              // User requirement: keep ID as phone number itself
+              final newId = phone;
+
+              await _persistMessagesLocally();
+
+              final newContact = {
+                "name": cleanName,
+                "patient_id": newId,
+                "phone": phone,
+                "info": "Saved Contact • $rawPhone",
+              };
+
               setState(() {
-                _doctorPatients.insert(0, {
-                  "name": cleanName,
-                  "patient_id": newId,
-                  "phone": phone,
-                  "info": "Custom • $rawPhone",
-                });
+                _doctorPatients.removeWhere((p) => p["phone"] == phone);
+                _doctorPatients.insert(0, newContact);
                 _selectedPatientId = newId;
                 _selectedPatientName = cleanName;
                 _selectedPatientPhone = phone;
+                _patientId = phone;
               });
+
+              // Permanently persist to SharedPreferences
+              await _saveDoctorContactsToPrefs();
+
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text("✅ Added $cleanName to patient dispatch list"),
+                  content: Text("✅ Permanently saved $cleanName ($rawPhone)"),
                   backgroundColor: const Color(0xFF166534),
                 ),
               );
+
+              // Load history and sync live WhatsApp for newly added contact
+              await _loadMessagesForCurrentPatient();
+              await _syncWhatsAppThreadSilently();
             },
-            child: const Text("Add & Select"),
+            child: const Text("Save & Select"),
           ),
         ],
       ),
@@ -943,19 +1117,41 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               ),
               const SizedBox(width: 8),
               const Expanded(
-                child: Text(
-                  "Dr. Patel — Clinical Decision & Patient Dispatch",
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF075E54),
-                  ),
+                child: Row(
+                  children: [
+                    Text(
+                      "Dr. Patel — Live WhatsApp Hub",
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF075E54),
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      "🟢 2-Way Live Sync",
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF166534),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              IconButton(
+                tooltip: "Sync WhatsApp Now",
+                icon: const Icon(Icons.sync_rounded, size: 18, color: Color(0xFF075E54)),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => _syncWhatsAppThreadSilently(showToast: true),
+              ),
+              const SizedBox(width: 8),
               if (_messages.isNotEmpty)
                 IconButton(
-                  tooltip: "Clear History",
-                  icon: const Icon(Icons.refresh_rounded, size: 18, color: Color(0xFF075E54)),
+                  tooltip: "Clear History for $_selectedPatientName",
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -996,13 +1192,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                       }).toList(),
                       onChanged: (val) {
                         if (val != null) {
-                          final match = _doctorPatients.firstWhere((p) => p["patient_id"] == val);
-                          setState(() {
-                            _selectedPatientId = val;
-                            _patientId = val;
-                            _selectedPatientName = match["name"] ?? "Patient";
-                            _selectedPatientPhone = match["phone"] ?? "6132616383";
-                          });
+                          _onDoctorPatientChanged(val);
                         }
                       },
                     ),
@@ -1121,6 +1311,36 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               ),
             ),
           ),
+          const Spacer(),
+          InkWell(
+            onTap: () {
+              WhatsAppLauncherService.launchWhatsApp(
+                context: context,
+                phone: _selectedPatientPhone,
+                message: "Hello $_selectedPatientName, this is Dr. Patel following up on your health.",
+              );
+            },
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: const Color(0xFF25D366)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.open_in_new_rounded, size: 12, color: Color(0xFF166534)),
+                  SizedBox(width: 4),
+                  Text(
+                    "Open WhatsApp App",
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1145,8 +1365,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     final msg = _messages[index];
                     final isUser = msg.role == 'user';
                     final isDoctor = msg.role == 'doctor';
+                    final isOutgoing = _isDoctor ? isDoctor : isUser;
+
                     return Align(
-                      alignment: isUser || isDoctor ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1154,17 +1376,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                           maxWidth: MediaQuery.of(context).size.width * 0.82,
                         ),
                         decoration: BoxDecoration(
-                          color: isUser
-                              ? Theme.of(context).primaryColor
-                              : (isDoctor ? const Color(0xFFF0FDF4) : Colors.white),
+                          color: isOutgoing
+                              ? (_isDoctor ? const Color(0xFFF0FDF4) : Theme.of(context).primaryColor)
+                              : (isUser && _isDoctor ? const Color(0xFFF8FAFC) : Colors.white),
                           borderRadius: BorderRadius.circular(16).copyWith(
-                            bottomRight: isUser || isDoctor ? const Radius.circular(0) : const Radius.circular(16),
-                            bottomLeft: !isUser && !isDoctor ? const Radius.circular(0) : const Radius.circular(16),
+                            bottomRight: isOutgoing ? const Radius.circular(0) : const Radius.circular(16),
+                            bottomLeft: !isOutgoing ? const Radius.circular(0) : const Radius.circular(16),
                           ),
                           border: Border.all(
-                            color: isUser
-                                ? Theme.of(context).primaryColor
-                                : (isDoctor ? const Color(0xFF86EFAC) : Colors.grey.shade300),
+                            color: isOutgoing
+                                ? (_isDoctor ? const Color(0xFF86EFAC) : Theme.of(context).primaryColor)
+                                : (isUser && _isDoctor ? const Color(0xFFCBD5E1) : Colors.grey.shade300),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -1183,23 +1405,27 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                 Icon(
                                   isDoctor
                                       ? Icons.medical_services_rounded
-                                      : (isUser ? (msg.isVoice ? Icons.mic : Icons.person) : Icons.smart_toy),
+                                      : (isUser
+                                          ? (_isDoctor ? Icons.chat_bubble_rounded : (msg.isVoice ? Icons.mic : Icons.person))
+                                          : Icons.smart_toy),
                                   size: 14,
-                                  color: isUser
-                                      ? Colors.white70
-                                      : (isDoctor ? const Color(0xFF166534) : Colors.blue.shade700),
+                                  color: isOutgoing
+                                      ? (_isDoctor ? const Color(0xFF166534) : Colors.white70)
+                                      : (_isDoctor && isUser ? const Color(0xFF0284C7) : Colors.blue.shade700),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   isDoctor
                                       ? "Dr. Patel (Attending Physician)"
-                                      : (isUser ? (msg.isVoice ? "You (Voice Scribe)" : "You") : "PrimeCare AI"),
+                                      : (isUser
+                                          ? (_isDoctor ? "$_selectedPatientName (WhatsApp)" : (msg.isVoice ? "You (Voice Scribe)" : "You"))
+                                          : "PrimeCare AI"),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: isUser
-                                        ? Colors.white70
-                                        : (isDoctor ? const Color(0xFF166534) : Colors.blue.shade700),
+                                    color: isOutgoing
+                                        ? (_isDoctor ? const Color(0xFF166534) : Colors.white70)
+                                        : (_isDoctor && isUser ? const Color(0xFF0369A1) : Colors.blue.shade700),
                                   ),
                                 ),
                                 if (msg.isVoice) ...[
@@ -1219,7 +1445,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            isUser
+                            isOutgoing && !_isDoctor
                                 ? Text(
                                     msg.text,
                                     style: const TextStyle(
