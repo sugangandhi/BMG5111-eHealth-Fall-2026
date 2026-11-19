@@ -15,6 +15,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from starlette.requests import Request
 
 from src.backend.api.assistant import router as assistant_router
@@ -193,6 +194,73 @@ def create_app() -> FastAPI:
     async def get_apk_version():
         """Expose latest published Android APK release metadata for 1-tap in-app updates."""
         return await _fetch_apk_version_metadata()
+
+    @app.get("/privacy", response_class=HTMLResponse)
+    @app.get("/privacy.html", response_class=HTMLResponse)
+    async def privacy_policy():
+        """Public Privacy Policy required for Meta Developer App Review and Publishing."""
+        html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - e-Hospital SmartHealth</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #2D3748; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+        h1 { color: #1A365D; border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; }
+        h2 { color: #2B6CB0; margin-top: 24px; }
+        p, li { font-size: 15px; }
+        .card { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 20px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>e-Hospital SmartHealth Privacy Policy</h1>
+    <p><strong>Effective Date:</strong> November 18, 2026</p>
+    <p>This Privacy Policy describes how e-Hospital SmartHealth and its Clinical Care AI Assistant ("we", "our", or "us") collect, use, and protect your personal information and health telemetry.</p>
+    
+    <h2>1. Information We Collect</h2>
+    <ul>
+        <li><strong>Health & Telemetry Data:</strong> Vital signs (blood pressure, heart rate, blood glucose), symptoms, and medication updates communicated through our WhatsApp Clinical channel or app.</li>
+        <li><strong>Contact Information:</strong> Your mobile phone number used for WhatsApp care communication and appointment notifications.</li>
+    </ul>
+
+    <h2>2. How We Use Information</h2>
+    <ul>
+        <li>To provide clinical triage assistance and record vitals directly into your patient health chart.</li>
+        <li>To facilitate appointment scheduling and medication reminders with your care team (Dr. Patel).</li>
+        <li>We do <strong>not</strong> sell, rent, or share personal health information with third-party advertisers.</li>
+    </ul>
+
+    <h2>3. Data Protection & Security</h2>
+    <p>All clinical data transmissions are encrypted using industry-standard TLS/HTTPS protocols in compliance with healthcare data protection standards (PIPEDA / HIPAA).</p>
+
+    <h2>4. Data Deletion & Inquiries</h2>
+    <p>Patients may request deletion of their communication history or patient chart by contacting our clinical support desk at <a href="mailto:support@ehospital.org">support@ehospital.org</a>.</p>
+
+    <div class="card">
+        <p><strong>Contact Us:</strong> e-Hospital PrimeCare Clinical Network &bull; BMG5111 eHealth &bull; Ottawa, ON, Canada</p>
+    </div>
+</body>
+</html>"""
+        return HTMLResponse(content=html_content, status_code=200)
+
+    @app.get("/terms", response_class=HTMLResponse)
+    async def terms_of_service():
+        """Public Terms of Service."""
+        html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Terms of Service - e-Hospital SmartHealth</title>
+    <style>body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #2D3748; }</style>
+</head>
+<body>
+    <h1>Terms of Service</h1>
+    <p><strong>Effective Date:</strong> November 18, 2026</p>
+    <p>e-Hospital SmartHealth provides AI-assisted clinical triage and telemetry logging. This service does not replace emergency medical care. In case of life-threatening emergencies, call 911 immediately.</p>
+</body>
+</html>"""
+        return HTMLResponse(content=html_content, status_code=200)
 
     app.include_router(auth_router)
     app.include_router(assistant_router)
