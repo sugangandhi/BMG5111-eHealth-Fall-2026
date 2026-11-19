@@ -18,6 +18,29 @@ WHATSAPP_VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', 'ehospital_verified_2
 EHOSPITAL_BASE_URL = os.getenv('EHOSPITAL_BASE_URL', 'https://aetab8pjmb.us-east-1.awsapprunner.com').rstrip('/')
 PROCESSED_WAMS: set[str] = set()
 
+WHATSAPP_FORWARDING_WEBHOOK_URL = os.getenv('WHATSAPP_FORWARDING_WEBHOOK_URL', '')
+
+async def _forward_webhook_if_configured(raw_body_bytes: bytes, content_type: str):
+    """
+    Dual-Webhook Dispatcher:
+    Forwards a copy of incoming WhatsApp webhook payloads to a secondary service (e.g. teammate's local tunnel).
+    Runs asynchronously and non-blocking so e-Hospital's processing and response to Meta are never delayed.
+    """
+    target_url = os.getenv("WHATSAPP_FORWARDING_WEBHOOK_URL", "").strip()
+    if not target_url:
+        return
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=4.0, verify=False) as client:
+            headers = {
+                "Content-Type": content_type or "application/json",
+                "User-Agent": "eHospital-Dual-Webhook-Forwarder/1.0"
+            }
+            r = await client.post(target_url, content=raw_body_bytes, headers=headers)
+            print(f"[Webhook Dual-Forwarder] Forwarded to {target_url} -> Status {r.status_code}")
+    except Exception as e:
+        print(f"[Webhook Dual-Forwarder] Target {target_url} skipped/unreachable: {e}")
+
 def _get_threads_file() -> Path:
     p1 = Path(__file__).resolve().parents[1] / "whatsapp_threads.json"
     p2 = Path(__file__).resolve().parents[3] / "backend" / "whatsapp_threads.json"
@@ -1008,6 +1031,29 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
     print(f"[WhatsApp Simulated Outbound to {to_phone}]: {message}")
     return True
 
+class SetForwardingUrlRequest(BaseModel):
+    target_url: str
+
+@router.get('/api/whatsapp/forwarding-status')
+async def get_forwarding_status():
+    """Returns the active dual-webhook forwarding configuration."""
+    target = os.getenv("WHATSAPP_FORWARDING_WEBHOOK_URL", "").strip()
+    return {
+        "forwarding_enabled": bool(target),
+        "target_url": target or None
+    }
+
+@router.post('/api/whatsapp/set-forwarding-url')
+async def set_forwarding_url(req: SetForwardingUrlRequest):
+    """Dynamically sets or updates the secondary webhook URL to forward incoming messages to."""
+    clean_target = req.target_url.strip()
+    os.environ["WHATSAPP_FORWARDING_WEBHOOK_URL"] = clean_target
+    return {
+        "status": "success",
+        "forwarding_enabled": bool(clean_target),
+        "target_url": clean_target or None
+    }
+
 @router.post('/webhook/whatsapp')
 @router.post('/webhook/whatsapp/')
 @router.post('/webhooks/whatsapp')
@@ -1016,6 +1062,14 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
 @router.post('/api/whatsapp/webhook/')
 async def receive_message(request: Request):
     """Receives inbound messages from Meta WhatsApp Cloud API or Twilio."""
+    # 0. Asynchronously forward raw incoming webhook to secondary service if configured
+    try:
+        raw_body_bytes = await request.body()
+        content_type = request.headers.get('content-type', 'application/json')
+        asyncio.create_task(_forward_webhook_if_configured(raw_body_bytes, content_type))
+    except Exception as ex_fwd:
+        print(f"[Webhook Forwarding Task Note]: {ex_fwd}")
+
     sender_phone = None
     text_body = None
     msg_id = None
