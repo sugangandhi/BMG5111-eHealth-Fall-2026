@@ -41,6 +41,69 @@ async def _forward_webhook_if_configured(raw_body_bytes: bytes, content_type: st
     except Exception as e:
         print(f"[Webhook Dual-Forwarder] Target {target_url} skipped/unreachable: {e}")
 
+# ==============================================================================
+# Meta Coexistence & Doctor Takeover State Registry
+# Allows human doctors (via mobile WhatsApp Business App or Doctor Portal)
+# and AI triage bot to coexist seamlessly on the same phone number (+1 613-404-5586).
+# When the doctor responds, AI triage is temporarily silenced for that patient.
+# ==============================================================================
+DOCTOR_SILENCE_UNTIL: Dict[str, float] = {}
+DOCTOR_SILENCE_DEFAULT_MINUTES: int = 30
+
+def set_doctor_silence(phone: str, minutes: int = DOCTOR_SILENCE_DEFAULT_MINUTES) -> None:
+    """Activates doctor takeover silence for a patient, pausing automated AI replies."""
+    clean_p = re.sub(r'\D', '', phone)
+    if not clean_p:
+        return
+    phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+    expiry = time.time() + (minutes * 60)
+    DOCTOR_SILENCE_UNTIL[clean_p] = expiry
+    DOCTOR_SILENCE_UNTIL[phone_10] = expiry
+    DOCTOR_SILENCE_UNTIL[f"1{phone_10}"] = expiry
+    exp_str = datetime.fromtimestamp(expiry).strftime('%I:%M %p')
+    print(f"[Coexistence Takeover] Doctor active on +{phone_10}. AI bot silenced for {minutes}m (until {exp_str}).")
+
+def is_doctor_silence_active(phone: str) -> bool:
+    """Checks whether the AI bot should remain silent because a doctor is actively handling the patient."""
+    clean_p = re.sub(r'\D', '', phone)
+    if not clean_p:
+        return False
+    phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+    now = time.time()
+    exp = (
+        DOCTOR_SILENCE_UNTIL.get(clean_p)
+        or DOCTOR_SILENCE_UNTIL.get(phone_10)
+        or DOCTOR_SILENCE_UNTIL.get(f"1{phone_10}")
+        or 0.0
+    )
+    return now < exp
+
+def get_doctor_silence_remaining(phone: str) -> int:
+    """Returns the remaining seconds of doctor takeover silence for a patient."""
+    clean_p = re.sub(r'\D', '', phone)
+    if not clean_p:
+        return 0
+    phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+    now = time.time()
+    exp = (
+        DOCTOR_SILENCE_UNTIL.get(clean_p)
+        or DOCTOR_SILENCE_UNTIL.get(phone_10)
+        or DOCTOR_SILENCE_UNTIL.get(f"1{phone_10}")
+        or 0.0
+    )
+    return max(0, int(exp - now))
+
+def clear_doctor_silence(phone: str) -> None:
+    """Manually clears doctor takeover silence, resuming AI triage immediately."""
+    clean_p = re.sub(r'\D', '', phone)
+    if not clean_p:
+        return
+    phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+    DOCTOR_SILENCE_UNTIL.pop(clean_p, None)
+    DOCTOR_SILENCE_UNTIL.pop(phone_10, None)
+    DOCTOR_SILENCE_UNTIL.pop(f"1{phone_10}", None)
+    print(f"[Coexistence Takeover] Doctor silence cleared for +{phone_10}. AI triage resumed.")
+
 def _get_threads_file() -> Path:
     p1 = Path(__file__).resolve().parents[1] / "whatsapp_threads.json"
     p2 = Path(__file__).resolve().parents[3] / "backend" / "whatsapp_threads.json"
@@ -614,16 +677,73 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     # 5. Dispatch live via Meta WhatsApp Cloud API to patient's real WhatsApp
     meta_sent = send_whatsapp_reply(clean_p, outbound_text)
 
+    # 6. Activate Doctor Takeover Silence Window for 30 minutes
+    set_doctor_silence(clean_p, 30)
+
     return {
         "success": True,
         "delivered_live": meta_sent,
         "template_dispatched": template_dispatched,
         "window_open": has_patient_reply,
         "waiting_for_reply": not has_patient_reply,
+        "doctor_silence_active": True,
+        "doctor_silence_minutes": 30,
         "message": doctor_msg,
         "patient_phone": clean_p,
         "patient_name": req.patient_name,
         "thread": thread
+    }
+
+class DoctorSilenceControlRequest(BaseModel):
+    phone: str = "6132616383"
+    minutes: Optional[int] = 30
+
+@router.get('/api/doctor/coexistence-status')
+@router.get('/api/doctor/coexistence-status/{phone}')
+async def get_coexistence_status(phone: str = "6132616383"):
+    """Returns current coexistence state and doctor silence status for a patient phone."""
+    clean_p = re.sub(r'\D', '', phone) or "6132616383"
+    active = is_doctor_silence_active(clean_p)
+    remaining = get_doctor_silence_remaining(clean_p)
+    return {
+        "coexistence_enabled": True,
+        "phone": clean_p,
+        "doctor_takeover_active": active,
+        "silence_remaining_seconds": remaining,
+        "silence_remaining_minutes": round(remaining / 60.0, 1),
+        "ai_bot_status": "paused_for_doctor" if active else "active_24_7",
+        "supported_modes": [
+            "WhatsApp Business Mobile App (smb_message_echoes)",
+            "e-Hospital Clinical Doctor Portal (/api/doctor/dispatch-patient-message)"
+        ]
+    }
+
+@router.post('/api/doctor/resume-ai-triage')
+async def resume_ai_triage(req: DoctorSilenceControlRequest):
+    """Manually ends doctor takeover silence and immediately re-enables automated AI triage for a patient."""
+    clean_p = re.sub(r'\D', '', req.phone) or "6132616383"
+    clear_doctor_silence(clean_p)
+    return {
+        "success": True,
+        "phone": clean_p,
+        "doctor_takeover_active": False,
+        "ai_bot_status": "active_24_7",
+        "message": f"AI Triage bot successfully resumed for +{clean_p}."
+    }
+
+@router.post('/api/doctor/pause-ai-triage')
+async def pause_ai_triage(req: DoctorSilenceControlRequest):
+    """Manually pauses automated AI triage for a specified number of minutes (default 30)."""
+    clean_p = re.sub(r'\D', '', req.phone) or "6132616383"
+    mins = req.minutes or 30
+    set_doctor_silence(clean_p, mins)
+    return {
+        "success": True,
+        "phone": clean_p,
+        "doctor_takeover_active": True,
+        "silence_minutes": mins,
+        "ai_bot_status": "paused_for_doctor",
+        "message": f"AI Triage bot paused for +{clean_p} for {mins} minutes."
     }
 
 @router.post('/api/doctor/initialize-whatsapp-channel')
@@ -1091,6 +1211,84 @@ async def receive_message(request: Request):
                         contacts = val.get('contacts', [])
                         if contacts and contacts[0].get('profile', {}).get('name'):
                             sender_name = contacts[0]['profile']['name']
+
+                        # ------------------------------------------------------
+                        # 1. Handle Doctor Outbound Echoes (Meta Coexistence)
+                        # When the doctor types and sends a message from their
+                        # mobile WhatsApp Business App, Meta triggers message_echoes.
+                        # ------------------------------------------------------
+                        echoes = val.get('message_echoes', [])
+                        if echoes:
+                            for echo in echoes:
+                                echo_id = echo.get('id')
+                                if echo_id:
+                                    if echo_id in PROCESSED_WAMS:
+                                        continue
+                                    PROCESSED_WAMS.add(echo_id)
+                                    if len(PROCESSED_WAMS) > 10000:
+                                        PROCESSED_WAMS.clear()
+
+                                target_to = echo.get('to')
+                                e_type = echo.get('type')
+                                echo_text = ""
+                                if e_type == 'text':
+                                    echo_text = echo.get('text', {}).get('body', '')
+                                elif e_type in ['audio', 'voice']:
+                                    echo_text = "🎙️ [Doctor Voice Note from WhatsApp Mobile]"
+                                elif not echo_text:
+                                    echo_text = str(echo.get('text', {}).get('body', ''))
+
+                                if target_to and echo_text:
+                                    clean_tgt = re.sub(r'\D', '', target_to)
+                                    tgt_key = clean_tgt[-10:] if len(clean_tgt) >= 10 else clean_tgt
+                                    now_str = datetime.now().strftime("%I:%M %p")
+                                    print(f"[WhatsApp Coexistence Echo] Doctor messaged {clean_tgt} via mobile app: \"{echo_text}\"")
+
+                                    # Activate 30-minute doctor takeover silence
+                                    set_doctor_silence(clean_tgt, 30)
+
+                                    # Save to SQLite clinical DB
+                                    try:
+                                        from src.backend.services.clinical_database import add_chat_message, upsert_patient
+                                        upsert_patient(clean_tgt, name=f"Patient {tgt_key[-4:]}", doctor_id="Dr. Sugan")
+                                        add_chat_message(
+                                            patient_phone=clean_tgt,
+                                            sender_role="doctor",
+                                            sender_name="Dr. Sugan (WhatsApp Mobile)",
+                                            text=echo_text,
+                                            status="sent",
+                                            custom_msg_id=echo_id,
+                                        )
+                                    except Exception as ex_echo_db:
+                                        print(f"[Clinical DB Echo Save Error]: {ex_echo_db}")
+
+                                    # Save to In-App WhatsApp Thread
+                                    try:
+                                        threads = _load_threads()
+                                        thread = threads.get(clean_tgt) or threads.get(tgt_key)
+                                        if thread is None:
+                                            thread = []
+                                            threads[tgt_key] = thread
+                                        if clean_tgt != tgt_key:
+                                            threads[clean_tgt] = thread
+
+                                        thread.append({
+                                            "id": int(time.time() * 1000),
+                                            "message_id": echo_id,
+                                            "role": "doctor",
+                                            "sender_name": "Dr. Sugan (WhatsApp Mobile)",
+                                            "text": echo_text,
+                                            "action_type": "mobile_app_coexistence",
+                                            "patient_phone": clean_tgt,
+                                            "timestamp": now_str
+                                        })
+                                        _save_threads(threads)
+                                    except Exception as ex_echo_t:
+                                        print(f"[Thread Echo Save Error]: {ex_echo_t}")
+
+                        # ------------------------------------------------------
+                        # 2. Handle Inbound Messages (Patient incoming messages)
+                        # ------------------------------------------------------
                         msgs = val.get('messages', [])
                         if msgs:
                             msg = msgs[0]
@@ -1138,6 +1336,10 @@ async def receive_message(request: Request):
         except Exception as e:
             print(f"[WhatsApp Inbound Webhook Parse Error]: {e}")
 
+    # If this was a pure doctor echo event without patient inbound, return OK immediately
+    if not sender_phone and not text_body:
+        return PlainTextResponse("OK", status_code=200)
+
     if sender_phone and text_body:
         print(f"[WhatsApp Inbound] Phone={sender_phone} Name={sender_name}: \"{text_body}\"")
         vitals = extract_vitals_from_text(text_body)
@@ -1156,6 +1358,62 @@ async def receive_message(request: Request):
 
         if vitals:
             post_vitals_to_central_cloud(patient_id, vitals, text_body)
+
+        # ------------------------------------------------------------------
+        # Coexistence Doctor Silence Check
+        # If doctor takeover silence is active, save vitals and patient message
+        # but suppress automated AI triage so the doctor can chat directly.
+        # ------------------------------------------------------------------
+        silence_active = is_doctor_silence_active(clean_p)
+        remaining_secs = get_doctor_silence_remaining(clean_p)
+        emergency_keywords = ["chest pain", "cannot breathe", "can't breathe", "911", "severe bleeding", "unconscious", "stroke", "heart attack"]
+        is_emergency = any(kw in text_body.lower() for kw in emergency_keywords)
+
+        if silence_active and not is_emergency:
+            print(f"[WhatsApp Coexistence] Doctor Takeover Active for {clean_p} ({remaining_secs}s remaining). Telemetry saved to EHR; AI bot silenced so Doctor can reply directly.")
+            # Record patient message into clinical DB and thread without triggering automated AI reply
+            try:
+                from src.backend.services.clinical_database import add_chat_message, upsert_patient
+                is_voice = "🎙️ [Voice Note]" in (text_body or "")
+                upsert_patient(clean_p, name=sender_name, doctor_id="Dr. Sugan")
+                add_chat_message(
+                    patient_phone=clean_p,
+                    sender_role="patient",
+                    sender_name=sender_name,
+                    text=text_body,
+                    vitals=vitals,
+                    is_voice=is_voice,
+                    status="delivered",
+                    custom_msg_id=msg_id,
+                )
+            except Exception as ex_db:
+                print(f"[Clinical DB Inbound Save Error]: {ex_db}")
+
+            try:
+                threads = _load_threads()
+                thread = threads.get(clean_p) or threads.get(phone_key)
+                if thread is None:
+                    thread = []
+                    threads[phone_key] = thread
+                if clean_p != phone_key:
+                    threads[clean_p] = thread
+                now_str = datetime.now().strftime("%I:%M %p")
+                if not any(m.get("message_id") == msg_id for m in thread if msg_id):
+                    thread.append({
+                        "id": int(time.time() * 1000),
+                        "message_id": msg_id,
+                        "role": "patient",
+                        "sender_name": sender_name,
+                        "text": text_body,
+                        "vitals": vitals,
+                        "timestamp": now_str
+                    })
+                    _save_threads(threads)
+            except Exception as e:
+                print(f"[WhatsApp Inbound Save Error]: {e}")
+
+            # Suppress AI reply so human doctor has dedicated 1-on-1 communication with patient
+            return PlainTextResponse("OK", status_code=200)
 
         triage = clinical_triage_engine(patient_id, text_body, vitals, patient_name=sender_name, patient_phone=clean_p)
         reply = triage.get("reply_text") or (
