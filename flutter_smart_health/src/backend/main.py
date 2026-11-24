@@ -204,7 +204,7 @@ def create_app() -> FastAPI:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy - e-Hospital SmartHealth</title>
+    <title>Privacy Policy - MaxAssist</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #2D3748; max-width: 800px; margin: 40px auto; padding: 0 20px; }
         h1 { color: #1A365D; border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; }
@@ -214,9 +214,9 @@ def create_app() -> FastAPI:
     </style>
 </head>
 <body>
-    <h1>e-Hospital SmartHealth Privacy Policy</h1>
+    <h1>MaxAssist Privacy Policy</h1>
     <p><strong>Effective Date:</strong> November 18, 2026</p>
-    <p>This Privacy Policy describes how e-Hospital SmartHealth and its Clinical Care AI Assistant ("we", "our", or "us") collect, use, and protect your personal information and health telemetry.</p>
+    <p>This Privacy Policy describes how MaxAssist and its Clinical Care AI Assistant ("we", "our", or "us") collect, use, and protect your personal information and health telemetry.</p>
     
     <h2>1. Information We Collect</h2>
     <ul>
@@ -227,7 +227,7 @@ def create_app() -> FastAPI:
     <h2>2. How We Use Information</h2>
     <ul>
         <li>To provide clinical triage assistance and record vitals directly into your patient health chart.</li>
-        <li>To facilitate appointment scheduling and medication reminders with your care team (Dr. Patel).</li>
+        <li>To facilitate appointment scheduling and medication reminders with your care team (Dr. Sugan).</li>
         <li>We do <strong>not</strong> sell, rent, or share personal health information with third-party advertisers.</li>
     </ul>
 
@@ -235,10 +235,10 @@ def create_app() -> FastAPI:
     <p>All clinical data transmissions are encrypted using industry-standard TLS/HTTPS protocols in compliance with healthcare data protection standards (PIPEDA / HIPAA).</p>
 
     <h2>4. Data Deletion & Inquiries</h2>
-    <p>Patients may request deletion of their communication history or patient chart by contacting our clinical support desk at <a href="mailto:support@ehospital.org">support@ehospital.org</a>.</p>
+    <p>Patients may request deletion of their communication history or patient chart by contacting our clinical support desk at <a href="mailto:support@maxassist.health">support@maxassist.health</a>.</p>
 
     <div class="card">
-        <p><strong>Contact Us:</strong> e-Hospital PrimeCare Clinical Network &bull; BMG5111 eHealth &bull; Ottawa, ON, Canada</p>
+        <p><strong>Contact Us:</strong> MaxAssist Clinical Network &bull; Intelligent Digital Solutions &bull; Ottawa, ON, Canada</p>
     </div>
 </body>
 </html>"""
@@ -251,13 +251,13 @@ def create_app() -> FastAPI:
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Terms of Service - e-Hospital SmartHealth</title>
+    <title>Terms of Service - MaxAssist</title>
     <style>body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #2D3748; }</style>
 </head>
 <body>
     <h1>Terms of Service</h1>
     <p><strong>Effective Date:</strong> November 18, 2026</p>
-    <p>e-Hospital SmartHealth provides AI-assisted clinical triage and telemetry logging. This service does not replace emergency medical care. In case of life-threatening emergencies, call 911 immediately.</p>
+    <p>MaxAssist provides AI-assisted clinical triage and telemetry logging. This service does not replace emergency medical care. In case of life-threatening emergencies, call 911 immediately.</p>
 </body>
 </html>"""
         return HTMLResponse(content=html_content, status_code=200)

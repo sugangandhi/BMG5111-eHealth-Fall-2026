@@ -126,8 +126,8 @@ def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
             {
                 "id": 1791309686445,
                 "role": "bot",
-                "sender_name": "e-Hospital Clinical Care Team",
-                "text": "Hello! Welcome to the PrimeCare & e-Hospital WhatsApp Clinic channel. You can message us your symptoms, query your care plan, or log daily vitals here.",
+                "sender_name": "MaxAssist Clinical Care Team",
+                "text": "Hello! Welcome to the MaxAssist WhatsApp Clinic channel. You can message us your symptoms, query your care plan, or log daily vitals here.",
                 "vitals": {},
                 "timestamp": "09:00 AM"
             },
@@ -142,7 +142,7 @@ def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
             {
                 "id": 1791309972076,
                 "role": "bot",
-                "sender_name": "e-Hospital Clinical Care Team",
+                "sender_name": "MaxAssist Clinical Care Team",
                 "text": "Thank you! Your telemetry readings (BP: 125/82, HR: 72 BPM) have been recorded directly into your patient chart and synced with the Central AWS Clinical Network.",
                 "vitals": {},
                 "timestamp": "09:16 AM"
@@ -360,10 +360,10 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
 
     # Also forward via Meta Cloud API directly to the user's real WhatsApp
     if is_greeting:
-        outbound = f"🩺 *e-Hospital Clinic*\n\n{triage_result['reply_text']}"
+        outbound = f"🩺 *MaxAssist Clinic*\n\n{triage_result['reply_text']}"
     else:
         outbound = (
-            f"🩺 *e-Hospital Clinic Response*\n\n"
+            f"🩺 *MaxAssist Clinic Response*\n\n"
             f"Regarding your message: \"{req.message}\"\n\n"
             f"{triage_result['reply_text']}"
         )
@@ -451,7 +451,7 @@ async def view_database_dashboard():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinical Records Database Inspector | Dr. Sugan</title>
+    <title>MaxAssist Database Inspector | Dr. Sugan</title>
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }}
         body {{ background-color: #f8fafc; color: #1e293b; padding: 24px; }}
@@ -485,7 +485,7 @@ async def view_database_dashboard():
 <body>
     <div class="header">
         <div class="title">
-            <h1>🏥 Clinical EMR Database Inspector</h1>
+            <h1>🏥 MaxAssist Database Inspector</h1>
             <p>Persistent SQLite Database (WAL Mode) • Attached Doctor: <strong>Dr. Sugan</strong> • <code>{dump.get('db_path')}</code></p>
         </div>
         <div style="display: flex; gap: 8px;">
@@ -653,11 +653,11 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     # 3. Format official clinic WhatsApp outbound message
     patient_display = req.patient_name or "Patient"
     outbound_text = (
-        f"🩺 *e-Hospital Clinic — Message from {doctor_title}*\n\n"
+        f"🩺 *MaxAssist Clinic — Message from {doctor_title}*\n\n"
         f"Hello {patient_display},\n\n"
         f"{req.message}\n\n"
         f"— {doctor_title}, Attending Physician\n"
-        f"🏥 *e-Hospital PrimeCare Clinic*"
+        f"🏥 *MaxAssist Clinic*"
     )
 
     # 4. Check if patient has replied (opening Meta's 24h Customer Service Window)
@@ -802,11 +802,11 @@ async def initialize_whatsapp_channel(req: InitializeChannelRequest):
         }
         thread.append(doc_msg)
         formatted_outbound = (
-            f"🩺 *e-Hospital Clinic — Message from {doctor_title}*\n\n"
+            f"🩺 *MaxAssist Clinic — Message from {doctor_title}*\n\n"
             f"Hello {patient_display},\n\n"
             f"{welcome_text}\n\n"
             f"— {doctor_title}, Attending Physician\n"
-            f"🏥 *e-Hospital PrimeCare Clinic*"
+            f"🏥 *MaxAssist Clinic*"
         )
         send_whatsapp_reply(clean_p, formatted_outbound)
 
@@ -1417,7 +1417,7 @@ async def receive_message(request: Request):
 
         triage = clinical_triage_engine(patient_id, text_body, vitals, patient_name=sender_name, patient_phone=clean_p)
         reply = triage.get("reply_text") or (
-            "Hello! Your message has been received by your e-Hospital clinic care team and synchronized with your clinical chart."
+            "Hello! Your message has been received by your MaxAssist clinic care team and synchronized with your clinical chart."
         )
 
         # Save to Persistent Clinical Database

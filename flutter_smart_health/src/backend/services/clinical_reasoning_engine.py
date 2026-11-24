@@ -415,16 +415,16 @@ def evaluate_clinical_case(
 
             # Format official appointment notification
             outbound_friend_msg = (
-                f"🩺 *e-Hospital Clinic — Caregiver & Contact Notification*\n\n"
+                f"🩺 *MaxAssist Clinic — Caregiver & Contact Notification*\n\n"
                 f"Hello! This is an official care coordination notification on behalf of Dr. Sugan regarding {patient_first_name}.\n\n"
-                f"{patient_first_name} has an appointment scheduled at e-Hospital PrimeCare Clinic with Dr. Sugan:\n"
+                f"{patient_first_name} has an appointment scheduled at MaxAssist Clinic with Dr. Sugan:\n"
                 f"• 📅 Date & Time: Today at 03:00 PM\n"
                 f"• 📍 Location: 100 Clinic Way, Suite 402, Ottawa ON\n"
                 f"• 👨‍⚕️ Provider: Dr. Sugan, Attending Physician\n"
                 f"• 📋 Reference: #APT-195\n\n"
                 f"Please reply to this WhatsApp line if you have any questions or require care coordination.\n"
                 f"— Dr. Sugan, Attending Physician\n"
-                f"🏥 *e-Hospital PrimeCare Clinic*"
+                f"🏥 *MaxAssist Clinic*"
             )
             try:
                 from src.backend.api.whatsapp import send_whatsapp_reply
@@ -510,7 +510,7 @@ def evaluate_clinical_case(
                 f"✅ **APPOINTMENT CONFIRMED WITH DR. SUGAN**:\n\n"
                 f"• 📅 **Date & Time**: {extracted_time_str}\n"
                 f"• 👨‍⚕️ **Attending Physician**: Dr. Sugan, MD\n"
-                f"• 🏥 **Location**: e-Hospital PrimeCare Clinic, Suite 402, Ottawa ON\n"
+                f"• 🏥 **Location**: MaxAssist Clinic, Suite 402, Ottawa ON\n"
                 f"• 📋 **Reference ID**: #APT-{apt_id}\n"
                 f"• 🩺 **Clinical Records**: Synced with Central AWS EHR\n\n"
                 f"Your chart and recent vitals have been attached for Dr. Sugan's review.\n\n"
@@ -608,7 +608,7 @@ def evaluate_clinical_case(
             triage_level = "ELEVATED_VITALS"
             doctor_notice = "ℹ️ Telemetry Recorded: Mild Stage 1 Blood Pressure"
             reply_text = (
-                f"ℹ️ **TELEMETRY RECORDED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been synchronized with your central eHospital clinical chart. "
+                f"ℹ️ **TELEMETRY RECORDED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been synchronized with your MaxAssist clinical chart. "
                 f"Readings are slightly above target under Canadian guidelines. Continue monitoring your daily readings."
             )
             actions = [
@@ -620,7 +620,7 @@ def evaluate_clinical_case(
             triage_level = "NORMAL_VITALS"
             doctor_notice = "✅ Telemetry Verified & Synced with AWS Cloud Network"
             reply_text = (
-                f"✅ **TELEMETRY SYNCED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been verified and recorded in your central eHospital clinical chart. "
+                f"✅ **TELEMETRY SYNCED**: Your vital readings (BP: {vitals.get('blood_pressure')}, HR: {vitals.get('heart_rate')} BPM) have been verified and recorded in your MaxAssist clinical chart. "
                 "All readings are stable within target range under Canadian clinical guidelines.\n\n"
                 "Would you like to schedule your next routine health checkup with Dr. Sugan?"
             )
@@ -669,9 +669,9 @@ def evaluate_clinical_case(
                 turns_str = "\n".join(recent_turns)
 
                 sys_prompt = (
-                    "You are Smart Health AI Assistant, a professional, empathetic clinical AI assistant supporting patients in Ontario, Canada.\n"
+                    "You are MaxAssist AI Assistant, a professional, empathetic clinical AI assistant supporting patients in Ontario, Canada.\n"
                     f"You are speaking with patient {patient_first_name}.\n"
-                    "Attending Physician: Dr. Sugan (e-Hospital PrimeCare Clinic).\n"
+                    "Attending Physician: Dr. Sugan (MaxAssist Clinic).\n"
                     f"{recent_vitals_summary}\n"
                     f"Recent Chat History:\n{turns_str}\n\n"
                     "Guidelines:\n"

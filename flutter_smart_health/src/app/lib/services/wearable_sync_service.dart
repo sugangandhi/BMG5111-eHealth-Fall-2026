@@ -1256,7 +1256,7 @@ String buildHealthConnectDiagnosticMessage({
       const <String>[];
   final missing = <String>{...missingCoreLabels, ...nativeMissing}.toList();
   if (missing.isNotEmpty) {
-    return 'eHospital is missing Health Connect read access for: ${missing.join(', ')}. Tap "Permissions" above -> eHospital -> Allow all, then tap Sync again.';
+    return 'MaxAssist is missing Health Connect read access for: ${missing.join(', ')}. Tap "Permissions" above -> MaxAssist -> Allow all, then tap Sync again.';
   }
 
   if (nativeDiagnostics == null || nativeDiagnostics['available'] == false) {
@@ -1284,11 +1284,11 @@ String buildHealthConnectDiagnosticMessage({
             );
       labels.add('$label (${entry.value})');
     }
-    return 'eHospital has Health Connect permissions and found records from ${labels.join(', ')} in the last 29 days, but no readable vitals matched $appLabel. Check $appLabel -> Settings -> Connected services -> Health Connect and ensure "Allow to write" is ON.';
+    return 'MaxAssist has Health Connect permissions and found records from ${labels.join(', ')} in the last 29 days, but no readable vitals matched $appLabel. Check $appLabel -> Settings -> Connected services -> Health Connect and ensure "Allow to write" is ON.';
   }
 
   if (records29d == 0) {
-    return 'eHospital has Health Connect read permissions, but Health Connect currently holds 0 records from $appLabel in the last 29 days. Open Health Connect -> App permissions -> $appLabel and ensure "Allow to write" is ON, then open Samsung Health Home once to sync before tapping Sync here.';
+    return 'MaxAssist has Health Connect read permissions, but Health Connect currently holds 0 records from $appLabel in the last 29 days. Open Health Connect -> App permissions -> $appLabel and ensure "Allow to write" is ON, then open Samsung Health Home once to sync before tapping Sync here.';
   }
 
   return fallbackMessage;
@@ -1486,7 +1486,7 @@ Future<WearableSourceReadResult> _readHealthSample({
     return WearableSourceReadResult.failure(
       source: source,
       message: isAndroid
-          ? 'Health Connect read permission is required for: $missingText. Tap "Permissions" above -> eHospital -> Allow all.'
+          ? 'Health Connect read permission is required for: $missingText. Tap "Permissions" above -> MaxAssist -> Allow all.'
           : 'Health permission was denied.',
     );
   }

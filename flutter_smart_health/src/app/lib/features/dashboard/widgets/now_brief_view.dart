@@ -176,7 +176,7 @@ class NowBriefView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
-                    "eHospital Active",
+                    "MaxAssist Active",
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,

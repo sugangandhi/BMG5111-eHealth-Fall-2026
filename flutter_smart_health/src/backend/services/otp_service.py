@@ -150,7 +150,7 @@ async def generate_and_send_whatsapp_otp(phone: str) -> dict[str, Any]:
     }
 
     message_body = (
-        f"🩺 *e-Hospital Login Verification*\n\n"
+        f"🩺 *MaxAssist Login Verification*\n\n"
         f"Your verification code is: *{code}*\n\n"
         f"⏱️ Valid for {OTP_VALIDITY_MINUTES} minutes.\n"
         f"Never share this code with anyone."

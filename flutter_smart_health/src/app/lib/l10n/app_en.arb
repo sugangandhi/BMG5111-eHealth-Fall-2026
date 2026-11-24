@@ -1,10 +1,10 @@
 {
   "@@locale": "en",
-  "appTitle": "Smart Health App",
+  "appTitle": "MaxAssist",
   "@appTitle": {
     "description": "Application title used by MaterialApp."
   },
-  "brandName": "Smart Health",
+  "brandName": "MaxAssist",
   "@brandName": {
     "description": "Primary product name displayed in the login header."
   },
@@ -16,7 +16,7 @@
   "@signInTitle": {
     "description": "Login form title."
   },
-  "signInSubtitle": "Enter your eHospital credentials to continue",
+  "signInSubtitle": "Enter your MaxAssist credentials to continue",
   "@signInSubtitle": {
     "description": "Login form helper text."
   },
@@ -46,7 +46,7 @@
   },
   "invalidCredentialsError": "Invalid email or password. Please try again.",
   "@invalidCredentialsError": {
-    "description": "Login error when eHospital credentials are rejected."
+    "description": "Login error when MaxAssist credentials are rejected."
   },
   "unsupportedIdentityError": "This identity signed in successfully, but patient features require a Patient login.",
   "@unsupportedIdentityError": {
@@ -56,7 +56,7 @@
   "@privacyNoticeTitle": {
     "description": "Title of the local AI privacy notice dialog."
   },
-  "privacyNoticeBody": "This app uses an OpenAI GPT model via the connected eHospital AI backend (or your configured AI provider) to process your health data and generate insights. By continuing, you agree that your metrics may be processed by the configured AI service. Please review our Privacy Policy for more details.",
+  "privacyNoticeBody": "This app uses an OpenAI GPT model via the connected MaxAssist AI backend (or your configured AI provider) to process your health data and generate insights. By continuing, you agree that your metrics may be processed by the configured AI service. Please review our Privacy Policy for more details.",
   "@privacyNoticeBody": {
     "description": "Body copy of the local AI privacy notice dialog."
   },
@@ -164,7 +164,7 @@
   "@clinicalWearableDataTitle": {
     "description": "Settings tile title for data sources."
   },
-  "clinicalWearableDataSubtitle": "eHospital patient database (institutional)",
+  "clinicalWearableDataSubtitle": "MaxAssist patient database (institutional)",
   "@clinicalWearableDataSubtitle": {
     "description": "Settings tile subtitle for clinical and wearable data."
   },
@@ -196,7 +196,7 @@
   "@sourceClinicalTitle": {
     "description": "Data source item title for clinical records."
   },
-  "sourceClinicalDescription": "Sourced from the eHospital institutional patient database. Includes ECG results, diabetes analysis, heart disease risk, stroke prediction, lab tests, and diagnosis records provided by the connected hospital system.",
+  "sourceClinicalDescription": "Sourced from the MaxAssist institutional patient database. Includes ECG results, diabetes analysis, heart disease risk, stroke prediction, lab tests, and diagnosis records provided by the connected hospital system.",
   "@sourceClinicalDescription": {
     "description": "Data source description for clinical records."
   },
@@ -861,7 +861,7 @@
   "@deviceManagerTitle": {
     "description": "Device connection screen title."
   },
-  "deviceInfoTitle": "Mobile Health Apps -> eHospital",
+  "deviceInfoTitle": "Mobile Health Apps -> MaxAssist",
   "@deviceInfoTitle": {
     "description": "Device screen info banner title."
   },
@@ -869,7 +869,7 @@
   "@deviceInfoBody": {
     "description": "Device screen info banner body."
   },
-  "patientsInDb": "{count} Patients in eHospital DB",
+  "patientsInDb": "{count} Patients in MaxAssist DB",
   "@patientsInDb": {
     "description": "Device screen patient count section label.",
     "placeholders": {
@@ -977,11 +977,11 @@
       }
     }
   },
-  "appleHealthPipeline": "Samsung Health / Health Connect / Apple Health -> eHospital DB",
+  "appleHealthPipeline": "Samsung Health / Health Connect / Apple Health -> MaxAssist DB",
   "@appleHealthPipeline": {
     "description": "Simulation dialog data pipeline label."
   },
-  "uploadCompleteMessage": "{total} days uploaded to eHospital.",
+  "uploadCompleteMessage": "{total} days uploaded to MaxAssist.",
   "@uploadCompleteMessage": {
     "description": "Simulation dialog completion message.",
     "placeholders": {
@@ -1191,7 +1191,7 @@
   "@syncAppleWatchButton": {
     "description": "Floating action button label for mobile health sync."
   },
-  "logVitalsTitle": "Log Vitals to eHospital",
+  "logVitalsTitle": "Log Vitals to MaxAssist",
   "@logVitalsTitle": {
     "description": "Manual vitals bottom sheet title."
   },
@@ -1219,15 +1219,15 @@
   "@sendingButton": {
     "description": "Button label while sending manual vitals."
   },
-  "sendToEHospitalButton": "Send to eHospital",
+  "sendToEHospitalButton": "Send to MaxAssist",
   "@sendToEHospitalButton": {
-    "description": "Button label for sending manual vitals to eHospital."
+    "description": "Button label for sending manual vitals to MaxAssist."
   },
   "enterAtLeastOneValue": "Enter at least one value",
   "@enterAtLeastOneValue": {
     "description": "Validation snackbar when all manual vitals fields are empty."
   },
-  "vitalsSavedMessage": "Vitals saved to eHospital DB",
+  "vitalsSavedMessage": "Vitals saved to MaxAssist DB",
   "@vitalsSavedMessage": {
     "description": "Snackbar after manual vitals are saved."
   },
@@ -1235,7 +1235,7 @@
   "@clinicalReferenceTitle": {
     "description": "Vitals clinical reference card title."
   },
-  "eHospitalSourceLabel": "eHospital",
+  "eHospitalSourceLabel": "MaxAssist",
   "@eHospitalSourceLabel": {
     "description": "Short eHospital source label."
   },

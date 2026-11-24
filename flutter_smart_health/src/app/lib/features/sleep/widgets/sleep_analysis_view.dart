@@ -141,7 +141,7 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
       );
       if (saved != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Synced $saved night(s) to eHospital')),
+          SnackBar(content: Text('Synced $saved night(s) to MaxAssist')),
         );
       }
     } catch (_) {}
@@ -327,7 +327,7 @@ class _SleepAnalysisViewState extends State<SleepAnalysisView>
         const SizedBox(height: 8),
         const Center(
           child: Text(
-            'Synced to eHospital automatically once daily',
+            'Synced to MaxAssist automatically once daily',
             style: TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ),

@@ -44,7 +44,7 @@ class LoginHeader extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const Text(
-            "Sign in to eHospital",
+            "Sign in to MaxAssist",
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 25,

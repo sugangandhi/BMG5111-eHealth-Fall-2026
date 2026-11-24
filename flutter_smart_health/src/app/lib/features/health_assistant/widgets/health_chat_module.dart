@@ -846,7 +846,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   void _openInternalWhatsApp() {
     if (_isWhatsAppVerified) {
-      _launchWhatsApp("Hello Doctor, I am chatting from the eHospital mobile app.");
+      _launchWhatsApp("Hello Doctor, I am chatting from the MaxAssist mobile app.");
     } else {
       _showWhatsAppVerificationModal();
     }
@@ -1275,14 +1275,14 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (!_isDoctor) return;
     final current = _controller.text.trim();
     final defaultPattern = RegExp(
-      r'^Hello .*, this is .* from e-Hospital PrimeCare Clinic following up on your care plan\.$',
+      r'^Hello .*, this is .* from MaxAssist Clinic following up on your care plan\.$',
     );
     final hasNoPatientMessage = !_messages.any((m) => m.role == 'user');
 
     if (current.isEmpty || defaultPattern.hasMatch(current)) {
       if (hasNoPatientMessage) {
         _controller.text =
-            "Hello $_selectedPatientName, this is $_doctorName from e-Hospital PrimeCare Clinic following up on your care plan.";
+            "Hello $_selectedPatientName, this is $_doctorName from MaxAssist Clinic following up on your care plan.";
       }
     }
   }
@@ -1291,7 +1291,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final cleanPhone = _selectedPatientPhone.replaceAll(RegExp(r'\D'), '');
     final msg = _controller.text.trim().isNotEmpty
         ? _controller.text.trim()
-        : "Hello $_selectedPatientName, this is $_doctorName from e-Hospital PrimeCare Clinic.";
+        : "Hello $_selectedPatientName, this is $_doctorName from MaxAssist Clinic.";
     await WhatsAppLauncherService.launchWhatsApp(
       context: context,
       phone: cleanPhone.isNotEmpty ? cleanPhone : "16134045586",
@@ -2099,7 +2099,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    "Physician: $_doctorName • e-Hospital",
+                    "Physician: $_doctorName • MaxAssist",
                     style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 14),
@@ -2293,7 +2293,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     ),
                   const SizedBox(height: 6),
                   Text(
-                    "e-Hospital Clinical Suite • $_doctorName",
+                    "MaxAssist Clinical Suite • $_doctorName",
                     style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
                   ),
                 ],

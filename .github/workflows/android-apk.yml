@@ -117,10 +117,10 @@ jobs:
         with:
           tag_name: android-latest
           target_commitish: ${{ github.sha }}
-          name: eHospital Android Latest
+          name: MaxAssist Android Latest
           make_latest: true
           prerelease: false
-          body: "Automated Android APK release for eHospital Smart Health."
+          body: "Automated Android APK release for MaxAssist."
           files: |
             ${{ runner.temp }}/release-assets/app-release.apk
             ${{ runner.temp }}/release-assets/apk-version.json

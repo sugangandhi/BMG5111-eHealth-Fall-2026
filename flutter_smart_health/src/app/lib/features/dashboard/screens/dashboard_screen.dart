@@ -154,7 +154,7 @@ class _PatientDashboardState extends State<PatientDashboard>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      "eHospital",
+                      "MaxAssist",
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
