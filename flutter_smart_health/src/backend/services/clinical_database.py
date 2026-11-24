@@ -63,6 +63,16 @@ def init_db() -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_phone ON patient_chat_messages(patient_phone);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_created ON patient_chat_messages(created_at);")
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS doctor_whatsapp_config (
+                doctor_id TEXT PRIMARY KEY,
+                whatsapp_phone TEXT NOT NULL,
+                verified INTEGER DEFAULT 1,
+                verified_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+        """)
+
 def clean_phone_number(phone: str) -> str:
     """Standardizes phone numbers to pure digits."""
     return re.sub(r'\D', '', phone or '').strip()
@@ -328,6 +338,76 @@ def add_chat_message(
         "created_at": now_iso,
     }
 
+def get_doctor_whatsapp_config(doctor_id: str = "Dr. Sugan") -> Optional[Dict[str, Any]]:
+    """Retrieves the doctor's verified WhatsApp agent number from persistent storage."""
+    init_db()
+    doc_key = (doctor_id or "Dr. Sugan").strip()
+    with get_db() as conn:
+        cursor = conn.execute(
+            """
+            SELECT doctor_id, whatsapp_phone, verified, verified_at, updated_at
+            FROM doctor_whatsapp_config
+            WHERE doctor_id = ? LIMIT 1;
+            """,
+            (doc_key,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            cursor = conn.execute(
+                """
+                SELECT doctor_id, whatsapp_phone, verified, verified_at, updated_at
+                FROM doctor_whatsapp_config
+                ORDER BY datetime(updated_at) DESC LIMIT 1;
+                """
+            )
+            row = cursor.fetchone()
+        if row:
+            return {
+                "doctor_id": row["doctor_id"],
+                "whatsapp_phone": row["whatsapp_phone"],
+                "verified": bool(row["verified"]),
+                "verified_at": row["verified_at"],
+                "updated_at": row["updated_at"],
+            }
+        return None
+
+
+def upsert_doctor_whatsapp_config(
+    whatsapp_phone: str,
+    doctor_id: str = "Dr. Sugan",
+) -> Dict[str, Any]:
+    """Saves or updates the doctor's verified WhatsApp agent number permanently."""
+    init_db()
+    clean_p = clean_phone_number(whatsapp_phone)
+    if len(clean_p) == 10:
+        clean_p = "1" + clean_p
+    if len(clean_p) < 10:
+        raise ValueError("Invalid WhatsApp phone number")
+
+    doc_key = (doctor_id or "Dr. Sugan").strip()
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO doctor_whatsapp_config (doctor_id, whatsapp_phone, verified, verified_at, updated_at)
+            VALUES (?, ?, 1, ?, ?)
+            ON CONFLICT(doctor_id) DO UPDATE SET
+                whatsapp_phone = excluded.whatsapp_phone,
+                verified = 1,
+                verified_at = excluded.verified_at,
+                updated_at = excluded.updated_at;
+            """,
+            (doc_key, clean_p, now_iso, now_iso),
+        )
+    return {
+        "doctor_id": doc_key,
+        "whatsapp_phone": clean_p,
+        "verified": True,
+        "verified_at": now_iso,
+        "updated_at": now_iso,
+    }
+
+
 def get_database_dump() -> Dict[str, Any]:
     """Returns a full inspection dump of the clinical database for monitoring and verification."""
     init_db()
@@ -347,10 +427,17 @@ def get_database_dump() -> Dict[str, Any]:
         """)
         messages = [dict(r) for r in cursor_m.fetchall()]
 
+        cursor_c = conn.execute("""
+            SELECT doctor_id, whatsapp_phone, verified, verified_at, updated_at
+            FROM doctor_whatsapp_config;
+        """)
+        wa_configs = [dict(r) for r in cursor_c.fetchall()]
+
         return {
             "db_path": str(DB_PATH),
             "total_patients": len(patients),
             "total_messages": len(messages),
+            "doctor_whatsapp_configs": wa_configs,
             "patients": patients,
             "messages": messages,
         }

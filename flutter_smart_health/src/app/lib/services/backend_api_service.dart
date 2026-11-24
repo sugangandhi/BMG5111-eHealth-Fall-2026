@@ -49,6 +49,57 @@ class BackendApiService {
     return {'success': false};
   }
 
+  static Future<Map<String, dynamic>> getDoctorWhatsAppConfig({
+    String doctorId = 'Dr. Sugan',
+  }) async {
+    try {
+      final res = await _apiClient.getJson(
+        '/api/doctor/whatsapp-config?doctor_id=${Uri.encodeComponent(doctorId)}',
+      );
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (_) {}
+    return {'configured': false, 'verified': false, 'whatsapp_phone': ''};
+  }
+
+  static Future<Map<String, dynamic>> requestDoctorWhatsAppOtp({
+    required String phone,
+    String doctorId = 'Dr. Sugan',
+  }) async {
+    try {
+      final res = await _apiClient.postJson(
+        '/api/doctor/whatsapp-config/request-otp',
+        {'phone': phone, 'doctor_id': doctorId},
+      );
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+    return {'success': false, 'error': 'Unable to request verification code.'};
+  }
+
+  static Future<Map<String, dynamic>> verifyDoctorWhatsAppOtp({
+    required String phone,
+    required String code,
+    String doctorId = 'Dr. Sugan',
+  }) async {
+    try {
+      final res = await _apiClient.postJson(
+        '/api/doctor/whatsapp-config/verify',
+        {'phone': phone, 'code': code, 'doctor_id': doctorId},
+      );
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      return {'verified': false, 'error': 'Connection error: $e'};
+    }
+    return {'verified': false, 'error': 'Verification failed.'};
+  }
+
   static Future<List<Map<String, dynamic>>> getDoctorPatients() async {
     try {
       final res = await _apiClient.getJson('/api/doctor/patients');

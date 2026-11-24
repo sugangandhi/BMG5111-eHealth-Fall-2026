@@ -66,6 +66,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   late final VoiceDictationController _voiceController;
   String _patientId = "1";
   bool _isWhatsAppVerified = false;
+  bool _doctorWhatsAppVerified = false;
+  String _doctorClinicWhatsApp = "";
   String _userPhone = "";
   bool _isDoctor = false;
   String _doctorName = "Dr. Sugan";
@@ -232,6 +234,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       selected = match;
     }
 
+    final bool doctorWaVerified = prefs.getBool("doctor_whatsapp_verified_v1") ?? false;
+    final String doctorWaPhone = prefs.getString("doctor_whatsapp_phone_v1") ?? "";
+
     if (mounted) {
       setState(() {
         _isDoctor = isDoctor;
@@ -246,13 +251,23 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           _patientId = pid.toString();
         }
         _isWhatsAppVerified = verified;
-        _userPhone = isDoctor ? (savedPhone.isNotEmpty ? savedPhone : "16134045586") : savedPhone;
+        _doctorWhatsAppVerified = doctorWaVerified;
+        _doctorClinicWhatsApp = doctorWaPhone.isNotEmpty ? doctorWaPhone : "16134045586";
+        _userPhone = isDoctor
+            ? (doctorWaPhone.isNotEmpty ? doctorWaPhone : (savedPhone.isNotEmpty ? savedPhone : "16134045586"))
+            : savedPhone;
       });
     }
 
-    // Prompt WhatsApp phone verification on first launch ONLY for patients, NOT doctors
+    // Prompt one-time WhatsApp verification on first launch per device
     final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
-    if (!isDoctor && !verified && !isRunningInTest) {
+    if (isDoctor && !doctorWaVerified && !isRunningInTest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_doctorWhatsAppVerified) {
+          _showDoctorWhatsAppOnboardingModal(allowCancel: false);
+        }
+      });
+    } else if (!isDoctor && !verified && !isRunningInTest) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_isWhatsAppVerified) {
           _showWhatsAppVerificationModal();
@@ -2102,7 +2117,54 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     "Physician: $_doctorName • MaxAssist",
                     style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
+                  // Linked WhatsApp Agent Line Card with intentional Change option
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF15803D)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "AI Agent WhatsApp Line",
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
+                              ),
+                              Text(
+                                _doctorClinicWhatsApp.isNotEmpty ? "+$_doctorClinicWhatsApp" : "Not Linked",
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _showDoctorWhatsAppOnboardingModal(allowCancel: true);
+                          },
+                          child: const Text(
+                            "Change",
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF075E54)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   // New Conversation Button (Gemini Style)
                   SizedBox(
                     width: double.infinity,
@@ -2824,6 +2886,286 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showDoctorWhatsAppOnboardingModal({bool allowCancel = false}) async {
+    final phoneCtrl = TextEditingController(
+      text: allowCancel && _doctorClinicWhatsApp.isNotEmpty ? "+$_doctorClinicWhatsApp" : "",
+    );
+    final codeCtrl = TextEditingController();
+    bool otpSent = false;
+    bool busy = false;
+    String? errorMsg;
+    String? infoMsg;
+    String? fallbackCode;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: allowCancel,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return PopScope(
+              canPop: allowCancel,
+              child: AlertDialog(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.chat_rounded, color: Color(0xFF075E54), size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            allowCancel ? "Change Agent WhatsApp" : "Link MaxAssist WhatsApp",
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                          ),
+                          const Text(
+                            "One-time setup for this device",
+                            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Enter the WhatsApp number you want MaxAssist AI Agent to operate on your behalf. It can be your clinic phone or any other mobile number.",
+                        style: TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.4),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: phoneCtrl,
+                        enabled: !otpSent && !busy,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          labelText: "WhatsApp Number (with country code)",
+                          hintText: "+1 613-404-5586",
+                          prefixIcon: const Icon(Icons.phone_rounded, size: 18, color: Color(0xFF075E54)),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                      if (otpSent) ...[
+                        const SizedBox(height: 12),
+                        if (infoMsg != null)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF86EFAC)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  infoMsg!,
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF166534), height: 1.35),
+                                ),
+                                if (fallbackCode != null && fallbackCode!.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        "Confirmation Code: ",
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: const Color(0xFF22C55E)),
+                                        ),
+                                        child: Text(
+                                          fallbackCode!,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1.5,
+                                            color: Color(0xFF075E54),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: codeCtrl,
+                          enabled: !busy,
+                          keyboardType: TextInputType.number,
+                          maxLength: 6,
+                          decoration: InputDecoration(
+                            labelText: "6-Digit Verification Code",
+                            hintText: "123456",
+                            counterText: "",
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: Color(0xFF075E54)),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                        ),
+                      ],
+                      if (errorMsg != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          errorMsg!,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                actions: [
+                  if (allowCancel)
+                    TextButton(
+                      onPressed: busy ? null : () => Navigator.of(ctx).pop(),
+                      child: const Text("Cancel", style: TextStyle(color: Color(0xFF64748B))),
+                    ),
+                  if (otpSent)
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () {
+                              setModalState(() {
+                                otpSent = false;
+                                codeCtrl.clear();
+                                errorMsg = null;
+                                infoMsg = null;
+                                fallbackCode = null;
+                              });
+                            },
+                      child: const Text("Edit Number", style: TextStyle(color: Color(0xFF075E54))),
+                    ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF075E54),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                    ),
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            final rawPhone = phoneCtrl.text.trim();
+                            final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
+                            if (digits.length < 10) {
+                              setModalState(() => errorMsg = "Enter a valid number with country code (e.g. +1 613-404-5586).");
+                              return;
+                            }
+
+                            if (!otpSent) {
+                              setModalState(() {
+                                busy = true;
+                                errorMsg = null;
+                              });
+                              final res = await BackendApiService.requestDoctorWhatsAppOtp(
+                                phone: rawPhone,
+                                doctorId: _doctorName,
+                              );
+                              if (!ctx.mounted) return;
+                              if (res['success'] == true) {
+                                setModalState(() {
+                                  busy = false;
+                                  otpSent = true;
+                                  infoMsg = res['message']?.toString() ?? "Verification code sent.";
+                                  fallbackCode = res['fallback_code']?.toString();
+                                });
+                              } else {
+                                setModalState(() {
+                                  busy = false;
+                                  errorMsg = res['error']?.toString() ?? "Could not send verification code.";
+                                });
+                              }
+                            } else {
+                              final code = codeCtrl.text.trim();
+                              if (code.length != 6) {
+                                setModalState(() => errorMsg = "Please enter the 6-digit verification code.");
+                                return;
+                              }
+                              setModalState(() {
+                                busy = true;
+                                errorMsg = null;
+                              });
+                              final res = await BackendApiService.verifyDoctorWhatsAppOtp(
+                                phone: rawPhone,
+                                code: code,
+                                doctorId: _doctorName,
+                              );
+                              if (!ctx.mounted) return;
+                              if (res['verified'] == true) {
+                                final verifiedPhone = (res['whatsapp_phone'] ?? digits).toString();
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.setBool("doctor_whatsapp_verified_v1", true);
+                                await prefs.setString("doctor_whatsapp_phone_v1", verifiedPhone);
+                                if (mounted) {
+                                  setState(() {
+                                    _doctorWhatsAppVerified = true;
+                                    _doctorClinicWhatsApp = verifiedPhone;
+                                    _userPhone = verifiedPhone;
+                                  });
+                                }
+                                if (ctx.mounted) Navigator.of(ctx).pop();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("✅ MaxAssist AI Agent activated on +$verifiedPhone"),
+                                      backgroundColor: const Color(0xFF166534),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                setModalState(() {
+                                  busy = false;
+                                  errorMsg = res['error']?.toString() ?? "Invalid code. Please try again.";
+                                });
+                              }
+                            }
+                          },
+                    child: busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(
+                            otpSent ? "Verify & Activate Agent" : "Send Verification Code",
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

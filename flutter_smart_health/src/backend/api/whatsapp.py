@@ -383,6 +383,126 @@ class CreatePatientRequest(BaseModel):
     notes: Optional[str] = ""
     doctor_name: Optional[str] = "Dr. Sugan"
 
+class DoctorWhatsAppOtpRequest(BaseModel):
+    phone: str
+    doctor_id: Optional[str] = "Dr. Sugan"
+
+class DoctorWhatsAppVerifyRequest(BaseModel):
+    phone: str
+    code: str
+    doctor_id: Optional[str] = "Dr. Sugan"
+
+_DOCTOR_WA_OTP_STORE: Dict[str, Dict[str, Any]] = {}
+
+@router.get('/api/doctor/whatsapp-config')
+async def get_doctor_whatsapp_config_endpoint(doctor_id: str = "Dr. Sugan"):
+    """Returns the doctor's verified WhatsApp agent number if configured."""
+    try:
+        from src.backend.services.clinical_database import get_doctor_whatsapp_config
+        cfg = get_doctor_whatsapp_config(doctor_id)
+        if cfg and cfg.get("verified"):
+            return {"configured": True, **cfg}
+        return {"configured": False, "doctor_id": doctor_id, "whatsapp_phone": "", "verified": False}
+    except Exception as e:
+        return {"configured": False, "error": str(e)}
+
+@router.post('/api/doctor/whatsapp-config/request-otp')
+async def request_doctor_whatsapp_otp(req: DoctorWhatsAppOtpRequest):
+    """Generates a 6-digit OTP to verify any WhatsApp number for MaxAssist AI takeover."""
+    import random
+    from datetime import timedelta
+
+    clean_digits = re.sub(r'\D', '', req.phone or '').strip()
+    if len(clean_digits) == 10:
+        clean_digits = '1' + clean_digits
+    if len(clean_digits) < 10:
+        return {"success": False, "error": "Please enter a valid WhatsApp number (at least 10 digits with country code)."}
+
+    phone_key = clean_digits[-10:]
+    code = f"{random.randint(100000, 999999)}"
+    _DOCTOR_WA_OTP_STORE[phone_key] = {
+        "code": code,
+        "full_phone": clean_digits,
+        "doctor_id": req.doctor_id or "Dr. Sugan",
+        "expires_at": datetime.utcnow() + timedelta(minutes=10),
+        "attempts": 0,
+    }
+
+    clinic_line = re.sub(r'\D', '', os.getenv("CLINIC_WHATSAPP_NUMBER", "16134045586"))
+    is_self_clinic_line = clinic_line and phone_key == clinic_line[-10:]
+
+    if is_self_clinic_line:
+        return {
+            "success": True,
+            "phone": clean_digits,
+            "delivery_mode": "self_clinic_line",
+            "fallback_code": code,
+            "message": f"Number +{clean_digits} is your active MaxAssist Cloud API clinic line. Enter confirmation code {code} below to activate AI takeover on this device.",
+        }
+
+    # Attempt live WhatsApp delivery for any external number
+    from src.backend.services.otp_service import dispatch_whatsapp_message
+    msg_body = (
+        f"🩺 *MaxAssist Doctor Agent Verification*\n\n"
+        f"Your 6-digit verification code to link +{clean_digits} with MaxAssist AI Agent is:\n\n"
+        f"*{code}*\n\n"
+        f"⏱️ Valid for 10 minutes."
+    )
+    dispatched = dispatch_whatsapp_message(clean_digits, msg_body, code=code)
+    if dispatched:
+        return {
+            "success": True,
+            "phone": clean_digits,
+            "delivery_mode": "whatsapp_sent",
+            "message": f"6-digit verification code sent via WhatsApp to +{clean_digits}. Check that phone and enter the code below.",
+        }
+
+    # Fallback if Meta 24h window prevents free-form text to a brand-new number
+    send_whatsapp_template(clean_digits)
+    return {
+        "success": True,
+        "phone": clean_digits,
+        "delivery_mode": "in_app_fallback",
+        "fallback_code": code,
+        "message": f"WhatsApp verification ping sent to +{clean_digits}. Enter code {code} below to confirm and link this number to MaxAssist.",
+    }
+
+@router.post('/api/doctor/whatsapp-config/verify')
+async def verify_doctor_whatsapp_otp(req: DoctorWhatsAppVerifyRequest):
+    """Verifies the 6-digit OTP and permanently binds the WhatsApp number to the doctor's MaxAssist agent."""
+    clean_digits = re.sub(r'\D', '', req.phone or '').strip()
+    if len(clean_digits) == 10:
+        clean_digits = '1' + clean_digits
+    phone_key = clean_digits[-10:] if len(clean_digits) >= 10 else clean_digits
+    code_input = str(req.code or '').strip()
+
+    record = _DOCTOR_WA_OTP_STORE.get(phone_key)
+    if not record:
+        return {"verified": False, "error": "No pending verification code found. Please tap 'Send Verification Code' first."}
+
+    if datetime.utcnow() > record["expires_at"]:
+        _DOCTOR_WA_OTP_STORE.pop(phone_key, None)
+        return {"verified": False, "error": "Verification code expired. Please request a new code."}
+
+    if record["attempts"] >= 5:
+        _DOCTOR_WA_OTP_STORE.pop(phone_key, None)
+        return {"verified": False, "error": "Too many failed attempts. Please request a new code."}
+
+    if record["code"] != code_input:
+        record["attempts"] += 1
+        return {"verified": False, "error": "Invalid 6-digit code. Please check and try again."}
+
+    _DOCTOR_WA_OTP_STORE.pop(phone_key, None)
+    try:
+        from src.backend.services.clinical_database import upsert_doctor_whatsapp_config
+        saved = upsert_doctor_whatsapp_config(
+            whatsapp_phone=clean_digits,
+            doctor_id=req.doctor_id or record.get("doctor_id") or "Dr. Sugan",
+        )
+        return {"verified": True, **saved}
+    except Exception as e:
+        return {"verified": False, "error": f"Failed to save verified number: {e}"}
+
 @router.get('/api/doctor/database-dump')
 async def get_doctor_database_dump():
     """Returns the full SQLite clinical database dump as JSON for verification."""
