@@ -389,6 +389,7 @@ class DoctorAiAgentRequest(BaseModel):
     owner_id: Optional[str] = ""
     timezone_offset_minutes: Optional[int] = -300
     history: Optional[List[Dict[str, str]]] = None
+    contacts: Optional[List[Dict[str, Any]]] = None
 
 def generate_tts_voice_ogg(text: str) -> Optional[bytes]:
     """Generates a WhatsApp-native OGG/Opus voice note via OpenAI TTS (tts-1)."""
@@ -539,6 +540,7 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
         add_chat_message,
         get_patients,
         list_scheduled_tasks,
+        upsert_patient,
     )
 
     instruction = (req.instruction or "").strip()
@@ -549,6 +551,21 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
     doctor_name = req.doctor_name or "Dr. Sugan"
     owner_id = (req.owner_id or "").strip()
     patients = get_patients(owner_id=owner_id or None)
+
+    # Merge device-saved contacts (so Render free-tier restarts never lose contact lookup)
+    seen_phones = {re.sub(r'\D', '', str(p.get("phone") or ""))[-10:] for p in patients if p.get("phone")}
+    for c in (req.contacts or []):
+        c_phone = re.sub(r'\D', '', str(c.get("phone") or c.get("patient_id") or ""))
+        c_name = str(c.get("name") or "").strip()
+        if len(c_phone) >= 10:
+            key10 = c_phone[-10:]
+            if key10 not in seen_phones:
+                seen_phones.add(key10)
+                patients.append({"name": c_name or f"Patient {key10[-4:]}", "phone": c_phone})
+                try:
+                    upsert_patient(c_phone, name=c_name or f"Patient {key10[-4:]}", doctor_id=doctor_name, owner_id=owner_id)
+                except Exception:
+                    pass
 
     # 1. List scheduled tasks
     if re.search(r'\b(show|list|view|my)\b.*\b(schedule|scheduled|task|tasks|reminder|reminders)\b', low):
@@ -562,42 +579,15 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
             "reply": "Here are your pending scheduled WhatsApp messages:\n\n" + "\n".join(lines),
         }
 
-    # 2. Schedule a message for later
-    is_schedule = bool(re.search(
-        r'\b(schedule|remind|reminder|tomorrow|tmrw|next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|in\s+\d+\s*(?:min|minute|minutes|hr|hour|hours)|at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm))\b',
+    # Detect explicit scheduling vs immediate voice/text send
+    is_explicit_schedule = bool(re.search(
+        r'\b(schedule|remind|reminder|in\s+\d+\s*(?:min|minute|minutes|hr|hour|hours)|at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)|(?:tomorrow|tmrw)\s+at\b)\b',
         low,
     ))
-    if is_schedule:
-        target_phone, target_name = _match_contact_in_instruction(instruction, patients)
-        if not target_phone:
-            names = ", ".join([str(p.get("name", "")) for p in patients[:5] if p.get("name")])
-            hint = f" Your saved contacts: {names}." if names else " Please add a contact first."
-            return {
-                "success": True,
-                "action": "clarify",
-                "reply": f"Who should I schedule this message for? Include their name or phone number.{hint}",
-            }
-        sched = await parse_and_schedule_doctor_task(ParseScheduleTaskRequest(
-            instruction=instruction,
-            doctor_name=doctor_name,
-            owner_id=owner_id,
-            default_patient_phone=target_phone,
-            default_patient_name=target_name,
-            timezone_offset_minutes=req.timezone_offset_minutes or -300,
-        ))
-        if sched.get("success") and sched.get("task"):
-            t = sched["task"]
-            return {
-                "success": True,
-                "action": "scheduled",
-                "task": t,
-                "reply": f"Scheduled for **{t['patient_name']}** on **{t['scheduled_display']}**:\n\"{t['message_text']}\"",
-            }
-        return {"success": True, "action": "error", "reply": sched.get("error") or "Could not schedule that task."}
-
-    # 3. Send an AI Voice Message to a contact
     is_voice_cmd = bool(re.search(r'\b(voice\s*(?:message|note|msg)|audio\s*(?:message|note)|speak\s+to)\b', low))
-    if is_voice_cmd:
+
+    # 2. Send an AI Voice Message immediately (unless explicitly scheduled for a specific time)
+    if is_voice_cmd and not is_explicit_schedule:
         target_phone, target_name = _match_contact_in_instruction(instruction, patients)
         if not target_phone:
             names = ", ".join([str(p.get("name", "")) for p in patients[:5] if p.get("name")])
@@ -628,6 +618,35 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
             "message_text": spoken_text,
             "reply": f"🎙️ Sent {label} to **{target_name}**: \"{spoken_text}\"",
         }
+
+    # 3. Schedule a message for later
+    if is_explicit_schedule:
+        target_phone, target_name = _match_contact_in_instruction(instruction, patients)
+        if not target_phone:
+            names = ", ".join([str(p.get("name", "")) for p in patients[:5] if p.get("name")])
+            hint = f" Your saved contacts: {names}." if names else " Please add a contact first."
+            return {
+                "success": True,
+                "action": "clarify",
+                "reply": f"Who should I schedule this message for? Include their name or phone number.{hint}",
+            }
+        sched = await parse_and_schedule_doctor_task(ParseScheduleTaskRequest(
+            instruction=instruction,
+            doctor_name=doctor_name,
+            owner_id=owner_id,
+            default_patient_phone=target_phone,
+            default_patient_name=target_name,
+            timezone_offset_minutes=req.timezone_offset_minutes or -300,
+        ))
+        if sched.get("success") and sched.get("task"):
+            t = sched["task"]
+            return {
+                "success": True,
+                "action": "scheduled",
+                "task": t,
+                "reply": f"Scheduled for **{t['patient_name']}** on **{t['scheduled_display']}**:\n\"{t['message_text']}\"",
+            }
+        return {"success": True, "action": "error", "reply": sched.get("error") or "Could not schedule that task."}
 
     # 4. Send a Direct Text Message to a contact
     is_send_cmd = bool(re.search(r'\b(send|text|message|msg|tell|whatsapp)\b', low))

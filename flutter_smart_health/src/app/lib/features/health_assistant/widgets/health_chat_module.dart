@@ -3134,6 +3134,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         doctorName: _doctorName,
         ownerId: _deviceOwnerId,
         history: history.length > 8 ? history.sublist(history.length - 8) : history,
+        contacts: _doctorPatients,
       );
 
       final replyText = (res['reply'] ?? res['error'] ?? "Done.").toString().trim();

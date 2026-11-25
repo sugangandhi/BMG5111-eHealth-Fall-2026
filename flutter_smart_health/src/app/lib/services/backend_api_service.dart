@@ -192,6 +192,7 @@ class BackendApiService {
     required String doctorName,
     String ownerId = '',
     List<Map<String, String>> history = const [],
+    List<Map<String, String>> contacts = const [],
   }) async {
     try {
       final tzOffset = DateTime.now().timeZoneOffset.inMinutes;
@@ -203,6 +204,7 @@ class BackendApiService {
           'owner_id': ownerId,
           'timezone_offset_minutes': tzOffset,
           'history': history,
+          'contacts': contacts,
         },
       );
       if (res is Map) return Map<String, dynamic>.from(res);
