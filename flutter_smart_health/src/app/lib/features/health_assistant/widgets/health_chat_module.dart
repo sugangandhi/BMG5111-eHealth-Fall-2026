@@ -25,6 +25,7 @@ class _HealthChatMessage {
   final String role; // 'user' | 'assistant' | 'doctor'
   final String text;
   final bool isVoice;
+  final String status; // 'sending' | 'sent' | 'delivered'
   final DateTime timestamp;
 
   _HealthChatMessage({
@@ -32,6 +33,7 @@ class _HealthChatMessage {
     required this.role,
     required this.text,
     this.isVoice = false,
+    this.status = 'delivered',
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -40,6 +42,7 @@ class _HealthChatMessage {
         'role': role,
         'text': text,
         'isVoice': isVoice,
+        'status': status,
         'timestamp': timestamp.toIso8601String(),
       };
 
@@ -48,6 +51,7 @@ class _HealthChatMessage {
         role: json['role'] as String? ?? 'user',
         text: json['text'] as String? ?? '',
         isVoice: json['isVoice'] == true,
+        status: json['status']?.toString() ?? 'delivered',
         timestamp: json['timestamp'] != null
             ? DateTime.tryParse(json['timestamp'].toString())
             : null,
@@ -377,7 +381,6 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           for (final item in serverMsgs) {
             final rawRole = item['role']?.toString().toLowerCase() ?? 'patient';
             final text = _sanitizeName(item['text']?.toString() ?? '');
-            final senderName = _sanitizeName(item['sender_name']?.toString() ?? '');
             final rawMsgId = (item['message_id'] ?? item['id'] ?? '').toString().trim();
             final isVoice = item['isVoice'] == true || text.startsWith("🎙️ [Voice Note]");
             if (text.isEmpty) continue;
@@ -394,24 +397,16 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             } else if (rawRole == 'doctor') {
               mappedRole = 'doctor';
             }
-            String formattedText;
-            if (mappedRole == 'user') {
-              final name = senderName.isNotEmpty ? senderName : _selectedPatientName;
-              if (text.startsWith("🎙️ [Voice Note]")) {
-                formattedText = "🎙️ **$name (Voice Note via WhatsApp)**:\n\n${text.replaceFirst(RegExp(r'^🎙️\s*\[Voice Note\]:?\s*'), '').trim()}";
-              } else {
-                formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
-              }
-            } else if (mappedRole == 'doctor') {
-              formattedText = "🩺 **$_doctorName (Outbound)**:\n\n$text";
-            } else {
-              formattedText = "🤖 **Clinic Assistant**:\n\n$text";
+            String formattedText = text;
+            if (text.startsWith("🎙️ [Voice Note]")) {
+              formattedText = "🎙️ ${text.replaceFirst(RegExp(r'^🎙️\s*\[Voice Note\]:?\s*'), '').trim()}";
             }
             loaded.add(_HealthChatMessage(
               id: rawMsgId.isNotEmpty ? rawMsgId : null,
               role: mappedRole,
               text: formattedText,
               isVoice: isVoice,
+              status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'delivered',
               timestamp: DateTime.tryParse(item['created_at']?.toString() ?? ''),
             ));
           }
@@ -463,7 +458,6 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               final rawRole = item['role']?.toString().toLowerCase() ?? 'patient';
               final rawText = item['text']?.toString() ?? '';
               final text = _sanitizeName(rawText);
-              final senderName = _sanitizeName(item['sender_name']?.toString() ?? '');
               final rawMsgId = (item['message_id'] ?? item['id'] ?? '').toString().trim();
               if (text.isEmpty) continue;
 
@@ -485,18 +479,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
               if (!exists) {
                 hasNew = true;
-                String formattedText;
-                if (mappedRole == 'user') {
-                  final name = senderName.isNotEmpty ? senderName : _selectedPatientName;
-                  if (text.startsWith("🎙️ [Voice Note]")) {
-                    formattedText = "🎙️ **$name (Voice Note via WhatsApp)**:\n\n${text.replaceFirst(RegExp(r'^🎙️\s*\[Voice Note\]:?\s*'), '').trim()}";
-                  } else {
-                    formattedText = "💬 **$name (via WhatsApp)**:\n\n$text";
-                  }
-                } else if (mappedRole == 'doctor') {
-                  formattedText = "🩺 **$_doctorName (Outbound)**:\n\n$text";
-                } else {
-                  formattedText = "🤖 **Clinic Assistant**:\n\n$text";
+                String formattedText = text;
+                if (text.startsWith("🎙️ [Voice Note]")) {
+                  formattedText = "🎙️ ${text.replaceFirst(RegExp(r'^🎙️\s*\[Voice Note\]:?\s*'), '').trim()}";
                 }
 
                 _messages.add(_HealthChatMessage(
@@ -504,6 +489,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   role: mappedRole,
                   text: formattedText,
                   isVoice: text.startsWith("🎙️ [Voice Note]") || item['isVoice'] == true,
+                  status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'delivered',
                 ));
               }
             }
@@ -1243,9 +1229,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   Future<void> _sendDoctorWhatsAppMessage(String text) async {
     _controller.clear();
+    final tempId = "local_${DateTime.now().microsecondsSinceEpoch}";
+    final optimisticMsg = _HealthChatMessage(
+      id: tempId,
+      role: 'doctor',
+      text: text,
+      status: 'sending',
+    );
     setState(() {
+      _messages.add(optimisticMsg);
       _isLoading = true;
     });
+    _scrollToBottom();
 
     try {
       final res = await BackendApiService.doctorDispatchPatientMessage(
@@ -1258,29 +1253,23 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       );
 
       final liveSent = res['delivered_live'] == true;
-      final windowOpen = res['window_open'] == true;
-      final templateSent = res['template_dispatched'] == true;
-      final statusNote = windowOpen
-          ? "Delivered Live to WhatsApp (24h Window Active)"
-          : (templateSent
-              ? "Meta Template Dispatched • Awaiting Patient Reply"
-              : (liveSent ? "Delivered Live via Meta" : "Recorded in Chart"));
+      final finalStatus = liveSent ? 'delivered' : 'sent';
 
       if (mounted) {
         setState(() {
-          _messages.add(_HealthChatMessage(
-            role: 'doctor',
-            text: "🩺 **$_doctorName's Message to $_selectedPatientName**:\n\n$text\n\n*(Dispatched to WhatsApp `+$_selectedPatientPhone` • $statusNote)*",
-          ));
+          final idx = _messages.indexWhere((m) => m.id == tempId);
+          if (idx != -1) {
+            _messages[idx] = _HealthChatMessage(
+              id: tempId,
+              role: 'doctor',
+              text: text,
+              status: finalStatus,
+              timestamp: optimisticMsg.timestamp,
+            );
+          }
         });
         await _persistMessagesLocally();
         _syncWhatsAppThreadSilently();
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(
-            content: Text("✅ Dispatched message to $_selectedPatientName via WhatsApp"),
-            backgroundColor: const Color(0xFF166534),
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {
@@ -1379,27 +1368,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   Widget _buildDoctorOutreachBanner() {
     final hasPatientReply = _messages.any((m) => m.role == 'user');
     if (hasPatientReply) {
-      return Container(
-        margin: const EdgeInsets.fromLTRB(14, 4, 14, 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0FDF4),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF86EFAC)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                "🟢 Meta 24-Hour Window Active — Direct two-way messaging unlocked with $_selectedPatientName",
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
-              ),
-            ),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     final hasSentOutreach = _messages.any(
@@ -2670,6 +2639,24 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     return "$h:$m $ampm";
   }
 
+  String _cleanDisplayBubbleText(String raw) {
+    var s = _sanitizeName(raw).trim();
+    s = s.replaceFirst(RegExp(r'^(💬|🩺|🤖)\s*\*\*.*?\*\*:\s*\n*', caseSensitive: false), '');
+    s = s.replaceFirst(RegExp(r'^🎙️\s*\*\*.*?\*\*:\s*\n*', caseSensitive: false), '🎙️ ');
+    s = s.replaceAll(RegExp(r'\n*\*\(Dispatched to WhatsApp.*?\)\*$'), '');
+    return s.trim();
+  }
+
+  Widget _buildWhatsAppTickIcon(String status) {
+    if (status == 'sending') {
+      return const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF667781));
+    }
+    if (status == 'sent') {
+      return const Icon(Icons.done_rounded, size: 15, color: Color(0xFF667781));
+    }
+    return const Icon(Icons.done_all_rounded, size: 16, color: Color(0xFF53BDEB));
+  }
+
   Widget _buildMessageList() {
     return ListView.builder(
       controller: _scrollController,
@@ -2680,13 +2667,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         final isUser = msg.role == 'user';
         final isDoctor = msg.role == 'doctor';
         final isOutgoing = _isDoctor ? isDoctor : isUser;
-        final displayText = _sanitizeName(msg.text);
+        final displayText = _cleanDisplayBubbleText(msg.text);
 
         return Align(
           alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+            margin: const EdgeInsets.only(bottom: 7),
+            padding: const EdgeInsets.fromLTRB(12, 8, 10, 6),
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.80,
             ),
@@ -2705,40 +2692,22 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               ],
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (!isOutgoing) ...[
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        isUser
-                            ? (_isDoctor ? _selectedPatientName : "You")
-                            : "MaxAssist AI",
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: isUser ? const Color(0xFF075E54) : const Color(0xFF0284C7),
-                        ),
-                      ),
-                      if (msg.isVoice) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.mic_rounded, size: 13, color: Color(0xFF075E54)),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                ],
-                MarkdownBody(
-                  data: displayText,
-                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                    p: const TextStyle(fontSize: 14.5, height: 1.38, color: Color(0xFF111B21)),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 1.0,
+                  child: MarkdownBody(
+                    data: displayText,
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                      p: const TextStyle(fontSize: 15, height: 1.35, color: Color(0xFF111B21)),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Row(
                   mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
                       _formatBubbleTime(msg.timestamp),
@@ -2746,7 +2715,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     ),
                     if (isOutgoing) ...[
                       const SizedBox(width: 4),
-                      const Icon(Icons.done_all_rounded, size: 15, color: Color(0xFF53BDEB)),
+                      _buildWhatsAppTickIcon(msg.status),
                     ],
                   ],
                 ),

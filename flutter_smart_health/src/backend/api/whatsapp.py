@@ -337,16 +337,10 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
 
     _save_threads(threads)
 
-    # Also forward via Meta Cloud API directly to the user's real WhatsApp
-    if is_greeting:
-        outbound = f"🩺 *MaxAssist Clinic*\n\n{triage_result['reply_text']}"
-    else:
-        outbound = (
-            f"🩺 *MaxAssist Clinic Response*\n\n"
-            f"Regarding your message: \"{req.message}\"\n\n"
-            f"{triage_result['reply_text']}"
-        )
-    send_whatsapp_reply(clean_p, outbound)
+    # Also forward via Meta Cloud API directly to the user's real WhatsApp (clean message text only)
+    outbound = str(triage_result.get('reply_text') or '').strip()
+    if outbound:
+        send_whatsapp_reply(clean_p, outbound)
 
     return {
         "success": True,
@@ -581,13 +575,7 @@ async def process_due_scheduled_tasks() -> int:
             doctor_title = f"Dr. {doctor_title}"
         body = task["message_text"]
 
-        outbound = (
-            f"⏰ *MaxAssist Scheduled Reminder from {doctor_title}*\n\n"
-            f"Hello {patient_name},\n\n"
-            f"{body}\n\n"
-            f"— {doctor_title}, Attending Physician\n"
-            f"🏥 *MaxAssist Clinic*"
-        )
+        outbound = body.strip()
         try:
             sent = send_whatsapp_reply(phone, outbound)
             if not sent:
@@ -999,15 +987,9 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     except Exception as ex_ehr:
         print(f"[Doctor Dispatch EHR Sync Note]: {ex_ehr}")
 
-    # 3. Format official clinic WhatsApp outbound message
+    # 3. Clean WhatsApp outbound message (exact message text only, no extra headers/footers)
     patient_display = req.patient_name or "Patient"
-    outbound_text = (
-        f"🩺 *MaxAssist Clinic — Message from {doctor_title}*\n\n"
-        f"Hello {patient_display},\n\n"
-        f"{req.message}\n\n"
-        f"— {doctor_title}, Attending Physician\n"
-        f"🏥 *MaxAssist Clinic*"
-    )
+    outbound_text = (req.message or "").strip()
 
     # 4. Check if patient has replied (opening Meta's 24h Customer Service Window)
     has_patient_reply = any(m.get('role') in {'patient', 'user'} for m in thread)
@@ -1150,13 +1132,7 @@ async def initialize_whatsapp_channel(req: InitializeChannelRequest):
             "timestamp": now_str
         }
         thread.append(doc_msg)
-        formatted_outbound = (
-            f"🩺 *MaxAssist Clinic — Message from {doctor_title}*\n\n"
-            f"Hello {patient_display},\n\n"
-            f"{welcome_text}\n\n"
-            f"— {doctor_title}, Attending Physician\n"
-            f"🏥 *MaxAssist Clinic*"
-        )
+        formatted_outbound = welcome_text.strip()
         send_whatsapp_reply(clean_p, formatted_outbound)
 
     _save_threads(threads)
