@@ -1,0 +1,84 @@
+name: Build & Deploy iOS to TestFlight
+
+on:
+  push:
+    branches:
+      - main
+      - flutter-whatsapp-ai-integration
+    paths:
+      - 'flutter_smart_health/src/app/**'
+      - '.github/workflows/ios-testflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy_ios_testflight:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Install CocoaPods & dependencies
+        working-directory: flutter_smart_health/src/app
+        run: |
+          flutter pub get
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Setup App Store Connect API Key
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APPSTORE_KEY_ID" ] || [ -z "$APPSTORE_PRIVATE_KEY" ]; then
+            echo "::error ::App Store Connect API Key secrets are missing. Please configure APPSTORE_KEY_ID, APPSTORE_ISSUER_ID, and APPSTORE_PRIVATE_KEY in GitHub Secrets."
+            exit 1
+          fi
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$APPSTORE_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
+
+      - name: Build and Package iOS Release (.ipa)
+        working-directory: flutter_smart_health/src/app
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 10))
+          VERSION_NAME="1.0.${BUILD_NUMBER}"
+          echo "Building iOS Release ${VERSION_NAME} (Build ${BUILD_NUMBER})..."
+
+          flutter build ipa --release \
+            --build-name="${VERSION_NAME}" \
+            --build-number="${BUILD_NUMBER}" \
+            --export-options-plist=ios/ExportOptions.plist
+
+      - name: Upload .ipa to Apple TestFlight
+        working-directory: flutter_smart_health/src/app
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+        run: |
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
+          if [ -z "$IPA_PATH" ]; then
+            echo "::error ::No .ipa file generated in build/ios/ipa"
+            exit 1
+          fi
+          echo "Found IPA: $IPA_PATH. Uploading to Apple TestFlight..."
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APPSTORE_KEY_ID" \
+            --apiIssuer "$APPSTORE_ISSUER_ID"
+          echo "Build successfully uploaded to Apple TestFlight!"
