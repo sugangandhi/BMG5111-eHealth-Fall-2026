@@ -90,19 +90,33 @@ def init_db() -> None:
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_scheduled_status_time ON scheduled_tasks(status, scheduled_for_utc);")
 
+        # Safe additive migrations for per-device owner_id isolation
+        for tbl in ("doctor_patients", "patient_chat_messages", "scheduled_tasks"):
+            cols = {r[1] for r in conn.execute(f"PRAGMA table_info({tbl});").fetchall()}
+            if "owner_id" not in cols:
+                conn.execute(f"ALTER TABLE {tbl} ADD COLUMN owner_id TEXT DEFAULT '';")
+
 def clean_phone_number(phone: str) -> str:
     """Standardizes phone numbers to pure digits."""
     return re.sub(r'\D', '', phone or '').strip()
 
-def get_patients() -> list[dict[str, Any]]:
-    """Retrieves all patients ordered by most recent activity."""
+def get_patients(owner_id: Optional[str] = None) -> list[dict[str, Any]]:
+    """Retrieves patients ordered by most recent activity, strictly scoped by owner_id when provided."""
     init_db()
     with get_db() as conn:
-        cursor = conn.execute("""
-            SELECT phone, name, clinical_notes, doctor_id, status, created_at, last_active, unread_count
-            FROM doctor_patients
-            ORDER BY datetime(last_active) DESC;
-        """)
+        if owner_id is not None and owner_id.strip():
+            cursor = conn.execute("""
+                SELECT phone, name, clinical_notes, doctor_id, status, created_at, last_active, unread_count, owner_id
+                FROM doctor_patients
+                WHERE owner_id = ?
+                ORDER BY datetime(last_active) DESC;
+            """, (owner_id.strip(),))
+        else:
+            cursor = conn.execute("""
+                SELECT phone, name, clinical_notes, doctor_id, status, created_at, last_active, unread_count, owner_id
+                FROM doctor_patients
+                ORDER BY datetime(last_active) DESC;
+            """)
         rows = cursor.fetchall()
         return [
             {
@@ -111,6 +125,7 @@ def get_patients() -> list[dict[str, Any]]:
                 "phone": row["phone"],
                 "condition": row["clinical_notes"],
                 "doctor_id": row["doctor_id"],
+                "owner_id": row["owner_id"],
                 "status": row["status"],
                 "created_at": row["created_at"],
                 "last_active": row["last_active"],
@@ -152,6 +167,7 @@ def upsert_patient(
     clinical_notes: str = "",
     doctor_id: str = "Dr. Sugan",
     status: str = "Active",
+    owner_id: str = "",
 ) -> Dict[str, Any]:
     """Adds or updates a patient contact in the database."""
     init_db()
@@ -160,6 +176,7 @@ def upsert_patient(
         raise ValueError("Invalid phone number provided")
     
     clean_name = name.strip() or f"Patient {clean_p[-4:]}"
+    clean_owner = (owner_id or "").strip()
     now_iso = datetime.utcnow().isoformat() + "Z"
 
     with get_db() as conn:
@@ -169,14 +186,16 @@ def upsert_patient(
             conn.execute("""
                 UPDATE doctor_patients
                 SET name = ?, clinical_notes = COALESCE(NULLIF(?, ''), clinical_notes),
+                    doctor_id = COALESCE(NULLIF(?, ''), doctor_id),
+                    owner_id = CASE WHEN ? != '' THEN ? ELSE owner_id END,
                     status = ?, last_active = ?
                 WHERE phone = ?;
-            """, (clean_name, clinical_notes.strip(), status, now_iso, clean_p))
+            """, (clean_name, clinical_notes.strip(), doctor_id, clean_owner, clean_owner, status, now_iso, clean_p))
         else:
             conn.execute("""
-                INSERT INTO doctor_patients (phone, name, clinical_notes, doctor_id, status, created_at, last_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
-            """, (clean_p, clean_name, clinical_notes.strip(), doctor_id, status, now_iso, now_iso))
+                INSERT INTO doctor_patients (phone, name, clinical_notes, doctor_id, status, created_at, last_active, owner_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """, (clean_p, clean_name, clinical_notes.strip(), doctor_id, status, now_iso, now_iso, clean_owner))
 
     return get_patient(clean_p) or {
         "patient_id": clean_p,
@@ -205,22 +224,49 @@ def is_message_processed(msg_id: str) -> bool:
         cursor = conn.execute("SELECT 1 FROM patient_chat_messages WHERE message_id = ? LIMIT 1;", (str(msg_id),))
         return cursor.fetchone() is not None
 
-def get_patient_messages(phone: str) -> List[Dict[str, Any]]:
-    """Retrieves all chat messages for a patient phone number, deduplicated."""
+def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Retrieves chat messages for a patient phone number, deduplicated and isolated by owner_id when provided."""
     init_db()
     clean_p = clean_phone_number(phone)
     if not clean_p:
         return []
 
     phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+    clean_owner = (owner_id or "").strip()
     with get_db() as conn:
-        cursor = conn.execute("""
-            SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
-                   timestamp, status, vitals_json, is_voice, audio_url, created_at
-            FROM patient_chat_messages
-            WHERE patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?
-            ORDER BY id ASC;
-        """, (clean_p, phone_10, f"%{phone_10}"))
+        if clean_owner:
+            # Verify this device owns this patient contact before including shared inbound WhatsApp replies
+            owns_patient = conn.execute(
+                "SELECT 1 FROM doctor_patients WHERE (phone = ? OR phone = ? OR phone LIKE ?) AND owner_id = ? LIMIT 1;",
+                (clean_p, phone_10, f"%{phone_10}", clean_owner),
+            ).fetchone() is not None
+
+            if owns_patient:
+                cursor = conn.execute("""
+                    SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
+                           timestamp, status, vitals_json, is_voice, audio_url, created_at
+                    FROM patient_chat_messages
+                    WHERE (patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?)
+                      AND (owner_id = ? OR (owner_id = '' AND sender_role = 'patient'))
+                    ORDER BY id ASC;
+                """, (clean_p, phone_10, f"%{phone_10}", clean_owner))
+            else:
+                cursor = conn.execute("""
+                    SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
+                           timestamp, status, vitals_json, is_voice, audio_url, created_at
+                    FROM patient_chat_messages
+                    WHERE (patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?)
+                      AND owner_id = ?
+                    ORDER BY id ASC;
+                """, (clean_p, phone_10, f"%{phone_10}", clean_owner))
+        else:
+            cursor = conn.execute("""
+                SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
+                       timestamp, status, vitals_json, is_voice, audio_url, created_at
+                FROM patient_chat_messages
+                WHERE patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?
+                ORDER BY id ASC;
+            """, (clean_p, phone_10, f"%{phone_10}"))
         rows = cursor.fetchall()
         messages = []
         seen_msg_ids = set()
@@ -274,6 +320,7 @@ def add_chat_message(
     status: str = "sent",
     custom_timestamp: Optional[str] = None,
     custom_msg_id: Optional[str] = None,
+    owner_id: str = "",
 ) -> Dict[str, Any]:
     """Records a message to the patient's persistent chat log in the database."""
     init_db()
@@ -332,11 +379,11 @@ def add_chat_message(
         cursor = conn.execute("""
             INSERT OR IGNORE INTO patient_chat_messages (
                 message_id, patient_phone, sender_role, sender_name, channel,
-                text, timestamp, status, vitals_json, is_voice, audio_url, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                text, timestamp, status, vitals_json, is_voice, audio_url, created_at, owner_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, (
             msg_id, clean_p, sender_role, sender_name, channel,
-            text, now_display, status, vitals_str, 1 if is_voice else 0, audio_url, now_iso
+            text, now_display, status, vitals_str, 1 if is_voice else 0, audio_url, now_iso, (owner_id or "").strip()
         ))
         db_id = cursor.lastrowid
 
@@ -432,6 +479,7 @@ def create_scheduled_task(
     message_text: str,
     scheduled_for_utc: str,
     scheduled_display: str = "",
+    owner_id: str = "",
 ) -> Dict[str, Any]:
     """Creates a persistent scheduled WhatsApp task in SQLite."""
     init_db()
@@ -445,22 +493,24 @@ def create_scheduled_task(
     doc = (doctor_id or "Dr. Sugan").strip()
     p_name = (patient_name or f"Patient {clean_p[-4:]}").strip()
     display = scheduled_display.strip() or scheduled_for_utc
+    clean_owner = (owner_id or "").strip()
 
     with get_db() as conn:
         cursor = conn.execute(
             """
             INSERT INTO scheduled_tasks (
                 doctor_id, patient_phone, patient_name, message_text,
-                scheduled_for_utc, scheduled_display, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?);
+                scheduled_for_utc, scheduled_display, status, created_at, owner_id
+            ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?);
             """,
-            (doc, clean_p, p_name, message_text.strip(), scheduled_for_utc, display, now_iso),
+            (doc, clean_p, p_name, message_text.strip(), scheduled_for_utc, display, now_iso, clean_owner),
         )
         task_id = cursor.lastrowid
 
     return {
         "id": task_id,
         "doctor_id": doc,
+        "owner_id": clean_owner,
         "patient_phone": clean_p,
         "patient_name": p_name,
         "message_text": message_text.strip(),
@@ -476,11 +526,15 @@ def create_scheduled_task(
 def list_scheduled_tasks(
     status: Optional[str] = None,
     patient_phone: Optional[str] = None,
+    owner_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Lists scheduled tasks ordered by soonest first."""
+    """Lists scheduled tasks ordered by soonest first, scoped by owner_id when provided."""
     init_db()
     query = "SELECT * FROM scheduled_tasks WHERE 1=1"
     params: list[Any] = []
+    if owner_id is not None and owner_id.strip():
+        query += " AND owner_id = ?"
+        params.append(owner_id.strip())
     if status:
         query += " AND status = ?"
         params.append(status)

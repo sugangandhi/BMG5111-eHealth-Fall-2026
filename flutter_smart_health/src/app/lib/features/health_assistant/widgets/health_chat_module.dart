@@ -67,6 +67,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   bool _isWhatsAppVerified = false;
   bool _doctorWhatsAppVerified = false;
   String _doctorClinicWhatsApp = "";
+  String _deviceOwnerId = "";
   String _userPhone = "";
   bool _isDoctor = false;
   String _doctorName = "Dr. Sugan";
@@ -174,7 +175,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       doctorName = "Dr. $doctorName";
     }
 
-    // Always load persisted contacts from local cache
+    // Persistent standalone per-device owner ID (isolates each phone's contacts & chat history)
+    var deviceOwnerId = prefs.getString("maxassist_device_owner_id_v1") ?? "";
+    if (deviceOwnerId.isEmpty) {
+      final nowMs = DateTime.now().microsecondsSinceEpoch;
+      final hash = (nowMs ^ identity.hashCode ^ email.hashCode).abs().toRadixString(36);
+      deviceOwnerId = "dev_${nowMs.toRadixString(36)}_$hash";
+      await prefs.setString("maxassist_device_owner_id_v1", deviceOwnerId);
+    }
+    _deviceOwnerId = deviceOwnerId;
+
+    // Always load persisted contacts from THIS device's local cache
     final savedContactsJson = prefs.getString("doctor_persisted_contacts_v2");
     List<Map<String, String>> combinedContacts = [];
     if (savedContactsJson != null && savedContactsJson.isNotEmpty) {
@@ -190,10 +201,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       }
     }
 
-    // Real-time synchronization from persistent Central Database
+    // Real-time synchronization from persistent Central Database (STRICTLY scoped to this device!)
     if (isDoctor) {
       try {
-        final remotePatients = await BackendApiService.getDoctorPatients();
+        final remotePatients = await BackendApiService.getDoctorPatients(ownerId: _deviceOwnerId);
         if (remotePatients.isNotEmpty) {
           final List<Map<String, String>> loadedRemote = [];
           for (final rp in remotePatients) {
@@ -355,7 +366,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     // Also pull from persistent Central Database if doctor
     if (_isDoctor && _selectedPatientPhone.isNotEmpty) {
       try {
-        final serverMsgs = await BackendApiService.getDoctorChatHistory(_selectedPatientPhone);
+        final serverMsgs = await BackendApiService.getDoctorChatHistory(
+          _selectedPatientPhone,
+          ownerId: _deviceOwnerId,
+        );
         if (serverMsgs.isNotEmpty && mounted) {
           final List<_HealthChatMessage> loaded = [];
           final Set<String> seenServerIds = {};
@@ -434,7 +448,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       final cleanPhone = _selectedPatientPhone.replaceAll(RegExp(r'\D'), '');
       if (cleanPhone.isEmpty) return;
 
-      final url = Uri.parse("${ApiConfig.backendBaseUrl}/api/whatsapp/threads/$cleanPhone");
+      final url = Uri.parse(
+        "${ApiConfig.backendBaseUrl}/api/whatsapp/threads/$cleanPhone?owner_id=${Uri.encodeComponent(_deviceOwnerId)}",
+      );
       final resp = await http.get(url).timeout(const Duration(seconds: 4));
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
@@ -599,6 +615,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           phone: phone,
           notes: "Phone Contact • $rawPhone",
           doctorName: _doctorName,
+          ownerId: _deviceOwnerId,
         );
 
         if (mounted) {
@@ -1237,6 +1254,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         patientName: _selectedPatientName,
         patientId: int.tryParse(_selectedPatientPhone) ?? (int.tryParse(_selectedPatientId) ?? 99211),
         doctorName: _doctorName,
+        ownerId: _deviceOwnerId,
       );
 
       final liveSent = res['delivered_live'] == true;
@@ -1282,19 +1300,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   }
 
   void _prefillDoctorWelcomeMessageIfApplicable() {
-    if (!_isDoctor) return;
-    final current = _controller.text.trim();
-    final defaultPattern = RegExp(
-      r'^Hello .*, this is .* from MaxAssist Clinic following up on your care plan\.$',
-    );
-    final hasNoPatientMessage = !_messages.any((m) => m.role == 'user');
-
-    if (current.isEmpty || defaultPattern.hasMatch(current)) {
-      if (hasNoPatientMessage) {
-        _controller.text =
-            "Hello $_selectedPatientName, this is $_doctorName from MaxAssist Clinic following up on your care plan.";
-      }
-    }
+    // Intentionally left blank: composer starts completely empty with no prefilled text.
   }
 
   Future<void> _launchWhatsAppToPatient() async {
@@ -1769,6 +1775,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 phone: phone,
                 notes: "Saved Contact • $rawPhone",
                 doctorName: _doctorName,
+                ownerId: _deviceOwnerId,
               );
 
               Navigator.pop(ctx);
@@ -3035,7 +3042,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (!mounted) return;
     setState(() => _loadingTasks = true);
     try {
-      final tasks = await BackendApiService.getDoctorScheduledTasks();
+      final tasks = await BackendApiService.getDoctorScheduledTasks(ownerId: _deviceOwnerId);
       if (mounted) {
         setState(() {
           _scheduledTasks = tasks;
@@ -3056,6 +3063,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         doctorName: _doctorName,
         defaultPatientPhone: _selectedPatientPhone,
         defaultPatientName: _selectedPatientName,
+        ownerId: _deviceOwnerId,
       );
       if (res['success'] == true && res['task'] is Map) {
         final t = Map<String, dynamic>.from(res['task'] as Map);
@@ -3223,6 +3231,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                           scheduledForUtc: combined.toUtc().toIso8601String(),
                           scheduledDisplay: displayStr,
                           doctorName: _doctorName,
+                          ownerId: _deviceOwnerId,
                         );
                         if (ctx.mounted) Navigator.of(ctx).pop();
                         if (res['success'] == true) {

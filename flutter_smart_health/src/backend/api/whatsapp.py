@@ -121,34 +121,7 @@ def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
                 return json.load(f)
         except Exception:
             pass
-    return {
-        "6132616383": [
-            {
-                "id": 1791309686445,
-                "role": "bot",
-                "sender_name": "MaxAssist Clinical Care Team",
-                "text": "Hello! Welcome to the MaxAssist WhatsApp Clinic channel. You can message us your symptoms, query your care plan, or log daily vitals here.",
-                "vitals": {},
-                "timestamp": "09:00 AM"
-            },
-            {
-                "id": 1791309972075,
-                "role": "patient",
-                "sender_name": "Patient",
-                "text": "Hi Doctor, checking in. My blood pressure this morning is 125/82 and heart rate is 72.",
-                "vitals": {"bp": "125/82", "hr": "72"},
-                "timestamp": "09:15 AM"
-            },
-            {
-                "id": 1791309972076,
-                "role": "bot",
-                "sender_name": "MaxAssist Clinical Care Team",
-                "text": "Thank you! Your telemetry readings (BP: 125/82, HR: 72 BPM) have been recorded directly into your patient chart and synced with the Central AWS Clinical Network.",
-                "vitals": {},
-                "timestamp": "09:16 AM"
-            }
-        ]
-    }
+    return {}
 
 def _save_threads(threads: Dict[str, Any]) -> None:
     t_file = _get_threads_file()
@@ -168,6 +141,7 @@ class SendWhatsAppRequest(BaseModel):
 class DoctorDispatchMessageRequest(BaseModel):
     doctor_name: Optional[str] = "Dr. Sugan"
     doctor_id: Optional[int] = 1
+    owner_id: Optional[str] = ""
     patient_id: Optional[int] = 99211
     patient_name: Optional[str] = "Sugan"
     patient_phone: str = "6132616383"
@@ -275,15 +249,20 @@ def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str
 @router.get('/api/doctor/chat-history/{phone}')
 @router.get('/api/whatsapp/threads')
 @router.get('/api/whatsapp/threads/{phone}')
-async def get_whatsapp_thread(phone: str = "6132616383"):
+async def get_whatsapp_thread(phone: str = "6132616383", owner_id: Optional[str] = None):
     clean_p = re.sub(r'\D', '', phone) or "6132616383"
     try:
         from src.backend.services.clinical_database import get_patient_messages
-        db_msgs = get_patient_messages(clean_p)
+        db_msgs = get_patient_messages(clean_p, owner_id=owner_id)
+        if owner_id and owner_id.strip():
+            # Strictly isolated per device/owner: never leak global fallback threads
+            return {"phone": clean_p, "messages": db_msgs}
         if db_msgs:
             return {"phone": clean_p, "messages": db_msgs}
     except Exception as ex_db:
         print(f"[Clinical DB Get Thread Error]: {ex_db}")
+        if owner_id and owner_id.strip():
+            return {"phone": clean_p, "messages": []}
     threads = _load_threads()
     phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
     thread = threads.get(clean_p) or threads.get(phone_10) or threads.get(f"1{phone_10}") or []
@@ -382,6 +361,7 @@ class CreatePatientRequest(BaseModel):
     phone: str
     notes: Optional[str] = ""
     doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
 
 class DoctorWhatsAppOtpRequest(BaseModel):
     phone: str
@@ -394,6 +374,7 @@ class DoctorWhatsAppVerifyRequest(BaseModel):
 
 class CreateScheduledTaskRequest(BaseModel):
     doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
     patient_phone: str
     patient_name: Optional[str] = "Patient"
     message_text: str
@@ -403,16 +384,21 @@ class CreateScheduledTaskRequest(BaseModel):
 class ParseScheduleTaskRequest(BaseModel):
     instruction: str
     doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
     default_patient_phone: Optional[str] = ""
     default_patient_name: Optional[str] = ""
     timezone_offset_minutes: Optional[int] = -300  # EST default
 
 @router.get('/api/doctor/scheduled-tasks')
-async def get_doctor_scheduled_tasks(status: Optional[str] = None, patient_phone: Optional[str] = None):
-    """Returns scheduled WhatsApp tasks from persistent SQLite storage."""
+async def get_doctor_scheduled_tasks(
+    status: Optional[str] = None,
+    patient_phone: Optional[str] = None,
+    owner_id: Optional[str] = None,
+):
+    """Returns scheduled WhatsApp tasks from persistent SQLite storage, isolated by owner_id."""
     try:
         from src.backend.services.clinical_database import list_scheduled_tasks
-        return {"tasks": list_scheduled_tasks(status=status, patient_phone=patient_phone)}
+        return {"tasks": list_scheduled_tasks(status=status, patient_phone=patient_phone, owner_id=owner_id)}
     except Exception as e:
         return {"tasks": [], "error": str(e)}
 
@@ -428,6 +414,7 @@ async def create_doctor_scheduled_task(req: CreateScheduledTaskRequest):
             message_text=req.message_text,
             scheduled_for_utc=req.scheduled_for_utc,
             scheduled_display=req.scheduled_display or req.scheduled_for_utc,
+            owner_id=req.owner_id or "",
         )
         return {"success": True, "task": task}
     except Exception as e:
@@ -516,7 +503,7 @@ async def parse_and_schedule_doctor_task(req: ParseScheduleTaskRequest):
         if not instruction:
             return {"success": False, "error": "Empty scheduling instruction."}
 
-        patients = get_patients()
+        patients = get_patients(owner_id=req.owner_id or None)
         target_phone = re.sub(r'\D', '', req.default_patient_phone or '')
         target_name = (req.default_patient_name or '').strip()
 
@@ -568,6 +555,7 @@ async def parse_and_schedule_doctor_task(req: ParseScheduleTaskRequest):
             message_text=msg_text,
             scheduled_for_utc=utc_iso,
             scheduled_display=display_time,
+            owner_id=req.owner_id or "",
         )
         return {"success": True, "task": task}
     except Exception as e:
@@ -612,6 +600,7 @@ async def process_due_scheduled_tasks() -> int:
                 text=f"⏰ [Scheduled Message Sent]: {body}",
                 status="sent",
                 custom_msg_id=f"sched_task_{task_id}",
+                owner_id=task.get("owner_id") or "",
             )
             dispatched_count += 1
             print(f"[MaxAssist Scheduler] Dispatched Task #{task_id} to +{phone}")
@@ -911,11 +900,11 @@ async def view_database_dashboard():
     return HTMLResponse(content=html, status_code=200)
 
 @router.get('/api/doctor/patients')
-async def get_doctor_patient_roster():
-    """Returns the doctor's active patient roster from the persistent clinical database."""
+async def get_doctor_patient_roster(owner_id: Optional[str] = None):
+    """Returns the doctor's active patient roster from the persistent clinical database, isolated per owner_id."""
     try:
         from src.backend.services.clinical_database import get_patients
-        return {"patients": get_patients()}
+        return {"patients": get_patients(owner_id=owner_id)}
     except Exception as e:
         print(f"[Clinical DB Get Patients Error]: {e}")
         return {"patients": []}
@@ -926,7 +915,13 @@ async def create_doctor_patient(req: CreatePatientRequest):
     """Creates or updates a patient record permanently in the clinical database."""
     try:
         from src.backend.services.clinical_database import upsert_patient
-        p = upsert_patient(req.phone, req.name, req.notes or "", doctor_id=req.doctor_name or "Dr. Sugan")
+        p = upsert_patient(
+            req.phone,
+            req.name,
+            req.notes or "",
+            doctor_id=req.doctor_name or "Dr. Sugan",
+            owner_id=req.owner_id or "",
+        )
         return {"success": True, "patient": p}
     except Exception as e:
         print(f"[Clinical DB Create Patient Error]: {e}")
@@ -973,13 +968,19 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     # 2. Record to persistent clinical database
     try:
         from src.backend.services.clinical_database import add_chat_message, upsert_patient
-        upsert_patient(clean_p, name=req.patient_name or f"Patient {clean_p[-4:]}", doctor_id=doctor_title)
+        upsert_patient(
+            clean_p,
+            name=req.patient_name or f"Patient {clean_p[-4:]}",
+            doctor_id=doctor_title,
+            owner_id=req.owner_id or "",
+        )
         add_chat_message(
             patient_phone=clean_p,
             sender_role="doctor",
             sender_name=f"{doctor_title} (Attending Physician)",
             text=req.message,
             status="sent",
+            owner_id=req.owner_id or "",
         )
     except Exception as ex_db:
         print(f"[Clinical DB Doctor Dispatch Error]: {ex_db}")
