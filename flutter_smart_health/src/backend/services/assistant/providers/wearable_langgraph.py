@@ -225,7 +225,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 # 3. Evaluate clinical triage
                 triage = evaluate_clinical_case(patient_id, clean_msg, vitals_dict, patient_phone=patient_phone, patient_name=patient_name)
                 bot_reply_text = triage.get("reply_text") or (
-                    f"Thank you {patient_name}. Your message has been received by Dr. Sugan's Care Team and recorded in your patient chart."
+                    f"Thank you {patient_name}. Your message has been received by the clinic care team and recorded in your patient chart."
                 )
 
                 # 4. Add to In-App WhatsApp Thread
@@ -264,11 +264,11 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 # 5. Dispatch Live via Meta WhatsApp Cloud API to the user's real WhatsApp
                 patient_first = patient_name.split()[0] if patient_name else "there"
                 outbound_text = (
-                    f"🩺 *MaxAssist Clinical Care Team*\n\n"
-                    f"Hi {patient_first}, Dr. Sugan's care desk received your message:\n"
+                    f"🩺 *MaxAssist Clinic Care Team*\n\n"
+                    f"Hi {patient_first}, the clinic care desk received your message:\n"
                     f"\"{clean_msg}\"\n\n"
                     f"{bot_reply_text}\n\n"
-                    f"💬 _You can reply directly to this chat anytime to reach your doctor._"
+                    f"💬 _You can reply directly to this chat anytime to reach the clinic._"
                 )
                 sent_live = send_whatsapp_reply(patient_phone, outbound_text)
                 print(f"[AI Chat WhatsApp Dispatch] To {patient_phone} | Live Meta Sent={sent_live}")
@@ -312,15 +312,16 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
 
         # 2. Build system prompt
         system_prompt = (
-            "You are Smart Health AI, a clinical medical reasoning copilot for patients and attending physicians in Ontario, Canada.\n"
+            "You are MaxAssist AI, a clinical health assistant for patients in Ontario, Canada.\n"
             "You have direct real-time access to the patient's Electronic Health Record and continuous Apple Watch/HealthKit telemetry.\n"
             f"Active Patient ID: {patient_id}\n"
             f"Clinical Telemetry Data:\n{telemetry_str}\n\n"
             "CLINICAL & INTEGRATION RULES:\n"
-            "- You are directly integrated with Dr. Sugan's clinical triage desk and WhatsApp clinical queue.\n"
-            "- NEVER state that you 'cannot message Dr. Sugan' or 'am unable to message the doctor on your behalf'.\n"
-            "- If the patient asks to message or contact the doctor, confirm that their message and vitals are forwarded directly to Dr. Sugan.\n"
-            "- Emphasize clinical red flags and remind the patient to tap the WhatsApp button at the top to access the direct doctor triage channel.\n"
+            "- You are directly integrated with the clinic's triage desk and WhatsApp clinical queue.\n"
+            "- NEVER mention a specific hardcoded doctor name like 'Dr. Sugan' or 'Dr. Patel' — always refer to 'the clinic' or 'the clinic care team'.\n"
+            "- NEVER state that you 'cannot message the clinic' or 'am unable to message the clinic on your behalf'.\n"
+            "- If the patient asks to message or contact the clinic or doctor, confirm that their message and vitals are forwarded directly to the clinic care team.\n"
+            "- Emphasize clinical red flags and remind the patient to tap the WhatsApp button at the top to reach the clinic directly.\n"
             "Provide empathetic, clinically accurate, evidence-based responses.\n"
         )
 
