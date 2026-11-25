@@ -187,6 +187,31 @@ class BackendApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> sendDoctorAiAgentCommand({
+    required String instruction,
+    required String doctorName,
+    String ownerId = '',
+    List<Map<String, String>> history = const [],
+  }) async {
+    try {
+      final tzOffset = DateTime.now().timeZoneOffset.inMinutes;
+      final res = await _apiClient.postJson(
+        '/api/doctor/ai-agent-command',
+        {
+          'instruction': instruction,
+          'doctor_name': doctorName,
+          'owner_id': ownerId,
+          'timezone_offset_minutes': tzOffset,
+          'history': history,
+        },
+      );
+      if (res is Map) return Map<String, dynamic>.from(res);
+    } catch (e) {
+      return {'success': false, 'reply': 'Connection error: $e'};
+    }
+    return {'success': false, 'reply': 'Unable to reach MaxAssist AI.'};
+  }
+
   static Future<List<Map<String, dynamic>>> getDoctorPatients({
     String? ownerId,
   }) async {

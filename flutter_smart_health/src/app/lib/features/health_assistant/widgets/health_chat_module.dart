@@ -79,9 +79,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   String _selectedPatientId = "6132616383";
   String _selectedPatientPhone = "6132616383";
   bool _doctorSendViaWhatsApp = true;
-  bool _showTasksMode = false;
-  List<Map<String, dynamic>> _scheduledTasks = [];
-  bool _loadingTasks = false;
+  String _doctorActiveView = 'list'; // 'list' | 'ai' | 'patient'
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  final List<_HealthChatMessage> _aiMessages = [];
+  final Map<String, String> _lastPreviewByPhone = {};
+  final Map<String, String> _lastTimeByPhone = {};
+  final Map<String, bool> _lastOutgoingByPhone = {};
   Timer? _liveSyncTimer;
   bool _isLiveSyncing = false;
 
@@ -298,9 +302,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     // Start 2-way real-time WhatsApp sync timer for doctors
     if (isDoctor && !isRunningInTest) {
+      await _loadAiChatHistory();
+      await _refreshContactPreviews();
       _startLiveSyncTimer();
       _syncWhatsAppThreadSilently();
-      _loadScheduledTasks();
     }
   }
 
@@ -530,6 +535,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       final prefs = await SharedPreferences.getInstance();
       final list = _messages.map((m) => m.toJson()).toList();
       await prefs.setString(_currentChatHistoryKey, jsonEncode(list));
+      if (_isDoctor && _selectedPatientPhone.isNotEmpty && _messages.isNotEmpty) {
+        final last = _messages.last;
+        final cleanPhone = _selectedPatientPhone.replaceAll(RegExp(r'\D'), '');
+        if (cleanPhone.isNotEmpty && mounted) {
+          setState(() {
+            _lastPreviewByPhone[cleanPhone] = _cleanDisplayBubbleText(last.text);
+            _lastTimeByPhone[cleanPhone] = _formatBubbleTime(last.timestamp);
+            _lastOutgoingByPhone[cleanPhone] = last.role == 'doctor';
+          });
+        }
+      }
     } catch (e) {
       debugPrint("[HealthChat] Error saving cache: $e");
     }
@@ -591,6 +607,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           _selectedPatientName = name;
           _selectedPatientPhone = phone;
           _patientId = phone;
+          _doctorActiveView = 'patient';
         });
 
         await _saveDoctorContactsToPrefs();
@@ -843,6 +860,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       _selectedPatientName = match["name"] ?? "Patient";
       _selectedPatientPhone = match["phone"] ?? "6132616383";
       _patientId = _selectedPatientPhone; // Keep ID as phone number itself
+      _doctorActiveView = 'patient';
     });
 
     final prefs = await SharedPreferences.getInstance();
@@ -861,6 +879,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     _liveSyncTimer?.cancel();
     _voiceController.dispose();
     _controller.dispose();
+    _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -1471,18 +1490,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final text = (textToSend ?? _controller.text).trim();
     if (text.isEmpty || _isLoading) return;
 
+    if (_isDoctor && _doctorActiveView == 'ai') {
+      await _sendAiAgentMessage(text, isVoice: isVoice);
+      return;
+    }
+
     if (_isDoctor && _doctorSendViaWhatsApp) {
-      final isScheduleIntent = _showTasksMode ||
-          RegExp(
-            r'\b(schedule|remind|reminder|tomorrow|tmrw|next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)|in\s+\d+\s*(min|minute|minutes|hr|hour|hours)|at\s+\d{1,2}(:\d{2})?\s*(am|pm))\b',
-            caseSensitive: false,
-          ).hasMatch(text);
-
-      if (isScheduleIntent) {
-        await _handleNaturalLanguageSchedule(text);
-        return;
-      }
-
       if (_selectedPatientPhone.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1735,6 +1748,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 _selectedPatientName = cleanName;
                 _selectedPatientPhone = phone;
                 _patientId = phone;
+                _doctorActiveView = 'patient';
               });
 
               // Permanently persist to SharedPreferences & Central Database
@@ -1783,23 +1797,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       ),
       child: Row(
         children: [
-          // Left: Back to Dashboard + Drawer Menu
-          if (widget.onBack != null)
-            IconButton(
-              tooltip: "Back",
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              icon: const Icon(Icons.arrow_back_rounded, size: 22, color: Colors.white),
-              onPressed: widget.onBack,
-            ),
+          // Left: Back to WhatsApp Chat List
           IconButton(
-            tooltip: "Chats & Contacts",
+            tooltip: "Chats",
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            icon: const Icon(Icons.menu_rounded, size: 22, color: Colors.white),
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            icon: const Icon(Icons.arrow_back_rounded, size: 22, color: Colors.white),
+            onPressed: () {
+              setState(() => _doctorActiveView = 'list');
+              _refreshContactPreviews();
+            },
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
 
           // Center: WhatsApp-style Avatar + Patient Name + Phone Subtitle (Tappable Selector)
           Expanded(
@@ -2575,8 +2584,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                         },
                         decoration: InputDecoration(
                           hintText: _isDoctor
-                              ? (_showTasksMode
-                                  ? "Schedule task (e.g. Remind Sugan at 10 AM)..."
+                              ? (_doctorActiveView == 'ai'
+                                  ? "Ask MaxAssist AI to text, voice note, or schedule..."
                                   : "Message")
                               : "Message MaxAssist...",
                           hintStyle: const TextStyle(fontSize: 15, color: Color(0xFF667781)),
@@ -3007,456 +3016,821 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     );
   }
 
-  Future<void> _loadScheduledTasks() async {
-    if (!mounted) return;
-    setState(() => _loadingTasks = true);
-    try {
-      final tasks = await BackendApiService.getDoctorScheduledTasks(ownerId: _deviceOwnerId);
-      if (mounted) {
-        setState(() {
-          _scheduledTasks = tasks;
-          _loadingTasks = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingTasks = false);
-    }
-  }
+  String get _aiChatStorageKey => "maxassist_ai_chat_v1_$_deviceOwnerId";
 
-  Future<void> _handleNaturalLanguageSchedule(String instruction) async {
-    _controller.clear();
-    setState(() => _isLoading = true);
+  Future<void> _loadAiChatHistory() async {
     try {
-      final res = await BackendApiService.parseAndScheduleDoctorTask(
-        instruction: instruction,
-        doctorName: _doctorName,
-        defaultPatientPhone: _selectedPatientPhone,
-        defaultPatientName: _selectedPatientName,
-        ownerId: _deviceOwnerId,
-      );
-      if (res['success'] == true && res['task'] is Map) {
-        final t = Map<String, dynamic>.from(res['task'] as Map);
-        await _loadScheduledTasks();
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_aiChatStorageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw) as List<dynamic>;
+        final loaded = decoded
+            .whereType<Map>()
+            .map((m) => _HealthChatMessage.fromJson(Map<String, dynamic>.from(m)))
+            .toList();
         if (mounted) {
           setState(() {
-            _messages.add(_HealthChatMessage(
-              role: 'assistant',
-              text: "⏰ **Scheduled WhatsApp Task Confirmed**\n\n"
-                  "• **Recipient**: ${t['patient_name']} (`+${t['patient_phone']}`)\n"
-                  "• **Scheduled For**: ${t['scheduled_display']}\n"
-                  "• **Message**: \"${t['message_text']}\"\n"
-                  "• **Physician**: $_doctorName\n\n"
-                  "*(MaxAssist will automatically dispatch this WhatsApp message at the scheduled time.)*",
-            ));
+            _aiMessages
+              ..clear()
+              ..addAll(loaded);
           });
-          await _persistMessagesLocally();
-          _scrollToBottom();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("⏰ Task scheduled for ${t['patient_name']} (${t['scheduled_display']})"),
-              backgroundColor: const Color(0xFF166534),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(res['error']?.toString() ?? "Could not schedule task."),
-              backgroundColor: const Color(0xFFB91C1C),
-            ),
-          );
         }
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint("[HealthChat] Error loading AI chat history: $e");
     }
   }
 
-  Future<void> _showManualScheduleTaskDialog() async {
-    String targetPhone = _selectedPatientPhone;
-    String targetName = _selectedPatientName;
-    final msgCtrl = TextEditingController();
-    DateTime pickedDate = DateTime.now().add(const Duration(hours: 1));
-    TimeOfDay pickedTime = TimeOfDay.fromDateTime(pickedDate);
-    bool saving = false;
+  Future<void> _persistAiChatHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _aiChatStorageKey,
+        jsonEncode(_aiMessages.map((m) => m.toJson()).toList()),
+      );
+    } catch (e) {
+      debugPrint("[HealthChat] Error saving AI chat history: $e");
+    }
+  }
 
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          final combined = DateTime(
-            pickedDate.year,
-            pickedDate.month,
-            pickedDate.day,
-            pickedTime.hour,
-            pickedTime.minute,
-          );
-          final displayStr =
-              "${combined.year}-${combined.month.toString().padLeft(2, '0')}-${combined.day.toString().padLeft(2, '0')} ${pickedTime.format(ctx)}";
+  Future<void> _refreshContactPreviews() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final Map<String, String> previews = {};
+      final Map<String, String> times = {};
+      final Map<String, bool> outgoing = {};
 
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: const Row(
-              children: [
-                Icon(Icons.schedule_send_rounded, color: Color(0xFF075E54)),
-                SizedBox(width: 8),
-                Text("Schedule WhatsApp Task", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+      for (final p in _doctorPatients) {
+        final phone = (p["phone"] ?? p["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+        if (phone.isEmpty) continue;
+        final cached = prefs.getString(_historyKeyFor(phone));
+        if (cached != null && cached.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(cached) as List<dynamic>;
+            if (decoded.isNotEmpty && decoded.last is Map) {
+              final lastMsg = _HealthChatMessage.fromJson(Map<String, dynamic>.from(decoded.last as Map));
+              previews[phone] = _cleanDisplayBubbleText(lastMsg.text);
+              times[phone] = _formatBubbleTime(lastMsg.timestamp);
+              outgoing[phone] = lastMsg.role == 'doctor';
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _lastPreviewByPhone
+            ..clear()
+            ..addAll(previews);
+          _lastTimeByPhone
+            ..clear()
+            ..addAll(times);
+          _lastOutgoingByPhone
+            ..clear()
+            ..addAll(outgoing);
+        });
+      }
+    } catch (e) {
+      debugPrint("[HealthChat] Error refreshing contact previews: $e");
+    }
+  }
+
+  Future<void> _sendAiAgentMessage(String text, {bool isVoice = false}) async {
+    _controller.clear();
+    final userMsg = _HealthChatMessage(
+      role: 'doctor',
+      text: text,
+      isVoice: isVoice,
+      status: 'sending',
+    );
+    setState(() {
+      _aiMessages.add(userMsg);
+      _isLoading = true;
+    });
+    await _persistAiChatHistory();
+    _scrollToBottom();
+
+    try {
+      final history = _aiMessages
+          .where((m) => m.text.isNotEmpty)
+          .map((m) => {
+                'role': m.role == 'doctor' ? 'user' : 'assistant',
+                'content': m.text,
+              })
+          .toList();
+
+      final res = await BackendApiService.sendDoctorAiAgentCommand(
+        instruction: text,
+        doctorName: _doctorName,
+        ownerId: _deviceOwnerId,
+        history: history.length > 8 ? history.sublist(history.length - 8) : history,
+      );
+
+      final replyText = (res['reply'] ?? res['error'] ?? "Done.").toString().trim();
+
+      if (mounted) {
+        setState(() {
+          final idx = _aiMessages.indexOf(userMsg);
+          if (idx != -1) {
+            _aiMessages[idx] = _HealthChatMessage(
+              role: 'doctor',
+              text: text,
+              isVoice: isVoice,
+              status: 'delivered',
+              timestamp: userMsg.timestamp,
+            );
+          }
+          _aiMessages.add(_HealthChatMessage(
+            role: 'assistant',
+            text: replyText.isNotEmpty ? replyText : "Done.",
+            status: 'delivered',
+          ));
+        });
+        await _persistAiChatHistory();
+        _scrollToBottom();
+
+        // If AI dispatched a text or voice message to a contact, refresh previews & active thread
+        final action = (res['action'] ?? '').toString();
+        final targetPhone = (res['target_phone'] ?? res['patient_phone'] ?? '')
+            .toString()
+            .replaceAll(RegExp(r'\D'), '');
+        if ((action == 'text_sent' || action == 'voice_sent') && targetPhone.isNotEmpty) {
+          final dispatchedText = (res['message_text'] ?? '').toString();
+          if (dispatchedText.isNotEmpty) {
+            setState(() {
+              _lastPreviewByPhone[targetPhone] =
+                  action == 'voice_sent' ? "🎙️ $dispatchedText" : dispatchedText;
+              _lastTimeByPhone[targetPhone] = _formatBubbleTime(DateTime.now());
+              _lastOutgoingByPhone[targetPhone] = true;
+            });
+          }
+          if (targetPhone == _selectedPatientPhone.replaceAll(RegExp(r'\D'), '')) {
+            _syncWhatsAppThreadSilently();
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _aiMessages.add(_HealthChatMessage(
+            role: 'assistant',
+            text: "Couldn't reach MaxAssist AI right now. Please try again.",
+          ));
+        });
+        await _persistAiChatHistory();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _scrollToBottom();
+      }
+    }
+  }
+
+  Widget _buildAiAvatar({double radius = 24}) {
+    return Container(
+      width: radius * 2,
+      height: radius * 2,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: SweepGradient(
+          colors: [
+            Color(0xFF06B6D4),
+            Color(0xFF3B82F6),
+            Color(0xFF8B5CF6),
+            Color(0xFFEC4899),
+            Color(0xFF06B6D4),
+          ],
+        ),
+      ),
+      padding: EdgeInsets.all(radius * 0.14),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Icons.auto_awesome_rounded,
+          color: const Color(0xFF4F46E5),
+          size: radius * 0.95,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWhatsAppChatListView() {
+    final q = _searchQuery.trim().toLowerCase();
+    final filteredContacts = q.isEmpty
+        ? _doctorPatients
+        : _doctorPatients.where((p) {
+            final name = (p["name"] ?? "").toLowerCase();
+            final phone = (p["phone"] ?? "").toLowerCase();
+            return name.contains(q) || phone.contains(q);
+          }).toList();
+
+    final lastAiMsg = _aiMessages.isNotEmpty ? _aiMessages.last : null;
+    final aiSubtitle = lastAiMsg != null
+        ? _cleanDisplayBubbleText(lastAiMsg.text).replaceAll('\n', ' ')
+        : "Ask me to message contacts, send AI voice notes, or schedule";
+    final aiTime = lastAiMsg != null ? _formatBubbleTime(lastAiMsg.timestamp) : "";
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: Colors.white,
+      drawer: _buildGeminiHistoryDrawer(),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF00A884),
+        foregroundColor: Colors.white,
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        tooltip: "New Chat / Add Contact",
+        onPressed: _showAddContactModalSheet,
+        child: const Icon(Icons.add_comment_rounded, size: 24),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top WhatsApp-style Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 6, 4),
+              child: Row(
                 children: [
-                  if (_doctorPatients.isNotEmpty)
-                    DropdownButtonFormField<String>(
-                      initialValue: _doctorPatients.any((p) => p['phone'] == targetPhone)
-                          ? targetPhone
-                          : _doctorPatients.first['phone'],
-                      decoration: InputDecoration(
-                        labelText: "Patient",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      items: _doctorPatients.map((p) {
-                        final ph = p['phone'] ?? '';
-                        final nm = p['name'] ?? ph;
-                        return DropdownMenuItem(value: ph, child: Text("$nm (+$ph)"));
-                      }).toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          final match = _doctorPatients.firstWhere((p) => p['phone'] == v);
-                          setModalState(() {
-                            targetPhone = v;
-                            targetName = match['name'] ?? v;
-                          });
-                        }
-                      },
+                  if (widget.onBack != null)
+                    IconButton(
+                      tooltip: "Back to Dashboard",
+                      icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF075E54)),
+                      onPressed: widget.onBack,
                     ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.calendar_today_rounded, size: 15),
-                          label: Text("${pickedDate.month}/${pickedDate.day}/${pickedDate.year}"),
-                          onPressed: () async {
-                            final d = await showDatePicker(
-                              context: ctx,
-                              initialDate: pickedDate,
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime.now().add(const Duration(days: 365)),
-                            );
-                            if (d != null) setModalState(() => pickedDate = d);
-                          },
-                        ),
+                  const SizedBox(width: 4),
+                  const Expanded(
+                    child: Text(
+                      "MaxAssist",
+                      style: TextStyle(
+                        fontSize: 23,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF075E54),
+                        letterSpacing: -0.4,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.access_time_rounded, size: 15),
-                          label: Text(pickedTime.format(ctx)),
-                          onPressed: () async {
-                            final t = await showTimePicker(context: ctx, initialTime: pickedTime);
-                            if (t != null) setModalState(() => pickedTime = t);
-                          },
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: msgCtrl,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: "Message to send on WhatsApp",
-                      hintText: "e.g. Reminder: Appointment tomorrow at 10 AM.",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                  IconButton(
+                    tooltip: "Sync Chats",
+                    icon: const Icon(Icons.sync_rounded, color: Color(0xFF334155), size: 22),
+                    onPressed: () {
+                      _refreshContactPreviews();
+                      _syncWhatsAppThreadSilently(showToast: true);
+                    },
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF334155)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    onSelected: (value) {
+                      if (value == 'whatsapp_line') {
+                        _showDoctorWhatsAppOnboardingModal(allowCancel: true);
+                      } else if (value == 'contacts') {
+                        _showManageContactsModal();
+                      } else if (value == 'back' && widget.onBack != null) {
+                        widget.onBack!();
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'whatsapp_line',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF075E54)),
+                            const SizedBox(width: 10),
+                            Text(
+                              _doctorClinicWhatsApp.isNotEmpty
+                                  ? "Line: +$_doctorClinicWhatsApp"
+                                  : "Link WhatsApp Line",
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'contacts',
+                        child: Row(
+                          children: [
+                            Icon(Icons.contacts_rounded, size: 18, color: Color(0xFF475569)),
+                            SizedBox(width: 10),
+                            Text("Manage Contacts"),
+                          ],
+                        ),
+                      ),
+                      if (widget.onBack != null)
+                        const PopupMenuItem(
+                          value: 'back',
+                          child: Row(
+                            children: [
+                              Icon(Icons.home_outlined, size: 18, color: Color(0xFF475569)),
+                              SizedBox(width: 10),
+                              Text("Back to Dashboard"),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: saving ? null : () => Navigator.of(ctx).pop(),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF075E54),
-                  foregroundColor: Colors.white,
+
+            // "Ask MaxAssist AI or Search" Pill
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+              child: Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                onPressed: saving
-                    ? null
-                    : () async {
-                        if (targetPhone.isEmpty || msgCtrl.text.trim().isEmpty) return;
-                        setModalState(() => saving = true);
-                        final res = await BackendApiService.createDoctorScheduledTask(
-                          patientPhone: targetPhone,
-                          patientName: targetName.isNotEmpty ? targetName : targetPhone,
-                          messageText: msgCtrl.text.trim(),
-                          scheduledForUtc: combined.toUtc().toIso8601String(),
-                          scheduledDisplay: displayStr,
-                          doctorName: _doctorName,
-                          ownerId: _deviceOwnerId,
-                        );
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                        if (res['success'] == true) {
-                          await _loadScheduledTasks();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("⏰ Scheduled for $targetName at $displayStr"),
-                                backgroundColor: const Color(0xFF166534),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                child: const Text("Schedule"),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  onSubmitted: (v) {
+                    final query = v.trim();
+                    if (query.isNotEmpty) {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                        _doctorActiveView = 'ai';
+                      });
+                      _sendAiAgentMessage(query);
+                    }
+                  },
+                  style: const TextStyle(fontSize: 15, color: Color(0xFF0F172A)),
+                  decoration: InputDecoration(
+                    hintText: "Ask MaxAssist AI or Search",
+                    hintStyle: const TextStyle(fontSize: 15, color: Color(0xFF64748B)),
+                    prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 22),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                  ),
+                ),
               ),
-            ],
-          );
-        },
+            ),
+
+            // Chat List: Pinned MaxAssist AI + All Contact History Threads
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 84),
+                children: [
+                  // PINNED ROW #1: MaxAssist AI
+                  InkWell(
+                    onTap: () {
+                      setState(() => _doctorActiveView = 'ai');
+                      _scrollToBottom();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                      child: Row(
+                        children: [
+                          _buildAiAvatar(radius: 25),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text(
+                                      "MaxAssist AI",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF111B21),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      size: 16,
+                                      color: Color(0xFF2563EB),
+                                    ),
+                                    const Spacer(),
+                                    if (aiTime.isNotEmpty)
+                                      Text(
+                                        aiTime,
+                                        style: const TextStyle(fontSize: 12, color: Color(0xFF667781)),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        aiSubtitle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13.5, color: Color(0xFF667781)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.push_pin_rounded,
+                                      size: 15,
+                                      color: Color(0xFF8696A0),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 78, color: Color(0xFFF1F5F9)),
+
+                  // CONTACT HISTORY ROWS
+                  if (filteredContacts.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 42),
+                      child: Column(
+                        children: [
+                          Icon(Icons.chat_bubble_outline_rounded, size: 46, color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
+                          Text(
+                            _searchQuery.isNotEmpty
+                                ? "No contacts match \"$_searchQuery\""
+                                : "No chats yet",
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _searchQuery.isNotEmpty
+                                ? "Press Enter to ask MaxAssist AI directly."
+                                : "Tap the green + button below to add a contact from your phone or enter a number.",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...filteredContacts.map((contact) {
+                      final name = contact["name"] ?? "Contact";
+                      final phone = (contact["phone"] ?? contact["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+                      final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : "C";
+                      final preview = _lastPreviewByPhone[phone] ?? "+$phone";
+                      final timeStr = _lastTimeByPhone[phone] ?? "";
+                      final isOut = _lastOutgoingByPhone[phone] == true;
+
+                      return Column(
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              final pid = contact["patient_id"] ?? phone;
+                              _onDoctorPatientChanged(pid);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 25,
+                                    backgroundColor: const Color(0xFFE2F5EE),
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF075E54),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF111B21),
+                                                ),
+                                              ),
+                                            ),
+                                            if (timeStr.isNotEmpty)
+                                              Text(
+                                                timeStr,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF667781),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Row(
+                                          children: [
+                                            if (isOut) ...[
+                                              const Icon(
+                                                Icons.done_all_rounded,
+                                                size: 16,
+                                                color: Color(0xFF53BDEB),
+                                              ),
+                                              const SizedBox(width: 4),
+                                            ],
+                                            Expanded(
+                                              child: Text(
+                                                preview.replaceAll('\n', ' '),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 13.5,
+                                                  color: Color(0xFF667781),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const Divider(height: 1, indent: 78, color: Color(0xFFF1F5F9)),
+                        ],
+                      );
+                    }),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildChatTaskToggle() {
-    final pendingCount = _scheduledTasks.where((t) => t['status'] == 'pending').length;
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 4),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE2E8F0),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () => setState(() => _showTasksMode = false),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: !_showTasksMode ? Colors.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    "Chat",
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: !_showTasksMode ? const Color(0xFF0F172A) : const Color(0xFF64748B),
-                    ),
-                  ),
-                ),
+  Widget _buildAiAgentChatView() {
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFFECE5DD),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // WhatsApp Emerald Header for MaxAssist AI
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF075E54),
+                boxShadow: [
+                  BoxShadow(color: Color(0x22000000), blurRadius: 4, offset: Offset(0, 2)),
+                ],
               ),
-              GestureDetector(
-                onTap: () {
-                  setState(() => _showTasksMode = true);
-                  _loadScheduledTasks();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _showTasksMode ? Colors.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: "Back to Chats",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 22, color: Colors.white),
+                    onPressed: () {
+                      setState(() => _doctorActiveView = 'list');
+                      _refreshContactPreviews();
+                    },
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "Task",
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: _showTasksMode ? const Color(0xFF075E54) : const Color(0xFF64748B),
+                  const SizedBox(width: 4),
+                  _buildAiAvatar(radius: 19),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              "MaxAssist AI",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            SizedBox(width: 5),
+                            Icon(Icons.verified_rounded, size: 15, color: Color(0xFF60A5FA)),
+                          ],
                         ),
-                      ),
-                      if (pendingCount > 0) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF075E54),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            "$pendingCount",
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
-                          ),
+                        Text(
+                          "Text • AI Voice Notes • Scheduling",
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11.5, color: Color(0xFFD1FAE5)),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                  if (_aiMessages.isNotEmpty)
+                    IconButton(
+                      tooltip: "Clear AI Chat",
+                      icon: const Icon(Icons.delete_outline_rounded, size: 21, color: Colors.white),
+                      onPressed: () async {
+                        setState(() => _aiMessages.clear());
+                        await _persistAiChatHistory();
+                      },
+                    ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+            ),
 
-  Widget _buildScheduledTasksView() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Scheduled WhatsApp Tasks",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-                    ),
-                    Text(
-                      "Type below (e.g. 'Remind Sugan tomorrow at 10 AM') or tap + Schedule",
-                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-              ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF075E54),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                icon: const Icon(Icons.add_alarm_rounded, size: 16),
-                label: const Text("Schedule", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                onPressed: _showManualScheduleTaskDialog,
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _loadingTasks
-              ? const Center(child: CircularProgressIndicator())
-              : _scheduledTasks.isEmpty
+            // AI Messages Feed or Clean Quick-Action Suggestions
+            Expanded(
+              child: _aiMessages.isEmpty
                   ? Center(
-                      child: Padding(
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.event_available_rounded, size: 46, color: Colors.grey.shade400),
-                            const SizedBox(height: 10),
+                            _buildAiAvatar(radius: 34),
+                            const SizedBox(height: 14),
                             const Text(
-                              "No Scheduled Tasks Yet",
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF475569)),
+                              "MaxAssist AI",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF111B21),
+                              ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             const Text(
-                              "Ask MaxAssist to remind any patient at any time, or tap + Schedule above.",
+                              "Type or use the mic to message any contact, send an AI voice note on WhatsApp, or schedule future reminders.",
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                              style: TextStyle(fontSize: 13.5, color: Color(0xFF54656F), height: 1.4),
+                            ),
+                            const SizedBox(height: 18),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                ActionChip(
+                                  backgroundColor: Colors.white,
+                                  label: const Text("🎙️ Send voice message to..."),
+                                  onPressed: () {
+                                    final sampleName = _doctorPatients.isNotEmpty
+                                        ? (_doctorPatients.first["name"] ?? "Sugan")
+                                        : "Sugan";
+                                    _controller.text =
+                                        "Send a voice message to $sampleName saying ";
+                                    _controller.selection = TextSelection.fromPosition(
+                                      TextPosition(offset: _controller.text.length),
+                                    );
+                                  },
+                                ),
+                                ActionChip(
+                                  backgroundColor: Colors.white,
+                                  label: const Text("⏰ Schedule a reminder"),
+                                  onPressed: () {
+                                    final sampleName = _doctorPatients.isNotEmpty
+                                        ? (_doctorPatients.first["name"] ?? "Sugan")
+                                        : "Sugan";
+                                    _controller.text =
+                                        "Remind $sampleName tomorrow at 10 AM to ";
+                                    _controller.selection = TextSelection.fromPosition(
+                                      TextPosition(offset: _controller.text.length),
+                                    );
+                                  },
+                                ),
+                                ActionChip(
+                                  backgroundColor: Colors.white,
+                                  label: const Text("📋 Show scheduled tasks"),
+                                  onPressed: () => _sendAiAgentMessage("Show my scheduled tasks"),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                      itemCount: _scheduledTasks.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, idx) {
-                        final t = _scheduledTasks[idx];
-                        final status = (t['status'] ?? 'pending').toString();
-                        final isPending = status == 'pending';
-                        final badgeBg = isPending
-                            ? const Color(0xFFFEF3C7)
-                            : (status == 'sent' ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9));
-                        final badgeFg = isPending
-                            ? const Color(0xFFB45309)
-                            : (status == 'sent' ? const Color(0xFF15803D) : const Color(0xFF64748B));
-
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      "${t['patient_name']} (+${t['patient_phone']})",
-                                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A)),
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      itemCount: _aiMessages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _aiMessages[index];
+                        final isOutgoing = msg.role == 'doctor';
+                        return Align(
+                          alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 7),
+                            padding: const EdgeInsets.fromLTRB(12, 8, 10, 6),
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.82,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isOutgoing ? const Color(0xFFD9FDD3) : Colors.white,
+                              borderRadius: BorderRadius.circular(12).copyWith(
+                                topRight: isOutgoing ? const Radius.circular(2) : const Radius.circular(12),
+                                topLeft: !isOutgoing ? const Radius.circular(2) : const Radius.circular(12),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: 1.0,
+                                  child: MarkdownBody(
+                                    data: msg.text,
+                                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                      p: const TextStyle(fontSize: 15, height: 1.35, color: Color(0xFF111B21)),
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(999)),
-                                    child: Text(
-                                      status.toUpperCase(),
-                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: badgeFg),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _formatBubbleTime(msg.timestamp),
+                                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF667781)),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                (t['message_text'] ?? '').toString(),
-                                style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFF64748B)),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      (t['scheduled_display'] ?? t['scheduled_for_utc'] ?? '').toString(),
-                                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                  if (isPending && t['id'] != null)
-                                    TextButton(
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      onPressed: () async {
-                                        final id = int.tryParse(t['id'].toString());
-                                        if (id != null) {
-                                          await BackendApiService.cancelDoctorScheduledTask(id);
-                                          await _loadScheduledTasks();
-                                        }
-                                      },
-                                      child: const Text(
-                                        "Cancel",
-                                        style: TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w700),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
+                                    if (isOutgoing) ...[
+                                      const SizedBox(width: 4),
+                                      _buildWhatsAppTickIcon(msg.status),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
                     ),
+            ),
+
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Color(0xFF075E54)),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      "MaxAssist AI is working...",
+                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+
+            _buildGeminiComposer(),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isDoctor && _doctorActiveView == 'list') {
+      return _buildWhatsAppChatListView();
+    }
+    if (_isDoctor && _doctorActiveView == 'ai') {
+      return _buildAiAgentChatView();
+    }
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFECE5DD),
@@ -3464,19 +3838,15 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top Header: Custom Gemini-style Doctor Header or Patient Header
+            // Top Header: WhatsApp-style 1-on-1 Contact Header or Patient Header
             _isDoctor ? _buildGeminiTopBar() : _buildPatientHeader(),
 
-            // Meta 24-Hour Outreach Notice & Template Initialization for Doctors
-            if (_isDoctor && !_showTasksMode) _buildDoctorOutreachBanner(),
+            // Meta 24-Hour Outreach Notice (only if patient hasn't replied yet)
+            if (_isDoctor) _buildDoctorOutreachBanner(),
 
-            // Chat Message Feed, Scheduled Tasks View, or Gemini Hero Empty State
+            // Chat Message Feed or Empty State
             Expanded(
-              child: _isDoctor && _showTasksMode
-                  ? _buildScheduledTasksView()
-                  : (_messages.isEmpty
-                      ? _buildGeminiEmptyState()
-                      : _buildMessageList()),
+              child: _messages.isEmpty ? _buildGeminiEmptyState() : _buildMessageList(),
             ),
 
             // Loading indicator
@@ -3501,9 +3871,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     const SizedBox(width: 8),
                     Text(
                       _isDoctor && _doctorSendViaWhatsApp
-                          ? (_showTasksMode
-                              ? "Scheduling WhatsApp task..."
-                              : "Dispatching to $_selectedPatientName's WhatsApp via Meta...")
+                          ? "Sending to $_selectedPatientName..."
                           : "Analyzing clinical telemetry...",
                       style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                     ),
@@ -3511,10 +3879,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 ),
               ),
 
-            // Gemini-style Chat / Task Mode Switcher for Doctors
-            if (_isDoctor) _buildChatTaskToggle(),
-
-            // Gemini-Style Bottom Composer
+            // WhatsApp-Style Bottom Composer
             _buildGeminiComposer(),
           ],
         ),

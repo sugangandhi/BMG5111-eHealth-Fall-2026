@@ -383,6 +383,299 @@ class ParseScheduleTaskRequest(BaseModel):
     default_patient_name: Optional[str] = ""
     timezone_offset_minutes: Optional[int] = -300  # EST default
 
+class DoctorAiAgentRequest(BaseModel):
+    instruction: str
+    doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
+    timezone_offset_minutes: Optional[int] = -300
+    history: Optional[List[Dict[str, str]]] = None
+
+def generate_tts_voice_ogg(text: str) -> Optional[bytes]:
+    """Generates a WhatsApp-native OGG/Opus voice note via OpenAI TTS (tts-1)."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    clean = (text or "").strip()
+    if not api_key or not clean:
+        return None
+    try:
+        resp = requests.post(
+            "https://api.openai.com/v1/audio/speech",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "tts-1",
+                "voice": os.getenv("OPENAI_TTS_VOICE", "alloy"),
+                "input": clean[:4000],
+                "response_format": "opus",
+            },
+            timeout=25,
+            verify=False,
+        )
+        if resp.status_code == 200 and resp.content and len(resp.content) > 200:
+            return resp.content
+        print(f"[MaxAssist TTS] OpenAI returned {resp.status_code}: {resp.text[:200]}")
+    except Exception as exc:
+        print(f"[MaxAssist TTS Error]: {exc}")
+    return None
+
+def upload_meta_whatsapp_media(audio_bytes: bytes, mime_type: str = "audio/ogg") -> Optional[str]:
+    """Uploads audio bytes to Meta WhatsApp Cloud Media API and returns media_id."""
+    token = os.getenv("WHATSAPP_TOKEN")
+    phone_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    if not token or not phone_id or not audio_bytes:
+        return None
+    try:
+        url = f"https://graph.facebook.com/v20.0/{phone_id}/media"
+        resp = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            data={"messaging_product": "whatsapp", "type": mime_type},
+            files={"file": ("voice_note.ogg", audio_bytes, mime_type)},
+            timeout=20,
+            verify=False,
+        )
+        if resp.status_code in (200, 201):
+            media_id = resp.json().get("id")
+            print(f"[WhatsApp Media Upload] Uploaded voice note media_id={media_id}")
+            return media_id
+        print(f"[WhatsApp Media Upload Error] {resp.status_code}: {resp.text[:200]}")
+    except Exception as exc:
+        print(f"[WhatsApp Media Upload Exception]: {exc}")
+    return None
+
+def send_whatsapp_voice_note(to_phone: str, text_to_speak: str) -> tuple[bool, str]:
+    """Synthesizes an AI voice note (OGG/Opus), uploads to Meta, and sends as a real WhatsApp voice message."""
+    token = os.getenv("WHATSAPP_TOKEN")
+    phone_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    clean_to = re.sub(r'\D', '', to_phone or '')
+    if len(clean_to) == 10:
+        clean_to = '1' + clean_to
+
+    audio_bytes = generate_tts_voice_ogg(text_to_speak)
+    if audio_bytes and token and phone_id:
+        media_id = upload_meta_whatsapp_media(audio_bytes, mime_type="audio/ogg")
+        if media_id:
+            try:
+                url = f"https://graph.facebook.com/v20.0/{phone_id}/messages"
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": clean_to,
+                    "type": "audio",
+                    "audio": {"id": media_id},
+                }
+                resp = requests.post(
+                    url,
+                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    json=payload,
+                    timeout=12,
+                    verify=False,
+                )
+                if resp.status_code in (200, 201):
+                    print(f"[WhatsApp Voice Note] Delivered AI voice message to +{clean_to}")
+                    return True, "voice_sent"
+                print(f"[WhatsApp Voice Note Error] {resp.status_code}: {resp.text[:200]}")
+            except Exception as exc:
+                print(f"[WhatsApp Voice Note Exception]: {exc}")
+
+    # Graceful fallback to text if TTS or Meta audio fails
+    fallback_ok = send_whatsapp_reply(clean_to, text_to_speak)
+    return fallback_ok, "text_fallback"
+
+def _match_contact_in_instruction(instruction: str, patients: List[Dict[str, Any]]) -> tuple[str, str]:
+    """Finds a matching contact (phone, name) from the doctor's saved contacts or explicit phone number."""
+    low = instruction.lower()
+    for p in patients:
+        pname = str(p.get("name") or "").strip()
+        if not pname:
+            continue
+        first_word = pname.split()[0].lower()
+        if pname.lower() in low or (len(first_word) >= 3 and re.search(rf'\b{re.escape(first_word)}\b', low)):
+            return re.sub(r'\D', '', str(p.get("phone") or "")), pname
+    m_phone = re.search(r'\+?\d[\d\-\s]{8,14}\d', instruction)
+    if m_phone:
+        digits = re.sub(r'\D', '', m_phone.group(0))
+        if len(digits) == 10:
+            digits = '1' + digits
+        if len(digits) >= 10:
+            return digits, f"Patient {digits[-4:]}"
+    return "", ""
+
+def _extract_outbound_body(instruction: str, target_name: str) -> str:
+    """Extracts the clean message content the doctor wants sent."""
+    # 1. Explicit content delimiters ("saying ...", "that ...", ": ...")
+    m = re.search(r'(?:\bsaying\b|\bthat\b|:)\s+["\']?(.+?)["\']?$', instruction, re.IGNORECASE)
+    if m and len(m.group(1).strip()) >= 2:
+        body = m.group(1).strip().strip('"\'')
+        return body[0].upper() + body[1:] if body else instruction
+    # 2. Strip leading command + recipient name ("send a voice message to sugan take rest", "text sugan hello")
+    cleaned = re.sub(
+        r'^(?:please\s+)?(?:send|text|message|msg|tell|whatsapp)\s+(?:an?\s+)?(?:ai\s+)?(?:voice\s+(?:message|note|msg)|audio\s+(?:message|note)|message|msg|text)?\s*(?:to\s+)?',
+        '',
+        instruction.strip(),
+        flags=re.IGNORECASE,
+    ).strip()
+    if target_name:
+        first_word = target_name.split()[0]
+        cleaned = re.sub(rf'^{re.escape(target_name)}\b[\s,:\-]*', '', cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(rf'^{re.escape(first_word)}\b[\s,:\-]*', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'^(?:saying|that|to|about)\s+', '', cleaned, flags=re.IGNORECASE).strip()
+    if len(cleaned) >= 2:
+        return cleaned[0].upper() + cleaned[1:]
+    return instruction.strip()
+
+@router.post('/api/doctor/ai-agent-command')
+async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
+    """
+    Dedicated MaxAssist AI Agent endpoint:
+    - Send AI Voice Messages on WhatsApp
+    - Send Direct Text Messages to any saved contact
+    - Schedule future WhatsApp reminders
+    - List pending scheduled tasks
+    - Answer general clinical / assistant queries
+    """
+    from src.backend.services.clinical_database import (
+        add_chat_message,
+        get_patients,
+        list_scheduled_tasks,
+    )
+
+    instruction = (req.instruction or "").strip()
+    if not instruction:
+        return {"success": False, "reply": "Please type or speak a message."}
+
+    low = instruction.lower()
+    doctor_name = req.doctor_name or "Dr. Sugan"
+    owner_id = (req.owner_id or "").strip()
+    patients = get_patients(owner_id=owner_id or None)
+
+    # 1. List scheduled tasks
+    if re.search(r'\b(show|list|view|my)\b.*\b(schedule|scheduled|task|tasks|reminder|reminders)\b', low):
+        tasks = list_scheduled_tasks(status="pending", owner_id=owner_id or None)
+        if not tasks:
+            return {"success": True, "action": "list_tasks", "reply": "You have no pending scheduled messages right now."}
+        lines = [f"• **{t['patient_name']}** ({t['scheduled_display']}): \"{t['message_text']}\"" for t in tasks[:10]]
+        return {
+            "success": True,
+            "action": "list_tasks",
+            "reply": "Here are your pending scheduled WhatsApp messages:\n\n" + "\n".join(lines),
+        }
+
+    # 2. Schedule a message for later
+    is_schedule = bool(re.search(
+        r'\b(schedule|remind|reminder|tomorrow|tmrw|next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|in\s+\d+\s*(?:min|minute|minutes|hr|hour|hours)|at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm))\b',
+        low,
+    ))
+    if is_schedule:
+        target_phone, target_name = _match_contact_in_instruction(instruction, patients)
+        if not target_phone:
+            names = ", ".join([str(p.get("name", "")) for p in patients[:5] if p.get("name")])
+            hint = f" Your saved contacts: {names}." if names else " Please add a contact first."
+            return {
+                "success": True,
+                "action": "clarify",
+                "reply": f"Who should I schedule this message for? Include their name or phone number.{hint}",
+            }
+        sched = await parse_and_schedule_doctor_task(ParseScheduleTaskRequest(
+            instruction=instruction,
+            doctor_name=doctor_name,
+            owner_id=owner_id,
+            default_patient_phone=target_phone,
+            default_patient_name=target_name,
+            timezone_offset_minutes=req.timezone_offset_minutes or -300,
+        ))
+        if sched.get("success") and sched.get("task"):
+            t = sched["task"]
+            return {
+                "success": True,
+                "action": "scheduled",
+                "task": t,
+                "reply": f"Scheduled for **{t['patient_name']}** on **{t['scheduled_display']}**:\n\"{t['message_text']}\"",
+            }
+        return {"success": True, "action": "error", "reply": sched.get("error") or "Could not schedule that task."}
+
+    # 3. Send an AI Voice Message to a contact
+    is_voice_cmd = bool(re.search(r'\b(voice\s*(?:message|note|msg)|audio\s*(?:message|note)|speak\s+to)\b', low))
+    if is_voice_cmd:
+        target_phone, target_name = _match_contact_in_instruction(instruction, patients)
+        if not target_phone:
+            names = ", ".join([str(p.get("name", "")) for p in patients[:5] if p.get("name")])
+            hint = f" Your contacts: {names}." if names else ""
+            return {
+                "success": True,
+                "action": "clarify",
+                "reply": f"Who should I send the AI voice message to? Mention their name or phone number.{hint}",
+            }
+        spoken_text = _extract_outbound_body(instruction, target_name)
+        sent_ok, mode = send_whatsapp_voice_note(target_phone, spoken_text)
+        add_chat_message(
+            patient_phone=target_phone,
+            sender_role="doctor",
+            sender_name=doctor_name,
+            text=f"🎙️ {spoken_text}",
+            is_voice=True,
+            status="delivered" if sent_ok else "sent",
+            owner_id=owner_id,
+        )
+        label = "AI voice message" if mode == "voice_sent" else "message"
+        return {
+            "success": True,
+            "action": "voice_sent",
+            "patient_phone": target_phone,
+            "target_phone": target_phone,
+            "patient_name": target_name,
+            "message_text": spoken_text,
+            "reply": f"🎙️ Sent {label} to **{target_name}**: \"{spoken_text}\"",
+        }
+
+    # 4. Send a Direct Text Message to a contact
+    is_send_cmd = bool(re.search(r'\b(send|text|message|msg|tell|whatsapp)\b', low))
+    if is_send_cmd:
+        target_phone, target_name = _match_contact_in_instruction(instruction, patients)
+        if target_phone:
+            body_text = _extract_outbound_body(instruction, target_name)
+            sent_ok = send_whatsapp_reply(target_phone, body_text)
+            add_chat_message(
+                patient_phone=target_phone,
+                sender_role="doctor",
+                sender_name=doctor_name,
+                text=body_text,
+                status="delivered" if sent_ok else "sent",
+                owner_id=owner_id,
+            )
+            return {
+                "success": True,
+                "action": "text_sent",
+                "patient_phone": target_phone,
+                "target_phone": target_phone,
+                "patient_name": target_name,
+                "message_text": body_text,
+                "reply": f"Sent to **{target_name}**: \"{body_text}\"",
+            }
+
+    # 5. General MaxAssist AI Assistant response
+    try:
+        from src.backend.clients.model_client import invoke_model
+        contact_names = ", ".join([str(p.get("name", "")) for p in patients[:10] if p.get("name")]) or "None yet"
+        sys_prompt = (
+            f"You are MaxAssist AI, a concise, helpful medical & clinic assistant for {doctor_name}.\n"
+            f"Saved contacts: {contact_names}.\n"
+            "You can send WhatsApp text messages, send AI voice notes, and schedule future reminders when asked. "
+            "Keep answers brief, friendly, and clear (under 60 words)."
+        )
+        reply = invoke_model(prompt=instruction, system_prompt=sys_prompt)
+        if reply and reply.strip():
+            return {"success": True, "action": "chat", "reply": reply.strip()}
+    except Exception as exc:
+        print(f"[MaxAssist AI Agent LLM Error]: {exc}")
+
+    return {
+        "success": True,
+        "action": "chat",
+        "reply": "I'm MaxAssist AI. Ask me to send a text or AI voice message to any contact, or schedule a reminder!",
+    }
+
 @router.get('/api/doctor/scheduled-tasks')
 async def get_doctor_scheduled_tasks(
     status: Optional[str] = None,
