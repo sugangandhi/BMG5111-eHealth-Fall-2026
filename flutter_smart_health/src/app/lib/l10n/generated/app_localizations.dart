@@ -97,13 +97,13 @@ abstract class AppLocalizations {
   /// Application title used by MaterialApp.
   ///
   /// In en, this message translates to:
-  /// **'Smart Health App'**
+  /// **'MaxAssist'**
   String get appTitle;
 
   /// Primary product name displayed in the login header.
   ///
   /// In en, this message translates to:
-  /// **'Smart Health'**
+  /// **'MaxAssist'**
   String get brandName;
 
   /// Subtitle displayed below the product name on the login screen.
@@ -121,7 +121,7 @@ abstract class AppLocalizations {
   /// Login form helper text.
   ///
   /// In en, this message translates to:
-  /// **'Enter your eHospital credentials to continue'**
+  /// **'Enter your MaxAssist credentials to continue'**
   String get signInSubtitle;
 
   /// Email input hint on the login screen.
@@ -160,7 +160,7 @@ abstract class AppLocalizations {
   /// **'Please enter your password'**
   String get passwordRequiredError;
 
-  /// Login error when eHospital credentials are rejected.
+  /// Login error when MaxAssist credentials are rejected.
   ///
   /// In en, this message translates to:
   /// **'Invalid email or password. Please try again.'**
@@ -181,7 +181,7 @@ abstract class AppLocalizations {
   /// Body copy of the local AI privacy notice dialog.
   ///
   /// In en, this message translates to:
-  /// **'This app uses an OpenAI GPT model via the connected eHospital AI backend (or your configured AI provider) to process your health data and generate insights. By continuing, you agree that your metrics may be processed by the configured AI service. Please review our Privacy Policy for more details.'**
+  /// **'This app uses an OpenAI GPT model via the connected MaxAssist AI backend (or your configured AI provider) to process your health data and generate insights. By continuing, you agree that your metrics may be processed by the configured AI service. Please review our Privacy Policy for more details.'**
   String get privacyNoticeBody;
 
   /// Privacy notice confirmation button.
@@ -343,7 +343,7 @@ abstract class AppLocalizations {
   /// Settings tile subtitle for clinical and wearable data.
   ///
   /// In en, this message translates to:
-  /// **'eHospital patient database (institutional)'**
+  /// **'MaxAssist patient database (institutional)'**
   String get clinicalWearableDataSubtitle;
 
   /// Settings tile title for AI response sources.
@@ -391,7 +391,7 @@ abstract class AppLocalizations {
   /// Data source description for clinical records.
   ///
   /// In en, this message translates to:
-  /// **'Sourced from the eHospital institutional patient database. Includes ECG results, diabetes analysis, heart disease risk, stroke prediction, lab tests, and diagnosis records provided by the connected hospital system.'**
+  /// **'Sourced from the MaxAssist institutional patient database. Includes ECG results, diabetes analysis, heart disease risk, stroke prediction, lab tests, and diagnosis records provided by the connected hospital system.'**
   String get sourceClinicalDescription;
 
   /// Data source item title for wearable vitals.
@@ -1231,7 +1231,7 @@ abstract class AppLocalizations {
   /// Device screen info banner title.
   ///
   /// In en, this message translates to:
-  /// **'Mobile Health Apps -> eHospital'**
+  /// **'Mobile Health Apps -> MaxAssist'**
   String get deviceInfoTitle;
 
   /// Device screen info banner body.
@@ -1243,7 +1243,7 @@ abstract class AppLocalizations {
   /// Device screen patient count section label.
   ///
   /// In en, this message translates to:
-  /// **'{count} Patients in eHospital DB'**
+  /// **'{count} Patients in MaxAssist DB'**
   String patientsInDb(int count);
 
   /// Fallback patient name when username is missing.
@@ -1327,13 +1327,13 @@ abstract class AppLocalizations {
   /// Simulation dialog data pipeline label.
   ///
   /// In en, this message translates to:
-  /// **'Samsung Health / Health Connect / Apple Health -> eHospital DB'**
+  /// **'Samsung Health / Health Connect / Apple Health -> MaxAssist DB'**
   String get appleHealthPipeline;
 
   /// Simulation dialog completion message.
   ///
   /// In en, this message translates to:
-  /// **'{total} days uploaded to eHospital.'**
+  /// **'{total} days uploaded to MaxAssist.'**
   String uploadCompleteMessage(int total);
 
   /// Simulation dialog upload progress message.
@@ -1585,7 +1585,7 @@ abstract class AppLocalizations {
   /// Manual vitals bottom sheet title.
   ///
   /// In en, this message translates to:
-  /// **'Log Vitals to eHospital'**
+  /// **'Log Vitals to MaxAssist'**
   String get logVitalsTitle;
 
   /// Manual vitals sheet endpoint helper label.
@@ -1624,10 +1624,10 @@ abstract class AppLocalizations {
   /// **'Sending...'**
   String get sendingButton;
 
-  /// Button label for sending manual vitals to eHospital.
+  /// Button label for sending manual vitals to MaxAssist.
   ///
   /// In en, this message translates to:
-  /// **'Send to eHospital'**
+  /// **'Send to MaxAssist'**
   String get sendToEHospitalButton;
 
   /// Validation snackbar when all manual vitals fields are empty.
@@ -1639,7 +1639,7 @@ abstract class AppLocalizations {
   /// Snackbar after manual vitals are saved.
   ///
   /// In en, this message translates to:
-  /// **'Vitals saved to eHospital DB'**
+  /// **'Vitals saved to MaxAssist DB'**
   String get vitalsSavedMessage;
 
   /// Vitals clinical reference card title.
@@ -1651,7 +1651,7 @@ abstract class AppLocalizations {
   /// Short eHospital source label.
   ///
   /// In en, this message translates to:
-  /// **'eHospital'**
+  /// **'MaxAssist'**
   String get eHospitalSourceLabel;
 
   /// Short ECG label.
