@@ -75,6 +75,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   String _selectedPatientId = "6132616383";
   String _selectedPatientPhone = "6132616383";
   bool _doctorSendViaWhatsApp = true;
+  bool _showTasksMode = false;
+  List<Map<String, dynamic>> _scheduledTasks = [];
+  bool _loadingTasks = false;
   Timer? _liveSyncTimer;
   bool _isLiveSyncing = false;
 
@@ -160,13 +163,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final verified = prefs.getBool("is_whatsapp_verified") ?? false;
     final savedPhone = prefs.getString("patient_phone") ?? "";
 
-    var doctorName = prefs.getString("patient_username") ?? "Dr. Sugan";
-    if (doctorName.toLowerCase().contains("patel") ||
-        doctorName.toLowerCase().contains("ava") ||
-        doctorName.toLowerCase().contains("patient") ||
+    var doctorName = prefs.getString("doctor_custom_name_v1") ??
+        prefs.getString("patient_username") ??
+        "Dr. Sugan";
+    if (doctorName.toLowerCase().contains("ava") ||
+        doctorName.toLowerCase() == "patient" ||
         doctorName.trim().isEmpty) {
       doctorName = "Dr. Sugan";
-      await prefs.setString("patient_username", "Dr. Sugan");
     }
     if (!doctorName.startsWith("Dr.") && !doctorName.startsWith("Dr ")) {
       doctorName = "Dr. $doctorName";
@@ -283,6 +286,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (isDoctor && !isRunningInTest) {
       _startLiveSyncTimer();
       _syncWhatsAppThreadSilently();
+      _loadScheduledTasks();
     }
   }
 
@@ -1502,6 +1506,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (text.isEmpty || _isLoading) return;
 
     if (_isDoctor && _doctorSendViaWhatsApp) {
+      final isScheduleIntent = _showTasksMode ||
+          RegExp(
+            r'\b(schedule|remind|reminder|tomorrow|tmrw|next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)|in\s+\d+\s*(min|minute|minutes|hr|hour|hours)|at\s+\d{1,2}(:\d{2})?\s*(am|pm))\b',
+            caseSensitive: false,
+          ).hasMatch(text);
+
+      if (isScheduleIntent) {
+        await _handleNaturalLanguageSchedule(text);
+        return;
+      }
+
       if (_selectedPatientPhone.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -3171,6 +3186,452 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     );
   }
 
+  Future<void> _loadScheduledTasks() async {
+    if (!mounted) return;
+    setState(() => _loadingTasks = true);
+    try {
+      final tasks = await BackendApiService.getDoctorScheduledTasks();
+      if (mounted) {
+        setState(() {
+          _scheduledTasks = tasks;
+          _loadingTasks = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingTasks = false);
+    }
+  }
+
+  Future<void> _handleNaturalLanguageSchedule(String instruction) async {
+    _controller.clear();
+    setState(() => _isLoading = true);
+    try {
+      final res = await BackendApiService.parseAndScheduleDoctorTask(
+        instruction: instruction,
+        doctorName: _doctorName,
+        defaultPatientPhone: _selectedPatientPhone,
+        defaultPatientName: _selectedPatientName,
+      );
+      if (res['success'] == true && res['task'] is Map) {
+        final t = Map<String, dynamic>.from(res['task'] as Map);
+        await _loadScheduledTasks();
+        if (mounted) {
+          setState(() {
+            _messages.add(_HealthChatMessage(
+              role: 'assistant',
+              text: "⏰ **Scheduled WhatsApp Task Confirmed**\n\n"
+                  "• **Recipient**: ${t['patient_name']} (`+${t['patient_phone']}`)\n"
+                  "• **Scheduled For**: ${t['scheduled_display']}\n"
+                  "• **Message**: \"${t['message_text']}\"\n"
+                  "• **Physician**: $_doctorName\n\n"
+                  "*(MaxAssist will automatically dispatch this WhatsApp message at the scheduled time.)*",
+            ));
+          });
+          await _persistMessagesLocally();
+          _scrollToBottom();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("⏰ Task scheduled for ${t['patient_name']} (${t['scheduled_display']})"),
+              backgroundColor: const Color(0xFF166534),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['error']?.toString() ?? "Could not schedule task."),
+              backgroundColor: const Color(0xFFB91C1C),
+            ),
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _showManualScheduleTaskDialog() async {
+    String targetPhone = _selectedPatientPhone;
+    String targetName = _selectedPatientName;
+    final msgCtrl = TextEditingController();
+    DateTime pickedDate = DateTime.now().add(const Duration(hours: 1));
+    TimeOfDay pickedTime = TimeOfDay.fromDateTime(pickedDate);
+    bool saving = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final combined = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+          final displayStr =
+              "${combined.year}-${combined.month.toString().padLeft(2, '0')}-${combined.day.toString().padLeft(2, '0')} ${pickedTime.format(ctx)}";
+
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Row(
+              children: [
+                Icon(Icons.schedule_send_rounded, color: Color(0xFF075E54)),
+                SizedBox(width: 8),
+                Text("Schedule WhatsApp Task", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_doctorPatients.isNotEmpty)
+                    DropdownButtonFormField<String>(
+                      initialValue: _doctorPatients.any((p) => p['phone'] == targetPhone)
+                          ? targetPhone
+                          : _doctorPatients.first['phone'],
+                      decoration: InputDecoration(
+                        labelText: "Patient",
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: _doctorPatients.map((p) {
+                        final ph = p['phone'] ?? '';
+                        final nm = p['name'] ?? ph;
+                        return DropdownMenuItem(value: ph, child: Text("$nm (+$ph)"));
+                      }).toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          final match = _doctorPatients.firstWhere((p) => p['phone'] == v);
+                          setModalState(() {
+                            targetPhone = v;
+                            targetName = match['name'] ?? v;
+                          });
+                        }
+                      },
+                    ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.calendar_today_rounded, size: 15),
+                          label: Text("${pickedDate.month}/${pickedDate.day}/${pickedDate.year}"),
+                          onPressed: () async {
+                            final d = await showDatePicker(
+                              context: ctx,
+                              initialDate: pickedDate,
+                              firstDate: DateTime.now(),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (d != null) setModalState(() => pickedDate = d);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.access_time_rounded, size: 15),
+                          label: Text(pickedTime.format(ctx)),
+                          onPressed: () async {
+                            final t = await showTimePicker(context: ctx, initialTime: pickedTime);
+                            if (t != null) setModalState(() => pickedTime = t);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: msgCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: "Message to send on WhatsApp",
+                      hintText: "e.g. Reminder: Appointment tomorrow at 10 AM.",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving ? null : () => Navigator.of(ctx).pop(),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF075E54),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: saving
+                    ? null
+                    : () async {
+                        if (targetPhone.isEmpty || msgCtrl.text.trim().isEmpty) return;
+                        setModalState(() => saving = true);
+                        final res = await BackendApiService.createDoctorScheduledTask(
+                          patientPhone: targetPhone,
+                          patientName: targetName.isNotEmpty ? targetName : targetPhone,
+                          messageText: msgCtrl.text.trim(),
+                          scheduledForUtc: combined.toUtc().toIso8601String(),
+                          scheduledDisplay: displayStr,
+                          doctorName: _doctorName,
+                        );
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                        if (res['success'] == true) {
+                          await _loadScheduledTasks();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("⏰ Scheduled for $targetName at $displayStr"),
+                                backgroundColor: const Color(0xFF166534),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: const Text("Schedule"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildChatTaskToggle() {
+    final pendingCount = _scheduledTasks.where((t) => t['status'] == 'pending').length;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE2E8F0),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _showTasksMode = false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: !_showTasksMode ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    "Chat",
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: !_showTasksMode ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  setState(() => _showTasksMode = true);
+                  _loadScheduledTasks();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _showTasksMode ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "Task",
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _showTasksMode ? const Color(0xFF075E54) : const Color(0xFF64748B),
+                        ),
+                      ),
+                      if (pendingCount > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF075E54),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            "$pendingCount",
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScheduledTasksView() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Scheduled WhatsApp Tasks",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    ),
+                    Text(
+                      "Type below (e.g. 'Remind Sugan tomorrow at 10 AM') or tap + Schedule",
+                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF075E54),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.add_alarm_rounded, size: 16),
+                label: const Text("Schedule", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                onPressed: _showManualScheduleTaskDialog,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _loadingTasks
+              ? const Center(child: CircularProgressIndicator())
+              : _scheduledTasks.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.event_available_rounded, size: 46, color: Colors.grey.shade400),
+                            const SizedBox(height: 10),
+                            const Text(
+                              "No Scheduled Tasks Yet",
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF475569)),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              "Ask MaxAssist to remind any patient at any time, or tap + Schedule above.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      itemCount: _scheduledTasks.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, idx) {
+                        final t = _scheduledTasks[idx];
+                        final status = (t['status'] ?? 'pending').toString();
+                        final isPending = status == 'pending';
+                        final badgeBg = isPending
+                            ? const Color(0xFFFEF3C7)
+                            : (status == 'sent' ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9));
+                        final badgeFg = isPending
+                            ? const Color(0xFFB45309)
+                            : (status == 'sent' ? const Color(0xFF15803D) : const Color(0xFF64748B));
+
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      "${t['patient_name']} (+${t['patient_phone']})",
+                                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A)),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(999)),
+                                    child: Text(
+                                      status.toUpperCase(),
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: badgeFg),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                (t['message_text'] ?? '').toString(),
+                                style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFF64748B)),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      (t['scheduled_display'] ?? t['scheduled_for_utc'] ?? '').toString(),
+                                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  if (isPending && t['id'] != null)
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: () async {
+                                        final id = int.tryParse(t['id'].toString());
+                                        if (id != null) {
+                                          await BackendApiService.cancelDoctorScheduledTask(id);
+                                          await _loadScheduledTasks();
+                                        }
+                                      },
+                                      child: const Text(
+                                        "Cancel",
+                                        style: TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3184,13 +3645,15 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             _isDoctor ? _buildGeminiTopBar() : _buildPatientHeader(),
 
             // Meta 24-Hour Outreach Notice & Template Initialization for Doctors
-            if (_isDoctor) _buildDoctorOutreachBanner(),
+            if (_isDoctor && !_showTasksMode) _buildDoctorOutreachBanner(),
 
-            // Chat Message Feed or Gemini Hero Empty State
+            // Chat Message Feed, Scheduled Tasks View, or Gemini Hero Empty State
             Expanded(
-              child: _messages.isEmpty
-                  ? _buildGeminiEmptyState()
-                  : _buildMessageList(),
+              child: _isDoctor && _showTasksMode
+                  ? _buildScheduledTasksView()
+                  : (_messages.isEmpty
+                      ? _buildGeminiEmptyState()
+                      : _buildMessageList()),
             ),
 
             // Loading indicator
@@ -3215,13 +3678,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     const SizedBox(width: 8),
                     Text(
                       _isDoctor && _doctorSendViaWhatsApp
-                          ? "Dispatching to $_selectedPatientName's WhatsApp via Meta..."
+                          ? (_showTasksMode
+                              ? "Scheduling WhatsApp task..."
+                              : "Dispatching to $_selectedPatientName's WhatsApp via Meta...")
                           : "Analyzing clinical telemetry...",
                       style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
               ),
+
+            // Gemini-style Chat / Task Mode Switcher for Doctors
+            if (_isDoctor) _buildChatTaskToggle(),
 
             // Gemini-Style Bottom Composer
             _buildGeminiComposer(),

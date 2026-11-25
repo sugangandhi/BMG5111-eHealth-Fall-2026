@@ -100,6 +100,81 @@ class BackendApiService {
     return {'verified': false, 'error': 'Verification failed.'};
   }
 
+  static Future<List<Map<String, dynamic>>> getDoctorScheduledTasks({
+    String? patientPhone,
+  }) async {
+    try {
+      final q = (patientPhone != null && patientPhone.isNotEmpty)
+          ? '?patient_phone=${Uri.encodeComponent(patientPhone)}'
+          : '';
+      final res = await _apiClient.getJson('/api/doctor/scheduled-tasks$q');
+      if (res is Map && res['tasks'] is List) {
+        return List<Map<String, dynamic>>.from(
+          (res['tasks'] as List).map((t) => Map<String, dynamic>.from(t as Map)),
+        );
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> createDoctorScheduledTask({
+    required String patientPhone,
+    required String patientName,
+    required String messageText,
+    required String scheduledForUtc,
+    required String scheduledDisplay,
+    String doctorName = 'Dr. Sugan',
+  }) async {
+    try {
+      final res = await _apiClient.postJson('/api/doctor/scheduled-tasks', {
+        'doctor_name': doctorName,
+        'patient_phone': patientPhone,
+        'patient_name': patientName,
+        'message_text': messageText,
+        'scheduled_for_utc': scheduledForUtc,
+        'scheduled_display': scheduledDisplay,
+      });
+      if (res is Map) return Map<String, dynamic>.from(res);
+    } catch (e) {
+      return {'success': false, 'error': '$e'};
+    }
+    return {'success': false};
+  }
+
+  static Future<Map<String, dynamic>> parseAndScheduleDoctorTask({
+    required String instruction,
+    required String doctorName,
+    String? defaultPatientPhone,
+    String? defaultPatientName,
+  }) async {
+    try {
+      final tzOffset = DateTime.now().timeZoneOffset.inMinutes;
+      final res = await _apiClient.postJson(
+        '/api/doctor/scheduled-tasks/parse-and-schedule',
+        {
+          'instruction': instruction,
+          'doctor_name': doctorName,
+          'default_patient_phone': defaultPatientPhone ?? '',
+          'default_patient_name': defaultPatientName ?? '',
+          'timezone_offset_minutes': tzOffset,
+        },
+      );
+      if (res is Map) return Map<String, dynamic>.from(res);
+    } catch (e) {
+      return {'success': false, 'error': '$e'};
+    }
+    return {'success': false};
+  }
+
+  static Future<bool> cancelDoctorScheduledTask(int taskId) async {
+    try {
+      final res = await _apiClient.postJson('/api/doctor/scheduled-tasks/$taskId/cancel', {});
+      return res is Map && res['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getDoctorPatients() async {
     try {
       final res = await _apiClient.getJson('/api/doctor/patients');

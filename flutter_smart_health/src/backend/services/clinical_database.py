@@ -73,6 +73,23 @@ def init_db() -> None:
             );
         """)
 
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                doctor_id TEXT NOT NULL,
+                patient_phone TEXT NOT NULL,
+                patient_name TEXT NOT NULL,
+                message_text TEXT NOT NULL,
+                scheduled_for_utc TEXT NOT NULL,
+                scheduled_display TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                sent_at TEXT DEFAULT '',
+                error_note TEXT DEFAULT ''
+            );
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_scheduled_status_time ON scheduled_tasks(status, scheduled_for_utc);")
+
 def clean_phone_number(phone: str) -> str:
     """Standardizes phone numbers to pure digits."""
     return re.sub(r'\D', '', phone or '').strip()
@@ -408,6 +425,122 @@ def upsert_doctor_whatsapp_config(
     }
 
 
+def create_scheduled_task(
+    doctor_id: str,
+    patient_phone: str,
+    patient_name: str,
+    message_text: str,
+    scheduled_for_utc: str,
+    scheduled_display: str = "",
+) -> Dict[str, Any]:
+    """Creates a persistent scheduled WhatsApp task in SQLite."""
+    init_db()
+    clean_p = clean_phone_number(patient_phone)
+    if len(clean_p) == 10:
+        clean_p = "1" + clean_p
+    if len(clean_p) < 10:
+        raise ValueError("Invalid patient phone number for scheduled task")
+
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    doc = (doctor_id or "Dr. Sugan").strip()
+    p_name = (patient_name or f"Patient {clean_p[-4:]}").strip()
+    display = scheduled_display.strip() or scheduled_for_utc
+
+    with get_db() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO scheduled_tasks (
+                doctor_id, patient_phone, patient_name, message_text,
+                scheduled_for_utc, scheduled_display, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?);
+            """,
+            (doc, clean_p, p_name, message_text.strip(), scheduled_for_utc, display, now_iso),
+        )
+        task_id = cursor.lastrowid
+
+    return {
+        "id": task_id,
+        "doctor_id": doc,
+        "patient_phone": clean_p,
+        "patient_name": p_name,
+        "message_text": message_text.strip(),
+        "scheduled_for_utc": scheduled_for_utc,
+        "scheduled_display": display,
+        "status": "pending",
+        "created_at": now_iso,
+        "sent_at": "",
+        "error_note": "",
+    }
+
+
+def list_scheduled_tasks(
+    status: Optional[str] = None,
+    patient_phone: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Lists scheduled tasks ordered by soonest first."""
+    init_db()
+    query = "SELECT * FROM scheduled_tasks WHERE 1=1"
+    params: list[Any] = []
+    if status:
+        query += " AND status = ?"
+        params.append(status)
+    if patient_phone:
+        clean_p = clean_phone_number(patient_phone)
+        if clean_p:
+            query += " AND (patient_phone = ? OR patient_phone LIKE ?)"
+            params.extend([clean_p, f"%{clean_p[-10:]}"])
+    query += " ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, scheduled_for_utc ASC, id DESC LIMIT 100;"
+    with get_db() as conn:
+        rows = conn.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def cancel_scheduled_task(task_id: int) -> bool:
+    """Marks a pending scheduled task as cancelled."""
+    init_db()
+    with get_db() as conn:
+        cursor = conn.execute(
+            "UPDATE scheduled_tasks SET status = 'cancelled' WHERE id = ? AND status = 'pending';",
+            (int(task_id),),
+        )
+        return cursor.rowcount > 0
+
+
+def get_due_scheduled_tasks(now_utc_iso: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Returns all pending scheduled tasks whose scheduled_for_utc <= now."""
+    init_db()
+    cutoff = now_utc_iso or (datetime.utcnow().isoformat() + "Z")
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM scheduled_tasks
+            WHERE status = 'pending' AND scheduled_for_utc <= ?
+            ORDER BY scheduled_for_utc ASC;
+            """,
+            (cutoff,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def mark_scheduled_task_sent(task_id: int) -> None:
+    init_db()
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE scheduled_tasks SET status = 'sent', sent_at = ?, error_note = '' WHERE id = ?;",
+            (now_iso, int(task_id)),
+        )
+
+
+def mark_scheduled_task_failed(task_id: int, error_note: str) -> None:
+    init_db()
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE scheduled_tasks SET status = 'failed', error_note = ? WHERE id = ?;",
+            (str(error_note)[:500], int(task_id)),
+        )
+
+
 def get_database_dump() -> Dict[str, Any]:
     """Returns a full inspection dump of the clinical database for monitoring and verification."""
     init_db()
@@ -433,11 +566,18 @@ def get_database_dump() -> Dict[str, Any]:
         """)
         wa_configs = [dict(r) for r in cursor_c.fetchall()]
 
+        cursor_t = conn.execute("""
+            SELECT * FROM scheduled_tasks ORDER BY id DESC LIMIT 100;
+        """)
+        tasks = [dict(r) for r in cursor_t.fetchall()]
+
         return {
             "db_path": str(DB_PATH),
             "total_patients": len(patients),
             "total_messages": len(messages),
+            "total_scheduled_tasks": len(tasks),
             "doctor_whatsapp_configs": wa_configs,
+            "scheduled_tasks": tasks,
             "patients": patients,
             "messages": messages,
         }

@@ -137,8 +137,27 @@ def log_startup_ready() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
     log_startup_ready()
-    yield
+
+    async def _scheduled_tasks_loop():
+        from src.backend.api.whatsapp import process_due_scheduled_tasks
+        while True:
+            try:
+                await process_due_scheduled_tasks()
+            except Exception as exc:
+                logger.warning("Scheduled tasks worker error: %s", exc)
+            await asyncio.sleep(20)
+
+    worker = asyncio.create_task(_scheduled_tasks_loop())
+    try:
+        yield
+    finally:
+        worker.cancel()
+        try:
+            await worker
+        except asyncio.CancelledError:
+            pass
 
 
 def create_app() -> FastAPI:

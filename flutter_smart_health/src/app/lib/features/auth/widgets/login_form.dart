@@ -10,6 +10,7 @@ import '../presentation/login_styles.dart';
 class LoginForm extends StatefulWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
+  final TextEditingController? doctorNameController;
   final String selectedIdentity;
   final ValueChanged<String> onIdentityChanged;
   final List<String> identityOptions;
@@ -22,6 +23,7 @@ class LoginForm extends StatefulWidget {
     super.key,
     required this.emailController,
     required this.passwordController,
+    this.doctorNameController,
     required this.selectedIdentity,
     required this.onIdentityChanged,
     required this.identityOptions,
@@ -149,6 +151,28 @@ class _LoginFormState extends State<LoginForm> {
                 ),
               ),
             ),
+            if (widget.selectedIdentity == 'Doctor' && widget.doctorNameController != null) ...[
+              const SizedBox(height: 14),
+              TextField(
+                key: const Key('login_doctor_name_field'),
+                controller: widget.doctorNameController,
+                enabled: !widget.loading,
+                textCapitalization: TextCapitalization.words,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: LoginStyles.inputDecoration(
+                  hintText: "Doctor Name (e.g. Dr. Abbas)",
+                  prefixIcon: const Icon(
+                    Icons.medical_services_outlined,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 22),
 
             // Primary Sign In Pill Button
@@ -362,7 +386,7 @@ class _LoginFormState extends State<LoginForm> {
                         color: AppColors.primary,
                       ),
                       label: const Text(
-                        "Demo Doctor (Dr. Sugan)",
+                        "Doctor Login",
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12.5,

@@ -392,6 +392,234 @@ class DoctorWhatsAppVerifyRequest(BaseModel):
     code: str
     doctor_id: Optional[str] = "Dr. Sugan"
 
+class CreateScheduledTaskRequest(BaseModel):
+    doctor_name: Optional[str] = "Dr. Sugan"
+    patient_phone: str
+    patient_name: Optional[str] = "Patient"
+    message_text: str
+    scheduled_for_utc: str
+    scheduled_display: Optional[str] = ""
+
+class ParseScheduleTaskRequest(BaseModel):
+    instruction: str
+    doctor_name: Optional[str] = "Dr. Sugan"
+    default_patient_phone: Optional[str] = ""
+    default_patient_name: Optional[str] = ""
+    timezone_offset_minutes: Optional[int] = -300  # EST default
+
+@router.get('/api/doctor/scheduled-tasks')
+async def get_doctor_scheduled_tasks(status: Optional[str] = None, patient_phone: Optional[str] = None):
+    """Returns scheduled WhatsApp tasks from persistent SQLite storage."""
+    try:
+        from src.backend.services.clinical_database import list_scheduled_tasks
+        return {"tasks": list_scheduled_tasks(status=status, patient_phone=patient_phone)}
+    except Exception as e:
+        return {"tasks": [], "error": str(e)}
+
+@router.post('/api/doctor/scheduled-tasks')
+async def create_doctor_scheduled_task(req: CreateScheduledTaskRequest):
+    """Creates a scheduled WhatsApp message task directly."""
+    try:
+        from src.backend.services.clinical_database import create_scheduled_task
+        task = create_scheduled_task(
+            doctor_id=req.doctor_name or "Dr. Sugan",
+            patient_phone=req.patient_phone,
+            patient_name=req.patient_name or "Patient",
+            message_text=req.message_text,
+            scheduled_for_utc=req.scheduled_for_utc,
+            scheduled_display=req.scheduled_display or req.scheduled_for_utc,
+        )
+        return {"success": True, "task": task}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@router.post('/api/doctor/scheduled-tasks/{task_id}/cancel')
+@router.delete('/api/doctor/scheduled-tasks/{task_id}')
+async def delete_doctor_scheduled_task(task_id: int):
+    """Cancels a pending scheduled task."""
+    try:
+        from src.backend.services.clinical_database import cancel_scheduled_task
+        ok = cancel_scheduled_task(task_id)
+        return {"success": ok, "task_id": task_id}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def _parse_relative_or_natural_time(instruction: str, tz_offset_minutes: int) -> tuple[str, str]:
+    """Parses relative times ('in 2 minutes', 'tomorrow at 10 AM', 'at 3:30 PM') into (utc_iso, display_str)."""
+    from datetime import timedelta
+
+    now_utc = datetime.utcnow()
+    tz_delta = timedelta(minutes=tz_offset_minutes or 0)
+    now_local = now_utc + tz_delta
+    low = instruction.lower()
+
+    # 1. "in X minutes / hours"
+    m_rel = re.search(r'\bin\s+(\d+)\s*(min|minute|minutes|hr|hour|hours)\b', low)
+    if m_rel:
+        qty = int(m_rel.group(1))
+        unit = m_rel.group(2)
+        target_local = now_local + (timedelta(hours=qty) if unit.startswith('h') else timedelta(minutes=qty))
+        target_utc = target_local - tz_delta
+        return target_utc.isoformat() + "Z", target_local.strftime("%b %d, %I:%M %p")
+
+    # 2. Extract time of day ("10 am", "3:30 pm", "14:00")
+    hour, minute = 9, 0
+    m_time = re.search(r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b', low)
+    if m_time:
+        hour = int(m_time.group(1))
+        minute = int(m_time.group(2) or 0)
+        ampm = m_time.group(3)
+        if ampm == 'pm' and hour < 12:
+            hour += 12
+        elif ampm == 'am' and hour == 12:
+            hour = 0
+    else:
+        m_24 = re.search(r'\b([01]?\d|2[0-3]):([0-5]\d)\b', low)
+        if m_24:
+            hour, minute = int(m_24.group(1)), int(m_24.group(2))
+
+    # 3. Extract target day ("tomorrow", weekday names, or today)
+    target_date = now_local.date()
+    weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    matched_day = None
+    for idx, wd in enumerate(weekdays):
+        if wd in low:
+            matched_day = idx
+            break
+
+    if "tomorrow" in low or "tmrw" in low:
+        target_date = now_local.date() + timedelta(days=1)
+    elif matched_day is not None:
+        days_ahead = (matched_day - now_local.weekday()) % 7
+        if days_ahead == 0:
+            days_ahead = 7
+        target_date = now_local.date() + timedelta(days=days_ahead)
+
+    target_local = datetime(target_date.year, target_date.month, target_date.day, hour, minute)
+    if target_local <= now_local and matched_day is None and "tomorrow" not in low and "tmrw" not in low:
+        # If specified time already passed today, schedule for tomorrow
+        if m_time:
+            target_local = target_local + timedelta(days=1)
+        else:
+            target_local = now_local + timedelta(minutes=5)
+
+    target_utc = target_local - tz_delta
+    return target_utc.isoformat() + "Z", target_local.strftime("%b %d, %I:%M %p")
+
+@router.post('/api/doctor/scheduled-tasks/parse-and-schedule')
+async def parse_and_schedule_doctor_task(req: ParseScheduleTaskRequest):
+    """Parses a natural-language doctor instruction into a persistent scheduled WhatsApp task."""
+    try:
+        from src.backend.services.clinical_database import create_scheduled_task, get_patients
+
+        instruction = (req.instruction or "").strip()
+        if not instruction:
+            return {"success": False, "error": "Empty scheduling instruction."}
+
+        patients = get_patients()
+        target_phone = re.sub(r'\D', '', req.default_patient_phone or '')
+        target_name = (req.default_patient_name or '').strip()
+
+        # Try matching any saved patient's name mentioned in the instruction
+        low = instruction.lower()
+        for p in patients:
+            pname = str(p.get("name") or "").strip()
+            if not pname:
+                continue
+            first_word = pname.split()[0].lower()
+            if pname.lower() in low or (len(first_word) >= 3 and re.search(rf'\b{re.escape(first_word)}\b', low)):
+                target_phone = re.sub(r'\D', '', str(p.get("phone") or ""))
+                target_name = pname
+                break
+
+        # Or extract explicit phone number if typed in instruction
+        m_phone = re.search(r'\+?\d[\d\-\s]{8,14}\d', instruction)
+        if m_phone:
+            digits = re.sub(r'\D', '', m_phone.group(0))
+            if len(digits) >= 10:
+                target_phone = digits
+                if not target_name:
+                    target_name = f"Patient {digits[-4:]}"
+
+        if len(target_phone) < 10:
+            return {
+                "success": False,
+                "error": "Please select a patient or include a patient name/phone number to schedule this message.",
+            }
+
+        utc_iso, display_time = _parse_relative_or_natural_time(
+            instruction, req.timezone_offset_minutes or -300
+        )
+
+        # Clean up message text (extract the core reminder message)
+        msg_text = instruction
+        m_about = re.search(r'\b(?:about|to|saying|that)\s+(.+)$', instruction, re.IGNORECASE)
+        if m_about and len(m_about.group(1).strip()) >= 4:
+            candidate = m_about.group(1).strip()
+            # Strip leading time phrase if it landed at start
+            candidate = re.sub(r'^(tomorrow|tmrw|today|next\s+\w+|on\s+\w+|at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?|in\s+\d+\s*\w+)\s+', '', candidate, flags=re.IGNORECASE).strip()
+            if len(candidate) >= 4:
+                msg_text = candidate[0].upper() + candidate[1:]
+
+        task = create_scheduled_task(
+            doctor_id=req.doctor_name or "Dr. Sugan",
+            patient_phone=target_phone,
+            patient_name=target_name or f"Patient {target_phone[-4:]}",
+            message_text=msg_text,
+            scheduled_for_utc=utc_iso,
+            scheduled_display=display_time,
+        )
+        return {"success": True, "task": task}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+async def process_due_scheduled_tasks() -> int:
+    """Dispatches all due pending scheduled WhatsApp tasks and logs them into patient chat history."""
+    from src.backend.services.clinical_database import (
+        add_chat_message,
+        get_due_scheduled_tasks,
+        mark_scheduled_task_failed,
+        mark_scheduled_task_sent,
+    )
+
+    due = get_due_scheduled_tasks()
+    dispatched_count = 0
+    for task in due:
+        task_id = int(task["id"])
+        phone = task["patient_phone"]
+        patient_name = task["patient_name"]
+        doctor_title = task["doctor_id"] or "Dr. Sugan"
+        if not doctor_title.startswith("Dr.") and not doctor_title.startswith("Dr "):
+            doctor_title = f"Dr. {doctor_title}"
+        body = task["message_text"]
+
+        outbound = (
+            f"⏰ *MaxAssist Scheduled Reminder from {doctor_title}*\n\n"
+            f"Hello {patient_name},\n\n"
+            f"{body}\n\n"
+            f"— {doctor_title}, Attending Physician\n"
+            f"🏥 *MaxAssist Clinic*"
+        )
+        try:
+            sent = send_whatsapp_reply(phone, outbound)
+            if not sent:
+                send_whatsapp_template(phone)
+            mark_scheduled_task_sent(task_id)
+            add_chat_message(
+                patient_phone=phone,
+                sender_role="doctor",
+                sender_name=f"{doctor_title} (Scheduled)",
+                text=f"⏰ [Scheduled Message Sent]: {body}",
+                status="sent",
+                custom_msg_id=f"sched_task_{task_id}",
+            )
+            dispatched_count += 1
+            print(f"[MaxAssist Scheduler] Dispatched Task #{task_id} to +{phone}")
+        except Exception as exc:
+            mark_scheduled_task_failed(task_id, str(exc))
+            print(f"[MaxAssist Scheduler Error] Task #{task_id}: {exc}")
+    return dispatched_count
+
 _DOCTOR_WA_OTP_STORE: Dict[str, Dict[str, Any]] = {}
 
 @router.get('/api/doctor/whatsapp-config')
