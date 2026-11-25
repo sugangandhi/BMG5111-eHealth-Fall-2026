@@ -16,6 +16,7 @@ permissions:
 jobs:
   deploy_ios_testflight:
     runs-on: macos-14
+    environment: APPSTORE_KEY_ID
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,9 +38,9 @@ jobs:
 
       - name: Setup App Store Connect API Key
         env:
-          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
-          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
-          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID || secrets.KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID || secrets.ISSUER_ID }}
+          APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY || secrets.PRIVATE_KEY }}
         run: |
           if [ -z "$APPSTORE_KEY_ID" ] || [ -z "$APPSTORE_PRIVATE_KEY" ]; then
             echo "::error ::App Store Connect API Key secrets are missing. Please configure APPSTORE_KEY_ID, APPSTORE_ISSUER_ID, and APPSTORE_PRIVATE_KEY in GitHub Secrets."
@@ -52,8 +53,8 @@ jobs:
       - name: Build and Package iOS Release (.ipa)
         working-directory: flutter_smart_health/src/app
         env:
-          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
-          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID || secrets.KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID || secrets.ISSUER_ID }}
         run: |
           BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 10))
           VERSION_NAME="1.0.${BUILD_NUMBER}"
@@ -67,8 +68,8 @@ jobs:
       - name: Upload .ipa to Apple TestFlight
         working-directory: flutter_smart_health/src/app
         env:
-          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
-          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID || secrets.KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID || secrets.ISSUER_ID }}
         run: |
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
           if [ -z "$IPA_PATH" ]; then
