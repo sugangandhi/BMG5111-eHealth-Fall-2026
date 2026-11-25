@@ -45,6 +45,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MaxAssist uses your microphone for voice dictation and hands-free messaging.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>This app uses motion data to track steps and activity.</string>
 	<key>UIApplicationSceneManifest</key>

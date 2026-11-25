@@ -20,7 +20,7 @@ class VoiceScribeService {
   static SpeechStatusCallback? _onStatus;
   static VoiceTranscriptionClient _transcriber = VoiceTranscriptionClient();
 
-  static bool get isSupported => Platform.isAndroid;
+  static bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
   static void setTranscriptionClientForTesting(VoiceTranscriptionClient client) {
     _transcriber = client;
@@ -93,7 +93,7 @@ class VoiceScribeService {
     } on MissingPluginException {
       onStatus(
         'unsupported',
-        'Native microphone dictation is currently supported on Android and Web browsers.',
+        'Native microphone dictation is currently supported on Android, iOS, and Web browsers.',
       );
     } catch (e) {
       onStatus('error', e.toString());

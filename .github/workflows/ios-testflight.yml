@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   deploy_ios_testflight:
-    runs-on: macos-14
+    runs-on: macos-latest
     environment: APPSTORE_KEY_ID
     steps:
       - name: Checkout repository
