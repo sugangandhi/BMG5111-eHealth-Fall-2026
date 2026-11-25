@@ -487,13 +487,29 @@ def send_whatsapp_voice_note(to_phone: str, text_to_speak: str) -> tuple[bool, s
 def _match_contact_in_instruction(instruction: str, patients: List[Dict[str, Any]]) -> tuple[str, str]:
     """Finds a matching contact (phone, name) from the doctor's saved contacts or explicit phone number."""
     low = instruction.lower()
+    # Pass 1: exact full name or word match
     for p in patients:
         pname = str(p.get("name") or "").strip()
         if not pname:
             continue
-        first_word = pname.split()[0].lower()
-        if pname.lower() in low or (len(first_word) >= 3 and re.search(rf'\b{re.escape(first_word)}\b', low)):
+        if pname.lower() in low:
             return re.sub(r'\D', '', str(p.get("phone") or "")), pname
+        for token in pname.lower().split():
+            if len(token) >= 3 and re.search(rf'\b{re.escape(token)}\b', low):
+                return re.sub(r'\D', '', str(p.get("phone") or "")), pname
+    # Pass 2: nickname / prefix match (e.g. "sahi" -> "Sree Sahithya")
+    words = [w for w in re.findall(r'[a-z]{3,}', low) if w not in {
+        "send", "voice", "message", "msg", "text", "note", "ask", "tell", "her", "him", "how",
+        "she", "doing", "today", "tomorrow", "remind", "schedule", "please", "whatsapp", "check",
+    }]
+    for p in patients:
+        pname = str(p.get("name") or "").strip()
+        if not pname:
+            continue
+        p_tokens = pname.lower().split()
+        for w in words:
+            if any(pt.startswith(w) or w.startswith(pt) for pt in p_tokens if len(pt) >= 3):
+                return re.sub(r'\D', '', str(p.get("phone") or "")), pname
     m_phone = re.search(r'\+?\d[\d\-\s]{8,14}\d', instruction)
     if m_phone:
         digits = re.sub(r'\D', '', m_phone.group(0))
@@ -526,18 +542,102 @@ def _extract_outbound_body(instruction: str, target_name: str) -> str:
         return cleaned[0].upper() + cleaned[1:]
     return instruction.strip()
 
+def _plan_doctor_ai_agent_action(
+    instruction: str,
+    doctor_name: str,
+    patients: List[Dict[str, Any]],
+    history: Optional[List[Dict[str, str]]] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Uses OpenAI GPT-4o-mini with structured JSON output and full conversation history
+    to understand natural multi-turn doctor requests (nicknames, pronouns, follow-ups,
+    natural 2nd-person message rewriting, voice notes, and scheduling).
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+
+    now_ont = _now_ontario()
+    now_str = now_ont.strftime("%A, %Y-%m-%d %I:%M %p %Z")
+    contacts_list = [
+        {"name": str(p.get("name") or "").strip(), "phone": re.sub(r'\D', '', str(p.get("phone") or ""))}
+        for p in patients[:25]
+        if p.get("phone")
+    ]
+
+    system_prompt = (
+        f"You are MaxAssist AI, the intelligent WhatsApp & clinical assistant for {doctor_name}.\n"
+        f"Current Ontario local date & time: {now_str}\n"
+        f"Doctor's saved contacts: {json.dumps(contacts_list)}\n\n"
+        "Respond ONLY with a single valid JSON object matching this schema:\n"
+        "{\n"
+        '  "action": "send_text" | "send_voice" | "schedule_text" | "list_tasks" | "chat",\n'
+        '  "target_name": "Exact contact name from saved contacts (or empty string)",\n'
+        '  "target_phone": "Digits-only phone number from saved contacts or user text (or empty string)",\n'
+        '  "message_text": "Clean, natural, warm 2nd-person message addressed directly TO the recipient (NO surrounding quotes, NEVER 3rd-person like \'Ask her how is she\' — write \'Hi Sree, how are you doing?\' instead)",\n'
+        '  "scheduled_for_local": "YYYY-MM-DD HH:MM in 24h Ontario local time (only for schedule_text, else empty string)",\n'
+        '  "scheduled_display": "Short readable Ontario time like \'Nov 25, 10:00 AM\' (only for schedule_text, else empty string)",\n'
+        '  "reply": "Short friendly reply to the doctor (only used when action is chat)"\n'
+        "}\n\n"
+        "CRITICAL RULES:\n"
+        "1. CONVERSATION MEMORY & PRONOUNS: Always read prior messages in the conversation! Resolve 'him', 'her', 'them', or short follow-up replies (e.g., user says 'sree' after you asked who to send a voice note to, or 'to sugan and paracetamol' after you asked which medicine) by combining with the prior turn and executing the intended action immediately.\n"
+        "2. NICKNAME MATCHING: Match nicknames and partial names to saved contacts (e.g. 'sahi' or 'sree' -> 'Sree Sahithya', 'sug' -> 'Sugan').\n"
+        "3. NATURAL MESSAGE REWRITING: When the doctor says 'ask her how is she', 'tell him to take paracetamol', 'ask if she is feeling better', write a natural direct WhatsApp message TO that person (e.g. 'Hi Sree, how are you doing?', 'Hi Sugan, please remember to take your paracetamol today.'). Never echo 'Ask her...' or 'Tell him...' literally. If the doctor gives an exact greeting like 'hi' or 'hello', send 'Hi' or 'Hello' cleanly without extra quotes.\n"
+        "4. VOICE VS TEXT: If the user asks for a voice message / voice note / audio message / voice msg (in this turn or the immediately preceding turn being clarified), use action='send_voice'. Otherwise for immediate sending ('send', 'text', 'msg', 'ask him/her', 'tell him/her'), use action='send_text'.\n"
+        "5. SCHEDULING: Only use action='schedule_text' if the user explicitly wants the message delivered LATER at a future time (e.g. 'remind Sugan tomorrow at 10 AM', 'schedule a message in 5 minutes'). If they say 'send a voice message to Sugan to check his vitals tomorrow', that means send the voice message NOW about checking vitals tomorrow -> action='send_voice'.\n"
+        "6. NEVER PRETEND TO SEND: Never say 'I'll send a message' with action='chat'. Always use action='send_text', 'send_voice', or 'schedule_text' when a recipient is known.\n"
+        "7. If recipient is genuinely unknown/ambiguous, use action='chat' and ask a single short question listing the saved contact names."
+    )
+
+    messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    clean_hist = [h for h in (history or []) if isinstance(h, dict) and (h.get("content") or "").strip()]
+    # Drop trailing duplicate of the current instruction if Flutter already appended it to history
+    if clean_hist and clean_hist[-1].get("role") == "user" and clean_hist[-1].get("content", "").strip() == instruction.strip():
+        clean_hist = clean_hist[:-1]
+    for h in clean_hist[-10:]:
+        role = "assistant" if h.get("role") == "assistant" else "user"
+        messages.append({"role": role, "content": str(h.get("content") or "")[:600]})
+    messages.append({"role": "user", "content": instruction})
+
+    try:
+        resp = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": os.getenv("OPENAI_AGENT_MODEL", "gpt-4o-mini"),
+                "temperature": 0.1,
+                "max_tokens": 350,
+                "response_format": {"type": "json_object"},
+                "messages": messages,
+            },
+            timeout=18,
+            verify=False,
+        )
+        if resp.status_code == 200:
+            content = resp.json()["choices"][0]["message"]["content"]
+            parsed = json.loads(content)
+            if isinstance(parsed, dict) and parsed.get("action"):
+                print(f"[MaxAssist GPT Agent Plan]: {parsed}")
+                return parsed
+        else:
+            print(f"[MaxAssist GPT Agent HTTP Error]: {resp.status_code} {resp.text[:200]}")
+    except Exception as exc:
+        print(f"[MaxAssist GPT Agent Exception]: {exc}")
+    return None
+
 @router.post('/api/doctor/ai-agent-command')
 async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
     """
-    Dedicated MaxAssist AI Agent endpoint:
-    - Send AI Voice Messages on WhatsApp
-    - Send Direct Text Messages to any saved contact
-    - Schedule future WhatsApp reminders
-    - List pending scheduled tasks
-    - Answer general clinical / assistant queries
+    Dedicated MaxAssist AI Agent endpoint powered by GPT-4o-mini structured JSON planning
+    with full conversation memory, nickname/pronoun resolution, natural 2nd-person rewriting,
+    AI voice notes (TTS -> Meta Audio), direct WhatsApp texting, and Ontario-time scheduling.
     """
     from src.backend.services.clinical_database import (
         add_chat_message,
+        create_scheduled_task,
         get_patients,
         list_scheduled_tasks,
         upsert_patient,
@@ -567,7 +667,148 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
                 except Exception:
                     pass
 
-    # 1. List scheduled tasks
+    def _resolve_target(plan_phone: str, plan_name: str) -> tuple[str, str]:
+        p_digits = re.sub(r'\D', '', plan_phone or '')
+        if len(p_digits) == 10:
+            p_digits = '1' + p_digits
+        # If phone provided, match exact name from patients if available
+        if len(p_digits) >= 10:
+            for p in patients:
+                pd = re.sub(r'\D', '', str(p.get("phone") or ""))
+                if pd and pd[-10:] == p_digits[-10:]:
+                    return pd, str(p.get("name") or plan_name or f"Patient {pd[-4:]}")
+            return p_digits, plan_name or f"Patient {p_digits[-4:]}"
+        # Otherwise resolve by plan_name
+        if plan_name:
+            mp, mn = _match_contact_in_instruction(plan_name, patients)
+            if mp:
+                return mp, mn
+        return _match_contact_in_instruction(instruction, patients)
+
+    # --- PRIMARY PATH: GPT-4o-mini Context-Aware Structured Agent ---
+    plan = _plan_doctor_ai_agent_action(
+        instruction=instruction,
+        doctor_name=doctor_name,
+        patients=patients,
+        history=req.history,
+    )
+
+    if plan:
+        action = str(plan.get("action") or "chat").strip().lower()
+
+        if action == "list_tasks":
+            tasks = list_scheduled_tasks(status="pending", owner_id=owner_id or None)
+            if not tasks:
+                return {"success": True, "action": "list_tasks", "reply": "You have no pending scheduled messages right now."}
+            lines = [f"• **{t['patient_name']}** ({t['scheduled_display']}): \"{t['message_text']}\"" for t in tasks[:10]]
+            return {
+                "success": True,
+                "action": "list_tasks",
+                "reply": "Here are your pending scheduled WhatsApp messages:\n\n" + "\n".join(lines),
+            }
+
+        if action == "send_voice":
+            target_phone, target_name = _resolve_target(
+                str(plan.get("target_phone") or ""),
+                str(plan.get("target_name") or ""),
+            )
+            spoken_text = str(plan.get("message_text") or "").strip().strip('"\'')
+            if target_phone and spoken_text:
+                sent_ok, mode = send_whatsapp_voice_note(target_phone, spoken_text)
+                add_chat_message(
+                    patient_phone=target_phone,
+                    sender_role="doctor",
+                    sender_name=doctor_name,
+                    text=f"🎙️ {spoken_text}",
+                    is_voice=True,
+                    status="delivered" if sent_ok else "sent",
+                    owner_id=owner_id,
+                )
+                label = "AI voice message" if mode == "voice_sent" else "message"
+                return {
+                    "success": True,
+                    "action": "voice_sent",
+                    "patient_phone": target_phone,
+                    "target_phone": target_phone,
+                    "patient_name": target_name,
+                    "message_text": spoken_text,
+                    "reply": f"🎙️ Sent {label} to **{target_name}**: \"{spoken_text}\"",
+                }
+
+        if action == "send_text":
+            target_phone, target_name = _resolve_target(
+                str(plan.get("target_phone") or ""),
+                str(plan.get("target_name") or ""),
+            )
+            body_text = str(plan.get("message_text") or "").strip().strip('"\'')
+            if target_phone and body_text:
+                sent_ok = send_whatsapp_reply(target_phone, body_text)
+                add_chat_message(
+                    patient_phone=target_phone,
+                    sender_role="doctor",
+                    sender_name=doctor_name,
+                    text=body_text,
+                    status="delivered" if sent_ok else "sent",
+                    owner_id=owner_id,
+                )
+                return {
+                    "success": True,
+                    "action": "text_sent",
+                    "patient_phone": target_phone,
+                    "target_phone": target_phone,
+                    "patient_name": target_name,
+                    "message_text": body_text,
+                    "reply": f"Sent to **{target_name}**: \"{body_text}\"",
+                }
+
+        if action == "schedule_text":
+            target_phone, target_name = _resolve_target(
+                str(plan.get("target_phone") or ""),
+                str(plan.get("target_name") or ""),
+            )
+            body_text = str(plan.get("message_text") or "").strip().strip('"\'')
+            sched_local = str(plan.get("scheduled_for_local") or "").strip()
+            sched_display = str(plan.get("scheduled_display") or "").strip()
+            if target_phone and body_text:
+                utc_iso = ""
+                if sched_local:
+                    try:
+                        from datetime import timedelta, timezone as dt_tz
+                        dt_naive = datetime.strptime(sched_local[:16], "%Y-%m-%d %H:%M")
+                        now_ont = _now_ontario()
+                        offset = now_ont.utcoffset() or timedelta(hours=-5)
+                        dt_utc = dt_naive - offset
+                        utc_iso = dt_utc.isoformat() + "Z"
+                        if not sched_display:
+                            sched_display = dt_naive.strftime("%b %d, %I:%M %p").replace(" 0", " ")
+                    except Exception:
+                        utc_iso = ""
+                if not utc_iso:
+                    utc_iso, sched_display = _parse_relative_or_natural_time(
+                        instruction, req.timezone_offset_minutes or -300
+                    )
+                task = create_scheduled_task(
+                    doctor_id=doctor_name,
+                    patient_phone=target_phone,
+                    patient_name=target_name,
+                    message_text=body_text,
+                    scheduled_for_utc=utc_iso,
+                    scheduled_display=sched_display,
+                    owner_id=owner_id,
+                )
+                return {
+                    "success": True,
+                    "action": "scheduled",
+                    "task": task,
+                    "reply": f"⏰ Scheduled for **{target_name}** on **{sched_display}**:\n\"{body_text}\"",
+                }
+
+        # Chat / clarification reply from GPT
+        reply_text = str(plan.get("reply") or "").strip()
+        if reply_text:
+            return {"success": True, "action": "chat", "reply": reply_text}
+
+    # --- FALLBACK PATH (only if OpenAI API is unavailable) ---
     if re.search(r'\b(show|list|view|my)\b.*\b(schedule|scheduled|task|tasks|reminder|reminders)\b', low):
         tasks = list_scheduled_tasks(status="pending", owner_id=owner_id or None)
         if not tasks:
@@ -579,14 +820,12 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
             "reply": "Here are your pending scheduled WhatsApp messages:\n\n" + "\n".join(lines),
         }
 
-    # Detect explicit scheduling vs immediate voice/text send
     is_explicit_schedule = bool(re.search(
         r'\b(schedule|remind|reminder|in\s+\d+\s*(?:min|minute|minutes|hr|hour|hours)|at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)|(?:tomorrow|tmrw)\s+at\b)\b',
         low,
     ))
     is_voice_cmd = bool(re.search(r'\b(voice\s*(?:message|note|msg)|audio\s*(?:message|note)|speak\s+to)\b', low))
 
-    # 2. Send an AI Voice Message immediately (unless explicitly scheduled for a specific time)
     if is_voice_cmd and not is_explicit_schedule:
         target_phone, target_name = _match_contact_in_instruction(instruction, patients)
         if not target_phone:
@@ -619,7 +858,6 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
             "reply": f"🎙️ Sent {label} to **{target_name}**: \"{spoken_text}\"",
         }
 
-    # 3. Schedule a message for later
     if is_explicit_schedule:
         target_phone, target_name = _match_contact_in_instruction(instruction, patients)
         if not target_phone:
@@ -644,11 +882,10 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
                 "success": True,
                 "action": "scheduled",
                 "task": t,
-                "reply": f"Scheduled for **{t['patient_name']}** on **{t['scheduled_display']}**:\n\"{t['message_text']}\"",
+                "reply": f"⏰ Scheduled for **{t['patient_name']}** on **{t['scheduled_display']}**:\n\"{t['message_text']}\"",
             }
         return {"success": True, "action": "error", "reply": sched.get("error") or "Could not schedule that task."}
 
-    # 4. Send a Direct Text Message to a contact
     is_send_cmd = bool(re.search(r'\b(send|text|message|msg|tell|whatsapp)\b', low))
     if is_send_cmd:
         target_phone, target_name = _match_contact_in_instruction(instruction, patients)
@@ -672,22 +909,6 @@ async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
                 "message_text": body_text,
                 "reply": f"Sent to **{target_name}**: \"{body_text}\"",
             }
-
-    # 5. General MaxAssist AI Assistant response
-    try:
-        from src.backend.clients.model_client import invoke_model
-        contact_names = ", ".join([str(p.get("name", "")) for p in patients[:10] if p.get("name")]) or "None yet"
-        sys_prompt = (
-            f"You are MaxAssist AI, a concise, helpful medical & clinic assistant for {doctor_name}.\n"
-            f"Saved contacts: {contact_names}.\n"
-            "You can send WhatsApp text messages, send AI voice notes, and schedule future reminders when asked. "
-            "Keep answers brief, friendly, and clear (under 60 words)."
-        )
-        reply = invoke_model(prompt=instruction, system_prompt=sys_prompt)
-        if reply and reply.strip():
-            return {"success": True, "action": "chat", "reply": reply.strip()}
-    except Exception as exc:
-        print(f"[MaxAssist AI Agent LLM Error]: {exc}")
 
     return {
         "success": True,
