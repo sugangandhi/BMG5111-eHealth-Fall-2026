@@ -628,8 +628,37 @@ def _plan_doctor_ai_agent_action(
         print(f"[MaxAssist GPT Agent Exception]: {exc}")
     return None
 
+@router.get('/api/doctor/ai-chat-history')
+async def get_doctor_ai_chat_history(owner_id: str = ""):
+    """Fetches persistent MaxAssist AI chat history for this account from AWS chatbot_conversation."""
+    try:
+        from src.backend.services.aws_chat_store import fetch_ai_chat_history_from_aws
+        return {"messages": fetch_ai_chat_history_from_aws(owner_id)}
+    except Exception as exc:
+        print(f"[MaxAssist AI History Error]: {exc}")
+        return {"messages": []}
+
 @router.post('/api/doctor/ai-agent-command')
 async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
+    """Wrapper that delegates to _execute_doctor_ai_agent_command and persists the turn to AWS."""
+    result = await _execute_doctor_ai_agent_command(req)
+    try:
+        owner_id = (req.owner_id or "").strip()
+        instruction = (req.instruction or "").strip()
+        reply = str((result or {}).get("reply") or "").strip()
+        if owner_id and instruction and reply:
+            import threading
+            from src.backend.services.aws_chat_store import save_ai_chat_turn_to_aws
+            threading.Thread(
+                target=save_ai_chat_turn_to_aws,
+                args=(owner_id, instruction, reply),
+                daemon=True,
+            ).start()
+    except Exception as exc:
+        print(f"[MaxAssist AI AWS Save Note]: {exc}")
+    return result
+
+async def _execute_doctor_ai_agent_command(req: DoctorAiAgentRequest):
     """
     Dedicated MaxAssist AI Agent endpoint powered by GPT-4o-mini structured JSON planning
     with full conversation memory, nickname/pronoun resolution, natural 2nd-person rewriting,

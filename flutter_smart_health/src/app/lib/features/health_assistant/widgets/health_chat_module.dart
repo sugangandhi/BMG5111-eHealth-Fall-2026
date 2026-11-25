@@ -191,14 +191,24 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       doctorName = "Dr. $doctorName";
     }
 
-    // Persistent standalone per-device owner ID (isolates each phone's contacts & chat history)
-    var deviceOwnerId = prefs.getString("maxassist_device_owner_id_v1") ?? "";
-    if (deviceOwnerId.isEmpty) {
-      final nowMs = DateTime.now().microsecondsSinceEpoch;
-      final hash = (nowMs ^ identity.hashCode ^ email.hashCode).abs().toRadixString(36);
-      deviceOwnerId = "dev_${nowMs.toRadixString(36)}_$hash";
-      await prefs.setString("maxassist_device_owner_id_v1", deviceOwnerId);
+    // Stable account-based owner ID (survives APK reinstalls & restores AWS cloud history per user)
+    final cleanEmail = email.trim().toLowerCase();
+    final savedDoctorPhone = (prefs.getString("doctor_whatsapp_phone_v1") ?? "")
+        .replaceAll(RegExp(r'\D'), '');
+    String deviceOwnerId;
+    if (cleanEmail.isNotEmpty) {
+      deviceOwnerId = "acct_$cleanEmail";
+    } else if (savedDoctorPhone.length >= 10) {
+      deviceOwnerId = "phone_$savedDoctorPhone";
+    } else {
+      deviceOwnerId = prefs.getString("maxassist_device_owner_id_v1") ?? "";
+      if (deviceOwnerId.isEmpty) {
+        final nowMs = DateTime.now().microsecondsSinceEpoch;
+        final hash = (nowMs ^ identity.hashCode ^ doctorName.hashCode).abs().toRadixString(36);
+        deviceOwnerId = "dev_${nowMs.toRadixString(36)}_$hash";
+      }
     }
+    await prefs.setString("maxassist_device_owner_id_v1", deviceOwnerId);
     _deviceOwnerId = deviceOwnerId;
 
     // Always load persisted contacts from THIS device's local cache
@@ -237,7 +247,20 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             }
           }
           if (loadedRemote.isNotEmpty) {
-            combinedContacts = loadedRemote;
+            // Merge AWS/remote contacts with local contacts (never lose locally saved contacts)
+            final Map<String, Map<String, String>> merged = {};
+            for (final lc in combinedContacts) {
+              final k = (lc["phone"] ?? lc["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+              if (k.isNotEmpty) merged[k.length >= 10 ? k.substring(k.length - 10) : k] = lc;
+            }
+            for (final rc in loadedRemote) {
+              final k = (rc["phone"] ?? rc["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+              if (k.isNotEmpty) {
+                final k10 = k.length >= 10 ? k.substring(k.length - 10) : k;
+                merged.putIfAbsent(k10, () => rc);
+              }
+            }
+            combinedContacts = merged.values.toList();
             await prefs.setString("doctor_persisted_contacts_v2", jsonEncode(combinedContacts));
           }
         }
@@ -424,12 +447,35 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             ));
           }
           if (loaded.isNotEmpty && mounted) {
-            setState(() {
-              _messages.clear();
-              _messages.addAll(loaded);
-            });
-            await _persistMessagesLocally();
-            _scrollToBottom();
+            // Non-destructive merge: keep any local messages not yet on server + add all AWS/server messages
+            final List<_HealthChatMessage> merged = List<_HealthChatMessage>.from(_messages);
+            final Set<String> mergedIds = merged
+                .where((m) => m.id != null && m.id!.isNotEmpty)
+                .map((m) => m.id!)
+                .toSet();
+            final Set<String> mergedCores = merged
+                .map((m) => "${m.role}|${_extractCoreMessageText(m.text)}")
+                .toSet();
+            bool changed = false;
+            for (final sm in loaded) {
+              final sig = "${sm.role}|${_extractCoreMessageText(sm.text)}";
+              final hasId = sm.id != null && sm.id!.isNotEmpty && mergedIds.contains(sm.id);
+              if (hasId || mergedCores.contains(sig)) continue;
+              if (sm.id != null && sm.id!.isNotEmpty) mergedIds.add(sm.id!);
+              mergedCores.add(sig);
+              merged.add(sm);
+              changed = true;
+            }
+            if (changed) {
+              merged.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+              setState(() {
+                _messages
+                  ..clear()
+                  ..addAll(merged);
+              });
+              await _persistMessagesLocally();
+              _scrollToBottom();
+            }
           }
         }
       } catch (e) {
@@ -3044,6 +3090,36 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               ..clear()
               ..addAll(loaded);
           });
+        }
+      }
+      // Also merge permanent MaxAssist AI chat history from AWS chatbot_conversation
+      if (_deviceOwnerId.isNotEmpty) {
+        final remote = await BackendApiService.getDoctorAiChatHistory(ownerId: _deviceOwnerId);
+        if (remote.isNotEmpty && mounted) {
+          final merged = List<_HealthChatMessage>.from(_aiMessages);
+          final seenIds = merged.where((m) => m.id != null).map((m) => m.id!).toSet();
+          final seenKeys = merged.map((m) => "${m.role}|${m.text.trim().toLowerCase()}").toSet();
+          bool changed = false;
+          for (final item in remote) {
+            final msg = _HealthChatMessage.fromJson(item);
+            final key = "${msg.role}|${msg.text.trim().toLowerCase()}";
+            if ((msg.id != null && seenIds.contains(msg.id)) || seenKeys.contains(key)) {
+              continue;
+            }
+            if (msg.id != null) seenIds.add(msg.id!);
+            seenKeys.add(key);
+            merged.add(msg);
+            changed = true;
+          }
+          if (changed) {
+            merged.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+            setState(() {
+              _aiMessages
+                ..clear()
+                ..addAll(merged);
+            });
+            await _persistAiChatHistory();
+          }
         }
       }
     } catch (e) {

@@ -21,6 +21,7 @@ import json
 import time
 import os
 import re
+import threading
 from typing import Optional, Dict, Any, List
 
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "clinical_records.db"
@@ -131,7 +132,7 @@ def get_patients(owner_id: Optional[str] = None) -> list[dict[str, Any]]:
                 ORDER BY datetime(last_active) DESC;
             """)
         rows = cursor.fetchall()
-        return [
+        local_list = [
             {
                 "patient_id": row["phone"],
                 "name": row["name"],
@@ -146,6 +147,22 @@ def get_patients(owner_id: Optional[str] = None) -> list[dict[str, Any]]:
             }
             for row in rows
         ]
+
+    # Merge permanent contacts from AWS eHospital DB so Render restarts never lose contacts
+    if owner_id is not None and owner_id.strip():
+        try:
+            from src.backend.services.aws_chat_store import fetch_contacts_from_aws
+            aws_contacts = fetch_contacts_from_aws(owner_id.strip())
+            seen_10 = {clean_phone_number(p.get("phone", ""))[-10:] for p in local_list if p.get("phone")}
+            for ac in aws_contacts:
+                p_clean = clean_phone_number(ac.get("phone", ""))
+                k10 = p_clean[-10:] if len(p_clean) >= 10 else p_clean
+                if k10 and k10 not in seen_10:
+                    seen_10.add(k10)
+                    local_list.append(ac)
+        except Exception as exc:
+            print(f"[Clinical DB] AWS contact merge note: {exc}")
+    return local_list
 
 def get_patient(phone: str) -> Optional[Dict[str, Any]]:
     """Retrieves a single patient by phone."""
@@ -209,6 +226,15 @@ def upsert_patient(
                 INSERT INTO doctor_patients (phone, name, clinical_notes, doctor_id, status, created_at, last_active, owner_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             """, (clean_p, clean_name, clinical_notes.strip(), doctor_id, status, now_iso, now_iso, clean_owner))
+
+    if clean_owner:
+        def _sync_contact_aws() -> None:
+            try:
+                from src.backend.services.aws_chat_store import save_contact_to_aws
+                save_contact_to_aws(clean_owner, clean_p, clean_name, clinical_notes.strip())
+            except Exception as exc:
+                print(f"[Clinical DB] AWS contact write note: {exc}")
+        threading.Thread(target=_sync_contact_aws, daemon=True).start()
 
     return get_patient(clean_p) or {
         "patient_id": clean_p,
@@ -319,6 +345,28 @@ def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dic
                 "audio_url": row["audio_url"],
                 "created_at": row["created_at"],
             })
+
+        # Merge permanent history from AWS eHospital DB (survives Render restarts & APK reinstalls)
+        try:
+            from src.backend.services.aws_chat_store import fetch_contact_messages_from_aws
+            aws_msgs = fetch_contact_messages_from_aws(clean_p, owner_id=clean_owner)
+            for am in aws_msgs:
+                am_mid = str(am.get("message_id") or "")
+                am_text = str(am.get("text") or "")
+                am_role = str(am.get("role") or "doctor")
+                am_norm = re.sub(r'[\s\*\_]+', ' ', am_text).strip().lower()
+                am_sig = (am_role, am_norm)
+                if (am_mid and am_mid in seen_msg_ids) or (am_norm and am_sig in seen_text_signatures):
+                    continue
+                if am_mid:
+                    seen_msg_ids.add(am_mid)
+                if am_norm:
+                    seen_text_signatures.add(am_sig)
+                messages.append(am)
+            messages.sort(key=lambda m: str(m.get("created_at") or ""))
+        except Exception as exc:
+            print(f"[Clinical DB] AWS message merge note: {exc}")
+
         return messages
 
 def add_chat_message(
@@ -399,6 +447,26 @@ def add_chat_message(
             text, now_display, status, vitals_str, 1 if is_voice else 0, audio_url, now_iso, (owner_id or "").strip()
         ))
         db_id = cursor.lastrowid
+
+    # Mirror permanently to AWS eHospital DB in background
+    def _sync_msg_aws() -> None:
+        try:
+            from src.backend.services.aws_chat_store import save_message_to_aws
+            p_name = (existing_patient or {}).get("name") or sender_name
+            save_message_to_aws(
+                sender_role=sender_role,
+                patient_phone=clean_p,
+                text=text,
+                owner_id=(owner_id or "").strip(),
+                patient_name=str(p_name or ""),
+                is_voice=is_voice,
+                status=status,
+                msg_id=msg_id,
+                sent_at_iso=now_iso,
+            )
+        except Exception as exc:
+            print(f"[Clinical DB] AWS message write note: {exc}")
+    threading.Thread(target=_sync_msg_aws, daemon=True).start()
 
     return {
         "id": db_id,

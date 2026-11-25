@@ -187,6 +187,24 @@ class BackendApiService {
     }
   }
 
+  static Future<List<Map<String, dynamic>>> getDoctorAiChatHistory({
+    required String ownerId,
+  }) async {
+    try {
+      final clean = ownerId.trim();
+      if (clean.isEmpty) return [];
+      final res = await _apiClient.getJson(
+        '/api/doctor/ai-chat-history?owner_id=${Uri.encodeComponent(clean)}',
+      );
+      if (res is Map && res['messages'] is List) {
+        return List<Map<String, dynamic>>.from(
+          (res['messages'] as List).map((m) => Map<String, dynamic>.from(m as Map)),
+        );
+      }
+    } catch (_) {}
+    return [];
+  }
+
   static Future<Map<String, dynamic>> sendDoctorAiAgentCommand({
     required String instruction,
     required String doctorName,
