@@ -43,8 +43,18 @@ class _HealthChatMessage {
         'text': text,
         'isVoice': isVoice,
         'status': status,
-        'timestamp': timestamp.toIso8601String(),
+        'timestamp': timestamp.toUtc().toIso8601String(),
       };
+
+  static DateTime? _parseToLocal(dynamic raw) {
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty) return null;
+    final parsed = DateTime.tryParse(s);
+    if (parsed == null) return null;
+    if (parsed.isUtc) return parsed.toLocal();
+    return parsed.toLocal();
+  }
 
   factory _HealthChatMessage.fromJson(Map<String, dynamic> json) => _HealthChatMessage(
         id: json['id']?.toString(),
@@ -52,9 +62,7 @@ class _HealthChatMessage {
         text: json['text'] as String? ?? '',
         isVoice: json['isVoice'] == true,
         status: json['status']?.toString() ?? 'delivered',
-        timestamp: json['timestamp'] != null
-            ? DateTime.tryParse(json['timestamp'].toString())
-            : null,
+        timestamp: _parseToLocal(json['timestamp']),
       );
 }
 
@@ -412,7 +420,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               text: formattedText,
               isVoice: isVoice,
               status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'delivered',
-              timestamp: DateTime.tryParse(item['created_at']?.toString() ?? ''),
+              timestamp: _HealthChatMessage._parseToLocal(item['created_at']),
             ));
           }
           if (loaded.isNotEmpty && mounted) {
@@ -495,6 +503,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   text: formattedText,
                   isVoice: text.startsWith("🎙️ [Voice Note]") || item['isVoice'] == true,
                   status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'delivered',
+                  timestamp: _HealthChatMessage._parseToLocal(item['created_at']),
                 ));
               }
             }
@@ -2642,9 +2651,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   }
 
   String _formatBubbleTime(DateTime dt) {
-    final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final m = dt.minute.toString().padLeft(2, '0');
-    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+    final local = dt.toLocal();
+    final h = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final m = local.minute.toString().padLeft(2, '0');
+    final ampm = local.hour >= 12 ? 'PM' : 'AM';
     return "$h:$m $ampm";
   }
 

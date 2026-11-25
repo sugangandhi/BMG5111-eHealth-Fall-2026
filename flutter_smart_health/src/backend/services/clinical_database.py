@@ -3,7 +3,20 @@ from __future__ import annotations
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None  # type: ignore
+
+def _now_ontario() -> datetime:
+    """Returns current Ontario (America/Toronto) local time with automatic EST/EDT handling."""
+    if ZoneInfo is not None:
+        try:
+            return datetime.now(ZoneInfo("America/Toronto"))
+        except Exception:
+            pass
+    return datetime.now(timezone(timedelta(hours=-5)))
 import json
 import time
 import os
@@ -371,7 +384,7 @@ def add_chat_message(
         with get_db() as conn:
             conn.execute("UPDATE doctor_patients SET last_active = ? WHERE phone = ?;", (now_iso, clean_p))
 
-    now_display = custom_timestamp or datetime.now().strftime("%I:%M %p")
+    now_display = custom_timestamp or _now_ontario().strftime("%I:%M %p").lstrip("0")
     msg_id = custom_msg_id or f"msg_{int(time.time() * 1000)}_{sender_role[:3]}"
     vitals_str = json.dumps(vitals) if vitals else "{}"
 

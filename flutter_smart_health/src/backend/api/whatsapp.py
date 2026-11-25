@@ -289,7 +289,7 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
     if clean_p != phone_10:
         threads[clean_p] = thread
 
-    now_str = datetime.now().strftime("%I:%M %p")
+    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
     vitals = extract_vitals_from_text(req.message)
 
     # 1. Patient message
@@ -718,13 +718,28 @@ async def delete_doctor_scheduled_task(task_id: int):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def _now_ontario() -> datetime:
+    """Returns current Ontario (America/Toronto) local time with automatic EST/EDT handling."""
+    from datetime import timezone, timedelta
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Toronto"))
+    except Exception:
+        return datetime.now(timezone(timedelta(hours=-5)))
+
 def _parse_relative_or_natural_time(instruction: str, tz_offset_minutes: int) -> tuple[str, str]:
     """Parses relative times ('in 2 minutes', 'tomorrow at 10 AM', 'at 3:30 PM') into (utc_iso, display_str)."""
-    from datetime import timedelta
+    from datetime import timedelta, timezone
 
-    now_utc = datetime.utcnow()
-    tz_delta = timedelta(minutes=tz_offset_minutes or 0)
-    now_local = now_utc + tz_delta
+    now_ontario = _now_ontario()
+    # Use device offset if provided and non-zero, otherwise Ontario (America/Toronto) offset
+    if tz_offset_minutes and tz_offset_minutes != 0:
+        tz_delta = timedelta(minutes=tz_offset_minutes)
+        now_utc = datetime.utcnow()
+        now_local = now_utc + tz_delta
+    else:
+        tz_delta = now_ontario.utcoffset() or timedelta(hours=-5)
+        now_local = now_ontario.replace(tzinfo=None)
     low = instruction.lower()
 
     # 1. "in X minutes / hours"
@@ -1217,7 +1232,7 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     """
     clean_p = re.sub(r'\D', '', req.patient_phone) or "6132616383"
     phone_key = clean_p[-10:] if len(clean_p) >= 10 else clean_p
-    now_str = datetime.now().strftime("%I:%M %p")
+    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
 
     doctor_title = req.doctor_name or "Dr. Sugan"
     if not doctor_title.startswith("Dr.") and not doctor_title.startswith("Dr "):
@@ -1379,7 +1394,7 @@ async def initialize_whatsapp_channel(req: InitializeChannelRequest):
     """
     clean_p = re.sub(r'\D', '', req.patient_phone) or "6132616383"
     phone_key = clean_p[-10:] if len(clean_p) >= 10 else clean_p
-    now_str = datetime.now().strftime("%I:%M %p")
+    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
     doctor_title = req.doctor_name or "Dr. Sugan"
     patient_display = req.patient_name or "Patient"
 
@@ -1446,7 +1461,7 @@ async def handle_whatsapp_action(req: WhatsAppActionRequest):
     clean_p = re.sub(r'\D', '', req.phone) or "6132616383"
     threads = _load_threads()
     thread = threads.setdefault(clean_p, [])
-    now_str = datetime.now().strftime("%I:%M %p")
+    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
     patient_id = req.patient_id or 391
 
     if req.action == "book_appointment":
@@ -1859,7 +1874,7 @@ async def receive_message(request: Request):
                                 if target_to and echo_text:
                                     clean_tgt = re.sub(r'\D', '', target_to)
                                     tgt_key = clean_tgt[-10:] if len(clean_tgt) >= 10 else clean_tgt
-                                    now_str = datetime.now().strftime("%I:%M %p")
+                                    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
                                     print(f"[WhatsApp Coexistence Echo] Doctor messaged {clean_tgt} via mobile app: \"{echo_text}\"")
 
                                     # Activate 30-minute doctor takeover silence
@@ -2015,7 +2030,7 @@ async def receive_message(request: Request):
                     threads[phone_key] = thread
                 if clean_p != phone_key:
                     threads[clean_p] = thread
-                now_str = datetime.now().strftime("%I:%M %p")
+                now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
                 if not any(m.get("message_id") == msg_id for m in thread if msg_id):
                     thread.append({
                         "id": int(time.time() * 1000),
@@ -2074,7 +2089,7 @@ async def receive_message(request: Request):
                 threads[phone_key] = thread
             if clean_p != phone_key:
                 threads[clean_p] = thread
-            now_str = datetime.now().strftime("%I:%M %p")
+            now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
             if not any(m.get("message_id") == msg_id for m in thread if msg_id):
                 thread.append({
                     "id": int(time.time() * 1000),
