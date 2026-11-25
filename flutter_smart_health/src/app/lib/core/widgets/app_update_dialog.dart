@@ -74,7 +74,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              c.isUpdateAvailable ? 'App Update Available' : 'eHospital App Version',
+              c.isUpdateAvailable ? 'App Update Available' : 'MaxAssist App Version',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
           ),

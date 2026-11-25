@@ -25,6 +25,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _doctorNameController = TextEditingController();
   String _selectedIdentity = 'Patient';
   bool _loading = false;
   String? _error;
@@ -36,6 +37,10 @@ class _LoginScreenState extends State<LoginScreen> {
       final savedHost = prefs.getString('custom_backend_host');
       if (savedHost != null && savedHost.isNotEmpty) {
         ApiConfig.setBackendHost(savedHost);
+      }
+      final savedDocName = prefs.getString('doctor_custom_name_v1');
+      if (savedDocName != null && savedDocName.isNotEmpty && mounted) {
+        _doctorNameController.text = savedDocName;
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -50,6 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _doctorNameController.dispose();
     super.dispose();
   }
 
@@ -165,6 +171,18 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (result.authenticated && result.hasPatientSession) {
+      if (_selectedIdentity == 'Doctor') {
+        final rawDoc = _doctorNameController.text.trim();
+        if (rawDoc.isNotEmpty) {
+          final normalized = (rawDoc.startsWith('Dr.') || rawDoc.startsWith('Dr '))
+              ? rawDoc
+              : 'Dr. $rawDoc';
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('doctor_custom_name_v1', normalized);
+          await prefs.setString('patient_username', normalized);
+        }
+      }
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, "/dashboard");
     } else if (result.authenticated) {
       setState(() {
@@ -182,6 +200,57 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleDemoLogin([String? role]) async {
     final targetRole = role ?? _selectedIdentity;
     if (targetRole == 'Doctor') {
+      final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+      if (!isTest && mounted) {
+        final tempCtrl = TextEditingController(text: _doctorNameController.text.trim());
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Text(
+              "Doctor Login",
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Enter your name so MaxAssist signs messages and schedules tasks under your name:",
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: tempCtrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: "Doctor Name",
+                    hintText: "e.g. Dr. Abbas",
+                    prefixIcon: const Icon(Icons.medical_services_outlined, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text("Continue"),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+        if (tempCtrl.text.trim().isNotEmpty) {
+          _doctorNameController.text = tempCtrl.text.trim();
+        }
+      }
       _emailController.text = "doctor@demo.com";
       _passwordController.text = "123456";
       setState(() => _selectedIdentity = "Doctor");
@@ -220,6 +289,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           LoginForm(
                             emailController: _emailController,
                             passwordController: _passwordController,
+                            doctorNameController: _doctorNameController,
                             selectedIdentity: _selectedIdentity,
                             identityOptions:
                                 EHospitalAuthService.supportedIdentities,

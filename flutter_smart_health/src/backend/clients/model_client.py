@@ -94,7 +94,7 @@ def invoke_model(
     # 4. Standard clinical fallback reply
     return (
         "Your clinical records, vitals, and longitudinal health metrics have been analyzed. "
-        "All readings are safely archived in the e-Hospital database. For immediate clinical advice, "
+        "All readings are safely archived in the MaxAssist database. For immediate clinical advice, "
         "you can connect with Intelligent Digital Solution directly via the WhatsApp Care Team tab."
     )
 

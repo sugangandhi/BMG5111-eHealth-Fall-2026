@@ -264,7 +264,7 @@ class WearableLangGraphAssistantProvider(AssistantProvider):
                 # 5. Dispatch Live via Meta WhatsApp Cloud API to the user's real WhatsApp
                 patient_first = patient_name.split()[0] if patient_name else "there"
                 outbound_text = (
-                    f"🩺 *e-Hospital Clinical Care Team*\n\n"
+                    f"🩺 *MaxAssist Clinical Care Team*\n\n"
                     f"Hi {patient_first}, Dr. Sugan's care desk received your message:\n"
                     f"\"{clean_msg}\"\n\n"
                     f"{bot_reply_text}\n\n"

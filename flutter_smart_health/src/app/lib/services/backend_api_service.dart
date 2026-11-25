@@ -17,6 +17,7 @@ class BackendApiService {
     String? patientName,
     int? patientId,
     String doctorName = "Dr. Sugan",
+    String ownerId = "",
   }) async {
     final res = await _apiClient.postJson('/api/doctor/dispatch-patient-message', {
       'patient_phone': patientPhone,
@@ -24,6 +25,7 @@ class BackendApiService {
       'patient_name': patientName ?? 'Patient',
       'patient_id': patientId ?? 99211,
       'doctor_name': doctorName,
+      'owner_id': ownerId,
     });
     if (res is Map) {
       return Map<String, dynamic>.from(res);
@@ -49,9 +51,177 @@ class BackendApiService {
     return {'success': false};
   }
 
-  static Future<List<Map<String, dynamic>>> getDoctorPatients() async {
+  static Future<Map<String, dynamic>> getDoctorWhatsAppConfig({
+    String doctorId = 'Dr. Sugan',
+  }) async {
     try {
-      final res = await _apiClient.getJson('/api/doctor/patients');
+      final res = await _apiClient.getJson(
+        '/api/doctor/whatsapp-config?doctor_id=${Uri.encodeComponent(doctorId)}',
+      );
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (_) {}
+    return {'configured': false, 'verified': false, 'whatsapp_phone': ''};
+  }
+
+  static Future<Map<String, dynamic>> requestDoctorWhatsAppOtp({
+    required String phone,
+    String doctorId = 'Dr. Sugan',
+  }) async {
+    try {
+      final res = await _apiClient.postJson(
+        '/api/doctor/whatsapp-config/request-otp',
+        {'phone': phone, 'doctor_id': doctorId},
+      );
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+    return {'success': false, 'error': 'Unable to request verification code.'};
+  }
+
+  static Future<Map<String, dynamic>> verifyDoctorWhatsAppOtp({
+    required String phone,
+    required String code,
+    String doctorId = 'Dr. Sugan',
+  }) async {
+    try {
+      final res = await _apiClient.postJson(
+        '/api/doctor/whatsapp-config/verify',
+        {'phone': phone, 'code': code, 'doctor_id': doctorId},
+      );
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      return {'verified': false, 'error': 'Connection error: $e'};
+    }
+    return {'verified': false, 'error': 'Verification failed.'};
+  }
+
+  static Future<List<Map<String, dynamic>>> getDoctorScheduledTasks({
+    String? patientPhone,
+    String? ownerId,
+  }) async {
+    try {
+      final params = <String>[];
+      if (patientPhone != null && patientPhone.isNotEmpty) {
+        params.add('patient_phone=${Uri.encodeComponent(patientPhone)}');
+      }
+      if (ownerId != null && ownerId.isNotEmpty) {
+        params.add('owner_id=${Uri.encodeComponent(ownerId)}');
+      }
+      final q = params.isNotEmpty ? '?${params.join('&')}' : '';
+      final res = await _apiClient.getJson('/api/doctor/scheduled-tasks$q');
+      if (res is Map && res['tasks'] is List) {
+        return List<Map<String, dynamic>>.from(
+          (res['tasks'] as List).map((t) => Map<String, dynamic>.from(t as Map)),
+        );
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> createDoctorScheduledTask({
+    required String patientPhone,
+    required String patientName,
+    required String messageText,
+    required String scheduledForUtc,
+    required String scheduledDisplay,
+    String doctorName = 'Dr. Sugan',
+    String ownerId = '',
+  }) async {
+    try {
+      final res = await _apiClient.postJson('/api/doctor/scheduled-tasks', {
+        'doctor_name': doctorName,
+        'owner_id': ownerId,
+        'patient_phone': patientPhone,
+        'patient_name': patientName,
+        'message_text': messageText,
+        'scheduled_for_utc': scheduledForUtc,
+        'scheduled_display': scheduledDisplay,
+      });
+      if (res is Map) return Map<String, dynamic>.from(res);
+    } catch (e) {
+      return {'success': false, 'error': '$e'};
+    }
+    return {'success': false};
+  }
+
+  static Future<Map<String, dynamic>> parseAndScheduleDoctorTask({
+    required String instruction,
+    required String doctorName,
+    String? defaultPatientPhone,
+    String? defaultPatientName,
+    String ownerId = '',
+  }) async {
+    try {
+      final tzOffset = DateTime.now().timeZoneOffset.inMinutes;
+      final res = await _apiClient.postJson(
+        '/api/doctor/scheduled-tasks/parse-and-schedule',
+        {
+          'instruction': instruction,
+          'doctor_name': doctorName,
+          'owner_id': ownerId,
+          'default_patient_phone': defaultPatientPhone ?? '',
+          'default_patient_name': defaultPatientName ?? '',
+          'timezone_offset_minutes': tzOffset,
+        },
+      );
+      if (res is Map) return Map<String, dynamic>.from(res);
+    } catch (e) {
+      return {'success': false, 'error': '$e'};
+    }
+    return {'success': false};
+  }
+
+  static Future<bool> cancelDoctorScheduledTask(int taskId) async {
+    try {
+      final res = await _apiClient.postJson('/api/doctor/scheduled-tasks/$taskId/cancel', {});
+      return res is Map && res['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>> sendDoctorAiAgentCommand({
+    required String instruction,
+    required String doctorName,
+    String ownerId = '',
+    List<Map<String, String>> history = const [],
+    List<Map<String, String>> contacts = const [],
+  }) async {
+    try {
+      final tzOffset = DateTime.now().timeZoneOffset.inMinutes;
+      final res = await _apiClient.postJson(
+        '/api/doctor/ai-agent-command',
+        {
+          'instruction': instruction,
+          'doctor_name': doctorName,
+          'owner_id': ownerId,
+          'timezone_offset_minutes': tzOffset,
+          'history': history,
+          'contacts': contacts,
+        },
+      );
+      if (res is Map) return Map<String, dynamic>.from(res);
+    } catch (e) {
+      return {'success': false, 'reply': 'Connection error: $e'};
+    }
+    return {'success': false, 'reply': 'Unable to reach MaxAssist AI.'};
+  }
+
+  static Future<List<Map<String, dynamic>>> getDoctorPatients({
+    String? ownerId,
+  }) async {
+    try {
+      final q = (ownerId != null && ownerId.isNotEmpty)
+          ? '?owner_id=${Uri.encodeComponent(ownerId)}'
+          : '';
+      final res = await _apiClient.getJson('/api/doctor/patients$q');
       if (res is Map && res['patients'] is List) {
         return List<Map<String, dynamic>>.from(
           (res['patients'] as List).map((p) => Map<String, dynamic>.from(p as Map)),
@@ -66,6 +236,7 @@ class BackendApiService {
     required String phone,
     String notes = '',
     String doctorName = 'Dr. Sugan',
+    String ownerId = '',
   }) async {
     try {
       final res = await _apiClient.postJson('/api/doctor/patients', {
@@ -73,6 +244,7 @@ class BackendApiService {
         'phone': phone,
         'notes': notes,
         'doctor_name': doctorName,
+        'owner_id': ownerId,
       });
       if (res is Map) {
         return Map<String, dynamic>.from(res);
@@ -81,10 +253,16 @@ class BackendApiService {
     return {'success': false};
   }
 
-  static Future<List<Map<String, dynamic>>> getDoctorChatHistory(String phone) async {
+  static Future<List<Map<String, dynamic>>> getDoctorChatHistory(
+    String phone, {
+    String? ownerId,
+  }) async {
     try {
       final clean = phone.replaceAll(RegExp(r'\D'), '');
-      final res = await _apiClient.getJson('/api/doctor/chat-history/$clean');
+      final q = (ownerId != null && ownerId.isNotEmpty)
+          ? '?owner_id=${Uri.encodeComponent(ownerId)}'
+          : '';
+      final res = await _apiClient.getJson('/api/doctor/chat-history/$clean$q');
       if (res is Map && res['messages'] is List) {
         return List<Map<String, dynamic>>.from(
           (res['messages'] as List).map((m) => Map<String, dynamic>.from(m as Map)),

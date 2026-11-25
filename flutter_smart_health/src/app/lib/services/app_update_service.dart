@@ -186,7 +186,7 @@ class AppUpdateService {
           started: false,
           permissionRequired: true,
           message:
-              'Allow "Install unknown apps" for eHospital in Android Settings, then tap Update Now again.',
+              'Allow "Install unknown apps" for MaxAssist in Android Settings, then tap Update Now again.',
         );
       }
 
@@ -231,7 +231,7 @@ class AppUpdateService {
       }
       return const AppUpdateInstallResult(
         started: true,
-        message: 'Installer opened. Tap Update to finish upgrading eHospital.',
+        message: 'Installer opened. Tap Update to finish upgrading MaxAssist.',
       );
     } catch (e) {
       return AppUpdateInstallResult(

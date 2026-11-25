@@ -1,11 +1,11 @@
 {
-    "name": "eHospital - Intelligent Digital Solution",
-    "short_name": "eHospital",
+    "name": "MaxAssist - Intelligent Digital Solution",
+    "short_name": "MaxAssist",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#1345B5",
     "theme_color": "#1345B5",
-    "description": "eHospital Intelligent Digital Healthcare & Telemetry Portal",
+    "description": "MaxAssist Intelligent Digital Healthcare & Telemetry Portal",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

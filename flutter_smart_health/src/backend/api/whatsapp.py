@@ -121,34 +121,7 @@ def _load_threads() -> Dict[str, List[Dict[str, Any]]]:
                 return json.load(f)
         except Exception:
             pass
-    return {
-        "6132616383": [
-            {
-                "id": 1791309686445,
-                "role": "bot",
-                "sender_name": "e-Hospital Clinical Care Team",
-                "text": "Hello! Welcome to the PrimeCare & e-Hospital WhatsApp Clinic channel. You can message us your symptoms, query your care plan, or log daily vitals here.",
-                "vitals": {},
-                "timestamp": "09:00 AM"
-            },
-            {
-                "id": 1791309972075,
-                "role": "patient",
-                "sender_name": "Patient",
-                "text": "Hi Doctor, checking in. My blood pressure this morning is 125/82 and heart rate is 72.",
-                "vitals": {"bp": "125/82", "hr": "72"},
-                "timestamp": "09:15 AM"
-            },
-            {
-                "id": 1791309972076,
-                "role": "bot",
-                "sender_name": "e-Hospital Clinical Care Team",
-                "text": "Thank you! Your telemetry readings (BP: 125/82, HR: 72 BPM) have been recorded directly into your patient chart and synced with the Central AWS Clinical Network.",
-                "vitals": {},
-                "timestamp": "09:16 AM"
-            }
-        ]
-    }
+    return {}
 
 def _save_threads(threads: Dict[str, Any]) -> None:
     t_file = _get_threads_file()
@@ -168,6 +141,7 @@ class SendWhatsAppRequest(BaseModel):
 class DoctorDispatchMessageRequest(BaseModel):
     doctor_name: Optional[str] = "Dr. Sugan"
     doctor_id: Optional[int] = 1
+    owner_id: Optional[str] = ""
     patient_id: Optional[int] = 99211
     patient_name: Optional[str] = "Sugan"
     patient_phone: str = "6132616383"
@@ -275,15 +249,20 @@ def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str
 @router.get('/api/doctor/chat-history/{phone}')
 @router.get('/api/whatsapp/threads')
 @router.get('/api/whatsapp/threads/{phone}')
-async def get_whatsapp_thread(phone: str = "6132616383"):
+async def get_whatsapp_thread(phone: str = "6132616383", owner_id: Optional[str] = None):
     clean_p = re.sub(r'\D', '', phone) or "6132616383"
     try:
         from src.backend.services.clinical_database import get_patient_messages
-        db_msgs = get_patient_messages(clean_p)
+        db_msgs = get_patient_messages(clean_p, owner_id=owner_id)
+        if owner_id and owner_id.strip():
+            # Strictly isolated per device/owner: never leak global fallback threads
+            return {"phone": clean_p, "messages": db_msgs}
         if db_msgs:
             return {"phone": clean_p, "messages": db_msgs}
     except Exception as ex_db:
         print(f"[Clinical DB Get Thread Error]: {ex_db}")
+        if owner_id and owner_id.strip():
+            return {"phone": clean_p, "messages": []}
     threads = _load_threads()
     phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
     thread = threads.get(clean_p) or threads.get(phone_10) or threads.get(f"1{phone_10}") or []
@@ -310,7 +289,7 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
     if clean_p != phone_10:
         threads[clean_p] = thread
 
-    now_str = datetime.now().strftime("%I:%M %p")
+    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
     vitals = extract_vitals_from_text(req.message)
 
     # 1. Patient message
@@ -358,16 +337,10 @@ async def send_whatsapp_message_in_app(req: SendWhatsAppRequest):
 
     _save_threads(threads)
 
-    # Also forward via Meta Cloud API directly to the user's real WhatsApp
-    if is_greeting:
-        outbound = f"🩺 *e-Hospital Clinic*\n\n{triage_result['reply_text']}"
-    else:
-        outbound = (
-            f"🩺 *e-Hospital Clinic Response*\n\n"
-            f"Regarding your message: \"{req.message}\"\n\n"
-            f"{triage_result['reply_text']}"
-        )
-    send_whatsapp_reply(clean_p, outbound)
+    # Also forward via Meta Cloud API directly to the user's real WhatsApp (clean message text only)
+    outbound = str(triage_result.get('reply_text') or '').strip()
+    if outbound:
+        send_whatsapp_reply(clean_p, outbound)
 
     return {
         "success": True,
@@ -382,6 +355,685 @@ class CreatePatientRequest(BaseModel):
     phone: str
     notes: Optional[str] = ""
     doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
+
+class DoctorWhatsAppOtpRequest(BaseModel):
+    phone: str
+    doctor_id: Optional[str] = "Dr. Sugan"
+
+class DoctorWhatsAppVerifyRequest(BaseModel):
+    phone: str
+    code: str
+    doctor_id: Optional[str] = "Dr. Sugan"
+
+class CreateScheduledTaskRequest(BaseModel):
+    doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
+    patient_phone: str
+    patient_name: Optional[str] = "Patient"
+    message_text: str
+    scheduled_for_utc: str
+    scheduled_display: Optional[str] = ""
+
+class ParseScheduleTaskRequest(BaseModel):
+    instruction: str
+    doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
+    default_patient_phone: Optional[str] = ""
+    default_patient_name: Optional[str] = ""
+    timezone_offset_minutes: Optional[int] = -300  # EST default
+
+class DoctorAiAgentRequest(BaseModel):
+    instruction: str
+    doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
+    timezone_offset_minutes: Optional[int] = -300
+    history: Optional[List[Dict[str, str]]] = None
+    contacts: Optional[List[Dict[str, Any]]] = None
+
+def generate_tts_voice_ogg(text: str) -> Optional[bytes]:
+    """Generates a WhatsApp-native OGG/Opus voice note via OpenAI TTS (tts-1)."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    clean = (text or "").strip()
+    if not api_key or not clean:
+        return None
+    try:
+        resp = requests.post(
+            "https://api.openai.com/v1/audio/speech",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "tts-1",
+                "voice": os.getenv("OPENAI_TTS_VOICE", "alloy"),
+                "input": clean[:4000],
+                "response_format": "opus",
+            },
+            timeout=25,
+            verify=False,
+        )
+        if resp.status_code == 200 and resp.content and len(resp.content) > 200:
+            return resp.content
+        print(f"[MaxAssist TTS] OpenAI returned {resp.status_code}: {resp.text[:200]}")
+    except Exception as exc:
+        print(f"[MaxAssist TTS Error]: {exc}")
+    return None
+
+def upload_meta_whatsapp_media(audio_bytes: bytes, mime_type: str = "audio/ogg") -> Optional[str]:
+    """Uploads audio bytes to Meta WhatsApp Cloud Media API and returns media_id."""
+    token = os.getenv("WHATSAPP_TOKEN")
+    phone_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    if not token or not phone_id or not audio_bytes:
+        return None
+    try:
+        url = f"https://graph.facebook.com/v20.0/{phone_id}/media"
+        resp = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            data={"messaging_product": "whatsapp", "type": mime_type},
+            files={"file": ("voice_note.ogg", audio_bytes, mime_type)},
+            timeout=20,
+            verify=False,
+        )
+        if resp.status_code in (200, 201):
+            media_id = resp.json().get("id")
+            print(f"[WhatsApp Media Upload] Uploaded voice note media_id={media_id}")
+            return media_id
+        print(f"[WhatsApp Media Upload Error] {resp.status_code}: {resp.text[:200]}")
+    except Exception as exc:
+        print(f"[WhatsApp Media Upload Exception]: {exc}")
+    return None
+
+def send_whatsapp_voice_note(to_phone: str, text_to_speak: str) -> tuple[bool, str]:
+    """Synthesizes an AI voice note (OGG/Opus), uploads to Meta, and sends as a real WhatsApp voice message."""
+    token = os.getenv("WHATSAPP_TOKEN")
+    phone_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    clean_to = re.sub(r'\D', '', to_phone or '')
+    if len(clean_to) == 10:
+        clean_to = '1' + clean_to
+
+    audio_bytes = generate_tts_voice_ogg(text_to_speak)
+    if audio_bytes and token and phone_id:
+        media_id = upload_meta_whatsapp_media(audio_bytes, mime_type="audio/ogg")
+        if media_id:
+            try:
+                url = f"https://graph.facebook.com/v20.0/{phone_id}/messages"
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": clean_to,
+                    "type": "audio",
+                    "audio": {"id": media_id},
+                }
+                resp = requests.post(
+                    url,
+                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    json=payload,
+                    timeout=12,
+                    verify=False,
+                )
+                if resp.status_code in (200, 201):
+                    print(f"[WhatsApp Voice Note] Delivered AI voice message to +{clean_to}")
+                    return True, "voice_sent"
+                print(f"[WhatsApp Voice Note Error] {resp.status_code}: {resp.text[:200]}")
+            except Exception as exc:
+                print(f"[WhatsApp Voice Note Exception]: {exc}")
+
+    # Graceful fallback to text if TTS or Meta audio fails
+    fallback_ok = send_whatsapp_reply(clean_to, text_to_speak)
+    return fallback_ok, "text_fallback"
+
+def _match_contact_in_instruction(instruction: str, patients: List[Dict[str, Any]]) -> tuple[str, str]:
+    """Finds a matching contact (phone, name) from the doctor's saved contacts or explicit phone number."""
+    low = instruction.lower()
+    for p in patients:
+        pname = str(p.get("name") or "").strip()
+        if not pname:
+            continue
+        first_word = pname.split()[0].lower()
+        if pname.lower() in low or (len(first_word) >= 3 and re.search(rf'\b{re.escape(first_word)}\b', low)):
+            return re.sub(r'\D', '', str(p.get("phone") or "")), pname
+    m_phone = re.search(r'\+?\d[\d\-\s]{8,14}\d', instruction)
+    if m_phone:
+        digits = re.sub(r'\D', '', m_phone.group(0))
+        if len(digits) == 10:
+            digits = '1' + digits
+        if len(digits) >= 10:
+            return digits, f"Patient {digits[-4:]}"
+    return "", ""
+
+def _extract_outbound_body(instruction: str, target_name: str) -> str:
+    """Extracts the clean message content the doctor wants sent."""
+    # 1. Explicit content delimiters ("saying ...", "that ...", ": ...")
+    m = re.search(r'(?:\bsaying\b|\bthat\b|:)\s+["\']?(.+?)["\']?$', instruction, re.IGNORECASE)
+    if m and len(m.group(1).strip()) >= 2:
+        body = m.group(1).strip().strip('"\'')
+        return body[0].upper() + body[1:] if body else instruction
+    # 2. Strip leading command + recipient name ("send a voice message to sugan take rest", "text sugan hello")
+    cleaned = re.sub(
+        r'^(?:please\s+)?(?:send|text|message|msg|tell|whatsapp)\s+(?:an?\s+)?(?:ai\s+)?(?:voice\s+(?:message|note|msg)|audio\s+(?:message|note)|message|msg|text)?\s*(?:to\s+)?',
+        '',
+        instruction.strip(),
+        flags=re.IGNORECASE,
+    ).strip()
+    if target_name:
+        first_word = target_name.split()[0]
+        cleaned = re.sub(rf'^{re.escape(target_name)}\b[\s,:\-]*', '', cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(rf'^{re.escape(first_word)}\b[\s,:\-]*', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'^(?:saying|that|to|about)\s+', '', cleaned, flags=re.IGNORECASE).strip()
+    if len(cleaned) >= 2:
+        return cleaned[0].upper() + cleaned[1:]
+    return instruction.strip()
+
+@router.post('/api/doctor/ai-agent-command')
+async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
+    """
+    Dedicated MaxAssist AI Agent endpoint:
+    - Send AI Voice Messages on WhatsApp
+    - Send Direct Text Messages to any saved contact
+    - Schedule future WhatsApp reminders
+    - List pending scheduled tasks
+    - Answer general clinical / assistant queries
+    """
+    from src.backend.services.clinical_database import (
+        add_chat_message,
+        get_patients,
+        list_scheduled_tasks,
+        upsert_patient,
+    )
+
+    instruction = (req.instruction or "").strip()
+    if not instruction:
+        return {"success": False, "reply": "Please type or speak a message."}
+
+    low = instruction.lower()
+    doctor_name = req.doctor_name or "Dr. Sugan"
+    owner_id = (req.owner_id or "").strip()
+    patients = get_patients(owner_id=owner_id or None)
+
+    # Merge device-saved contacts (so Render free-tier restarts never lose contact lookup)
+    seen_phones = {re.sub(r'\D', '', str(p.get("phone") or ""))[-10:] for p in patients if p.get("phone")}
+    for c in (req.contacts or []):
+        c_phone = re.sub(r'\D', '', str(c.get("phone") or c.get("patient_id") or ""))
+        c_name = str(c.get("name") or "").strip()
+        if len(c_phone) >= 10:
+            key10 = c_phone[-10:]
+            if key10 not in seen_phones:
+                seen_phones.add(key10)
+                patients.append({"name": c_name or f"Patient {key10[-4:]}", "phone": c_phone})
+                try:
+                    upsert_patient(c_phone, name=c_name or f"Patient {key10[-4:]}", doctor_id=doctor_name, owner_id=owner_id)
+                except Exception:
+                    pass
+
+    # 1. List scheduled tasks
+    if re.search(r'\b(show|list|view|my)\b.*\b(schedule|scheduled|task|tasks|reminder|reminders)\b', low):
+        tasks = list_scheduled_tasks(status="pending", owner_id=owner_id or None)
+        if not tasks:
+            return {"success": True, "action": "list_tasks", "reply": "You have no pending scheduled messages right now."}
+        lines = [f"• **{t['patient_name']}** ({t['scheduled_display']}): \"{t['message_text']}\"" for t in tasks[:10]]
+        return {
+            "success": True,
+            "action": "list_tasks",
+            "reply": "Here are your pending scheduled WhatsApp messages:\n\n" + "\n".join(lines),
+        }
+
+    # Detect explicit scheduling vs immediate voice/text send
+    is_explicit_schedule = bool(re.search(
+        r'\b(schedule|remind|reminder|in\s+\d+\s*(?:min|minute|minutes|hr|hour|hours)|at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)|(?:tomorrow|tmrw)\s+at\b)\b',
+        low,
+    ))
+    is_voice_cmd = bool(re.search(r'\b(voice\s*(?:message|note|msg)|audio\s*(?:message|note)|speak\s+to)\b', low))
+
+    # 2. Send an AI Voice Message immediately (unless explicitly scheduled for a specific time)
+    if is_voice_cmd and not is_explicit_schedule:
+        target_phone, target_name = _match_contact_in_instruction(instruction, patients)
+        if not target_phone:
+            names = ", ".join([str(p.get("name", "")) for p in patients[:5] if p.get("name")])
+            hint = f" Your contacts: {names}." if names else ""
+            return {
+                "success": True,
+                "action": "clarify",
+                "reply": f"Who should I send the AI voice message to? Mention their name or phone number.{hint}",
+            }
+        spoken_text = _extract_outbound_body(instruction, target_name)
+        sent_ok, mode = send_whatsapp_voice_note(target_phone, spoken_text)
+        add_chat_message(
+            patient_phone=target_phone,
+            sender_role="doctor",
+            sender_name=doctor_name,
+            text=f"🎙️ {spoken_text}",
+            is_voice=True,
+            status="delivered" if sent_ok else "sent",
+            owner_id=owner_id,
+        )
+        label = "AI voice message" if mode == "voice_sent" else "message"
+        return {
+            "success": True,
+            "action": "voice_sent",
+            "patient_phone": target_phone,
+            "target_phone": target_phone,
+            "patient_name": target_name,
+            "message_text": spoken_text,
+            "reply": f"🎙️ Sent {label} to **{target_name}**: \"{spoken_text}\"",
+        }
+
+    # 3. Schedule a message for later
+    if is_explicit_schedule:
+        target_phone, target_name = _match_contact_in_instruction(instruction, patients)
+        if not target_phone:
+            names = ", ".join([str(p.get("name", "")) for p in patients[:5] if p.get("name")])
+            hint = f" Your saved contacts: {names}." if names else " Please add a contact first."
+            return {
+                "success": True,
+                "action": "clarify",
+                "reply": f"Who should I schedule this message for? Include their name or phone number.{hint}",
+            }
+        sched = await parse_and_schedule_doctor_task(ParseScheduleTaskRequest(
+            instruction=instruction,
+            doctor_name=doctor_name,
+            owner_id=owner_id,
+            default_patient_phone=target_phone,
+            default_patient_name=target_name,
+            timezone_offset_minutes=req.timezone_offset_minutes or -300,
+        ))
+        if sched.get("success") and sched.get("task"):
+            t = sched["task"]
+            return {
+                "success": True,
+                "action": "scheduled",
+                "task": t,
+                "reply": f"Scheduled for **{t['patient_name']}** on **{t['scheduled_display']}**:\n\"{t['message_text']}\"",
+            }
+        return {"success": True, "action": "error", "reply": sched.get("error") or "Could not schedule that task."}
+
+    # 4. Send a Direct Text Message to a contact
+    is_send_cmd = bool(re.search(r'\b(send|text|message|msg|tell|whatsapp)\b', low))
+    if is_send_cmd:
+        target_phone, target_name = _match_contact_in_instruction(instruction, patients)
+        if target_phone:
+            body_text = _extract_outbound_body(instruction, target_name)
+            sent_ok = send_whatsapp_reply(target_phone, body_text)
+            add_chat_message(
+                patient_phone=target_phone,
+                sender_role="doctor",
+                sender_name=doctor_name,
+                text=body_text,
+                status="delivered" if sent_ok else "sent",
+                owner_id=owner_id,
+            )
+            return {
+                "success": True,
+                "action": "text_sent",
+                "patient_phone": target_phone,
+                "target_phone": target_phone,
+                "patient_name": target_name,
+                "message_text": body_text,
+                "reply": f"Sent to **{target_name}**: \"{body_text}\"",
+            }
+
+    # 5. General MaxAssist AI Assistant response
+    try:
+        from src.backend.clients.model_client import invoke_model
+        contact_names = ", ".join([str(p.get("name", "")) for p in patients[:10] if p.get("name")]) or "None yet"
+        sys_prompt = (
+            f"You are MaxAssist AI, a concise, helpful medical & clinic assistant for {doctor_name}.\n"
+            f"Saved contacts: {contact_names}.\n"
+            "You can send WhatsApp text messages, send AI voice notes, and schedule future reminders when asked. "
+            "Keep answers brief, friendly, and clear (under 60 words)."
+        )
+        reply = invoke_model(prompt=instruction, system_prompt=sys_prompt)
+        if reply and reply.strip():
+            return {"success": True, "action": "chat", "reply": reply.strip()}
+    except Exception as exc:
+        print(f"[MaxAssist AI Agent LLM Error]: {exc}")
+
+    return {
+        "success": True,
+        "action": "chat",
+        "reply": "I'm MaxAssist AI. Ask me to send a text or AI voice message to any contact, or schedule a reminder!",
+    }
+
+@router.get('/api/doctor/scheduled-tasks')
+async def get_doctor_scheduled_tasks(
+    status: Optional[str] = None,
+    patient_phone: Optional[str] = None,
+    owner_id: Optional[str] = None,
+):
+    """Returns scheduled WhatsApp tasks from persistent SQLite storage, isolated by owner_id."""
+    try:
+        from src.backend.services.clinical_database import list_scheduled_tasks
+        return {"tasks": list_scheduled_tasks(status=status, patient_phone=patient_phone, owner_id=owner_id)}
+    except Exception as e:
+        return {"tasks": [], "error": str(e)}
+
+@router.post('/api/doctor/scheduled-tasks')
+async def create_doctor_scheduled_task(req: CreateScheduledTaskRequest):
+    """Creates a scheduled WhatsApp message task directly."""
+    try:
+        from src.backend.services.clinical_database import create_scheduled_task
+        task = create_scheduled_task(
+            doctor_id=req.doctor_name or "Dr. Sugan",
+            patient_phone=req.patient_phone,
+            patient_name=req.patient_name or "Patient",
+            message_text=req.message_text,
+            scheduled_for_utc=req.scheduled_for_utc,
+            scheduled_display=req.scheduled_display or req.scheduled_for_utc,
+            owner_id=req.owner_id or "",
+        )
+        return {"success": True, "task": task}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@router.post('/api/doctor/scheduled-tasks/{task_id}/cancel')
+@router.delete('/api/doctor/scheduled-tasks/{task_id}')
+async def delete_doctor_scheduled_task(task_id: int):
+    """Cancels a pending scheduled task."""
+    try:
+        from src.backend.services.clinical_database import cancel_scheduled_task
+        ok = cancel_scheduled_task(task_id)
+        return {"success": ok, "task_id": task_id}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def _now_ontario() -> datetime:
+    """Returns current Ontario (America/Toronto) local time with automatic EST/EDT handling."""
+    from datetime import timezone, timedelta
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Toronto"))
+    except Exception:
+        return datetime.now(timezone(timedelta(hours=-5)))
+
+def _parse_relative_or_natural_time(instruction: str, tz_offset_minutes: int) -> tuple[str, str]:
+    """Parses relative times ('in 2 minutes', 'tomorrow at 10 AM', 'at 3:30 PM') into (utc_iso, display_str)."""
+    from datetime import timedelta, timezone
+
+    now_ontario = _now_ontario()
+    # Use device offset if provided and non-zero, otherwise Ontario (America/Toronto) offset
+    if tz_offset_minutes and tz_offset_minutes != 0:
+        tz_delta = timedelta(minutes=tz_offset_minutes)
+        now_utc = datetime.utcnow()
+        now_local = now_utc + tz_delta
+    else:
+        tz_delta = now_ontario.utcoffset() or timedelta(hours=-5)
+        now_local = now_ontario.replace(tzinfo=None)
+    low = instruction.lower()
+
+    # 1. "in X minutes / hours"
+    m_rel = re.search(r'\bin\s+(\d+)\s*(min|minute|minutes|hr|hour|hours)\b', low)
+    if m_rel:
+        qty = int(m_rel.group(1))
+        unit = m_rel.group(2)
+        target_local = now_local + (timedelta(hours=qty) if unit.startswith('h') else timedelta(minutes=qty))
+        target_utc = target_local - tz_delta
+        return target_utc.isoformat() + "Z", target_local.strftime("%b %d, %I:%M %p")
+
+    # 2. Extract time of day ("10 am", "3:30 pm", "14:00")
+    hour, minute = 9, 0
+    m_time = re.search(r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b', low)
+    if m_time:
+        hour = int(m_time.group(1))
+        minute = int(m_time.group(2) or 0)
+        ampm = m_time.group(3)
+        if ampm == 'pm' and hour < 12:
+            hour += 12
+        elif ampm == 'am' and hour == 12:
+            hour = 0
+    else:
+        m_24 = re.search(r'\b([01]?\d|2[0-3]):([0-5]\d)\b', low)
+        if m_24:
+            hour, minute = int(m_24.group(1)), int(m_24.group(2))
+
+    # 3. Extract target day ("tomorrow", weekday names, or today)
+    target_date = now_local.date()
+    weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    matched_day = None
+    for idx, wd in enumerate(weekdays):
+        if wd in low:
+            matched_day = idx
+            break
+
+    if "tomorrow" in low or "tmrw" in low:
+        target_date = now_local.date() + timedelta(days=1)
+    elif matched_day is not None:
+        days_ahead = (matched_day - now_local.weekday()) % 7
+        if days_ahead == 0:
+            days_ahead = 7
+        target_date = now_local.date() + timedelta(days=days_ahead)
+
+    target_local = datetime(target_date.year, target_date.month, target_date.day, hour, minute)
+    if target_local <= now_local and matched_day is None and "tomorrow" not in low and "tmrw" not in low:
+        # If specified time already passed today, schedule for tomorrow
+        if m_time:
+            target_local = target_local + timedelta(days=1)
+        else:
+            target_local = now_local + timedelta(minutes=5)
+
+    target_utc = target_local - tz_delta
+    return target_utc.isoformat() + "Z", target_local.strftime("%b %d, %I:%M %p")
+
+@router.post('/api/doctor/scheduled-tasks/parse-and-schedule')
+async def parse_and_schedule_doctor_task(req: ParseScheduleTaskRequest):
+    """Parses a natural-language doctor instruction into a persistent scheduled WhatsApp task."""
+    try:
+        from src.backend.services.clinical_database import create_scheduled_task, get_patients
+
+        instruction = (req.instruction or "").strip()
+        if not instruction:
+            return {"success": False, "error": "Empty scheduling instruction."}
+
+        patients = get_patients(owner_id=req.owner_id or None)
+        target_phone = re.sub(r'\D', '', req.default_patient_phone or '')
+        target_name = (req.default_patient_name or '').strip()
+
+        # Try matching any saved patient's name mentioned in the instruction
+        low = instruction.lower()
+        for p in patients:
+            pname = str(p.get("name") or "").strip()
+            if not pname:
+                continue
+            first_word = pname.split()[0].lower()
+            if pname.lower() in low or (len(first_word) >= 3 and re.search(rf'\b{re.escape(first_word)}\b', low)):
+                target_phone = re.sub(r'\D', '', str(p.get("phone") or ""))
+                target_name = pname
+                break
+
+        # Or extract explicit phone number if typed in instruction
+        m_phone = re.search(r'\+?\d[\d\-\s]{8,14}\d', instruction)
+        if m_phone:
+            digits = re.sub(r'\D', '', m_phone.group(0))
+            if len(digits) >= 10:
+                target_phone = digits
+                if not target_name:
+                    target_name = f"Patient {digits[-4:]}"
+
+        if len(target_phone) < 10:
+            return {
+                "success": False,
+                "error": "Please select a patient or include a patient name/phone number to schedule this message.",
+            }
+
+        utc_iso, display_time = _parse_relative_or_natural_time(
+            instruction, req.timezone_offset_minutes or -300
+        )
+
+        # Clean up message text (extract the core reminder message)
+        msg_text = instruction
+        m_about = re.search(r'\b(?:about|to|saying|that)\s+(.+)$', instruction, re.IGNORECASE)
+        if m_about and len(m_about.group(1).strip()) >= 4:
+            candidate = m_about.group(1).strip()
+            # Strip leading time phrase if it landed at start
+            candidate = re.sub(r'^(tomorrow|tmrw|today|next\s+\w+|on\s+\w+|at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?|in\s+\d+\s*\w+)\s+', '', candidate, flags=re.IGNORECASE).strip()
+            if len(candidate) >= 4:
+                msg_text = candidate[0].upper() + candidate[1:]
+
+        task = create_scheduled_task(
+            doctor_id=req.doctor_name or "Dr. Sugan",
+            patient_phone=target_phone,
+            patient_name=target_name or f"Patient {target_phone[-4:]}",
+            message_text=msg_text,
+            scheduled_for_utc=utc_iso,
+            scheduled_display=display_time,
+            owner_id=req.owner_id or "",
+        )
+        return {"success": True, "task": task}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+async def process_due_scheduled_tasks() -> int:
+    """Dispatches all due pending scheduled WhatsApp tasks and logs them into patient chat history."""
+    from src.backend.services.clinical_database import (
+        add_chat_message,
+        get_due_scheduled_tasks,
+        mark_scheduled_task_failed,
+        mark_scheduled_task_sent,
+    )
+
+    due = get_due_scheduled_tasks()
+    dispatched_count = 0
+    for task in due:
+        task_id = int(task["id"])
+        phone = task["patient_phone"]
+        patient_name = task["patient_name"]
+        doctor_title = task["doctor_id"] or "Dr. Sugan"
+        if not doctor_title.startswith("Dr.") and not doctor_title.startswith("Dr "):
+            doctor_title = f"Dr. {doctor_title}"
+        body = task["message_text"]
+
+        outbound = body.strip()
+        try:
+            sent = send_whatsapp_reply(phone, outbound)
+            if not sent:
+                send_whatsapp_template(phone)
+            mark_scheduled_task_sent(task_id)
+            add_chat_message(
+                patient_phone=phone,
+                sender_role="doctor",
+                sender_name=f"{doctor_title} (Scheduled)",
+                text=f"⏰ [Scheduled Message Sent]: {body}",
+                status="sent",
+                custom_msg_id=f"sched_task_{task_id}",
+                owner_id=task.get("owner_id") or "",
+            )
+            dispatched_count += 1
+            print(f"[MaxAssist Scheduler] Dispatched Task #{task_id} to +{phone}")
+        except Exception as exc:
+            mark_scheduled_task_failed(task_id, str(exc))
+            print(f"[MaxAssist Scheduler Error] Task #{task_id}: {exc}")
+    return dispatched_count
+
+_DOCTOR_WA_OTP_STORE: Dict[str, Dict[str, Any]] = {}
+
+@router.get('/api/doctor/whatsapp-config')
+async def get_doctor_whatsapp_config_endpoint(doctor_id: str = "Dr. Sugan"):
+    """Returns the doctor's verified WhatsApp agent number if configured."""
+    try:
+        from src.backend.services.clinical_database import get_doctor_whatsapp_config
+        cfg = get_doctor_whatsapp_config(doctor_id)
+        if cfg and cfg.get("verified"):
+            return {"configured": True, **cfg}
+        return {"configured": False, "doctor_id": doctor_id, "whatsapp_phone": "", "verified": False}
+    except Exception as e:
+        return {"configured": False, "error": str(e)}
+
+@router.post('/api/doctor/whatsapp-config/request-otp')
+async def request_doctor_whatsapp_otp(req: DoctorWhatsAppOtpRequest):
+    """Generates a 6-digit OTP to verify any WhatsApp number for MaxAssist AI takeover."""
+    import random
+    from datetime import timedelta
+
+    clean_digits = re.sub(r'\D', '', req.phone or '').strip()
+    if len(clean_digits) == 10:
+        clean_digits = '1' + clean_digits
+    if len(clean_digits) < 10:
+        return {"success": False, "error": "Please enter a valid WhatsApp number (at least 10 digits with country code)."}
+
+    phone_key = clean_digits[-10:]
+    code = f"{random.randint(100000, 999999)}"
+    _DOCTOR_WA_OTP_STORE[phone_key] = {
+        "code": code,
+        "full_phone": clean_digits,
+        "doctor_id": req.doctor_id or "Dr. Sugan",
+        "expires_at": datetime.utcnow() + timedelta(minutes=10),
+        "attempts": 0,
+    }
+
+    clinic_line = re.sub(r'\D', '', os.getenv("CLINIC_WHATSAPP_NUMBER", "16134045586"))
+    is_self_clinic_line = clinic_line and phone_key == clinic_line[-10:]
+
+    if is_self_clinic_line:
+        return {
+            "success": True,
+            "phone": clean_digits,
+            "delivery_mode": "self_clinic_line",
+            "fallback_code": code,
+            "message": f"Number +{clean_digits} is your active MaxAssist Cloud API clinic line. Enter confirmation code {code} below to activate AI takeover on this device.",
+        }
+
+    # Attempt live WhatsApp delivery for any external number
+    from src.backend.services.otp_service import dispatch_whatsapp_message
+    msg_body = (
+        f"🩺 *MaxAssist Doctor Agent Verification*\n\n"
+        f"Your 6-digit verification code to link +{clean_digits} with MaxAssist AI Agent is:\n\n"
+        f"*{code}*\n\n"
+        f"⏱️ Valid for 10 minutes."
+    )
+    dispatched = dispatch_whatsapp_message(clean_digits, msg_body, code=code)
+    if dispatched:
+        return {
+            "success": True,
+            "phone": clean_digits,
+            "delivery_mode": "whatsapp_sent",
+            "message": f"6-digit verification code sent via WhatsApp to +{clean_digits}. Check that phone and enter the code below.",
+        }
+
+    # Fallback if Meta 24h window prevents free-form text to a brand-new number
+    send_whatsapp_template(clean_digits)
+    return {
+        "success": True,
+        "phone": clean_digits,
+        "delivery_mode": "in_app_fallback",
+        "fallback_code": code,
+        "message": f"WhatsApp verification ping sent to +{clean_digits}. Enter code {code} below to confirm and link this number to MaxAssist.",
+    }
+
+@router.post('/api/doctor/whatsapp-config/verify')
+async def verify_doctor_whatsapp_otp(req: DoctorWhatsAppVerifyRequest):
+    """Verifies the 6-digit OTP and permanently binds the WhatsApp number to the doctor's MaxAssist agent."""
+    clean_digits = re.sub(r'\D', '', req.phone or '').strip()
+    if len(clean_digits) == 10:
+        clean_digits = '1' + clean_digits
+    phone_key = clean_digits[-10:] if len(clean_digits) >= 10 else clean_digits
+    code_input = str(req.code or '').strip()
+
+    record = _DOCTOR_WA_OTP_STORE.get(phone_key)
+    if not record:
+        return {"verified": False, "error": "No pending verification code found. Please tap 'Send Verification Code' first."}
+
+    if datetime.utcnow() > record["expires_at"]:
+        _DOCTOR_WA_OTP_STORE.pop(phone_key, None)
+        return {"verified": False, "error": "Verification code expired. Please request a new code."}
+
+    if record["attempts"] >= 5:
+        _DOCTOR_WA_OTP_STORE.pop(phone_key, None)
+        return {"verified": False, "error": "Too many failed attempts. Please request a new code."}
+
+    if record["code"] != code_input:
+        record["attempts"] += 1
+        return {"verified": False, "error": "Invalid 6-digit code. Please check and try again."}
+
+    _DOCTOR_WA_OTP_STORE.pop(phone_key, None)
+    try:
+        from src.backend.services.clinical_database import upsert_doctor_whatsapp_config
+        saved = upsert_doctor_whatsapp_config(
+            whatsapp_phone=clean_digits,
+            doctor_id=req.doctor_id or record.get("doctor_id") or "Dr. Sugan",
+        )
+        return {"verified": True, **saved}
+    except Exception as e:
+        return {"verified": False, "error": f"Failed to save verified number: {e}"}
 
 @router.get('/api/doctor/database-dump')
 async def get_doctor_database_dump():
@@ -451,7 +1103,7 @@ async def view_database_dashboard():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinical Records Database Inspector | Dr. Sugan</title>
+    <title>MaxAssist Database Inspector | Dr. Sugan</title>
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }}
         body {{ background-color: #f8fafc; color: #1e293b; padding: 24px; }}
@@ -485,7 +1137,7 @@ async def view_database_dashboard():
 <body>
     <div class="header">
         <div class="title">
-            <h1>🏥 Clinical EMR Database Inspector</h1>
+            <h1>🏥 MaxAssist Database Inspector</h1>
             <p>Persistent SQLite Database (WAL Mode) • Attached Doctor: <strong>Dr. Sugan</strong> • <code>{dump.get('db_path')}</code></p>
         </div>
         <div style="display: flex; gap: 8px;">
@@ -563,11 +1215,11 @@ async def view_database_dashboard():
     return HTMLResponse(content=html, status_code=200)
 
 @router.get('/api/doctor/patients')
-async def get_doctor_patient_roster():
-    """Returns the doctor's active patient roster from the persistent clinical database."""
+async def get_doctor_patient_roster(owner_id: Optional[str] = None):
+    """Returns the doctor's active patient roster from the persistent clinical database, isolated per owner_id."""
     try:
         from src.backend.services.clinical_database import get_patients
-        return {"patients": get_patients()}
+        return {"patients": get_patients(owner_id=owner_id)}
     except Exception as e:
         print(f"[Clinical DB Get Patients Error]: {e}")
         return {"patients": []}
@@ -578,7 +1230,13 @@ async def create_doctor_patient(req: CreatePatientRequest):
     """Creates or updates a patient record permanently in the clinical database."""
     try:
         from src.backend.services.clinical_database import upsert_patient
-        p = upsert_patient(req.phone, req.name, req.notes or "", doctor_id=req.doctor_name or "Dr. Sugan")
+        p = upsert_patient(
+            req.phone,
+            req.name,
+            req.notes or "",
+            doctor_id=req.doctor_name or "Dr. Sugan",
+            owner_id=req.owner_id or "",
+        )
         return {"success": True, "patient": p}
     except Exception as e:
         print(f"[Clinical DB Create Patient Error]: {e}")
@@ -593,7 +1251,7 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     """
     clean_p = re.sub(r'\D', '', req.patient_phone) or "6132616383"
     phone_key = clean_p[-10:] if len(clean_p) >= 10 else clean_p
-    now_str = datetime.now().strftime("%I:%M %p")
+    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
 
     doctor_title = req.doctor_name or "Dr. Sugan"
     if not doctor_title.startswith("Dr.") and not doctor_title.startswith("Dr "):
@@ -625,13 +1283,19 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     # 2. Record to persistent clinical database
     try:
         from src.backend.services.clinical_database import add_chat_message, upsert_patient
-        upsert_patient(clean_p, name=req.patient_name or f"Patient {clean_p[-4:]}", doctor_id=doctor_title)
+        upsert_patient(
+            clean_p,
+            name=req.patient_name or f"Patient {clean_p[-4:]}",
+            doctor_id=doctor_title,
+            owner_id=req.owner_id or "",
+        )
         add_chat_message(
             patient_phone=clean_p,
             sender_role="doctor",
             sender_name=f"{doctor_title} (Attending Physician)",
             text=req.message,
             status="sent",
+            owner_id=req.owner_id or "",
         )
     except Exception as ex_db:
         print(f"[Clinical DB Doctor Dispatch Error]: {ex_db}")
@@ -650,15 +1314,9 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     except Exception as ex_ehr:
         print(f"[Doctor Dispatch EHR Sync Note]: {ex_ehr}")
 
-    # 3. Format official clinic WhatsApp outbound message
+    # 3. Clean WhatsApp outbound message (exact message text only, no extra headers/footers)
     patient_display = req.patient_name or "Patient"
-    outbound_text = (
-        f"🩺 *e-Hospital Clinic — Message from {doctor_title}*\n\n"
-        f"Hello {patient_display},\n\n"
-        f"{req.message}\n\n"
-        f"— {doctor_title}, Attending Physician\n"
-        f"🏥 *e-Hospital PrimeCare Clinic*"
-    )
+    outbound_text = (req.message or "").strip()
 
     # 4. Check if patient has replied (opening Meta's 24h Customer Service Window)
     has_patient_reply = any(m.get('role') in {'patient', 'user'} for m in thread)
@@ -755,7 +1413,7 @@ async def initialize_whatsapp_channel(req: InitializeChannelRequest):
     """
     clean_p = re.sub(r'\D', '', req.patient_phone) or "6132616383"
     phone_key = clean_p[-10:] if len(clean_p) >= 10 else clean_p
-    now_str = datetime.now().strftime("%I:%M %p")
+    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
     doctor_title = req.doctor_name or "Dr. Sugan"
     patient_display = req.patient_name or "Patient"
 
@@ -801,13 +1459,7 @@ async def initialize_whatsapp_channel(req: InitializeChannelRequest):
             "timestamp": now_str
         }
         thread.append(doc_msg)
-        formatted_outbound = (
-            f"🩺 *e-Hospital Clinic — Message from {doctor_title}*\n\n"
-            f"Hello {patient_display},\n\n"
-            f"{welcome_text}\n\n"
-            f"— {doctor_title}, Attending Physician\n"
-            f"🏥 *e-Hospital PrimeCare Clinic*"
-        )
+        formatted_outbound = welcome_text.strip()
         send_whatsapp_reply(clean_p, formatted_outbound)
 
     _save_threads(threads)
@@ -828,7 +1480,7 @@ async def handle_whatsapp_action(req: WhatsAppActionRequest):
     clean_p = re.sub(r'\D', '', req.phone) or "6132616383"
     threads = _load_threads()
     thread = threads.setdefault(clean_p, [])
-    now_str = datetime.now().strftime("%I:%M %p")
+    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
     patient_id = req.patient_id or 391
 
     if req.action == "book_appointment":
@@ -1241,7 +1893,7 @@ async def receive_message(request: Request):
                                 if target_to and echo_text:
                                     clean_tgt = re.sub(r'\D', '', target_to)
                                     tgt_key = clean_tgt[-10:] if len(clean_tgt) >= 10 else clean_tgt
-                                    now_str = datetime.now().strftime("%I:%M %p")
+                                    now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
                                     print(f"[WhatsApp Coexistence Echo] Doctor messaged {clean_tgt} via mobile app: \"{echo_text}\"")
 
                                     # Activate 30-minute doctor takeover silence
@@ -1397,7 +2049,7 @@ async def receive_message(request: Request):
                     threads[phone_key] = thread
                 if clean_p != phone_key:
                     threads[clean_p] = thread
-                now_str = datetime.now().strftime("%I:%M %p")
+                now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
                 if not any(m.get("message_id") == msg_id for m in thread if msg_id):
                     thread.append({
                         "id": int(time.time() * 1000),
@@ -1417,7 +2069,7 @@ async def receive_message(request: Request):
 
         triage = clinical_triage_engine(patient_id, text_body, vitals, patient_name=sender_name, patient_phone=clean_p)
         reply = triage.get("reply_text") or (
-            "Hello! Your message has been received by your e-Hospital clinic care team and synchronized with your clinical chart."
+            "Hello! Your message has been received by your MaxAssist clinic care team and synchronized with your clinical chart."
         )
 
         # Save to Persistent Clinical Database
@@ -1456,7 +2108,7 @@ async def receive_message(request: Request):
                 threads[phone_key] = thread
             if clean_p != phone_key:
                 threads[clean_p] = thread
-            now_str = datetime.now().strftime("%I:%M %p")
+            now_str = _now_ontario().strftime("%I:%M %p").lstrip("0")
             if not any(m.get("message_id") == msg_id for m in thread if msg_id):
                 thread.append({
                     "id": int(time.time() * 1000),

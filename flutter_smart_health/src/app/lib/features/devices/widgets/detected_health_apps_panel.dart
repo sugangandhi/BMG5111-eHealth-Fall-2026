@@ -256,7 +256,7 @@ class DetectedHealthAppsPanel extends StatelessWidget {
             Expanded(
               child: Text(
                 available
-                    ? 'Health Connect is active. Allow eHospital to read data and enable "Allow to write" in Samsung Health / your health app, then tap Sync.'
+                    ? 'Health Connect is active. Allow MaxAssist to read data and enable "Allow to write" in Samsung Health / your health app, then tap Sync.'
                     : 'Health Connect needs setup or update on this phone to read Samsung Health automatically.',
                 style: TextStyle(
                   fontSize: 11.5,

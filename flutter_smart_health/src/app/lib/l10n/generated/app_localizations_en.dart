@@ -9,10 +9,10 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Smart Health App';
+  String get appTitle => 'MaxAssist';
 
   @override
-  String get brandName => 'Smart Health';
+  String get brandName => 'MaxAssist';
 
   @override
   String get loginHeaderSubtitle => 'Your personal health dashboard';
@@ -21,7 +21,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInTitle => 'Sign in';
 
   @override
-  String get signInSubtitle => 'Enter your eHospital credentials to continue';
+  String get signInSubtitle => 'Enter your MaxAssist credentials to continue';
 
   @override
   String get emailAddressHint => 'Email address';
@@ -54,7 +54,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyNoticeBody =>
-      'This app uses an OpenAI GPT model via the connected eHospital AI backend (or your configured AI provider) to process your health data and generate insights. By continuing, you agree that your metrics may be processed by the configured AI service. Please review our Privacy Policy for more details.';
+      'This app uses an OpenAI GPT model via the connected MaxAssist AI backend (or your configured AI provider) to process your health data and generate insights. By continuing, you agree that your metrics may be processed by the configured AI service. Please review our Privacy Policy for more details.';
 
   @override
   String get privacyAgreeButton => 'I Agree';
@@ -138,7 +138,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clinicalWearableDataSubtitle =>
-      'eHospital patient database (institutional)';
+      'MaxAssist patient database (institutional)';
 
   @override
   String get aiHealthResponsesTitle => 'AI Health Responses';
@@ -164,7 +164,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sourceClinicalDescription =>
-      'Sourced from the eHospital institutional patient database. Includes ECG results, diabetes analysis, heart disease risk, stroke prediction, lab tests, and diagnosis records provided by the connected hospital system.';
+      'Sourced from the MaxAssist institutional patient database. Includes ECG results, diabetes analysis, heart disease risk, stroke prediction, lab tests, and diagnosis records provided by the connected hospital system.';
 
   @override
   String get sourceWearableTitle => 'Wearable Vitals';
@@ -626,7 +626,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceManagerTitle => 'Health Apps & Devices';
 
   @override
-  String get deviceInfoTitle => 'Mobile Health Apps -> eHospital';
+  String get deviceInfoTitle => 'Mobile Health Apps -> MaxAssist';
 
   @override
   String get deviceInfoBody =>
@@ -634,7 +634,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String patientsInDb(int count) {
-    return '$count Patients in eHospital DB';
+    return '$count Patients in MaxAssist DB';
   }
 
   @override
@@ -692,11 +692,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appleHealthPipeline =>
-      'Samsung Health / Health Connect / Apple Health -> eHospital DB';
+      'Samsung Health / Health Connect / Apple Health -> MaxAssist DB';
 
   @override
   String uploadCompleteMessage(int total) {
-    return '$total days uploaded to eHospital.';
+    return '$total days uploaded to MaxAssist.';
   }
 
   @override
@@ -844,7 +844,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncAppleWatchButton => 'Sync Health App';
 
   @override
-  String get logVitalsTitle => 'Log Vitals to eHospital';
+  String get logVitalsTitle => 'Log Vitals to MaxAssist';
 
   @override
   String get wearableVitalsEndpointLabel => 'POST -> /table/wearable_vitals';
@@ -865,19 +865,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendingButton => 'Sending...';
 
   @override
-  String get sendToEHospitalButton => 'Send to eHospital';
+  String get sendToEHospitalButton => 'Send to MaxAssist';
 
   @override
   String get enterAtLeastOneValue => 'Enter at least one value';
 
   @override
-  String get vitalsSavedMessage => 'Vitals saved to eHospital DB';
+  String get vitalsSavedMessage => 'Vitals saved to MaxAssist DB';
 
   @override
   String get clinicalReferenceTitle => 'Clinical Reference';
 
   @override
-  String get eHospitalSourceLabel => 'eHospital';
+  String get eHospitalSourceLabel => 'MaxAssist';
 
   @override
   String get ecgShortLabel => 'ECG';

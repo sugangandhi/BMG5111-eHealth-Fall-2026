@@ -99,7 +99,7 @@ void main() {
     expect(find.byType(DualWaveHorizonBackground), findsOneWidget);
     expect(find.byType(AtmosphericSkyBackground), findsNothing);
     expect(find.text('INTELLIGENT DIGITAL SOLUTION'), findsNothing);
-    expect(find.text('Sign in to eHospital'), findsOneWidget);
+    expect(find.text('Sign in to MaxAssist'), findsOneWidget);
 
     // Direct login controls
     expect(find.byKey(const Key('login_email_field')), findsOneWidget);
