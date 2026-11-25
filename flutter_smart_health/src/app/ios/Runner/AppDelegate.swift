@@ -1,3 +1,4 @@
+import AVFoundation
 import Flutter
 import HealthKit
 import UIKit
@@ -8,6 +9,9 @@ import UserNotifications
   private let healthStore = HKHealthStore()
   private var healthAlertChannel: FlutterMethodChannel?
   private var healthAlertNotificationChannel: FlutterMethodChannel?
+  private var voiceScribeChannel: FlutterMethodChannel?
+  private var audioRecorder: AVAudioRecorder?
+  private var voiceRecordingUrl: URL?
   private var healthAlertBridgeRegistrationAttempts = 0
   private var emittedBloodPressureEventKeys = Set<String>()
   private var emittedAggregateEventKeys = Set<String>()
@@ -27,6 +31,7 @@ import UserNotifications
     UNUserNotificationCenter.current().delegate = self
     configureHealthAlertBridge()
     configureHealthAlertNotificationBridge()
+    configureVoiceScribeBridge()
     return launched
   }
 
@@ -736,5 +741,136 @@ import UserNotifications
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return formatter.string(from: date)
+  }
+
+  // MARK: - Native iOS Voice Dictation (AVAudioRecorder -> OpenAI Whisper)
+
+  private func configureVoiceScribeBridge() {
+    if voiceScribeChannel != nil {
+      return
+    }
+    guard let controller = flutterViewController() else {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+        self?.configureVoiceScribeBridge()
+      }
+      return
+    }
+    let channel = FlutterMethodChannel(
+      name: "com.example.smart_health_app/voice_scribe",
+      binaryMessenger: controller.binaryMessenger
+    )
+    voiceScribeChannel = channel
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else { return }
+      switch call.method {
+      case "startListening":
+        self.startVoiceRecording(result: result)
+      case "stopListening":
+        self.stopVoiceRecording(result: result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private func emitVoiceStatus(_ status: String, message: String = "") {
+    DispatchQueue.main.async { [weak self] in
+      self?.voiceScribeChannel?.invokeMethod("onSpeechStatus", arguments: [
+        "status": status,
+        "message": message,
+      ])
+    }
+  }
+
+  private func startVoiceRecording(result: @escaping FlutterResult) {
+    let session = AVAudioSession.sharedInstance()
+    session.requestRecordPermission { [weak self] granted in
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        guard granted else {
+          self.emitVoiceStatus(
+            "error",
+            message: "Microphone permission denied. Please enable Microphone access in iPhone Settings."
+          )
+          result(false)
+          return
+        }
+
+        do {
+          try session.setCategory(
+            .playAndRecord,
+            mode: .default,
+            options: [.defaultToSpeaker, .allowBluetooth]
+          )
+          try session.setActive(true)
+
+          let fileUrl = FileManager.default.temporaryDirectory
+            .appendingPathComponent("maxassist_voice_\(Int(Date().timeIntervalSince1970)).m4a")
+          self.voiceRecordingUrl = fileUrl
+
+          let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVSampleRateKey: 16000,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+          ]
+
+          let recorder = try AVAudioRecorder(url: fileUrl, settings: settings)
+          recorder.prepareToRecord()
+          let started = recorder.record()
+          if started {
+            self.audioRecorder = recorder
+            self.emitVoiceStatus("recording")
+            result(true)
+          } else {
+            self.emitVoiceStatus("error", message: "Could not start iPhone microphone recording.")
+            result(false)
+          }
+        } catch {
+          self.emitVoiceStatus("error", message: "Microphone error: \(error.localizedDescription)")
+          result(false)
+        }
+      }
+    }
+  }
+
+  private func stopVoiceRecording(result: @escaping FlutterResult) {
+    guard let recorder = audioRecorder else {
+      emitVoiceStatus("stopped")
+      result(false)
+      return
+    }
+    recorder.stop()
+    audioRecorder = nil
+    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+
+    guard let fileUrl = voiceRecordingUrl else {
+      emitVoiceStatus("stopped")
+      result(false)
+      return
+    }
+    voiceRecordingUrl = nil
+
+    do {
+      let data = try Data(contentsOf: fileUrl)
+      try? FileManager.default.removeItem(at: fileUrl)
+      guard data.count > 250 else {
+        emitVoiceStatus("error", message: "Recording was too short. Please tap mic, speak clearly, then tap stop.")
+        result(false)
+        return
+      }
+      let base64Audio = data.base64EncodedString()
+      emitVoiceStatus("transcribing")
+      DispatchQueue.main.async { [weak self] in
+        self?.voiceScribeChannel?.invokeMethod("onAudioCaptured", arguments: [
+          "base64": base64Audio,
+          "filename": "voice_note.m4a",
+        ])
+      }
+      result(true)
+    } catch {
+      emitVoiceStatus("error", message: "Failed to read voice recording: \(error.localizedDescription)")
+      result(false)
+    }
   }
 }
