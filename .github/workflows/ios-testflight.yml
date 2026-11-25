@@ -46,24 +46,52 @@ jobs:
             echo "::error ::App Store Connect API Key secrets are missing. Please configure APPSTORE_KEY_ID, APPSTORE_ISSUER_ID, and APPSTORE_PRIVATE_KEY in GitHub Secrets."
             exit 1
           fi
-          mkdir -p ~/.appstoreconnect/private_keys
+          mkdir -p ~/.appstoreconnect/private_keys ~/private_keys
           echo "$APPSTORE_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
-          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
+          echo "$APPSTORE_PRIVATE_KEY" > ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8 ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
 
-      - name: Build and Package iOS Release (.ipa)
+      - name: Build Flutter iOS artifacts
+        working-directory: flutter_smart_health/src/app
+        run: |
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 10))
+          VERSION_NAME="1.0.${BUILD_NUMBER}"
+          echo "Building Flutter iOS Release ${VERSION_NAME} (Build ${BUILD_NUMBER})..."
+          flutter build ios --release --no-codesign --build-name="${VERSION_NAME}" --build-number="${BUILD_NUMBER}"
+
+      - name: Archive with xcodebuild and App Store Connect API Key
         working-directory: flutter_smart_health/src/app
         env:
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID || secrets.KEY_ID }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID || secrets.ISSUER_ID }}
         run: |
-          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 10))
-          VERSION_NAME="1.0.${BUILD_NUMBER}"
-          echo "Building iOS Release ${VERSION_NAME} (Build ${BUILD_NUMBER})..."
+          mkdir -p build/ios
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/ios/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyID "$APPSTORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
+            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8"
 
-          flutter build ipa --release \
-            --build-name="${VERSION_NAME}" \
-            --build-number="${BUILD_NUMBER}" \
-            --export-options-plist=ios/ExportOptions.plist
+      - name: Export signed .ipa
+        working-directory: flutter_smart_health/src/app
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID || secrets.KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID || secrets.ISSUER_ID }}
+        run: |
+          mkdir -p build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath build/ios/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyID "$APPSTORE_KEY_ID" \
+            -authenticationKeyIssuerID "$APPSTORE_ISSUER_ID" \
+            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8"
 
       - name: Upload .ipa to Apple TestFlight
         working-directory: flutter_smart_health/src/app
