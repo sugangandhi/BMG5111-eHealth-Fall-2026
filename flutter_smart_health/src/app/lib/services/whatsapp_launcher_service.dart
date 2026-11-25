@@ -53,11 +53,13 @@ class WhatsAppLauncherService {
         final name = (res['name'] ?? '').toString().trim();
         final rawPhone = (res['phone'] ?? '').toString().trim();
         final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
+        final photoBase64 = (res['photoBase64'] ?? '').toString().trim();
         if (phone.isNotEmpty) {
           return {
             'name': name.isNotEmpty ? name : 'Contact ($phone)',
             'phone': phone,
             'rawPhone': rawPhone,
+            'photoBase64': photoBase64,
           };
         }
       }

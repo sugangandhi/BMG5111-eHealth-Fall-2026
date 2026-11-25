@@ -245,15 +245,38 @@ class MainActivity : FlutterFragmentActivity() {
                         val contactUri: Uri = data.data!!
                         val projection = arrayOf(
                             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                            ContactsContract.CommonDataKinds.Phone.NUMBER
+                            ContactsContract.CommonDataKinds.Phone.NUMBER,
+                            ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI
                         )
                         contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
                             if (cursor.moveToFirst()) {
                                 val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
                                 val numberIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                                val name = if (nameIdx >= 0) cursor.getString(nameIdx) else ""
-                                val number = if (numberIdx >= 0) cursor.getString(numberIdx) else ""
-                                pending.success(mapOf("name" to name, "phone" to number))
+                                val photoIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI)
+                                val name = if (nameIdx >= 0) cursor.getString(nameIdx) ?: "" else ""
+                                val number = if (numberIdx >= 0) cursor.getString(numberIdx) ?: "" else ""
+                                val photoUriStr = if (photoIdx >= 0) cursor.getString(photoIdx) else null
+                                var photoBase64 = ""
+                                if (!photoUriStr.isNullOrBlank()) {
+                                    try {
+                                        contentResolver.openInputStream(Uri.parse(photoUriStr))?.use { stream ->
+                                            val bytes = stream.readBytes()
+                                            if (bytes.isNotEmpty() && bytes.size <= 200_000) {
+                                                photoBase64 = android.util.Base64.encodeToString(
+                                                    bytes,
+                                                    android.util.Base64.NO_WRAP
+                                                )
+                                            }
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                                pending.success(
+                                    mapOf(
+                                        "name" to name,
+                                        "phone" to number,
+                                        "photoBase64" to photoBase64
+                                    )
+                                )
                                 return
                             }
                         }

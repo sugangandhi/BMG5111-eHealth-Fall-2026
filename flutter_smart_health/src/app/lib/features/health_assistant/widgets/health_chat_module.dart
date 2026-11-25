@@ -644,6 +644,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         final name = contact['name'] ?? 'Contact';
         final rawPhone = contact['rawPhone'] ?? contact['phone'] ?? '';
         final phone = contact['phone'] ?? '';
+        final photoBase64 = contact['photoBase64'] ?? '';
         if (phone.isEmpty) return;
 
         await _persistMessagesLocally();
@@ -653,6 +654,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           "patient_id": phone,
           "phone": phone,
           "info": "Phone Contact • $rawPhone",
+          if (photoBase64.isNotEmpty) "photo": photoBase64,
         };
 
         setState(() {
@@ -1835,13 +1837,56 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     );
   }
 
-  Widget _buildGeminiTopBar() {
-    final initials = (_doctorPatients.isEmpty ? "M" : _selectedPatientName)
-        .trim()
-        .isNotEmpty
-        ? (_doctorPatients.isEmpty ? "M" : _selectedPatientName).trim()[0].toUpperCase()
-        : "P";
+  String? _photoForPhone(String phone) {
+    final clean = phone.replaceAll(RegExp(r'\D'), '');
+    if (clean.isEmpty) return null;
+    final k10 = clean.length >= 10 ? clean.substring(clean.length - 10) : clean;
+    for (final p in _doctorPatients) {
+      final ph = (p["phone"] ?? p["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+      final pk10 = ph.length >= 10 ? ph.substring(ph.length - 10) : ph;
+      if (pk10 == k10 && (p["photo"] ?? "").isNotEmpty) {
+        return p["photo"];
+      }
+    }
+    return null;
+  }
 
+  Widget _buildContactAvatar({
+    required String name,
+    String? photoBase64,
+    double radius = 24,
+    Color bgColor = const Color(0xFFE2F5EE),
+    Color fgColor = const Color(0xFF075E54),
+    double fontSize = 18,
+  }) {
+    if (photoBase64 != null && photoBase64.isNotEmpty) {
+      try {
+        final bytes = base64Decode(photoBase64);
+        if (bytes.isNotEmpty) {
+          return CircleAvatar(
+            radius: radius,
+            backgroundColor: bgColor,
+            backgroundImage: MemoryImage(bytes),
+          );
+        }
+      } catch (_) {}
+    }
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : "C";
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: bgColor,
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          color: fgColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGeminiTopBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       decoration: const BoxDecoration(
@@ -1924,13 +1969,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     }).toList(),
               child: Row(
                 children: [
-                  CircleAvatar(
+                  _buildContactAvatar(
+                    name: _doctorPatients.isEmpty ? "M" : _selectedPatientName,
+                    photoBase64: _photoForPhone(_selectedPatientPhone),
                     radius: 19,
-                    backgroundColor: const Color(0xFF128C7E),
-                    child: Text(
-                      initials,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15),
-                    ),
+                    bgColor: const Color(0xFF128C7E),
+                    fgColor: Colors.white,
+                    fontSize: 15,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -3572,7 +3617,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     ...filteredContacts.map((contact) {
                       final name = contact["name"] ?? "Contact";
                       final phone = (contact["phone"] ?? contact["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
-                      final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : "C";
+                      final photoBase64 = contact["photo"];
                       final preview = _lastPreviewByPhone[phone] ?? "+$phone";
                       final timeStr = _lastTimeByPhone[phone] ?? "";
                       final isOut = _lastOutgoingByPhone[phone] == true;
@@ -3588,17 +3633,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                               child: Row(
                                 children: [
-                                  CircleAvatar(
+                                  _buildContactAvatar(
+                                    name: name,
+                                    photoBase64: photoBase64,
                                     radius: 25,
-                                    backgroundColor: const Color(0xFFE2F5EE),
-                                    child: Text(
-                                      initial,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF075E54),
-                                      ),
-                                    ),
                                   ),
                                   const SizedBox(width: 14),
                                   Expanded(
