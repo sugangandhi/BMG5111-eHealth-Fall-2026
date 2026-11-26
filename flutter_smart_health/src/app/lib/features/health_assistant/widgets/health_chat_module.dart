@@ -11,6 +11,7 @@ import '../../../data/models/assistant_models.dart';
 import '../../../services/backend_api_service.dart';
 import '../../../services/e_hospital_auth_service.dart';
 import '../../../services/whatsapp_launcher_service.dart';
+import '../screens/whatsapp_settings_screen.dart';
 
 class HealthChatModule extends StatefulWidget {
   final VoidCallback? onBack;
@@ -3398,32 +3399,40 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF334155)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     onSelected: (value) async {
-                      if (value == 'whatsapp_line') {
-                        _showDoctorWhatsAppOnboardingModal(allowCancel: true);
+                      if (value == 'settings') {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => WhatsAppSettingsScreen(
+                              onChangeWhatsAppLine: () =>
+                                  _showDoctorWhatsAppOnboardingModal(allowCancel: true),
+                              onSyncNow: () {
+                                _refreshContactPreviews();
+                                _syncWhatsAppThreadSilently(showToast: true);
+                              },
+                              onProfileUpdated: _loadPatientAndHistory,
+                            ),
+                          ),
+                        );
                       } else if (value == 'contacts') {
                         _showManageContactsModal();
                       } else if (value == 'logout') {
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('whatsapp_logged_in_v1', false);
                         if (mounted) {
-                          Navigator.of(context).pushReplacementNamed('/');
+                          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
                         }
                       } else if (value == 'back' && widget.onBack != null) {
                         widget.onBack!();
                       }
                     },
                     itemBuilder: (_) => [
-                      PopupMenuItem(
-                        value: 'whatsapp_line',
+                      const PopupMenuItem(
+                        value: 'settings',
                         child: Row(
                           children: [
-                            const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF075E54)),
-                            const SizedBox(width: 10),
-                            Text(
-                              _doctorClinicWhatsApp.isNotEmpty
-                                  ? "Line: +$_doctorClinicWhatsApp"
-                                  : "Link WhatsApp Line",
-                            ),
+                            Icon(Icons.settings_outlined, size: 18, color: Color(0xFF075E54)),
+                            SizedBox(width: 10),
+                            Text("Settings"),
                           ],
                         ),
                       ),

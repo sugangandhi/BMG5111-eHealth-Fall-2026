@@ -32,8 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final prefs = await SharedPreferences.getInstance();
     final savedName = (prefs.getString('doctor_custom_name_v1') ?? '').trim();
     final savedPhone = (prefs.getString('doctor_whatsapp_phone_v1') ?? '').trim();
-    final isLoggedIn = prefs.getBool('whatsapp_logged_in_v1') ?? false;
-    final legacyVerified = prefs.getBool('doctor_whatsapp_verified_v1') ?? false;
+    final bool? loggedInPref = prefs.getBool('whatsapp_logged_in_v1');
+    final bool legacyVerified = prefs.getBool('doctor_whatsapp_verified_v1') ?? false;
 
     if (savedName.isNotEmpty) {
       _nameController.text = savedName;
@@ -42,9 +42,11 @@ class _LoginScreenState extends State<LoginScreen> {
       _phoneController.text = savedPhone.startsWith('+') ? savedPhone : '+$savedPhone';
     }
 
-    // Auto-enter chats if already logged in (preserves existing history seamlessly on update)
+    // Auto-enter chats if logged in (or upgrading from an older verified install where whatsapp_logged_in_v1 was never set).
+    // If the user explicitly logged out (whatsapp_logged_in_v1 == false), stay on LoginScreen!
+    final bool shouldAutoLogin = loggedInPref ?? (legacyVerified && savedPhone.isNotEmpty);
     final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
-    if ((isLoggedIn || (legacyVerified && savedPhone.isNotEmpty)) && !isRunningInTest) {
+    if (shouldAutoLogin && !isRunningInTest) {
       await prefs.setBool('whatsapp_logged_in_v1', true);
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/chats');
