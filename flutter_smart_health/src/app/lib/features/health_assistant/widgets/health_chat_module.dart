@@ -796,7 +796,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         };
 
         setState(() {
-          _doctorPatients.removeWhere((p) => p["phone"] == phone);
+          final picked10 = phone.length >= 10 ? phone.substring(phone.length - 10) : phone;
+          _doctorPatients.removeWhere((p) {
+            final ph = (p["phone"] ?? p["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+            final p10 = ph.length >= 10 ? ph.substring(ph.length - 10) : ph;
+            return ph == phone || (picked10.length >= 10 && p10 == picked10);
+          });
           _doctorPatients.insert(0, newContact);
           _selectedPatientId = phone;
           _selectedPatientName = name;

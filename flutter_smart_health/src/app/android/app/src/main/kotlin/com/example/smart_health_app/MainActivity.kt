@@ -59,6 +59,7 @@ class MainActivity : FlutterFragmentActivity() {
         private const val WHATSAPP_LAUNCHER_CHANNEL = "com.example.smart_health_app/whatsapp_launcher"
         private const val REQUEST_RECORD_AUDIO = 4207
         private const val PICK_CONTACT_REQUEST_CODE = 4021
+        private const val REQUEST_READ_CONTACTS = 4022
     }
 
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -225,6 +226,21 @@ class MainActivity : FlutterFragmentActivity() {
             pendingContactResult = null
         }
         pendingContactResult = result
+        // Request READ_CONTACTS so Android allows reading the contact's DP (PHOTO_THUMBNAIL_URI / PHOTO_URI)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.READ_CONTACTS),
+                REQUEST_READ_CONTACTS,
+            )
+            return
+        }
+        launchContactPickerIntent()
+    }
+
+    private fun launchContactPickerIntent() {
         val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
         try {
             startActivityForResult(intent, PICK_CONTACT_REQUEST_CODE)
@@ -232,6 +248,54 @@ class MainActivity : FlutterFragmentActivity() {
             pendingContactResult?.error("PICK_FAILED", e.message, null)
             pendingContactResult = null
         }
+    }
+
+    private fun readContactPhotoBase64(contactId: Long, thumbUriStr: String?, photoUriStr: String?): String {
+        val streams = mutableListOf<() -> java.io.InputStream?>()
+        if (!thumbUriStr.isNullOrBlank()) {
+            streams.add { contentResolver.openInputStream(Uri.parse(thumbUriStr)) }
+        }
+        if (!photoUriStr.isNullOrBlank()) {
+            streams.add { contentResolver.openInputStream(Uri.parse(photoUriStr)) }
+        }
+        if (contactId > 0L) {
+            val lookupUri = android.content.ContentUris.withAppendedId(
+                ContactsContract.Contacts.CONTENT_URI,
+                contactId,
+            )
+            streams.add { ContactsContract.Contacts.openContactPhotoInputStream(contentResolver, lookupUri, false) }
+            streams.add { ContactsContract.Contacts.openContactPhotoInputStream(contentResolver, lookupUri, true) }
+        }
+
+        for (opener in streams) {
+            try {
+                opener()?.use { input ->
+                    val decoded = android.graphics.BitmapFactory.decodeStream(input)
+                    if (decoded != null) {
+                        val maxDim = 144
+                        val scale = minOf(
+                            maxDim.toFloat() / decoded.width.coerceAtLeast(1),
+                            maxDim.toFloat() / decoded.height.coerceAtLeast(1),
+                            1.0f,
+                        )
+                        val w = (decoded.width * scale).toInt().coerceAtLeast(1)
+                        val h = (decoded.height * scale).toInt().coerceAtLeast(1)
+                        val scaled = if (scale < 1.0f) {
+                            android.graphics.Bitmap.createScaledBitmap(decoded, w, h, true)
+                        } else {
+                            decoded
+                        }
+                        val out = java.io.ByteArrayOutputStream()
+                        scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, out)
+                        val bytes = out.toByteArray()
+                        if (bytes.isNotEmpty()) {
+                            return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return ""
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -246,30 +310,23 @@ class MainActivity : FlutterFragmentActivity() {
                         val projection = arrayOf(
                             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
                             ContactsContract.CommonDataKinds.Phone.NUMBER,
-                            ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI
+                            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                            ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
+                            ContactsContract.CommonDataKinds.Phone.PHOTO_URI,
                         )
                         contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
                             if (cursor.moveToFirst()) {
                                 val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
                                 val numberIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                                val photoIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI)
+                                val cidIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+                                val thumbIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI)
+                                val photoIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.PHOTO_URI)
                                 val name = if (nameIdx >= 0) cursor.getString(nameIdx) ?: "" else ""
                                 val number = if (numberIdx >= 0) cursor.getString(numberIdx) ?: "" else ""
+                                val contactId = if (cidIdx >= 0) cursor.getLong(cidIdx) else -1L
+                                val thumbUriStr = if (thumbIdx >= 0) cursor.getString(thumbIdx) else null
                                 val photoUriStr = if (photoIdx >= 0) cursor.getString(photoIdx) else null
-                                var photoBase64 = ""
-                                if (!photoUriStr.isNullOrBlank()) {
-                                    try {
-                                        contentResolver.openInputStream(Uri.parse(photoUriStr))?.use { stream ->
-                                            val bytes = stream.readBytes()
-                                            if (bytes.isNotEmpty() && bytes.size <= 200_000) {
-                                                photoBase64 = android.util.Base64.encodeToString(
-                                                    bytes,
-                                                    android.util.Base64.NO_WRAP
-                                                )
-                                            }
-                                        }
-                                    } catch (_: Exception) {}
-                                }
+                                val photoBase64 = readContactPhotoBase64(contactId, thumbUriStr, photoUriStr)
                                 pending.success(
                                     mapOf(
                                         "name" to name,
@@ -1043,6 +1100,12 @@ class MainActivity : FlutterFragmentActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_READ_CONTACTS) {
+            if (pendingContactResult != null) {
+                launchContactPickerIntent()
+            }
+            return
+        }
         if (requestCode == REQUEST_RECORD_AUDIO) {
             val action = pendingVoiceStartAction
             pendingVoiceStartAction = null
