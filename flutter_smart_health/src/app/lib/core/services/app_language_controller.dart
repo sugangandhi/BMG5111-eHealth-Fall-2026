@@ -233,4 +233,36 @@ class AppStrings {
         'Se déconnecter et changer de numéro WhatsApp',
         'تسجيل الخروج وتبديل رقم واتساب',
       );
+
+  // 4-Tab WhatsApp Bottom Navigation
+  String get tabChats => _t('Chats', 'Discussions', 'الدردشات');
+  String get tabCalendar => _t('Calendar', 'Calendrier', 'التقويم');
+  String get tabContacts => _t('Contacts', 'Contacts', 'جهات الاتصال');
+  String get tabSettings => _t('Settings', 'Paramètres', 'الإعدادات');
+
+  // Calendar / Schedule Tab
+  String get scheduledMessages =>
+      _t('Scheduled Messages', 'Messages planifiés', 'الرسائل المجدولة');
+  String get scheduleNew => _t('Schedule', 'Planifier', 'جدولة');
+  String get noScheduledYet => _t(
+        'No scheduled messages yet',
+        'Aucun message planifié',
+        'لا توجد رسائل مجدولة بعد',
+      );
+  String get noScheduledSub => _t(
+        'Ask MaxAssist AI to remind any contact at any time, or tap Schedule above.',
+        'Demandez à MaxAssist IA de rappeler un contact, ou appuyez sur Planifier ci-dessus.',
+        'اطلب من MaxAssist AI تذكير أي جهة اتصال، أو اضغط على جدولة أعلاه.',
+      );
+  String get statusPending => _t('PENDING', 'EN ATTENTE', 'قيد الانتظار');
+  String get statusSent => _t('SENT', 'ENVOYÉ', 'تم الإرسال');
+  String get statusCancelled => _t('CANCELLED', 'ANNULÉ', 'ملغى');
+
+  // Contacts Tab
+  String get importFromPhone => _t('Phone', 'Téléphone', 'الهاتف');
+  String get addContactShort => _t('Add', 'Ajouter', 'إضافة');
+  String get searchContactsHint =>
+      _t('Search contacts...', 'Rechercher des contacts...', 'ابحث في جهات الاتصال...');
+  String get noSavedContacts =>
+      _t('No saved contacts yet', 'Aucun contact enregistré', 'لا توجد جهات اتصال محفوظة بعد');
 }

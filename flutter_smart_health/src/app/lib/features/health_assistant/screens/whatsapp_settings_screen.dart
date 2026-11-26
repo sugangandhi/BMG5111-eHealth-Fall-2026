@@ -8,12 +8,14 @@ class WhatsAppSettingsScreen extends StatefulWidget {
   final VoidCallback? onChangeWhatsAppLine;
   final VoidCallback? onSyncNow;
   final VoidCallback? onProfileUpdated;
+  final bool embedded;
 
   const WhatsAppSettingsScreen({
     super.key,
     this.onChangeWhatsAppLine,
     this.onSyncNow,
     this.onProfileUpdated,
+    this.embedded = false,
   });
 
   @override
@@ -248,29 +250,22 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
       AppLanguageController.instance.languageCode,
     );
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFE6F1FC),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF075E54),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          s.settings,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 19),
-        ),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
-            stops: [0.0, 0.42, 1.0],
+    final content = ListView(
+      children: [
+        if (widget.embedded)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              s.settings,
+              style: const TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF075E54),
+                letterSpacing: -0.4,
+              ),
+            ),
           ),
-        ),
-        child: ListView(
-        children: [
-          InkWell(
+        InkWell(
             onTap: _editDisplayName,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -334,7 +329,7 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
               style: const TextStyle(fontSize: 12.5, color: Color(0xFF667781)),
             ),
             onTap: () {
-              Navigator.pop(context);
+              if (!widget.embedded) Navigator.pop(context);
               widget.onChangeWhatsAppLine?.call();
             },
           ),
@@ -347,7 +342,7 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
               style: const TextStyle(fontSize: 12.5, color: Color(0xFF667781)),
             ),
             onTap: () {
-              Navigator.pop(context);
+              if (!widget.embedded) Navigator.pop(context);
               widget.onSyncNow?.call();
             },
           ),
@@ -383,7 +378,33 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
             onTap: _logOut,
           ),
         ],
+      );
+
+    if (widget.embedded) {
+      return content;
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFE6F1FC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF075E54),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          s.settings,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 19),
+        ),
       ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.42, 1.0],
+          ),
+        ),
+        child: content,
       ),
     );
   }
