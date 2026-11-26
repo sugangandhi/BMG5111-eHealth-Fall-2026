@@ -390,6 +390,7 @@ class DoctorAiAgentRequest(BaseModel):
     timezone_offset_minutes: Optional[int] = -300
     history: Optional[List[Dict[str, str]]] = None
     contacts: Optional[List[Dict[str, Any]]] = None
+    language: Optional[str] = "en"
 
 def generate_tts_voice_ogg(text: str) -> Optional[bytes]:
     """Generates a WhatsApp-native OGG/Opus voice note via OpenAI TTS (tts-1)."""
@@ -547,6 +548,7 @@ def _plan_doctor_ai_agent_action(
     doctor_name: str,
     patients: List[Dict[str, Any]],
     history: Optional[List[Dict[str, str]]] = None,
+    language: str = "en",
 ) -> Optional[Dict[str, Any]]:
     """
     Uses OpenAI GPT-4o-mini with structured JSON output and full conversation history
@@ -565,10 +567,16 @@ def _plan_doctor_ai_agent_action(
         if p.get("phone")
     ]
 
+    lang_instruction = (
+        "Respond in French (Français) for the 'reply' field."
+        if language == "fr"
+        else ("Respond in Arabic (العربية) for the 'reply' field." if language == "ar" else "Respond in English for the 'reply' field.")
+    )
     system_prompt = (
         f"You are MaxAssist AI, the intelligent WhatsApp & clinical assistant for {doctor_name}.\n"
         f"Current Ontario local date & time: {now_str}\n"
-        f"Doctor's saved contacts: {json.dumps(contacts_list)}\n\n"
+        f"Doctor's saved contacts: {json.dumps(contacts_list)}\n"
+        f"User UI Language: {language}. {lang_instruction}\n\n"
         "Respond ONLY with a single valid JSON object matching this schema:\n"
         "{\n"
         '  "action": "send_text" | "send_voice" | "schedule_text" | "list_tasks" | "chat",\n'
@@ -720,6 +728,7 @@ async def _execute_doctor_ai_agent_command(req: DoctorAiAgentRequest):
         doctor_name=doctor_name,
         patients=patients,
         history=req.history,
+        language=(req.language or "en").strip().lower(),
     )
 
     if plan:

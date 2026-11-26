@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/app_language_controller.dart';
 import '../../../services/app_update_service.dart';
 
 class WhatsAppSettingsScreen extends StatefulWidget {
@@ -48,31 +49,32 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
   }
 
   Future<void> _editDisplayName() async {
+    final s = AppStrings.of(context);
     final ctrl = TextEditingController(text: _userName);
     final updated = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Edit Display Name', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(s.editDisplayName, style: const TextStyle(fontWeight: FontWeight.w800)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
           decoration: InputDecoration(
-            labelText: 'Your Name',
+            labelText: s.yourName,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(s.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF075E54),
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Save'),
+            child: Text(s.save),
           ),
         ],
       ),
@@ -89,8 +91,68 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
     }
   }
 
+  Future<void> _showLanguagePicker() async {
+    final s = AppStrings.of(context);
+    final currentCode = AppLanguageController.instance.languageCode;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        Widget option(String code, String title, String subtitle) {
+          final active = currentCode == code;
+          return ListTile(
+            leading: Icon(
+              active ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              color: active ? const Color(0xFF00A884) : const Color(0xFF94A3B8),
+            ),
+            title: Text(
+              title,
+              style: TextStyle(
+                fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                color: const Color(0xFF111B21),
+              ),
+            ),
+            subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF667781))),
+            onTap: () => Navigator.pop(ctx, code),
+          );
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Text(
+                    s.chooseLanguage,
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                option('en', 'English', 'Default'),
+                option('fr', 'Français', 'French'),
+                option('ar', 'العربية', 'Arabic (RTL)'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null && selected != currentCode) {
+      await AppLanguageController.instance.setLanguage(selected);
+      if (mounted) setState(() {});
+    }
+  }
+
   Future<void> _checkForAppUpdate() async {
     if (_checkingUpdate) return;
+    final s = AppStrings.of(context);
     setState(() => _checkingUpdate = true);
     try {
       final updater = AppUpdateService();
@@ -102,19 +164,19 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
           builder: (ctx) => AlertDialog(
             backgroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: const Text('Update Available', style: TextStyle(fontWeight: FontWeight.w800)),
+            title: Text(s.updateAvailable, style: const TextStyle(fontWeight: FontWeight.w800)),
             content: Text(
-              'MaxAssist ${info.remoteVersionName} is available.\n\n${info.releaseNotes}',
+              'MaxAssist ${info.remoteVersionName}\n\n${info.releaseNotes}',
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Later')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.later)),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00A884),
                   foregroundColor: Colors.white,
                 ),
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Download & Install'),
+                child: Text(s.downloadAndInstall),
               ),
             ],
           ),
@@ -130,7 +192,7 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('You are already on the latest version (${info.installed.displayLabel}).'),
+            content: Text('${s.alreadyLatestVersion} (${info.installed.displayLabel}).'),
             backgroundColor: const Color(0xFF075E54),
           ),
         );
@@ -138,7 +200,7 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update check failed: $e')),
+          SnackBar(content: Text('$e')),
         );
       }
     } finally {
@@ -147,24 +209,23 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
   }
 
   Future<void> _logOut() async {
+    final s = AppStrings.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Log Out?', style: TextStyle(fontWeight: FontWeight.w800)),
-        content: const Text(
-          'You will return to the WhatsApp Login screen. Your chats stay safely backed up in AWS under your registered phone number.',
-        ),
+        title: Text(s.logOutTitle, style: const TextStyle(fontWeight: FontWeight.w800)),
+        content: Text(s.logOutConfirmText),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Log Out'),
+            child: Text(s.logOut),
           ),
         ],
       ),
@@ -181,7 +242,11 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final initial = _userName.isNotEmpty ? _userName[0].toUpperCase() : 'M';
+    final langLabel = AppLanguageController.languageLabel(
+      AppLanguageController.instance.languageCode,
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -189,14 +254,13 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
         backgroundColor: const Color(0xFF075E54),
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Settings',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 19),
+        title: Text(
+          s.settings,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 19),
         ),
       ),
       body: ListView(
         children: [
-          // Profile Header (WhatsApp Settings style)
           InkWell(
             onTap: _editDisplayName,
             child: Padding(
@@ -230,9 +294,7 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          _userPhone.isNotEmpty
-                              ? 'User ID: +$_userPhone'
-                              : 'Tap to edit display name',
+                          _userPhone.isNotEmpty ? '+$_userPhone' : s.editDisplayName,
                           style: const TextStyle(fontSize: 13.5, color: Color(0xFF667781)),
                         ),
                       ],
@@ -245,11 +307,21 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
           ),
           const Divider(height: 1, color: Color(0xFFE2E8F0)),
 
+          // Language Switcher (English / Français / العربية)
+          ListTile(
+            key: const Key('settings_language_tile'),
+            leading: const Icon(Icons.language_rounded, color: Color(0xFF075E54)),
+            title: Text(s.language, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(langLabel, style: const TextStyle(fontSize: 12.5, color: Color(0xFF667781))),
+            trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+            onTap: _showLanguagePicker,
+          ),
+
           ListTile(
             leading: const Icon(Icons.verified_rounded, color: Color(0xFF075E54)),
-            title: const Text('WhatsApp Account', style: TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(s.whatsappAccount, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(
-              _userPhone.isNotEmpty ? '+$_userPhone • AWS Cloud Sync Active' : 'Not linked',
+              _userPhone.isNotEmpty ? '+$_userPhone • ${s.cloudSyncActive}' : s.cloudSyncActive,
               style: const TextStyle(fontSize: 12.5, color: Color(0xFF667781)),
             ),
             onTap: () {
@@ -260,9 +332,9 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
 
           ListTile(
             leading: const Icon(Icons.cloud_sync_rounded, color: Color(0xFF075E54)),
-            title: const Text('Sync Chats from AWS', style: TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(s.syncChatsFromAws, style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Text(
-              _ownerId.isNotEmpty ? 'Account Key: $_ownerId' : 'Refresh contacts and history',
+              _ownerId.isNotEmpty ? _ownerId : s.syncChats,
               style: const TextStyle(fontSize: 12.5, color: Color(0xFF667781)),
             ),
             onTap: () {
@@ -279,10 +351,10 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF075E54)),
                   )
                 : const Icon(Icons.system_update_rounded, color: Color(0xFF075E54)),
-            title: const Text('Check for App Updates', style: TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: const Text(
-              'Download latest MaxAssist Android build',
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF667781)),
+            title: Text(s.checkForUpdates, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(
+              s.checkForUpdatesSub,
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF667781)),
             ),
             onTap: _checkForAppUpdate,
           ),
@@ -291,13 +363,13 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
 
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626)),
-            title: const Text(
-              'Log Out',
-              style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
+            title: Text(
+              s.logOut,
+              style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
             ),
-            subtitle: const Text(
-              'Sign out and switch WhatsApp phone number',
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF667781)),
+            subtitle: Text(
+              s.logOutSub,
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF667781)),
             ),
             onTap: _logOut,
           ),

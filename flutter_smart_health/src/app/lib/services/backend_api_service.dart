@@ -211,6 +211,7 @@ class BackendApiService {
     String ownerId = '',
     List<Map<String, String>> history = const [],
     List<Map<String, String>> contacts = const [],
+    String language = 'en',
   }) async {
     try {
       final tzOffset = DateTime.now().timeZoneOffset.inMinutes;
@@ -223,6 +224,7 @@ class BackendApiService {
           'timezone_offset_minutes': tzOffset,
           'history': history,
           'contacts': contacts,
+          'language': language,
         },
       );
       if (res is Map) return Map<String, dynamic>.from(res);

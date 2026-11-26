@@ -6,8 +6,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../config/api_config.dart';
+import '../../../core/services/app_language_controller.dart';
 import '../../../core/services/voice_dictation_helper.dart';
 import '../../../data/models/assistant_models.dart';
+import '../../../services/app_update_service.dart';
 import '../../../services/backend_api_service.dart';
 import '../../../services/e_hospital_auth_service.dart';
 import '../../../services/whatsapp_launcher_service.dart';
@@ -143,6 +145,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     }
   }
 
+  static bool _checkedUpdateThisSession = false;
+
   @override
   void initState() {
     super.initState();
@@ -155,6 +159,66 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       onStatusMessage: _showVoiceStatus,
     );
     _loadPatientAndHistory();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForAppUpdateSilently();
+    });
+  }
+
+  Future<void> _checkForAppUpdateSilently() async {
+    final bool isRunningInTest =
+        WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (isRunningInTest || _checkedUpdateThisSession || !mounted) return;
+    _checkedUpdateThisSession = true;
+    try {
+      final updater = AppUpdateService();
+      final info = await updater.checkForUpdate();
+      if (!mounted || !info.isUpdateAvailable) return;
+      final s = AppStrings.of(context);
+      final install = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Row(
+            children: [
+              const Icon(Icons.system_update_rounded, color: Color(0xFF00A884)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  s.updateAvailable,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'MaxAssist ${info.remoteVersionName}\n\n${info.releaseNotes}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(s.later),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00A884),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(s.downloadAndInstall),
+            ),
+          ],
+        ),
+      );
+      if (install == true && mounted) {
+        final res = await updater.downloadAndInstallUpdate(info);
+        if (mounted && res.message.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res.message)),
+          );
+        }
+      }
+    } catch (_) {}
   }
 
   void _showVoiceStatus(String message) {
@@ -2667,9 +2731,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                         decoration: InputDecoration(
                           hintText: _isDoctor
                               ? (_doctorActiveView == 'ai'
-                                  ? "Ask MaxAssist AI to text, voice note, or schedule..."
-                                  : "Message")
-                              : "Message MaxAssist...",
+                                  ? AppStrings.of(context).aiComposerHint
+                                  : AppStrings.of(context).messageHint)
+                              : AppStrings.of(context).messageHint,
                           hintStyle: const TextStyle(fontSize: 15, color: Color(0xFF667781)),
                           border: InputBorder.none,
                           isDense: true,
@@ -3238,6 +3302,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         ownerId: _deviceOwnerId,
         history: history.length > 8 ? history.sublist(history.length - 8) : history,
         contacts: _doctorPatients,
+        language: AppLanguageController.instance.languageCode,
       );
 
       final replyText = (res['reply'] ?? res['error'] ?? "Done.").toString().trim();
@@ -3333,6 +3398,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   }
 
   Widget _buildWhatsAppChatListView() {
+    final s = AppStrings.of(context);
     final q = _searchQuery.trim().toLowerCase();
     final filteredContacts = q.isEmpty
         ? _doctorPatients
@@ -3345,7 +3411,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final lastAiMsg = _aiMessages.isNotEmpty ? _aiMessages.last : null;
     final aiSubtitle = lastAiMsg != null
         ? _cleanDisplayBubbleText(lastAiMsg.text).replaceAll('\n', ' ')
-        : "Ask me to message contacts, send AI voice notes, or schedule";
+        : s.aiSubtitleDefault;
     final aiTime = lastAiMsg != null ? _formatBubbleTime(lastAiMsg.timestamp) : "";
 
     return Scaffold(
@@ -3357,7 +3423,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         foregroundColor: Colors.white,
         elevation: 3,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        tooltip: "New Chat / Add Contact",
+        tooltip: s.newChatAddContact,
         onPressed: _showAddContactModalSheet,
         child: const Icon(Icons.add_comment_rounded, size: 24),
       ),
@@ -3371,7 +3437,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 children: [
                   if (widget.onBack != null)
                     IconButton(
-                      tooltip: "Back to Dashboard",
+                      tooltip: "Back",
                       icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF075E54)),
                       onPressed: widget.onBack,
                     ),
@@ -3388,7 +3454,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     ),
                   ),
                   IconButton(
-                    tooltip: "Sync Chats",
+                    tooltip: s.syncChats,
                     icon: const Icon(Icons.sync_rounded, color: Color(0xFF334155), size: 22),
                     onPressed: () {
                       _refreshContactPreviews();
@@ -3426,50 +3492,39 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                       }
                     },
                     itemBuilder: (_) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'settings',
                         child: Row(
                           children: [
-                            Icon(Icons.settings_outlined, size: 18, color: Color(0xFF075E54)),
-                            SizedBox(width: 10),
-                            Text("Settings"),
+                            const Icon(Icons.settings_outlined, size: 18, color: Color(0xFF075E54)),
+                            const SizedBox(width: 10),
+                            Text(s.settings),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'contacts',
                         child: Row(
                           children: [
-                            Icon(Icons.contacts_rounded, size: 18, color: Color(0xFF475569)),
-                            SizedBox(width: 10),
-                            Text("Manage Contacts"),
+                            const Icon(Icons.contacts_rounded, size: 18, color: Color(0xFF475569)),
+                            const SizedBox(width: 10),
+                            Text(s.manageContacts),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'logout',
                         child: Row(
                           children: [
-                            Icon(Icons.logout_rounded, size: 18, color: Color(0xFFDC2626)),
-                            SizedBox(width: 10),
+                            const Icon(Icons.logout_rounded, size: 18, color: Color(0xFFDC2626)),
+                            const SizedBox(width: 10),
                             Text(
-                              "Log Out",
-                              style: TextStyle(color: Color(0xFFDC2626)),
+                              s.logOut,
+                              style: const TextStyle(color: Color(0xFFDC2626)),
                             ),
                           ],
                         ),
                       ),
-                      if (widget.onBack != null)
-                        const PopupMenuItem(
-                          value: 'back',
-                          child: Row(
-                            children: [
-                              Icon(Icons.home_outlined, size: 18, color: Color(0xFF475569)),
-                              SizedBox(width: 10),
-                              Text("Back to Dashboard"),
-                            ],
-                          ),
-                        ),
                     ],
                   ),
                 ],
@@ -3501,7 +3556,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   },
                   style: const TextStyle(fontSize: 15, color: Color(0xFF0F172A)),
                   decoration: InputDecoration(
-                    hintText: "Ask MaxAssist AI or Search",
+                    hintText: s.askOrSearchHint,
                     hintStyle: const TextStyle(fontSize: 15, color: Color(0xFF64748B)),
                     prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 22),
                     suffixIcon: _searchQuery.isNotEmpty
@@ -3603,8 +3658,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                           const SizedBox(height: 12),
                           Text(
                             _searchQuery.isNotEmpty
-                                ? "No contacts match \"$_searchQuery\""
-                                : "No chats yet",
+                                ? s.noContactsMatch(_searchQuery)
+                                : s.noChatsYet,
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -3614,8 +3669,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                           const SizedBox(height: 6),
                           Text(
                             _searchQuery.isNotEmpty
-                                ? "Press Enter to ask MaxAssist AI directly."
-                                : "Tap the green + button below to add a contact from your phone or enter a number.",
+                                ? s.pressEnterToAskAi
+                                : s.tapPlusToAddContact,
                             textAlign: TextAlign.center,
                             style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                           ),
@@ -3721,6 +3776,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   }
 
   Widget _buildAiAgentChatView() {
+    final s = AppStrings.of(context);
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFECE5DD),
@@ -3739,7 +3795,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               child: Row(
                 children: [
                   IconButton(
-                    tooltip: "Back to Chats",
+                    tooltip: "Back",
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     icon: const Icon(Icons.arrow_back_rounded, size: 22, color: Colors.white),
@@ -3751,12 +3807,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   const SizedBox(width: 4),
                   _buildAiAvatar(radius: 19),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
+                        const Row(
                           children: [
                             Text(
                               "MaxAssist AI",
@@ -3771,16 +3827,16 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                           ],
                         ),
                         Text(
-                          "Text • AI Voice Notes • Scheduling",
+                          s.aiHeaderSubtitle,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11.5, color: Color(0xFFD1FAE5)),
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFFD1FAE5)),
                         ),
                       ],
                     ),
                   ),
                   if (_aiMessages.isNotEmpty)
                     IconButton(
-                      tooltip: "Clear AI Chat",
+                      tooltip: s.clearAiChat,
                       icon: const Icon(Icons.delete_outline_rounded, size: 21, color: Colors.white),
                       onPressed: () async {
                         setState(() => _aiMessages.clear());
@@ -3811,10 +3867,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            const Text(
-                              "Type or use the mic to message any contact, send an AI voice note on WhatsApp, or schedule future reminders.",
+                            Text(
+                              s.aiEmptyDescription,
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 13.5, color: Color(0xFF54656F), height: 1.4),
+                              style: const TextStyle(fontSize: 13.5, color: Color(0xFF54656F), height: 1.4),
                             ),
                             const SizedBox(height: 18),
                             Wrap(
@@ -3824,7 +3880,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                               children: [
                                 ActionChip(
                                   backgroundColor: Colors.white,
-                                  label: const Text("🎙️ Send voice message to..."),
+                                  label: Text(s.chipVoiceMsg),
                                   onPressed: () {
                                     final sampleName = _doctorPatients.isNotEmpty
                                         ? (_doctorPatients.first["name"] ?? "Sugan")
@@ -3838,7 +3894,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                 ),
                                 ActionChip(
                                   backgroundColor: Colors.white,
-                                  label: const Text("⏰ Schedule a reminder"),
+                                  label: Text(s.chipSchedule),
                                   onPressed: () {
                                     final sampleName = _doctorPatients.isNotEmpty
                                         ? (_doctorPatients.first["name"] ?? "Sugan")
@@ -3852,7 +3908,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                 ),
                                 ActionChip(
                                   backgroundColor: Colors.white,
-                                  label: const Text("📋 Show scheduled tasks"),
+                                  label: Text(s.chipShowTasks),
                                   onPressed: () => _sendAiAgentMessage("Show my scheduled tasks"),
                                 ),
                               ],
@@ -3927,12 +3983,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             ),
 
             if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
@@ -3940,10 +3996,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                         valueColor: AlwaysStoppedAnimation(Color(0xFF075E54)),
                       ),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      "MaxAssist AI is working...",
-                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      s.aiWorking,
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -4004,9 +4060,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      _isDoctor && _doctorSendViaWhatsApp
-                          ? "Sending to $_selectedPatientName..."
-                          : "Analyzing clinical telemetry...",
+                      AppStrings.of(context).sendingTo(_selectedPatientName),
                       style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                     ),
                   ],

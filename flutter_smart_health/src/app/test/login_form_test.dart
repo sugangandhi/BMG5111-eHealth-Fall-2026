@@ -25,6 +25,8 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('whatsapp_name_field')), 'Dr. Sugan');
     await tester.enterText(find.byKey(const Key('whatsapp_phone_field')), '+1 613-404-5586');
+    await tester.ensureVisible(find.byKey(const Key('whatsapp_login_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('whatsapp_login_button')));
     await tester.pumpAndSettle();
 

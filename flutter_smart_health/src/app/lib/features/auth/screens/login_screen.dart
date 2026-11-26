@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/app_language_controller.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -42,8 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _phoneController.text = savedPhone.startsWith('+') ? savedPhone : '+$savedPhone';
     }
 
-    // Auto-enter chats if logged in (or upgrading from an older verified install where whatsapp_logged_in_v1 was never set).
-    // If the user explicitly logged out (whatsapp_logged_in_v1 == false), stay on LoginScreen!
     final bool shouldAutoLogin = loggedInPref ?? (legacyVerified && savedPhone.isNotEmpty);
     final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
     if (shouldAutoLogin && !isRunningInTest) {
@@ -66,15 +66,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submitWhatsAppLogin() async {
+    final s = AppStrings.of(context);
     final rawName = _nameController.text.trim();
     final normalizedPhone = _normalizePhone(_phoneController.text.trim());
 
     if (rawName.isEmpty) {
-      setState(() => _errorText = 'Please enter your name.');
+      setState(() => _errorText = s.enterNameError);
       return;
     }
     if (normalizedPhone.length < 10) {
-      setState(() => _errorText = 'Please enter a valid WhatsApp phone number with country code.');
+      setState(() => _errorText = s.enterPhoneError);
       return;
     }
 
@@ -88,7 +89,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final prevPhone = _normalizePhone(prefs.getString('doctor_whatsapp_phone_v1') ?? '');
       final existingOwnerId = (prefs.getString('maxassist_device_owner_id_v1') ?? '').trim();
 
-      // Register user ID as phone number while preserving existing history if same user
       await prefs.setString('user_id', normalizedPhone);
       await prefs.setString('patient_id', normalizedPhone);
       await prefs.setString('patient_phone', normalizedPhone);
@@ -99,7 +99,6 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString('doctor_custom_name_v1', rawName);
       await prefs.setString('patient_username', rawName);
 
-      // Keep existing owner_id when re-logging into the same phone so all AWS & local history stays intact
       if (existingOwnerId.isEmpty || (prevPhone.isNotEmpty && prevPhone != normalizedPhone)) {
         await prefs.setString('maxassist_device_owner_id_v1', 'phone_$normalizedPhone');
       }
@@ -111,10 +110,49 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() {
           _submitting = false;
-          _errorText = 'Unable to sign in: $e';
+          _errorText = '$e';
         });
       }
     }
+  }
+
+  Widget _buildLanguagePill() {
+    final current = AppLanguageController.instance.languageCode;
+    Widget chip(String code, String label) {
+      final selected = current == code;
+      return InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => AppLanguageController.instance.setLanguage(code),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF075E54) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? const Color(0xFF075E54) : const Color(0xFFCBD5E1),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: selected ? Colors.white : const Color(0xFF334155),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      alignment: WrapAlignment.center,
+      children: [
+        chip('en', 'English'),
+        chip('fr', 'Français'),
+        chip('ar', 'العربية'),
+      ],
+    );
   }
 
   @override
@@ -128,18 +166,21 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
 
+    final s = AppStrings.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Brand Icon + Title
+                  _buildLanguagePill(),
+                  const SizedBox(height: 24),
                   Center(
                     child: Container(
                       width: 72,
@@ -163,10 +204,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  const Text(
-                    'MaxAssist',
+                  Text(
+                    s.appTitle,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF075E54),
@@ -174,18 +215,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'WhatsApp AI Messaging & Voice Assistant',
+                  Text(
+                    s.loginSubtitle,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       color: Color(0xFF64748B),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
-                  // WhatsApp Login Card
                   Container(
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
@@ -203,18 +243,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
-                          'Sign in with WhatsApp',
-                          style: TextStyle(
+                        Text(
+                          s.signInWithWhatsApp,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: Color(0xFF0F172A),
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Your WhatsApp phone number is registered as your User ID to sync your contacts and chat history.',
-                          style: TextStyle(
+                        Text(
+                          s.loginDescription,
+                          style: const TextStyle(
                             fontSize: 12.5,
                             color: Color(0xFF64748B),
                             height: 1.4,
@@ -228,8 +268,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           textCapitalization: TextCapitalization.words,
                           textInputAction: TextInputAction.next,
                           decoration: InputDecoration(
-                            labelText: 'Your Name',
-                            hintText: 'e.g. Dr. Sugan',
+                            labelText: s.yourName,
+                            hintText: s.yourNameHint,
                             prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF075E54)),
                             filled: true,
                             fillColor: const Color(0xFFF8FAFC),
@@ -256,8 +296,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _submitWhatsAppLogin(),
                           decoration: InputDecoration(
-                            labelText: 'WhatsApp Phone Number',
-                            hintText: 'e.g. +1 613-404-5586',
+                            labelText: s.whatsappPhoneNumber,
+                            hintText: '+1 613-404-5586',
                             prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF075E54)),
                             filled: true,
                             fillColor: const Color(0xFFF8FAFC),
@@ -313,7 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   )
                                 : const Icon(Icons.arrow_forward_rounded, size: 20),
                             label: Text(
-                              _submitting ? 'Signing in...' : 'Continue with WhatsApp',
+                              _submitting ? s.signingIn : s.continueWithWhatsApp,
                               style: const TextStyle(
                                 fontSize: 15.5,
                                 fontWeight: FontWeight.w700,
