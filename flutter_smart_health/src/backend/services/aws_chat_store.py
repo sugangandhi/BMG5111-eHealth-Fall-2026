@@ -182,6 +182,26 @@ def save_message_to_aws(
     table = "message_pat_to_doctor" if is_inbound else "message_doctor_to_pat"
     now_iso = sent_at_iso or _now_utc_iso()
 
+    # Idempotency check: prevent duplicate AWS rows if user taps Save more than once
+    clean_owner = (owner_id or "").strip()
+    key10 = _phone_key10(clean_p)
+    norm_new = re.sub(r"[\s\*\_]+", " ", clean_text).strip().lower()
+    existing_rows = _fetch_table_rows(table, force_refresh=True)
+    for er in existing_rows:
+        if str(er.get("status") or "") == "contact_meta":
+            continue
+        em = _decode_meta(er.get("attachment_url"))
+        if not em:
+            continue
+        if clean_owner and (em.get("o") or "").strip() != clean_owner:
+            continue
+        if _phone_key10(em.get("p", "")) != key10:
+            continue
+        er_mid = (em.get("m") or "").strip()
+        er_norm = re.sub(r"[\s\*\_]+", " ", str(er.get("message") or "")).strip().lower()
+        if (msg_id and er_mid == msg_id) or (norm_new and er_norm == norm_new):
+            return True
+
     payload = {
         "doctor_id": DEFAULT_AWS_DOCTOR_ID,
         "patient_id": DEFAULT_AWS_PATIENT_ID,
@@ -343,10 +363,18 @@ def save_ai_chat_turn_to_aws(
     if not clean_owner or not (user_text or "").strip():
         return False
 
+    # Idempotency check: avoid duplicate AI rows in chatbot_conversation
+    msg_encoded = f"{AI_PREFIX}{clean_owner}] {user_text.strip()}"[:1800]
+    resp_clean = (ai_reply or "").strip()[:1800]
+    existing_ai = _fetch_table_rows("chatbot_conversation", force_refresh=True)
+    for r in existing_ai:
+        if str(r.get("message") or "").strip() == msg_encoded and str(r.get("response") or "").strip() == resp_clean:
+            return True
+
     payload = {
         "chat_id": DEFAULT_AWS_CHAT_ID,
-        "message": f"{AI_PREFIX}{clean_owner}] {user_text.strip()}"[:1800],
-        "response": (ai_reply or "").strip()[:1800],
+        "message": msg_encoded,
+        "response": resp_clean,
         "timestamp": timestamp_iso or _now_utc_iso(),
     }
     try:

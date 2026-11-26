@@ -499,6 +499,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               role: raw.role,
               text: _sanitizeName(raw.text),
               isVoice: raw.isVoice,
+              status: raw.status,
+              savedToAws: raw.savedToAws,
               timestamp: raw.timestamp,
             ));
           }
@@ -561,7 +563,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               role: mappedRole,
               text: formattedText,
               isVoice: isVoice,
-              status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'delivered',
+              status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'sent',
+              savedToAws: item['status']?.toString() == 'saved',
               timestamp: _HealthChatMessage._parseToLocal(item['created_at']),
             ));
           }
