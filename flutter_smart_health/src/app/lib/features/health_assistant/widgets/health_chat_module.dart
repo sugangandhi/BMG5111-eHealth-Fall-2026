@@ -2858,15 +2858,26 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                       ),
                     ),
                     IconButton(
-                      tooltip: _isListening ? "Listening..." : "Voice Dictation",
+                      tooltip: _isTranscribing
+                          ? "Processing..."
+                          : (_isListening ? "Listening..." : "Voice Dictation"),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                      icon: Icon(
-                        _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                        size: 22,
-                        color: _isListening ? Colors.redAccent : const Color(0xFF54656F),
-                      ),
-                      onPressed: _toggleListening,
+                      icon: _isTranscribing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF00A884),
+                              ),
+                            )
+                          : Icon(
+                              _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                              size: 22,
+                              color: _isListening ? Colors.redAccent : const Color(0xFF54656F),
+                            ),
+                      onPressed: _isTranscribing ? null : _toggleListening,
                     ),
                   ],
                 ),

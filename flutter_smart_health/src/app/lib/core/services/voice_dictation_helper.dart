@@ -66,7 +66,6 @@ class VoiceDictationController {
         } else if (status == 'transcribing') {
           _setListening(false);
           _setTranscribing(true);
-          onStatusMessage('Transcribing voice with OpenAI Whisper...');
         } else if (status == 'stopped') {
           _setListening(false);
           _setTranscribing(false);
