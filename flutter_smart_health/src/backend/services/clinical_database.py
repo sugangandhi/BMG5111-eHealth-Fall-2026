@@ -319,21 +319,12 @@ def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dic
         rows = cursor.fetchall()
         messages = []
         seen_msg_ids = set()
-        seen_text_signatures = set()
         for row in rows:
             mid = row["message_id"] or str(row["id"])
             if mid and mid in seen_msg_ids:
                 continue
             if mid:
                 seen_msg_ids.add(mid)
-
-            # Deduplicate identical message signatures to prevent webhook retry clutter
-            norm_content = re.sub(r'[\s\*\_]+', ' ', (row["text"] or "")).strip().lower()
-            sig = (row["sender_role"], norm_content)
-            if norm_content and sig in seen_text_signatures:
-                continue
-            if norm_content:
-                seen_text_signatures.add(sig)
 
             vitals = {}
             if row["vitals_json"]:
@@ -356,22 +347,16 @@ def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dic
                 "created_at": row["created_at"],
             })
 
-        # Merge permanent history from AWS eHospital DB (survives Render restarts & APK reinstalls)
+        # Merge saved AWS history (deduplicated strictly by message_id so repeat texts like "Hi"/"Ok" are never dropped)
         try:
             from src.backend.services.aws_chat_store import fetch_contact_messages_from_aws
             aws_msgs = fetch_contact_messages_from_aws(clean_p, owner_id=clean_owner)
             for am in aws_msgs:
                 am_mid = str(am.get("message_id") or "")
-                am_text = str(am.get("text") or "")
-                am_role = str(am.get("role") or "doctor")
-                am_norm = re.sub(r'[\s\*\_]+', ' ', am_text).strip().lower()
-                am_sig = (am_role, am_norm)
-                if (am_mid and am_mid in seen_msg_ids) or (am_norm and am_sig in seen_text_signatures):
+                if am_mid and am_mid in seen_msg_ids:
                     continue
                 if am_mid:
                     seen_msg_ids.add(am_mid)
-                if am_norm:
-                    seen_text_signatures.add(am_sig)
                 messages.append(am)
             messages.sort(key=lambda m: str(m.get("created_at") or ""))
         except Exception as exc:

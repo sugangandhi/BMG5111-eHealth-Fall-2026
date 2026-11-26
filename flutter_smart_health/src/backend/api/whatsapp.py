@@ -1870,20 +1870,9 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     # 2. Clean WhatsApp outbound message (exact message text only, no extra headers/footers)
     outbound_text = (req.message or "").strip()
 
-    # 3. Check if patient has replied (opening Meta's 24h Customer Service Window)
+    # 3. Dispatch live via Meta WhatsApp Cloud API (pure message text only, no unsolicited hello_world template)
     has_patient_reply = any(m.get('role') in {'patient', 'user'} for m in thread)
-    template_already_sent = any(
-        m.get('action_type') == 'channel_initialization' or m.get('template_sent')
-        for m in thread[:-1]
-    )
-
     template_dispatched = False
-    if not has_patient_reply and not template_already_sent:
-        print(f"[Doctor Dispatch] First-time outreach to {clean_p}. Dispatching hello_world template once to ping device.")
-        template_dispatched = send_whatsapp_template(clean_p, template_name="hello_world")
-        doctor_msg['template_sent'] = True
-
-    # 4. Dispatch live via Meta WhatsApp Cloud API & capture real wamid for sent/delivered/read webhooks
     meta_sent, meta_wamid = send_whatsapp_reply_with_id(clean_p, outbound_text)
     if meta_wamid:
         doctor_msg['message_id'] = meta_wamid

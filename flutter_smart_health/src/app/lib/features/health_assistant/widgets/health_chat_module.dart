@@ -481,20 +481,14 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         final List<dynamic> decoded = jsonDecode(cached);
         final List<_HealthChatMessage> deduplicatedCache = [];
         final Set<String> seenCacheIds = {};
-        final Set<String> seenCacheCores = {};
         for (final m in decoded) {
           if (m is Map) {
             final raw = _HealthChatMessage.fromJson(Map<String, dynamic>.from(m));
-            final core = _extractCoreMessageText(raw.text);
             final msgId = raw.id;
             if (msgId != null && msgId.isNotEmpty && seenCacheIds.contains(msgId)) {
               continue;
             }
-            if (core.isNotEmpty && seenCacheCores.contains(core)) {
-              continue;
-            }
             if (msgId != null && msgId.isNotEmpty) seenCacheIds.add(msgId);
-            if (core.isNotEmpty) seenCacheCores.add(core);
 
             deduplicatedCache.add(_HealthChatMessage(
               id: msgId,
@@ -536,7 +530,6 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         if (serverMsgs.isNotEmpty && mounted) {
           final List<_HealthChatMessage> loaded = [];
           final Set<String> seenServerIds = {};
-          final Set<String> seenServerCores = {};
           for (final item in serverMsgs) {
             final rawRole = item['role']?.toString().toLowerCase() ?? 'patient';
             final text = _sanitizeName(item['text']?.toString() ?? '');
@@ -544,11 +537,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             final isVoice = item['isVoice'] == true || text.startsWith("🎙️ [Voice Note]");
             if (text.isEmpty) continue;
 
-            final core = _extractCoreMessageText(text);
             if (rawMsgId.isNotEmpty && seenServerIds.contains(rawMsgId)) continue;
-            if (core.isNotEmpty && seenServerCores.contains(core)) continue;
             if (rawMsgId.isNotEmpty) seenServerIds.add(rawMsgId);
-            if (core.isNotEmpty) seenServerCores.add(core);
 
             String mappedRole = 'assistant';
             if (rawRole == 'patient' || rawRole == 'user') {
@@ -571,24 +561,41 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             ));
           }
           if (loaded.isNotEmpty && mounted) {
-            // Non-destructive merge: keep any local messages not yet on server + add all AWS/server messages
+            // Non-destructive merge: match by message_id (or temp local_* id with same role+text)
             final List<_HealthChatMessage> merged = List<_HealthChatMessage>.from(_messages);
-            final Set<String> mergedIds = merged
-                .where((m) => m.id != null && m.id!.isNotEmpty)
-                .map((m) => m.id!)
-                .toSet();
-            final Set<String> mergedCores = merged
-                .map((m) => "${m.role}|${_extractCoreMessageText(m.text)}")
-                .toSet();
             bool changed = false;
+            const statusRank = {'sending': 0, 'sent': 1, 'delivered': 2, 'read': 3};
             for (final sm in loaded) {
-              final sig = "${sm.role}|${_extractCoreMessageText(sm.text)}";
-              final hasId = sm.id != null && sm.id!.isNotEmpty && mergedIds.contains(sm.id);
-              if (hasId || mergedCores.contains(sig)) continue;
-              if (sm.id != null && sm.id!.isNotEmpty) mergedIds.add(sm.id!);
-              mergedCores.add(sig);
-              merged.add(sm);
-              changed = true;
+              final existingIdx = merged.indexWhere((m) {
+                if (sm.id != null && sm.id!.isNotEmpty && m.id == sm.id) return true;
+                if ((m.id == null || m.id!.startsWith('local_')) &&
+                    m.role == sm.role &&
+                    _extractCoreMessageText(m.text) == _extractCoreMessageText(sm.text) &&
+                    m.timestamp.difference(sm.timestamp).abs().inSeconds <= 90) {
+                  return true;
+                }
+                return false;
+              });
+              if (existingIdx != -1) {
+                final cur = merged[existingIdx];
+                final curR = statusRank[cur.status.toLowerCase()] ?? 1;
+                final newR = statusRank[sm.status.toLowerCase()] ?? 1;
+                if (newR > curR || (sm.savedToAws && !cur.savedToAws)) {
+                  merged[existingIdx] = _HealthChatMessage(
+                    id: (sm.id != null && sm.id!.isNotEmpty) ? sm.id : cur.id,
+                    role: cur.role,
+                    text: cur.text,
+                    isVoice: cur.isVoice,
+                    status: newR > curR ? sm.status : cur.status,
+                    savedToAws: cur.savedToAws || sm.savedToAws,
+                    timestamp: cur.timestamp,
+                  );
+                  changed = true;
+                }
+              } else {
+                merged.add(sm);
+                changed = true;
+              }
             }
             if (changed) {
               merged.sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -650,14 +657,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
               final coreIncoming = _extractCoreMessageText(text);
 
-              // Deduplicate or update real WhatsApp delivery/read status (sent -> delivered -> read)
+              // Deduplicate strictly by message_id (or matching role + exact text for temp local_* IDs)
+              // Never match across different roles (e.g. doctor's "hi" vs patient's "Hi") or drop repeat texts!
               final int existingIdx = _messages.indexWhere((m) {
                 if (rawMsgId.isNotEmpty && m.id != null && m.id == rawMsgId) return true;
-                final coreExisting = _extractCoreMessageText(m.text);
-                return coreExisting.isNotEmpty &&
-                    (coreExisting == coreIncoming ||
-                        coreExisting.contains(coreIncoming) ||
-                        coreIncoming.contains(coreExisting));
+                if (m.role != mappedRole) return false;
+                if (m.id == null || m.id!.startsWith('local_') || rawMsgId.isEmpty) {
+                  final coreExisting = _extractCoreMessageText(m.text);
+                  if (coreExisting.isNotEmpty && coreExisting == coreIncoming) {
+                    return DateTime.now().difference(m.timestamp).abs().inSeconds <= 120;
+                  }
+                }
+                return false;
               });
 
               if (existingIdx != -1) {
