@@ -1410,6 +1410,156 @@ async def get_doctor_database_dump():
     except Exception as e:
         return {"error": str(e), "total_patients": 0, "total_messages": 0, "patients": [], "messages": []}
 
+@router.get('/aws-saved', response_class=HTMLResponse)
+async def view_aws_saved_records():
+    """Clean, readable live HTML viewer for MaxAssist records stored in AWS eHospital tables."""
+    import html as html_lib
+    from src.backend.services.aws_chat_store import (
+        EHOSPITAL_BASE_URL as AWS_URL,
+        _decode_meta,
+        _fetch_table_rows,
+        AI_PREFIX,
+    )
+
+    doc_rows = _fetch_table_rows("message_doctor_to_pat", force_refresh=True)
+    pat_rows = _fetch_table_rows("message_pat_to_doctor", force_refresh=True)
+    ai_rows = _fetch_table_rows("chatbot_conversation", force_refresh=True)
+
+    saved_msgs = []
+    for role_lbl, tbl_name, rows in (
+        ("Doctor / Outbound", "message_doctor_to_pat", doc_rows),
+        ("Patient / Inbound", "message_pat_to_doctor", pat_rows),
+    ):
+        for r in rows:
+            if str(r.get("status") or "") == "contact_meta":
+                continue
+            meta = _decode_meta(r.get("attachment_url"))
+            if not meta:
+                continue
+            saved_msgs.append({
+                "id": r.get("message_id"),
+                "table": tbl_name,
+                "role": role_lbl,
+                "owner": meta.get("o", ""),
+                "contact": f"{meta.get('n', '')} (+{meta.get('p', '')})",
+                "message": str(r.get("message") or ""),
+                "sent_at": str(r.get("sent_at") or ""),
+            })
+    saved_msgs.sort(key=lambda x: x["sent_at"], reverse=True)
+
+    saved_ai = []
+    for r in ai_rows:
+        m = str(r.get("message") or "")
+        if not m.startswith(AI_PREFIX):
+            continue
+        end_idx = m.find("] ")
+        owner = m[len(AI_PREFIX):end_idx] if end_idx != -1 else ""
+        user_txt = m[end_idx + 2:] if end_idx != -1 else m
+        saved_ai.append({
+            "id": r.get("conversation_id"),
+            "owner": owner,
+            "user": user_txt,
+            "reply": str(r.get("response") or ""),
+            "timestamp": str(r.get("timestamp") or ""),
+        })
+    saved_ai.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    def _fmt_ont(iso_s: str) -> str:
+        try:
+            dt = datetime.fromisoformat(iso_s.replace("Z", "+00:00"))
+            from datetime import timezone, timedelta
+            try:
+                from zoneinfo import ZoneInfo
+                dt_loc = dt.astimezone(ZoneInfo("America/Toronto"))
+            except Exception:
+                dt_loc = dt.astimezone(timezone(timedelta(hours=-5)))
+            return dt_loc.strftime("%b %d, %Y %I:%M %p")
+        except Exception:
+            return iso_s
+
+    msg_trs = ""
+    for m in saved_msgs:
+        badge_col = "#075E54" if "Doctor" in m["role"] else "#0F5C9C"
+        msg_trs += (
+            f"<tr>"
+            f"<td><code>#{html_lib.escape(str(m['id']))}</code></td>"
+            f"<td><span class='badge' style='background:{badge_col}'>{html_lib.escape(m['role'])}</span></td>"
+            f"<td><strong>{html_lib.escape(m['contact'])}</strong><br><small>{html_lib.escape(m['owner'])}</small></td>"
+            f"<td>{html_lib.escape(m['message'])}</td>"
+            f"<td><code>{html_lib.escape(m['table'])}</code></td>"
+            f"<td style='white-space:nowrap'>{html_lib.escape(_fmt_ont(m['sent_at']))}</td>"
+            f"</tr>"
+        )
+    if not msg_trs:
+        msg_trs = "<tr><td colspan='6' style='text-align:center;color:#64748b;padding:24px'>No saved 1-on-1 messages in AWS yet. Tap the bookmark icon on any message in MaxAssist!</td></tr>"
+
+    ai_trs = ""
+    for a in saved_ai:
+        ai_trs += (
+            f"<tr>"
+            f"<td><code>#{html_lib.escape(str(a['id']))}</code></td>"
+            f"<td><small>{html_lib.escape(a['owner'])}</small></td>"
+            f"<td>{html_lib.escape(a['user'])}</td>"
+            f"<td>{html_lib.escape(a['reply'])}</td>"
+            f"<td style='white-space:nowrap'>{html_lib.escape(_fmt_ont(a['timestamp']))}</td>"
+            f"</tr>"
+        )
+    if not ai_trs:
+        ai_trs = "<tr><td colspan='5' style='text-align:center;color:#64748b;padding:24px'>No saved MaxAssist AI messages in AWS yet.</td></tr>"
+
+    page = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MaxAssist — Live AWS Saved Records</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f6fa; color: #16202c; margin: 0; padding: 24px; }}
+    .wrap {{ max-width: 1120px; margin: 0 auto; }}
+    .top {{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }}
+    h1 {{ margin: 0; color: #075E54; font-size: 24px; }}
+    .sub {{ color: #4d5b6b; font-size: 13px; margin-top: 4px; }}
+    .btn {{ background: #00A884; color: #fff; border: none; padding: 10px 18px; border-radius: 999px; font-weight: 700; cursor: pointer; text-decoration: none; font-size: 13px; }}
+    .card {{ background: #fff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 18px; margin-bottom: 22px; box-shadow: 0 4px 14px rgba(15,92,156,0.05); overflow-x: auto; }}
+    h2 {{ margin: 0 0 12px 0; font-size: 16px; color: #0f172a; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 13.5px; }}
+    th, td {{ text-align: left; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }}
+    th {{ background: #f8fafc; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }}
+    .badge {{ color: #fff; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }}
+    code {{ background: #f1f5f9; padding: 2px 6px; border-radius: 6px; font-size: 11.5px; }}
+    small {{ color: #64748b; }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>MaxAssist — Live AWS Saved Records</h1>
+        <div class="sub">Live query from <code>{html_lib.escape(AWS_URL)}</code> • Ontario Time • Showing only MaxAssist saved records</div>
+      </div>
+      <button class="btn" onclick="location.reload()">↻ Refresh Live AWS</button>
+    </div>
+
+    <div class="card">
+      <h2>1-on-1 Saved WhatsApp Messages ({len(saved_msgs)})</h2>
+      <table>
+        <thead><tr><th>AWS ID</th><th>Direction</th><th>Contact &amp; Account</th><th>Saved Message</th><th>AWS Table</th><th>Ontario Time</th></tr></thead>
+        <tbody>{msg_trs}</tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Saved MaxAssist AI Messages ({len(saved_ai)})</h2>
+      <table>
+        <thead><tr><th>AWS ID</th><th>Account</th><th>Prompt / Saved Text</th><th>AI Reply</th><th>Ontario Time</th></tr></thead>
+        <tbody>{ai_trs}</tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=page, status_code=200)
+
 @router.get('/database', response_class=HTMLResponse)
 @router.get('/db', response_class=HTMLResponse)
 @router.get('/api/doctor/database', response_class=HTMLResponse)
