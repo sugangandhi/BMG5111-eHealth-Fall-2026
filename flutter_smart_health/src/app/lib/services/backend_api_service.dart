@@ -187,6 +187,27 @@ class BackendApiService {
     }
   }
 
+  static Future<List<String>> translateMessages({
+    required List<String> texts,
+    required String targetLanguage,
+  }) async {
+    if (texts.isEmpty) return const [];
+    try {
+      final res = await _apiClient.postJson(
+        '/api/translate/messages',
+        {
+          'target_language': targetLanguage,
+          'texts': texts,
+        },
+      );
+      if (res is Map && res['translations'] is List) {
+        final list = (res['translations'] as List).map((e) => e.toString()).toList();
+        if (list.length == texts.length) return list;
+      }
+    } catch (_) {}
+    return texts;
+  }
+
   static Future<List<Map<String, dynamic>>> getDoctorAiChatHistory({
     required String ownerId,
   }) async {

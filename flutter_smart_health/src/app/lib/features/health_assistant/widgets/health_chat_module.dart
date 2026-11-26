@@ -97,6 +97,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   final Map<String, String> _lastPreviewByPhone = {};
   final Map<String, String> _lastTimeByPhone = {};
   final Map<String, bool> _lastOutgoingByPhone = {};
+  final Map<String, String> _translatedTextCache = {};
+  bool _isTranslatingHistory = false;
   Timer? _liveSyncTimer;
   bool _isLiveSyncing = false;
 
@@ -159,9 +161,69 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       onStatusMessage: _showVoiceStatus,
     );
     _loadPatientAndHistory();
+    AppLanguageController.instance.addListener(_onAppLanguageChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForAppUpdateSilently();
     });
+  }
+
+  void _onAppLanguageChanged() {
+    if (!mounted) return;
+    setState(() {});
+    _translateVisibleHistoryIfNeeded();
+  }
+
+  String _displayTranslated(String originalText) {
+    final lang = AppLanguageController.instance.languageCode;
+    final clean = originalText.trim();
+    if (lang == 'en' || clean.isEmpty) return originalText;
+    return _translatedTextCache['$lang|$clean'] ?? originalText;
+  }
+
+  Future<void> _translateVisibleHistoryIfNeeded() async {
+    final bool isRunningInTest =
+        WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    final lang = AppLanguageController.instance.languageCode;
+    if (isRunningInTest || lang == 'en' || _isTranslatingHistory || !mounted) return;
+
+    final Set<String> needed = {};
+    for (final m in _messages) {
+      final t = _cleanDisplayBubbleText(m.text).trim();
+      if (t.isNotEmpty && !_translatedTextCache.containsKey('$lang|$t')) {
+        needed.add(t);
+      }
+    }
+    for (final m in _aiMessages) {
+      final t = m.text.trim();
+      if (t.isNotEmpty && !_translatedTextCache.containsKey('$lang|$t')) {
+        needed.add(t);
+      }
+    }
+    for (final preview in _lastPreviewByPhone.values) {
+      final t = preview.trim();
+      if (t.isNotEmpty && !t.startsWith('+') && !_translatedTextCache.containsKey('$lang|$t')) {
+        needed.add(t);
+      }
+    }
+
+    if (needed.isEmpty) return;
+    _isTranslatingHistory = true;
+    try {
+      final batch = needed.take(50).toList();
+      final translated = await BackendApiService.translateMessages(
+        texts: batch,
+        targetLanguage: lang,
+      );
+      if (mounted && translated.length == batch.length) {
+        setState(() {
+          for (var i = 0; i < batch.length; i++) {
+            _translatedTextCache['$lang|${batch[i]}'] = translated[i];
+          }
+        });
+      }
+    } finally {
+      _isTranslatingHistory = false;
+    }
   }
 
   Future<void> _checkForAppUpdateSilently() async {
@@ -381,6 +443,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (isDoctor && !isRunningInTest) {
       await _loadAiChatHistory();
       await _refreshContactPreviews();
+      _translateVisibleHistoryIfNeeded();
       _startLiveSyncTimer();
       _syncWhatsAppThreadSilently();
     }
@@ -972,6 +1035,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     // 2. Load conversation history for newly selected patient
     await _loadMessagesForCurrentPatient();
     _prefillDoctorWelcomeMessageIfApplicable();
+    _translateVisibleHistoryIfNeeded();
 
     // 3. Immediately pull latest WhatsApp messages from backend
     await _syncWhatsAppThreadSilently();
@@ -979,6 +1043,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   @override
   void dispose() {
+    AppLanguageController.instance.removeListener(_onAppLanguageChanged);
     _liveSyncTimer?.cancel();
     _voiceController.dispose();
     _controller.dispose();
@@ -2823,7 +2888,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         final isUser = msg.role == 'user';
         final isDoctor = msg.role == 'doctor';
         final isOutgoing = _isDoctor ? isDoctor : isUser;
-        final displayText = _cleanDisplayBubbleText(msg.text);
+        final displayText = _displayTranslated(_cleanDisplayBubbleText(msg.text));
 
         return Align(
           alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
@@ -3410,7 +3475,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     final lastAiMsg = _aiMessages.isNotEmpty ? _aiMessages.last : null;
     final aiSubtitle = lastAiMsg != null
-        ? _cleanDisplayBubbleText(lastAiMsg.text).replaceAll('\n', ' ')
+        ? _displayTranslated(_cleanDisplayBubbleText(lastAiMsg.text)).replaceAll('\n', ' ')
         : s.aiSubtitleDefault;
     final aiTime = lastAiMsg != null ? _formatBubbleTime(lastAiMsg.timestamp) : "";
 
@@ -3682,7 +3747,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                       final name = contact["name"] ?? "Contact";
                       final phone = (contact["phone"] ?? contact["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
                       final photoBase64 = contact["photo"];
-                      final preview = _lastPreviewByPhone[phone] ?? "+$phone";
+                      final preview = _displayTranslated(_lastPreviewByPhone[phone] ?? "+$phone");
                       final timeStr = _lastTimeByPhone[phone] ?? "";
                       final isOut = _lastOutgoingByPhone[phone] == true;
 
@@ -3954,7 +4019,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                   alignment: Alignment.centerLeft,
                                   widthFactor: 1.0,
                                   child: MarkdownBody(
-                                    data: msg.text,
+                                    data: _displayTranslated(msg.text),
                                     styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                                       p: const TextStyle(fontSize: 15, height: 1.35, color: Color(0xFF111B21)),
                                     ),

@@ -636,6 +636,63 @@ def _plan_doctor_ai_agent_action(
         print(f"[MaxAssist GPT Agent Exception]: {exc}")
     return None
 
+class TranslateMessagesRequest(BaseModel):
+    target_language: str = "en"
+    texts: List[str] = []
+
+@router.post('/api/translate/messages')
+async def translate_messages_batch(req: TranslateMessagesRequest):
+    """Batch-translates chat history messages into the user's selected UI language (en/fr/ar)."""
+    lang = (req.target_language or "en").strip().lower()
+    texts = [str(t or "") for t in (req.texts or [])[:60]]
+    if not texts:
+        return {"translations": []}
+
+    lang_name = {"fr": "French", "ar": "Arabic", "en": "English"}.get(lang, "English")
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return {"translations": texts}
+
+    try:
+        resp = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": os.getenv("OPENAI_AGENT_MODEL", "gpt-4o-mini"),
+                "temperature": 0.1,
+                "max_tokens": 2000,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            f"Translate every string in the input JSON array 'texts' naturally into {lang_name}. "
+                            "Preserve emojis, proper names, phone numbers, and markdown bolding (**...**). "
+                            "Return ONLY a JSON object: {\"translations\": [ ... ]} with the EXACT same number of items in the EXACT same order."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps({"texts": texts}, ensure_ascii=False),
+                    },
+                ],
+            },
+            timeout=20,
+            verify=False,
+        )
+        if resp.status_code == 200:
+            parsed = json.loads(resp.json()["choices"][0]["message"]["content"])
+            translated = parsed.get("translations")
+            if isinstance(translated, list) and len(translated) == len(texts):
+                return {"translations": [str(x) for x in translated]}
+    except Exception as exc:
+        print(f"[Translate Batch Error]: {exc}")
+
+    return {"translations": texts}
+
 @router.get('/api/doctor/ai-chat-history')
 async def get_doctor_ai_chat_history(owner_id: str = ""):
     """Fetches persistent MaxAssist AI chat history for this account from AWS chatbot_conversation."""
