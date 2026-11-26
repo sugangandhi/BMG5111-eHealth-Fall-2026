@@ -107,6 +107,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   final Map<String, String> _lastPreviewByPhone = {};
   final Map<String, String> _lastTimeByPhone = {};
   final Map<String, bool> _lastOutgoingByPhone = {};
+  final Map<String, String> _lastStatusByPhone = {};
   final Map<String, String> _translatedTextCache = {};
   bool _isTranslatingHistory = false;
   Timer? _liveSyncTimer;
@@ -746,6 +747,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             _lastPreviewByPhone[cleanPhone] = _cleanDisplayBubbleText(last.text);
             _lastTimeByPhone[cleanPhone] = _formatBubbleTime(last.timestamp);
             _lastOutgoingByPhone[cleanPhone] = last.role == 'doctor';
+            _lastStatusByPhone[cleanPhone] = last.status;
           });
         }
       }
@@ -3459,6 +3461,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       final Map<String, String> previews = {};
       final Map<String, String> times = {};
       final Map<String, bool> outgoing = {};
+      final Map<String, String> statuses = {};
 
       for (final p in _doctorPatients) {
         final phone = (p["phone"] ?? p["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
@@ -3472,6 +3475,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               previews[phone] = _cleanDisplayBubbleText(lastMsg.text);
               times[phone] = _formatBubbleTime(lastMsg.timestamp);
               outgoing[phone] = lastMsg.role == 'doctor';
+              statuses[phone] = lastMsg.status;
             }
           } catch (_) {}
         }
@@ -3488,6 +3492,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           _lastOutgoingByPhone
             ..clear()
             ..addAll(outgoing);
+          _lastStatusByPhone
+            ..clear()
+            ..addAll(statuses);
         });
       }
     } catch (e) {
@@ -4550,11 +4557,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                         Row(
                                           children: [
                                             if (isOut) ...[
-                                              const Icon(
-                                                Icons.done_all_rounded,
-                                                size: 16,
-                                                color: Color(0xFF53BDEB),
-                                              ),
+                                              _buildWhatsAppTickIcon(_lastStatusByPhone[phone] ?? 'sent'),
                                               const SizedBox(width: 4),
                                             ],
                                             Expanded(

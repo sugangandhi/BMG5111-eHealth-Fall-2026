@@ -298,30 +298,16 @@ def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dic
     clean_owner = (owner_id or "").strip()
     with get_db() as conn:
         if clean_owner:
-            # Verify this device owns this patient contact before including shared inbound WhatsApp replies
-            owns_patient = conn.execute(
-                "SELECT 1 FROM doctor_patients WHERE (phone = ? OR phone = ? OR phone LIKE ?) AND owner_id = ? LIMIT 1;",
-                (clean_p, phone_10, f"%{phone_10}", clean_owner),
-            ).fetchone() is not None
-
-            if owns_patient:
-                cursor = conn.execute("""
-                    SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
-                           timestamp, status, vitals_json, is_voice, audio_url, created_at
-                    FROM patient_chat_messages
-                    WHERE (patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?)
-                      AND (owner_id = ? OR (owner_id = '' AND sender_role = 'patient'))
-                    ORDER BY id ASC;
-                """, (clean_p, phone_10, f"%{phone_10}", clean_owner))
-            else:
-                cursor = conn.execute("""
-                    SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
-                           timestamp, status, vitals_json, is_voice, audio_url, created_at
-                    FROM patient_chat_messages
-                    WHERE (patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?)
-                      AND owner_id = ?
-                    ORDER BY id ASC;
-                """, (clean_p, phone_10, f"%{phone_10}", clean_owner))
+            # Always include this user's own messages PLUS live inbound WhatsApp replies (owner_id = '')
+            # and unclaimed doctor rows so Render restarts never block live 2-way sync or read receipts.
+            cursor = conn.execute("""
+                SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
+                       timestamp, status, vitals_json, is_voice, audio_url, created_at
+                FROM patient_chat_messages
+                WHERE (patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?)
+                  AND (owner_id = ? OR owner_id = '' OR owner_id IS NULL)
+                ORDER BY id ASC;
+            """, (clean_p, phone_10, f"%{phone_10}", clean_owner))
         else:
             cursor = conn.execute("""
                 SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
