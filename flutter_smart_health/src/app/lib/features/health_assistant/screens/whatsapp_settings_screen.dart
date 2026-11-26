@@ -249,7 +249,7 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
     );
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFE6F1FC),
       appBar: AppBar(
         backgroundColor: const Color(0xFF075E54),
         foregroundColor: Colors.white,
@@ -259,7 +259,16 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 19),
         ),
       ),
-      body: ListView(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.42, 1.0],
+          ),
+        ),
+        child: ListView(
         children: [
           InkWell(
             onTap: _editDisplayName,
@@ -374,6 +383,7 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
             onTap: _logOut,
           ),
         ],
+      ),
       ),
     );
   }

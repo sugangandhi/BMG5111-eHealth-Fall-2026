@@ -169,8 +169,17 @@ class _LoginScreenState extends State<LoginScreen> {
     final s = AppStrings.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
+      backgroundColor: const Color(0xFFE6F1FC),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.42, 1.0],
+          ),
+        ),
+        child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -369,6 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

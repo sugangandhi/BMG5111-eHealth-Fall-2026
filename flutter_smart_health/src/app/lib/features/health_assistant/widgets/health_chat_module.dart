@@ -2750,7 +2750,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   Widget _buildGeminiComposer() {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-      color: const Color(0xFFECE5DD),
+      color: Colors.transparent,
       child: SafeArea(
         top: false,
         child: Row(
@@ -3481,7 +3481,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFE6F1FC),
       drawer: _buildGeminiHistoryDrawer(),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF00A884),
@@ -3492,7 +3492,16 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         onPressed: _showAddContactModalSheet,
         child: const Icon(Icons.add_comment_rounded, size: 24),
       ),
-      body: SafeArea(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.42, 1.0],
+          ),
+        ),
+        child: SafeArea(
         child: Column(
           children: [
             // Top WhatsApp-style Header
@@ -3602,8 +3611,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               child: Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: Colors.white.withValues(alpha: 0.90),
                   borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFCBD5E1).withValues(alpha: 0.7)),
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -3837,6 +3847,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -3844,8 +3855,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final s = AppStrings.of(context);
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFFECE5DD),
-      body: SafeArea(
+      backgroundColor: const Color(0xFFE6F1FC),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.42, 1.0],
+          ),
+        ),
+        child: SafeArea(
         child: Column(
           children: [
             // WhatsApp Emerald Header for MaxAssist AI
@@ -4074,6 +4094,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -4088,9 +4109,18 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFFECE5DD),
+      backgroundColor: const Color(0xFFE6F1FC),
       drawer: _isDoctor ? _buildGeminiHistoryDrawer() : null,
-      body: SafeArea(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
+            stops: [0.0, 0.42, 1.0],
+          ),
+        ),
+        child: SafeArea(
         child: Column(
           children: [
             // Top Header: WhatsApp-style 1-on-1 Contact Header or Patient Header
@@ -4136,6 +4166,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             _buildGeminiComposer(),
           ],
         ),
+      ),
       ),
     );
   }
