@@ -506,3 +506,101 @@ def delete_message_from_aws(
         _invalidate_cache(table)
     return True
 
+
+# ------------------------------------------------------------------------------
+# Persistent Scheduled Tasks in AWS `doctor_tasks` (survives Render sleep/restart)
+# ------------------------------------------------------------------------------
+TASK_PREFIX = "maxassist_task:v1|"
+
+
+def save_scheduled_task_to_aws(task: Dict[str, Any]) -> Optional[int]:
+    """Saves a scheduled WhatsApp task permanently into AWS doctor_tasks."""
+    import json as _json
+    meta_blob = _json.dumps(
+        {
+            "o": str(task.get("owner_id") or ""),
+            "d": str(task.get("doctor_id") or "Dr. Sugan"),
+            "p": _clean_phone(str(task.get("patient_phone") or "")),
+            "n": str(task.get("patient_name") or "Patient"),
+            "m": str(task.get("message_text") or ""),
+            "u": str(task.get("scheduled_for_utc") or ""),
+            "s": str(task.get("scheduled_display") or ""),
+        },
+        ensure_ascii=False,
+    )
+    due_date = str(task.get("scheduled_for_utc") or "")[:10] or datetime.utcnow().strftime("%Y-%m-%d")
+    payload = {
+        "doctor_id": DEFAULT_AWS_DOCTOR_ID,
+        "description": f"{TASK_PREFIX}{meta_blob}"[:1900],
+        "status": str(task.get("status") or "pending"),
+        "due_date": due_date,
+    }
+    try:
+        resp = requests.post(
+            f"{EHOSPITAL_BASE_URL}/table/doctor_tasks",
+            json=payload,
+            timeout=7,
+            verify=False,
+        )
+        if resp.status_code in (200, 201):
+            _invalidate_cache("doctor_tasks")
+            data = resp.json().get("data") or resp.json()
+            return int(data.get("task_id")) if isinstance(data, dict) and data.get("task_id") else None
+    except Exception as exc:
+        print(f"[AWS Task Store] POST doctor_tasks error: {exc}")
+    return None
+
+
+def fetch_scheduled_tasks_from_aws(owner_id: Optional[str] = None, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Reads MaxAssist scheduled tasks from AWS doctor_tasks."""
+    import json as _json
+    rows = _fetch_table_rows("doctor_tasks", force_refresh=True)
+    clean_owner = (owner_id or "").strip()
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        desc = str(r.get("description") or "")
+        if not desc.startswith(TASK_PREFIX):
+            continue
+        try:
+            data = _json.loads(desc[len(TASK_PREFIX):])
+        except Exception:
+            continue
+        row_owner = str(data.get("o") or "").strip()
+        row_status = str(r.get("status") or "pending").strip().lower()
+        if clean_owner and row_owner != clean_owner:
+            continue
+        if status and row_status != status.strip().lower():
+            continue
+        out.append({
+            "id": r.get("task_id"),
+            "aws_task_id": r.get("task_id"),
+            "owner_id": row_owner,
+            "doctor_id": data.get("d") or "Dr. Sugan",
+            "patient_phone": data.get("p") or "",
+            "patient_name": data.get("n") or "Patient",
+            "message_text": data.get("m") or "",
+            "scheduled_for_utc": data.get("u") or "",
+            "scheduled_display": data.get("s") or data.get("u") or "",
+            "status": row_status,
+        })
+    out.sort(key=lambda t: str(t.get("scheduled_for_utc") or ""))
+    return out
+
+
+def update_aws_scheduled_task_status(aws_task_id: int, new_status: str) -> bool:
+    """Updates status (sent / cancelled / failed) on an AWS doctor_tasks row."""
+    try:
+        resp = requests.put(
+            f"{EHOSPITAL_BASE_URL}/table/doctor_tasks/{aws_task_id}",
+            json={"status": new_status},
+            timeout=7,
+            verify=False,
+        )
+        if resp.status_code in (200, 204):
+            _invalidate_cache("doctor_tasks")
+            return True
+    except Exception as exc:
+        print(f"[AWS Task Store] PUT doctor_tasks/{aws_task_id} error: {exc}")
+    return False
+
+

@@ -1,0 +1,15 @@
+name: MaxAssist 24/7 Scheduled WhatsApp Dispatcher
+
+on:
+  schedule:
+    # Runs every 5 minutes 24/7 so overnight scheduled WhatsApp messages always fire on time
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  dispatch_due_tasks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake Render & dispatch due scheduled WhatsApp tasks
+        run: |
+          curl -fsSL --max-time 45 "https://bmg5111-ehealth-fall-2026-1.onrender.com/api/doctor/scheduled-tasks/run-due" || true

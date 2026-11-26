@@ -941,6 +941,13 @@ async def _execute_doctor_ai_agent_command(req: DoctorAiAgentRequest):
                     scheduled_display=sched_display,
                     owner_id=owner_id,
                 )
+                try:
+                    from src.backend.services.aws_chat_store import save_scheduled_task_to_aws
+                    aws_id = save_scheduled_task_to_aws(task)
+                    if aws_id:
+                        task["aws_task_id"] = aws_id
+                except Exception:
+                    pass
                 return {
                     "success": True,
                     "action": "scheduled",
@@ -1067,18 +1074,43 @@ async def get_doctor_scheduled_tasks(
     patient_phone: Optional[str] = None,
     owner_id: Optional[str] = None,
 ):
-    """Returns scheduled WhatsApp tasks from persistent SQLite storage, isolated by owner_id."""
+    """Returns scheduled WhatsApp tasks merged from AWS doctor_tasks + local SQLite, isolated by owner_id."""
     try:
         from src.backend.services.clinical_database import list_scheduled_tasks
-        return {"tasks": list_scheduled_tasks(status=status, patient_phone=patient_phone, owner_id=owner_id)}
+        from src.backend.services.aws_chat_store import fetch_scheduled_tasks_from_aws
+
+        local_tasks = list_scheduled_tasks(status=status, patient_phone=patient_phone, owner_id=owner_id)
+        aws_tasks = fetch_scheduled_tasks_from_aws(owner_id=owner_id, status=status)
+        if patient_phone:
+            p10 = re.sub(r'\D', '', patient_phone)[-10:]
+            aws_tasks = [t for t in aws_tasks if re.sub(r'\D', '', str(t.get("patient_phone", ""))).endswith(p10)]
+
+        # Merge without duplicates (prefer AWS task_id when present)
+        seen = set()
+        merged = []
+        for t in aws_tasks + local_tasks:
+            sig = (str(t.get("patient_phone", ""))[-10:], str(t.get("scheduled_for_utc", ""))[:16], str(t.get("message_text", "")).strip().lower())
+            if sig in seen:
+                continue
+            seen.add(sig)
+            merged.append(t)
+        return {"tasks": merged}
     except Exception as e:
         return {"tasks": [], "error": str(e)}
 
+@router.post('/api/doctor/scheduled-tasks/run-due')
+@router.get('/api/doctor/scheduled-tasks/run-due')
+async def trigger_due_scheduled_tasks_endpoint():
+    """Wakes Render and dispatches all due scheduled WhatsApp tasks from AWS & SQLite (called by 24/7 cron)."""
+    dispatched = await process_due_scheduled_tasks()
+    return {"success": True, "dispatched": dispatched}
+
 @router.post('/api/doctor/scheduled-tasks')
 async def create_doctor_scheduled_task(req: CreateScheduledTaskRequest):
-    """Creates a scheduled WhatsApp message task directly."""
+    """Creates a scheduled WhatsApp message task in SQLite AND permanently in AWS doctor_tasks."""
     try:
         from src.backend.services.clinical_database import create_scheduled_task
+        from src.backend.services.aws_chat_store import save_scheduled_task_to_aws
         task = create_scheduled_task(
             doctor_id=req.doctor_name or "Dr. Sugan",
             patient_phone=req.patient_phone,
@@ -1088,6 +1120,9 @@ async def create_doctor_scheduled_task(req: CreateScheduledTaskRequest):
             scheduled_display=req.scheduled_display or req.scheduled_for_utc,
             owner_id=req.owner_id or "",
         )
+        aws_id = save_scheduled_task_to_aws(task)
+        if aws_id:
+            task["aws_task_id"] = aws_id
         return {"success": True, "task": task}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -1095,11 +1130,13 @@ async def create_doctor_scheduled_task(req: CreateScheduledTaskRequest):
 @router.post('/api/doctor/scheduled-tasks/{task_id}/cancel')
 @router.delete('/api/doctor/scheduled-tasks/{task_id}')
 async def delete_doctor_scheduled_task(task_id: int):
-    """Cancels a pending scheduled task."""
+    """Cancels a pending scheduled task in both SQLite and AWS doctor_tasks."""
     try:
         from src.backend.services.clinical_database import cancel_scheduled_task
-        ok = cancel_scheduled_task(task_id)
-        return {"success": ok, "task_id": task_id}
+        from src.backend.services.aws_chat_store import update_aws_scheduled_task_status
+        ok_local = cancel_scheduled_task(task_id)
+        ok_aws = update_aws_scheduled_task_status(task_id, "cancelled")
+        return {"success": ok_local or ok_aws, "task_id": task_id}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -1244,6 +1281,13 @@ async def parse_and_schedule_doctor_task(req: ParseScheduleTaskRequest):
             scheduled_display=display_time,
             owner_id=req.owner_id or "",
         )
+        try:
+            from src.backend.services.aws_chat_store import save_scheduled_task_to_aws
+            aws_id = save_scheduled_task_to_aws(task)
+            if aws_id:
+                task["aws_task_id"] = aws_id
+        except Exception:
+            pass
         return {"success": True, "task": task}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -1256,13 +1300,37 @@ async def process_due_scheduled_tasks() -> int:
         mark_scheduled_task_failed,
         mark_scheduled_task_sent,
     )
+    from src.backend.services.aws_chat_store import (
+        fetch_scheduled_tasks_from_aws,
+        update_aws_scheduled_task_status,
+    )
 
     due = get_due_scheduled_tasks()
     dispatched_count = 0
+    dispatched_sigs: set[tuple[str, str]] = set()
+    now_utc_iso = datetime.utcnow().isoformat() + "Z"
+
+    # Also pull any due pending tasks from AWS doctor_tasks (survives Render sleep/restart overnight!)
+    try:
+        aws_pending = fetch_scheduled_tasks_from_aws(status="pending")
+        for at in aws_pending:
+            sched_u = str(at.get("scheduled_for_utc") or "")
+            if sched_u and sched_u <= now_utc_iso:
+                due.append(at)
+    except Exception as exc:
+        print(f"[Scheduler] AWS due-task fetch note: {exc}")
+
     for task in due:
         task_id = int(task["id"])
+        aws_task_id = task.get("aws_task_id")
         phone = task["patient_phone"]
         patient_name = task["patient_name"]
+        sig = (re.sub(r'\D', '', str(phone))[-10:], str(task.get("message_text", "")).strip().lower())
+        if sig in dispatched_sigs:
+            if aws_task_id:
+                update_aws_scheduled_task_status(int(aws_task_id), "sent")
+            continue
+        dispatched_sigs.add(sig)
         doctor_title = task["doctor_id"] or "Dr. Sugan"
         if not doctor_title.startswith("Dr.") and not doctor_title.startswith("Dr "):
             doctor_title = f"Dr. {doctor_title}"
@@ -1273,7 +1341,10 @@ async def process_due_scheduled_tasks() -> int:
             sent = send_whatsapp_reply(phone, outbound)
             if not sent:
                 send_whatsapp_template(phone)
-            mark_scheduled_task_sent(task_id)
+            if aws_task_id:
+                update_aws_scheduled_task_status(int(aws_task_id), "sent")
+            else:
+                mark_scheduled_task_sent(task_id)
             add_chat_message(
                 patient_phone=phone,
                 sender_role="doctor",

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../config/api_config.dart';
 import '../../../core/services/app_language_controller.dart';
+import '../../../core/services/maxassist_notification_service.dart';
 import '../../../core/services/voice_dictation_helper.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/app_update_service.dart';
@@ -692,6 +693,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   savedToAws: (item['status']?.toString() == 'saved'),
                   timestamp: _HealthChatMessage._parseToLocal(item['created_at']),
                 ));
+                if (mappedRole == 'user') {
+                  MaxAssistNotificationService.instance.showIncomingMessageNotification(
+                    senderName: _selectedPatientName,
+                    body: _cleanDisplayBubbleText(formattedText),
+                  );
+                }
               }
             }
           }
@@ -3537,6 +3544,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         final action = (res['action'] ?? '').toString();
         if (action == 'scheduled') {
           _loadScheduledTasks();
+          final taskMap = res['task'];
+          if (taskMap is Map) {
+            final dt = DateTime.tryParse((taskMap['scheduled_for_utc'] ?? '').toString());
+            if (dt != null) {
+              MaxAssistNotificationService.instance.scheduleLocalReminder(
+                title: "MaxAssist Reminder: ${taskMap['patient_name'] ?? 'Contact'}",
+                body: (taskMap['message_text'] ?? '').toString(),
+                scheduledTime: dt,
+              );
+            }
+          }
         }
         final targetPhone = (res['target_phone'] ?? res['patient_phone'] ?? '')
             .toString()
@@ -3761,6 +3779,11 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                         );
                         if (ctx.mounted) Navigator.of(ctx).pop();
                         if (res['success'] == true) {
+                          MaxAssistNotificationService.instance.scheduleLocalReminder(
+                            title: "MaxAssist Reminder: ${targetName.isNotEmpty ? targetName : targetPhone}",
+                            body: msgCtrl.text.trim(),
+                            scheduledTime: combined,
+                          );
                           await _loadScheduledTasks();
                         }
                       },

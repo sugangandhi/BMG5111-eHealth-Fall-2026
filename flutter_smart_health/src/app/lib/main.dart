@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_health_app/core/services/app_language_controller.dart';
+import 'package:smart_health_app/core/services/maxassist_notification_service.dart';
 import 'package:smart_health_app/features/auth/auth.dart';
 import 'package:smart_health_app/features/health_assistant/health_assistant.dart';
 import 'package:smart_health_app/ui/app_theme.dart';
@@ -9,6 +10,7 @@ import 'package:smart_health_app/ui/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppLanguageController.instance.loadSavedLocale();
+  await MaxAssistNotificationService.instance.initialize();
   final prefs = await SharedPreferences.getInstance();
   final bool? loggedInPref = prefs.getBool('whatsapp_logged_in_v1');
   final bool legacyVerified = prefs.getBool('doctor_whatsapp_verified_v1') ?? false;
