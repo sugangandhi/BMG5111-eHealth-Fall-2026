@@ -219,6 +219,32 @@ class BackendApiService {
     }
   }
 
+  static Future<bool> unsaveMessageFromAws({
+    required String ownerId,
+    required String text,
+    String patientPhone = '',
+    String role = 'doctor',
+    String msgId = '',
+    bool isAiChat = false,
+  }) async {
+    try {
+      final res = await _apiClient.postJson(
+        '/api/doctor/unsave-message-from-aws',
+        {
+          'owner_id': ownerId,
+          'patient_phone': patientPhone,
+          'role': role,
+          'text': text,
+          'msg_id': msgId,
+          'is_ai_chat': isAiChat,
+        },
+      );
+      return res is Map && res['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<List<String>> translateMessages({
     required List<String> texts,
     required String targetLanguage,

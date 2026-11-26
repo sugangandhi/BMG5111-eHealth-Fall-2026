@@ -750,6 +750,24 @@ async def save_selected_message_to_aws(req: SaveMessageToAwsRequest):
         print(f"[Save Message to AWS Error]: {exc}")
         return {"success": False, "error": str(exc)}
 
+@router.post('/api/doctor/unsave-message-from-aws')
+async def unsave_selected_message_from_aws(req: SaveMessageToAwsRequest):
+    """Removes a previously saved message from AWS when the user taps Undo Save."""
+    try:
+        from src.backend.services.aws_chat_store import delete_message_from_aws
+        ok = delete_message_from_aws(
+            owner_id=(req.owner_id or "").strip(),
+            text=(req.text or "").strip(),
+            patient_phone=req.patient_phone or "",
+            role=req.role or "doctor",
+            msg_id=req.msg_id or "",
+            is_ai_chat=bool(req.is_ai_chat),
+        )
+        return {"success": ok}
+    except Exception as exc:
+        print(f"[Unsave Message from AWS Error]: {exc}")
+        return {"success": False, "error": str(exc)}
+
 @router.post('/api/doctor/ai-agent-command')
 async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
     """Executes the GPT-4o-mini MaxAssist AI agent (messages are only saved to AWS when user taps Save)."""

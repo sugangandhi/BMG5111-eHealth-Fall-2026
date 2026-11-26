@@ -14,12 +14,12 @@ Future<void> main() async {
   final bool legacyVerified = prefs.getBool('doctor_whatsapp_verified_v1') ?? false;
   final String savedPhone = (prefs.getString('doctor_whatsapp_phone_v1') ?? '').trim();
   final bool startInChats = loggedInPref ?? (legacyVerified && savedPhone.isNotEmpty);
-  runApp(SmartHealthApp(initialRoute: startInChats ? "/chats" : "/"));
+  runApp(SmartHealthApp(startInChats: startInChats));
 }
 
 class SmartHealthApp extends StatelessWidget {
-  final String initialRoute;
-  const SmartHealthApp({super.key, this.initialRoute = "/"});
+  final bool startInChats;
+  const SmartHealthApp({super.key, this.startInChats = false});
 
   @override
   Widget build(BuildContext context) {
@@ -41,12 +41,12 @@ class SmartHealthApp extends StatelessWidget {
             Locale('fr'),
             Locale('ar'),
           ],
+          home: startInChats ? const HealthAssistantScreen() : const LoginScreen(),
           routes: {
-            "/": (_) => const LoginScreen(),
+            "/login": (_) => const LoginScreen(),
             "/chats": (_) => const HealthAssistantScreen(),
             "/assistant": (_) => const HealthAssistantScreen(),
           },
-          initialRoute: initialRoute,
         );
       },
     );

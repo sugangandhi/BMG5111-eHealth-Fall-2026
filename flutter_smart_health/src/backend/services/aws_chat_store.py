@@ -402,3 +402,79 @@ def fetch_ai_chat_history_from_aws(owner_id: str) -> List[Dict[str, Any]]:
                 "timestamp": ts,
             })
     return messages
+
+
+def delete_message_from_aws(
+    owner_id: str,
+    text: str,
+    patient_phone: str = "",
+    role: str = "doctor",
+    msg_id: str = "",
+    is_ai_chat: bool = False,
+) -> bool:
+    """Deletes a previously saved message from AWS when the user toggles Undo Save."""
+    clean_owner = (owner_id or "").strip()
+    clean_text = (text or "").strip()
+    if not clean_text:
+        return False
+
+    if is_ai_chat:
+        rows = _fetch_table_rows("chatbot_conversation", force_refresh=True)
+        prefix = f"{AI_PREFIX}{clean_owner or 'maxassist_user'}] "
+        deleted_any = False
+        for r in rows:
+            cid = r.get("conversation_id")
+            m_str = str(r.get("message") or "")
+            resp_str = str(r.get("response") or "")
+            if not m_str.startswith(prefix):
+                continue
+            body = m_str[len(prefix):].strip()
+            if body == clean_text or resp_str.strip() == clean_text:
+                try:
+                    dr = requests.delete(
+                        f"{EHOSPITAL_BASE_URL}/table/chatbot_conversation/{cid}",
+                        timeout=7,
+                        verify=False,
+                    )
+                    if dr.status_code in (200, 204):
+                        deleted_any = True
+                except Exception:
+                    pass
+        if deleted_any:
+            _invalidate_cache("chatbot_conversation")
+        return True
+
+    target10 = _phone_key10(patient_phone)
+    is_inbound = (role or "doctor").lower() in ("patient", "user")
+    table = "message_pat_to_doctor" if is_inbound else "message_doctor_to_pat"
+    rows = _fetch_table_rows(table, force_refresh=True)
+    deleted_any = False
+    for r in rows:
+        if str(r.get("status") or "") == "contact_meta":
+            continue
+        meta = _decode_meta(r.get("attachment_url"))
+        if not meta:
+            continue
+        if clean_owner and (meta.get("o") or "").strip() != clean_owner:
+            continue
+        if target10 and _phone_key10(meta.get("p", "")) != target10:
+            continue
+        row_mid = (meta.get("m") or "").strip()
+        row_text = str(r.get("message") or "").strip()
+        if (msg_id and row_mid == msg_id) or row_text == clean_text:
+            rid = r.get("message_id")
+            if rid is not None:
+                try:
+                    dr = requests.delete(
+                        f"{EHOSPITAL_BASE_URL}/table/{table}/{rid}",
+                        timeout=7,
+                        verify=False,
+                    )
+                    if dr.status_code in (200, 204):
+                        deleted_any = True
+                except Exception:
+                    pass
+    if deleted_any:
+        _invalidate_cache(table)
+    return True
+

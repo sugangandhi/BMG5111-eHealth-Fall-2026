@@ -2926,9 +2926,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     final list = isAiChat ? _aiMessages : _messages;
     if (index < 0 || index >= list.length) return;
     final msg = list[index];
-    if (msg.savedToAws) return;
+    final bool targetSaved = !msg.savedToAws;
 
-    // Optimistically fill blue immediately
+    // Optimistically toggle bookmark icon (outlined <-> filled blue)
     setState(() {
       list[index] = _HealthChatMessage(
         id: msg.id,
@@ -2936,7 +2936,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         text: msg.text,
         isVoice: msg.isVoice,
         status: msg.status,
-        savedToAws: true,
+        savedToAws: targetSaved,
         timestamp: msg.timestamp,
       );
     });
@@ -2946,20 +2946,30 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       await _persistMessagesLocally();
     }
 
-    final ok = await BackendApiService.saveMessageToAws(
-      ownerId: _deviceOwnerId,
-      patientPhone: isAiChat ? '' : _selectedPatientPhone,
-      patientName: isAiChat ? 'MaxAssist AI' : _selectedPatientName,
-      role: msg.role,
-      text: _cleanDisplayBubbleText(msg.text),
-      isVoice: msg.isVoice,
-      msgId: msg.id ?? '',
-      sentAtIso: msg.timestamp.toUtc().toIso8601String(),
-      isAiChat: isAiChat,
-    );
+    final cleanText = _cleanDisplayBubbleText(msg.text);
+    final bool ok = targetSaved
+        ? await BackendApiService.saveMessageToAws(
+            ownerId: _deviceOwnerId,
+            patientPhone: isAiChat ? '' : _selectedPatientPhone,
+            patientName: isAiChat ? 'MaxAssist AI' : _selectedPatientName,
+            role: msg.role,
+            text: cleanText,
+            isVoice: msg.isVoice,
+            msgId: msg.id ?? '',
+            sentAtIso: msg.timestamp.toUtc().toIso8601String(),
+            isAiChat: isAiChat,
+          )
+        : await BackendApiService.unsaveMessageFromAws(
+            ownerId: _deviceOwnerId,
+            patientPhone: isAiChat ? '' : _selectedPatientPhone,
+            role: msg.role,
+            text: cleanText,
+            msgId: msg.id ?? '',
+            isAiChat: isAiChat,
+          );
 
     if (!ok && mounted) {
-      // Revert if AWS write failed
+      // Revert if AWS call failed
       setState(() {
         if (index < list.length) {
           list[index] = _HealthChatMessage(
@@ -2968,7 +2978,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             text: msg.text,
             isVoice: msg.isVoice,
             status: msg.status,
-            savedToAws: false,
+            savedToAws: !targetSaved,
             timestamp: msg.timestamp,
           );
         }
@@ -2983,7 +2993,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   Widget _buildSaveToAwsIcon(bool saved, VoidCallback onTap) {
     return GestureDetector(
-      onTap: saved ? null : onTap,
+      onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.only(right: 5),
@@ -4244,7 +4254,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('whatsapp_logged_in_v1', false);
                         if (mounted) {
-                          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
                         }
                       } else if (value == 'back' && widget.onBack != null) {
                         widget.onBack!();
@@ -4792,74 +4802,91 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isDoctor && _doctorActiveView == 'list') {
-      return _buildWhatsAppChatListView();
-    }
-    if (_isDoctor && _doctorActiveView == 'ai') {
-      return _buildAiAgentChatView();
-    }
+    final bool canExitApp = _doctorActiveView == 'list' && _homeTabIndex == 0;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFE6F1FC),
-      drawer: _isDoctor ? _buildGeminiHistoryDrawer() : null,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
-            stops: [0.0, 0.42, 1.0],
+    Widget activeScreen;
+    if (_isDoctor && _doctorActiveView == 'list') {
+      activeScreen = _buildWhatsAppChatListView();
+    } else if (_isDoctor && _doctorActiveView == 'ai') {
+      activeScreen = _buildAiAgentChatView();
+    } else {
+      activeScreen = Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: const Color(0xFFE6F1FC),
+        drawer: _isDoctor ? _buildGeminiHistoryDrawer() : null,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFE6F1FC), Color(0xFFF3F6FA), Color(0xFFFFFFFF)],
+              stops: [0.0, 0.42, 1.0],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Top Header: WhatsApp-style 1-on-1 Contact Header or Patient Header
+                _isDoctor ? _buildGeminiTopBar() : _buildPatientHeader(),
+
+                // Meta 24-Hour Outreach Notice (only if patient hasn't replied yet)
+                if (_isDoctor) _buildDoctorOutreachBanner(),
+
+                // Chat Message Feed or Empty State
+                Expanded(
+                  child: _messages.isEmpty ? _buildGeminiEmptyState() : _buildMessageList(),
+                ),
+
+                // Loading indicator
+                if (_isLoading)
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(
+                              _isDoctor && _doctorSendViaWhatsApp
+                                  ? const Color(0xFF075E54)
+                                  : Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          AppStrings.of(context).sendingTo(_selectedPatientName),
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // WhatsApp-Style Bottom Composer
+                _buildGeminiComposer(),
+              ],
+            ),
           ),
         ),
-        child: SafeArea(
-        child: Column(
-          children: [
-            // Top Header: WhatsApp-style 1-on-1 Contact Header or Patient Header
-            _isDoctor ? _buildGeminiTopBar() : _buildPatientHeader(),
+      );
+    }
 
-            // Meta 24-Hour Outreach Notice (only if patient hasn't replied yet)
-            if (_isDoctor) _buildDoctorOutreachBanner(),
-
-            // Chat Message Feed or Empty State
-            Expanded(
-              child: _messages.isEmpty ? _buildGeminiEmptyState() : _buildMessageList(),
-            ),
-
-            // Loading indicator
-            if (_isLoading)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(
-                          _isDoctor && _doctorSendViaWhatsApp
-                              ? const Color(0xFF075E54)
-                              : Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      AppStrings.of(context).sendingTo(_selectedPatientName),
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-              ),
-
-            // WhatsApp-Style Bottom Composer
-            _buildGeminiComposer(),
-          ],
-        ),
-      ),
-      ),
+    return PopScope(
+      canPop: canExitApp,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_doctorActiveView != 'list') {
+          setState(() => _doctorActiveView = 'list');
+          _refreshContactPreviews();
+        } else if (_homeTabIndex != 0) {
+          setState(() => _homeTabIndex = 0);
+          _refreshContactPreviews();
+        }
+      },
+      child: activeScreen,
     );
   }
 }

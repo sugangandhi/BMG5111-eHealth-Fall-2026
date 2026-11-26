@@ -237,7 +237,7 @@ class _WhatsAppSettingsScreenState extends State<WhatsAppSettingsScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('whatsapp_logged_in_v1', false);
       if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
       }
     }
   }
