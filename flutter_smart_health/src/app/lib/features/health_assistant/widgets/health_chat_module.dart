@@ -28,7 +28,8 @@ class _HealthChatMessage {
   final String role; // 'user' | 'assistant' | 'doctor'
   final String text;
   final bool isVoice;
-  final String status; // 'sending' | 'sent' | 'delivered'
+  final String status; // 'sending' | 'sent' | 'delivered' | 'read'
+  final bool savedToAws;
   final DateTime timestamp;
 
   _HealthChatMessage({
@@ -36,7 +37,8 @@ class _HealthChatMessage {
     required this.role,
     required this.text,
     this.isVoice = false,
-    this.status = 'delivered',
+    this.status = 'sent',
+    this.savedToAws = false,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -46,6 +48,7 @@ class _HealthChatMessage {
         'text': text,
         'isVoice': isVoice,
         'status': status,
+        'savedToAws': savedToAws,
         'timestamp': timestamp.toUtc().toIso8601String(),
       };
 
@@ -64,7 +67,8 @@ class _HealthChatMessage {
         role: json['role'] as String? ?? 'user',
         text: json['text'] as String? ?? '',
         isVoice: json['isVoice'] == true,
-        status: json['status']?.toString() ?? 'delivered',
+        status: json['status']?.toString() ?? 'sent',
+        savedToAws: json['savedToAws'] == true,
         timestamp: _parseToLocal(json['timestamp']),
       );
 }
@@ -641,17 +645,35 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
               final coreIncoming = _extractCoreMessageText(text);
 
-              // Deduplicate by comparing message ID or core text content
-              final bool exists = (rawMsgId.isNotEmpty && _messages.any((m) => m.id != null && m.id == rawMsgId)) ||
-                  _messages.any((m) {
-                    final coreExisting = _extractCoreMessageText(m.text);
-                    return coreExisting.isNotEmpty &&
-                        (coreExisting == coreIncoming ||
-                         coreExisting.contains(coreIncoming) ||
-                         coreIncoming.contains(coreExisting));
-                  });
+              // Deduplicate or update real WhatsApp delivery/read status (sent -> delivered -> read)
+              final int existingIdx = _messages.indexWhere((m) {
+                if (rawMsgId.isNotEmpty && m.id != null && m.id == rawMsgId) return true;
+                final coreExisting = _extractCoreMessageText(m.text);
+                return coreExisting.isNotEmpty &&
+                    (coreExisting == coreIncoming ||
+                        coreExisting.contains(coreIncoming) ||
+                        coreIncoming.contains(coreExisting));
+              });
 
-              if (!exists) {
+              if (existingIdx != -1) {
+                final incomingStatus = (item['status']?.toString() ?? '').toLowerCase();
+                const rank = {'sending': 0, 'sent': 1, 'delivered': 2, 'read': 3};
+                final curMsg = _messages[existingIdx];
+                final curRank = rank[curMsg.status.toLowerCase()] ?? 1;
+                final newRank = rank[incomingStatus] ?? -1;
+                if (newRank > curRank) {
+                  _messages[existingIdx] = _HealthChatMessage(
+                    id: rawMsgId.isNotEmpty ? rawMsgId : curMsg.id,
+                    role: curMsg.role,
+                    text: curMsg.text,
+                    isVoice: curMsg.isVoice,
+                    status: incomingStatus,
+                    savedToAws: curMsg.savedToAws,
+                    timestamp: curMsg.timestamp,
+                  );
+                  hasNew = true;
+                }
+              } else {
                 hasNew = true;
                 String formattedText = text;
                 if (text.startsWith("🎙️ [Voice Note]")) {
@@ -663,7 +685,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   role: mappedRole,
                   text: formattedText,
                   isVoice: text.startsWith("🎙️ [Voice Note]") || item['isVoice'] == true,
-                  status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'delivered',
+                  status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'sent',
+                  savedToAws: (item['status']?.toString() == 'saved'),
                   timestamp: _HealthChatMessage._parseToLocal(item['created_at']),
                 ));
               }
@@ -1446,18 +1469,21 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         ownerId: _deviceOwnerId,
       );
 
-      final liveSent = res['delivered_live'] == true;
-      final finalStatus = liveSent ? 'delivered' : 'sent';
+      final metaMsgId = (res['message_id'] ?? '').toString().trim();
+      final finalStatus = (res['status']?.toString().isNotEmpty == true)
+          ? res['status'].toString()
+          : 'sent';
 
       if (mounted) {
         setState(() {
           final idx = _messages.indexWhere((m) => m.id == tempId);
           if (idx != -1) {
             _messages[idx] = _HealthChatMessage(
-              id: tempId,
+              id: metaMsgId.isNotEmpty ? metaMsgId : tempId,
               role: 'doctor',
               text: text,
               status: finalStatus,
+              savedToAws: _messages[idx].savedToAws,
               timestamp: optimisticMsg.timestamp,
             );
           }
@@ -2879,13 +2905,95 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   }
 
   Widget _buildWhatsAppTickIcon(String status) {
-    if (status == 'sending') {
+    final s = status.toLowerCase();
+    if (s == 'sending') {
       return const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF667781));
     }
-    if (status == 'sent') {
+    if (s == 'sent') {
       return const Icon(Icons.done_rounded, size: 15, color: Color(0xFF667781));
     }
-    return const Icon(Icons.done_all_rounded, size: 16, color: Color(0xFF53BDEB));
+    if (s == 'read') {
+      return const Icon(Icons.done_all_rounded, size: 16, color: Color(0xFF53BDEB));
+    }
+    // delivered -> double grey ticks (real WhatsApp style; turns blue only when read!)
+    return const Icon(Icons.done_all_rounded, size: 16, color: Color(0xFF667781));
+  }
+
+  Future<void> _saveMessageToAwsOnTap(
+    int index, {
+    required bool isAiChat,
+  }) async {
+    final list = isAiChat ? _aiMessages : _messages;
+    if (index < 0 || index >= list.length) return;
+    final msg = list[index];
+    if (msg.savedToAws) return;
+
+    // Optimistically fill blue immediately
+    setState(() {
+      list[index] = _HealthChatMessage(
+        id: msg.id,
+        role: msg.role,
+        text: msg.text,
+        isVoice: msg.isVoice,
+        status: msg.status,
+        savedToAws: true,
+        timestamp: msg.timestamp,
+      );
+    });
+    if (isAiChat) {
+      await _persistAiChatHistory();
+    } else {
+      await _persistMessagesLocally();
+    }
+
+    final ok = await BackendApiService.saveMessageToAws(
+      ownerId: _deviceOwnerId,
+      patientPhone: isAiChat ? '' : _selectedPatientPhone,
+      patientName: isAiChat ? 'MaxAssist AI' : _selectedPatientName,
+      role: msg.role,
+      text: _cleanDisplayBubbleText(msg.text),
+      isVoice: msg.isVoice,
+      msgId: msg.id ?? '',
+      sentAtIso: msg.timestamp.toUtc().toIso8601String(),
+      isAiChat: isAiChat,
+    );
+
+    if (!ok && mounted) {
+      // Revert if AWS write failed
+      setState(() {
+        if (index < list.length) {
+          list[index] = _HealthChatMessage(
+            id: msg.id,
+            role: msg.role,
+            text: msg.text,
+            isVoice: msg.isVoice,
+            status: msg.status,
+            savedToAws: false,
+            timestamp: msg.timestamp,
+          );
+        }
+      });
+      if (isAiChat) {
+        await _persistAiChatHistory();
+      } else {
+        await _persistMessagesLocally();
+      }
+    }
+  }
+
+  Widget _buildSaveToAwsIcon(bool saved, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: saved ? null : onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 5),
+        child: Icon(
+          saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+          size: 15,
+          color: saved ? const Color(0xFF2563EB) : const Color(0xFF667781),
+        ),
+      ),
+    );
   }
 
   Widget _buildMessageList() {
@@ -2940,6 +3048,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    _buildSaveToAwsIcon(
+                      msg.savedToAws,
+                      () => _saveMessageToAwsOnTap(index, isAiChat: false),
+                    ),
                     Text(
                       _formatBubbleTime(msg.timestamp),
                       style: const TextStyle(fontSize: 10.5, color: Color(0xFF667781)),
@@ -4625,6 +4737,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    _buildSaveToAwsIcon(
+                                      msg.savedToAws,
+                                      () => _saveMessageToAwsOnTap(index, isAiChat: true),
+                                    ),
                                     Text(
                                       _formatBubbleTime(msg.timestamp),
                                       style: const TextStyle(fontSize: 10.5, color: Color(0xFF667781)),

@@ -254,6 +254,30 @@ def delete_patient(phone: str) -> bool:
         cursor = conn.execute("DELETE FROM doctor_patients WHERE phone = ?;", (clean_p,))
         return cursor.rowcount > 0
 
+def update_message_status(message_id: str, new_status: str) -> bool:
+    """Monotonically updates WhatsApp delivery status (sending -> sent -> delivered -> read) by Meta wamid."""
+    mid = (message_id or "").strip()
+    st = (new_status or "").strip().lower()
+    rank = {"sending": 0, "sent": 1, "delivered": 2, "read": 3}
+    if not mid or st not in rank:
+        return False
+    init_db()
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT status FROM patient_chat_messages WHERE message_id = ? LIMIT 1;",
+            (mid,),
+        ).fetchone()
+        if not row:
+            return False
+        cur_rank = rank.get(str(row["status"] or "sent").lower(), 1)
+        if rank[st] <= cur_rank:
+            return False
+        conn.execute(
+            "UPDATE patient_chat_messages SET status = ? WHERE message_id = ?;",
+            (st, mid),
+        )
+        return True
+
 def is_message_processed(msg_id: str) -> bool:
     """Checks if a message ID has already been recorded in patient_chat_messages."""
     if not msg_id:
@@ -448,25 +472,7 @@ def add_chat_message(
         ))
         db_id = cursor.lastrowid
 
-    # Mirror permanently to AWS eHospital DB in background
-    def _sync_msg_aws() -> None:
-        try:
-            from src.backend.services.aws_chat_store import save_message_to_aws
-            p_name = (existing_patient or {}).get("name") or sender_name
-            save_message_to_aws(
-                sender_role=sender_role,
-                patient_phone=clean_p,
-                text=text,
-                owner_id=(owner_id or "").strip(),
-                patient_name=str(p_name or ""),
-                is_voice=is_voice,
-                status=status,
-                msg_id=msg_id,
-                sent_at_iso=now_iso,
-            )
-        except Exception as exc:
-            print(f"[Clinical DB] AWS message write note: {exc}")
-    threading.Thread(target=_sync_msg_aws, daemon=True).start()
+    # Note: Messages are NO LONGER auto-saved to AWS; doctors manually tap the Save icon per message.
 
     return {
         "id": db_id,

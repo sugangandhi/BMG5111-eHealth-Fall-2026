@@ -703,25 +703,57 @@ async def get_doctor_ai_chat_history(owner_id: str = ""):
         print(f"[MaxAssist AI History Error]: {exc}")
         return {"messages": []}
 
+class SaveMessageToAwsRequest(BaseModel):
+    owner_id: Optional[str] = ""
+    patient_phone: Optional[str] = ""
+    patient_name: Optional[str] = ""
+    role: Optional[str] = "doctor"
+    text: str
+    is_voice: Optional[bool] = False
+    msg_id: Optional[str] = ""
+    sent_at_iso: Optional[str] = ""
+    is_ai_chat: Optional[bool] = False
+
+@router.post('/api/doctor/save-message-to-aws')
+async def save_selected_message_to_aws(req: SaveMessageToAwsRequest):
+    """Explicitly persists a single user-selected message to the AWS eHospital database."""
+    try:
+        from src.backend.services.aws_chat_store import (
+            save_ai_chat_turn_to_aws,
+            save_message_to_aws,
+        )
+        owner = (req.owner_id or "").strip()
+        text = (req.text or "").strip()
+        if not text:
+            return {"success": False, "error": "Empty message."}
+        if req.is_ai_chat:
+            ok = save_ai_chat_turn_to_aws(
+                owner_id=owner or "maxassist_user",
+                user_text=text if req.role == "doctor" else "(Saved AI Reply)",
+                ai_reply=text if req.role != "doctor" else "",
+                timestamp_iso=(req.sent_at_iso or None),
+            )
+            return {"success": ok}
+        ok = save_message_to_aws(
+            sender_role=req.role or "doctor",
+            patient_phone=req.patient_phone or "",
+            text=text,
+            owner_id=owner,
+            patient_name=req.patient_name or "",
+            is_voice=bool(req.is_voice),
+            status="saved",
+            msg_id=req.msg_id or "",
+            sent_at_iso=(req.sent_at_iso or None),
+        )
+        return {"success": ok}
+    except Exception as exc:
+        print(f"[Save Message to AWS Error]: {exc}")
+        return {"success": False, "error": str(exc)}
+
 @router.post('/api/doctor/ai-agent-command')
 async def doctor_ai_agent_command(req: DoctorAiAgentRequest):
-    """Wrapper that delegates to _execute_doctor_ai_agent_command and persists the turn to AWS."""
-    result = await _execute_doctor_ai_agent_command(req)
-    try:
-        owner_id = (req.owner_id or "").strip()
-        instruction = (req.instruction or "").strip()
-        reply = str((result or {}).get("reply") or "").strip()
-        if owner_id and instruction and reply:
-            import threading
-            from src.backend.services.aws_chat_store import save_ai_chat_turn_to_aws
-            threading.Thread(
-                target=save_ai_chat_turn_to_aws,
-                args=(owner_id, instruction, reply),
-                daemon=True,
-            ).start()
-    except Exception as exc:
-        print(f"[MaxAssist AI AWS Save Note]: {exc}")
-    return result
+    """Executes the GPT-4o-mini MaxAssist AI agent (messages are only saved to AWS when user taps Save)."""
+    return await _execute_doctor_ai_agent_command(req)
 
 async def _execute_doctor_ai_agent_command(req: DoctorAiAgentRequest):
     """
@@ -1596,7 +1628,30 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     thread.append(doctor_msg)
     _save_threads(threads)
 
-    # 2. Record to persistent clinical database
+    # 2. Clean WhatsApp outbound message (exact message text only, no extra headers/footers)
+    outbound_text = (req.message or "").strip()
+
+    # 3. Check if patient has replied (opening Meta's 24h Customer Service Window)
+    has_patient_reply = any(m.get('role') in {'patient', 'user'} for m in thread)
+    template_already_sent = any(
+        m.get('action_type') == 'channel_initialization' or m.get('template_sent')
+        for m in thread[:-1]
+    )
+
+    template_dispatched = False
+    if not has_patient_reply and not template_already_sent:
+        print(f"[Doctor Dispatch] First-time outreach to {clean_p}. Dispatching hello_world template once to ping device.")
+        template_dispatched = send_whatsapp_template(clean_p, template_name="hello_world")
+        doctor_msg['template_sent'] = True
+
+    # 4. Dispatch live via Meta WhatsApp Cloud API & capture real wamid for sent/delivered/read webhooks
+    meta_sent, meta_wamid = send_whatsapp_reply_with_id(clean_p, outbound_text)
+    if meta_wamid:
+        doctor_msg['message_id'] = meta_wamid
+    doctor_msg['status'] = "sent"
+    _save_threads(threads)
+
+    # 5. Record to local SQLite session cache (AWS save is manual per-message via the Save icon)
     try:
         from src.backend.services.clinical_database import add_chat_message, upsert_patient
         upsert_patient(
@@ -1611,45 +1666,11 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
             sender_name=f"{doctor_title} (Attending Physician)",
             text=req.message,
             status="sent",
+            custom_msg_id=meta_wamid or None,
             owner_id=req.owner_id or "",
         )
     except Exception as ex_db:
         print(f"[Clinical DB Doctor Dispatch Error]: {ex_db}")
-
-    # 3. Record to Central AWS EHR doctor_to_patient_message table
-    try:
-        from datetime import timezone
-        now_iso = datetime.now(timezone.utc).isoformat()
-        msg_payload = {
-            "doctor_id": req.doctor_id or 1,
-            "patient_id": req.patient_id or 99211,
-            "message": req.message,
-            "sent_at": now_iso
-        }
-        requests.post(f"{EHOSPITAL_BASE_URL}/table/doctor_to_patient_message", json=msg_payload, timeout=5, verify=False)
-    except Exception as ex_ehr:
-        print(f"[Doctor Dispatch EHR Sync Note]: {ex_ehr}")
-
-    # 3. Clean WhatsApp outbound message (exact message text only, no extra headers/footers)
-    patient_display = req.patient_name or "Patient"
-    outbound_text = (req.message or "").strip()
-
-    # 4. Check if patient has replied (opening Meta's 24h Customer Service Window)
-    has_patient_reply = any(m.get('role') in {'patient', 'user'} for m in thread)
-    template_already_sent = any(
-        m.get('action_type') == 'channel_initialization' or m.get('template_sent')
-        for m in thread[:-1]
-    )
-
-    template_dispatched = False
-    if not has_patient_reply and not template_already_sent:
-        print(f"[Doctor Dispatch] First-time outreach to {clean_p}. Dispatching hello_world template once to ping device.")
-        template_dispatched = send_whatsapp_template(clean_p, template_name="hello_world")
-        doctor_msg['template_sent'] = True
-        _save_threads(threads)
-
-    # 5. Dispatch live via Meta WhatsApp Cloud API to patient's real WhatsApp
-    meta_sent = send_whatsapp_reply(clean_p, outbound_text)
 
     # 6. Activate Doctor Takeover Silence Window for 30 minutes
     set_doctor_silence(clean_p, 30)
@@ -1657,6 +1678,8 @@ async def doctor_dispatch_patient_message(req: DoctorDispatchMessageRequest):
     return {
         "success": True,
         "delivered_live": meta_sent,
+        "message_id": meta_wamid,
+        "status": "sent",
         "template_dispatched": template_dispatched,
         "window_open": has_patient_reply,
         "waiting_for_reply": not has_patient_reply,
@@ -2068,7 +2091,8 @@ def send_whatsapp_template(to_phone: str, template_name: str = "hello_world", la
     print(f"[WhatsApp Simulated Template to {to_phone}]: {template_name}")
     return True
 
-def send_whatsapp_reply(to_phone: str, message: str) -> bool:
+def send_whatsapp_reply_with_id(to_phone: str, message: str) -> tuple[bool, str]:
+    """Dispatches a WhatsApp text message via Meta Cloud API and returns (ok, wamid)."""
     import urllib3
     urllib3.disable_warnings()
 
@@ -2097,9 +2121,15 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
             r = requests.post(url, headers=headers, json=payload, timeout=6, verify=False)
             print(f"[WhatsApp Meta API] Outbound to {clean_to}: Status={r.status_code} Body={r.text}")
             if r.status_code in [200, 201]:
-                return True
-            
-            # If free-form text fails (e.g. outside 24h window), automatically fallback to pre-approved template
+                wamid = ""
+                try:
+                    msgs = r.json().get("messages") or []
+                    if msgs and isinstance(msgs[0], dict):
+                        wamid = str(msgs[0].get("id") or "")
+                except Exception:
+                    pass
+                return True, wamid
+
             template_payload = {
                 "messaging_product": "whatsapp",
                 "to": clean_to,
@@ -2111,13 +2141,17 @@ def send_whatsapp_reply(to_phone: str, message: str) -> bool:
             }
             r_tmpl = requests.post(url, headers=headers, json=template_payload, timeout=6, verify=False)
             print(f"[WhatsApp Meta API Template Fallback] Outbound to {clean_to}: Status={r_tmpl.status_code} Body={r_tmpl.text}")
-            return r_tmpl.status_code in [200, 201]
+            return r_tmpl.status_code in [200, 201], ""
         except Exception as e:
             print(f"[WhatsApp Meta API Error]: {e}")
-            return False
+            return False, ""
 
     print(f"[WhatsApp Simulated Outbound to {to_phone}]: {message}")
-    return True
+    return True, ""
+
+def send_whatsapp_reply(to_phone: str, message: str) -> bool:
+    ok, _ = send_whatsapp_reply_with_id(to_phone, message)
+    return ok
 
 class SetForwardingUrlRequest(BaseModel):
     target_url: str
@@ -2179,6 +2213,38 @@ async def receive_message(request: Request):
                         contacts = val.get('contacts', [])
                         if contacts and contacts[0].get('profile', {}).get('name'):
                             sender_name = contacts[0]['profile']['name']
+
+                        # ------------------------------------------------------
+                        # 0. Handle Real WhatsApp Delivery / Read Receipt Statuses
+                        # Meta sends statuses: sent -> delivered -> read
+                        # ------------------------------------------------------
+                        statuses = val.get('statuses', [])
+                        if statuses:
+                            from src.backend.services.clinical_database import update_message_status
+                            rank = {"sending": 0, "sent": 1, "delivered": 2, "read": 3}
+                            threads_changed = False
+                            threads_cache = None
+                            for st_obj in statuses:
+                                st_id = str(st_obj.get('id') or '').strip()
+                                st_val = str(st_obj.get('status') or '').strip().lower()
+                                if st_id and st_val in rank:
+                                    print(f"[WhatsApp Status Webhook] wamid={st_id} -> {st_val}")
+                                    try:
+                                        update_message_status(st_id, st_val)
+                                    except Exception as ex_st:
+                                        print(f"[WhatsApp Status DB Error]: {ex_st}")
+                                    if threads_cache is None:
+                                        threads_cache = _load_threads()
+                                    for t_msgs in threads_cache.values():
+                                        if isinstance(t_msgs, list):
+                                            for tm in t_msgs:
+                                                if isinstance(tm, dict) and str(tm.get('message_id') or '') == st_id:
+                                                    cur_r = rank.get(str(tm.get('status') or 'sent').lower(), 1)
+                                                    if rank[st_val] > cur_r:
+                                                        tm['status'] = st_val
+                                                        threads_changed = True
+                            if threads_changed and threads_cache is not None:
+                                _save_threads(threads_cache)
 
                         # ------------------------------------------------------
                         # 1. Handle Doctor Outbound Echoes (Meta Coexistence)

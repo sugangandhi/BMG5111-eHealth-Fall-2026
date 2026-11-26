@@ -187,6 +187,38 @@ class BackendApiService {
     }
   }
 
+  static Future<bool> saveMessageToAws({
+    required String ownerId,
+    required String text,
+    String patientPhone = '',
+    String patientName = '',
+    String role = 'doctor',
+    bool isVoice = false,
+    String msgId = '',
+    String sentAtIso = '',
+    bool isAiChat = false,
+  }) async {
+    try {
+      final res = await _apiClient.postJson(
+        '/api/doctor/save-message-to-aws',
+        {
+          'owner_id': ownerId,
+          'patient_phone': patientPhone,
+          'patient_name': patientName,
+          'role': role,
+          'text': text,
+          'is_voice': isVoice,
+          'msg_id': msgId,
+          'sent_at_iso': sentAtIso,
+          'is_ai_chat': isAiChat,
+        },
+      );
+      return res is Map && res['success'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<List<String>> translateMessages({
     required List<String> texts,
     required String targetLanguage,
