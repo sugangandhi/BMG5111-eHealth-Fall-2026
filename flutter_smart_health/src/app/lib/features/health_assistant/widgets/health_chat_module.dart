@@ -84,7 +84,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   String _doctorClinicWhatsApp = "";
   String _deviceOwnerId = "";
   String _userPhone = "";
-  bool _isDoctor = false;
+  bool _isDoctor = true;
   String _doctorName = "Dr. Sugan";
   String _selectedPatientName = "Sugan";
   String _selectedPatientId = "6132616383";
