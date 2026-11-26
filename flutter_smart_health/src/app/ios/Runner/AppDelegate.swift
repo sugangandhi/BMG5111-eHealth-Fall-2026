@@ -1,15 +1,19 @@
 import AVFoundation
+import Contacts
+import ContactsUI
 import Flutter
 import HealthKit
 import UIKit
 import UserNotifications
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, CNContactPickerDelegate {
   private let healthStore = HKHealthStore()
   private var healthAlertChannel: FlutterMethodChannel?
   private var healthAlertNotificationChannel: FlutterMethodChannel?
   private var voiceScribeChannel: FlutterMethodChannel?
+  private var whatsappLauncherChannel: FlutterMethodChannel?
+  private var pendingContactPickerResult: FlutterResult?
   private var audioRecorder: AVAudioRecorder?
   private var voiceRecordingUrl: URL?
   private var healthAlertBridgeRegistrationAttempts = 0
@@ -32,6 +36,7 @@ import UserNotifications
     configureHealthAlertBridge()
     configureHealthAlertNotificationBridge()
     configureVoiceScribeBridge()
+    configureWhatsAppContactPickerBridge()
     return launched
   }
 
@@ -872,5 +877,108 @@ import UserNotifications
       emitVoiceStatus("error", message: "Failed to read voice recording: \(error.localizedDescription)")
       result(false)
     }
+  }
+
+  // MARK: - Native iOS Contacts Picker + Photo (DP) Auto-Import
+
+  private func configureWhatsAppContactPickerBridge() {
+    if whatsappLauncherChannel != nil {
+      return
+    }
+    guard let controller = flutterViewController() else {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+        self?.configureWhatsAppContactPickerBridge()
+      }
+      return
+    }
+    let channel = FlutterMethodChannel(
+      name: "com.example.smart_health_app/whatsapp_launcher",
+      binaryMessenger: controller.binaryMessenger
+    )
+    whatsappLauncherChannel = channel
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else { return }
+      switch call.method {
+      case "pickContact":
+        self.presentIosContactPicker(result: result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private func presentIosContactPicker(result: @escaping FlutterResult) {
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      if let previous = self.pendingContactPickerResult {
+        previous(nil)
+        self.pendingContactPickerResult = nil
+      }
+      guard let controller = self.flutterViewController() else {
+        result(nil)
+        return
+      }
+      self.pendingContactPickerResult = result
+      let picker = CNContactPickerViewController()
+      picker.delegate = self
+      picker.displayedPropertyKeys = [CNContactPhoneNumbersKey]
+      picker.predicateForEnablingContact = NSPredicate(format: "phoneNumbers.@count > 0")
+      controller.present(picker, animated: true)
+    }
+  }
+
+  func contactPicker(_ picker: CNContactPickerViewController, didSelect contactProperty: CNContactProperty) {
+    let pending = pendingContactPickerResult
+    pendingContactPickerResult = nil
+    guard let callback = pending else { return }
+
+    let contact = contactProperty.contact
+    let fullName = [contact.givenName, contact.familyName]
+      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .filter { !$0.isEmpty }
+      .joined(separator: " ")
+    let phoneValue = (contactProperty.value as? CNPhoneNumber)?.stringValue
+      ?? contact.phoneNumbers.first?.value.stringValue
+      ?? ""
+
+    var photoBase64 = ""
+    if let imgData = contact.thumbnailImageData, !imgData.isEmpty, imgData.count <= 200_000 {
+      photoBase64 = imgData.base64EncodedString()
+    }
+
+    callback([
+      "name": fullName.isEmpty ? contact.organizationName : fullName,
+      "phone": phoneValue,
+      "photoBase64": photoBase64,
+    ])
+  }
+
+  func contactPicker(_ picker: CNContactPickerViewController, didSelect contact: CNContact) {
+    let pending = pendingContactPickerResult
+    pendingContactPickerResult = nil
+    guard let callback = pending else { return }
+
+    let fullName = [contact.givenName, contact.familyName]
+      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .filter { !$0.isEmpty }
+      .joined(separator: " ")
+    let phoneValue = contact.phoneNumbers.first?.value.stringValue ?? ""
+
+    var photoBase64 = ""
+    if let imgData = contact.thumbnailImageData, !imgData.isEmpty, imgData.count <= 200_000 {
+      photoBase64 = imgData.base64EncodedString()
+    }
+
+    callback([
+      "name": fullName.isEmpty ? contact.organizationName : fullName,
+      "phone": phoneValue,
+      "photoBase64": photoBase64,
+    ])
+  }
+
+  func contactPickerDidCancel(_ picker: CNContactPickerViewController) {
+    let pending = pendingContactPickerResult
+    pendingContactPickerResult = nil
+    pending?(nil)
   }
 }

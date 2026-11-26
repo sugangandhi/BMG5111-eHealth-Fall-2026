@@ -45,6 +45,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSContactsUsageDescription</key>
+	<string>MaxAssist lets you import contacts and profile photos from your address book for WhatsApp messaging.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>MaxAssist uses your microphone for voice dictation and hands-free messaging.</string>
 	<key>NSMotionUsageDescription</key>

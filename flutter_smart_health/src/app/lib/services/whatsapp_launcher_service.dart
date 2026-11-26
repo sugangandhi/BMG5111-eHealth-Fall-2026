@@ -29,6 +29,11 @@ class WhatsAppLauncherService {
   static bool get isAndroidNative =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  static bool get isMobileNative =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   static Future<WhatsAppDetectionResult> detectInstalledApps() async {
     if (!isAndroidNative) {
       return const WhatsAppDetectionResult(hasRegular: false, hasBusiness: false);
@@ -46,7 +51,7 @@ class WhatsAppLauncherService {
   }
 
   static Future<Map<String, String>?> pickDeviceContact() async {
-    if (!isAndroidNative) return null;
+    if (!isMobileNative) return null;
     try {
       final res = await _channel.invokeMapMethod<String, dynamic>('pickContact');
       if (res != null) {
