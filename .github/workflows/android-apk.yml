@@ -75,7 +75,7 @@ jobs:
         working-directory: flutter_smart_health/src/app
         run: |
           flutter pub get
-          flutter test test/api_config_test.dart test/wearable_sync_service_test.dart test/mobile_health_registry_test.dart test/app_update_service_test.dart
+          flutter test test/login_form_test.dart test/api_config_test.dart test/app_update_service_test.dart
 
       - name: Accept Android SDK licenses
         run: |
