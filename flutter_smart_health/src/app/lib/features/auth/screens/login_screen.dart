@@ -1,19 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../config/api_config.dart';
-import '../../../core/network/api_exception.dart';
-import '../../../core/widgets/app_update_dialog.dart';
-import '../../../core/widgets/dual_wave_horizon_background.dart';
-import '../../../data/models/ehospital_models.dart';
-import '../../../l10n/l10n.dart';
-import '../../../services/app_update_service.dart';
-import '../../../services/e_hospital_auth_service.dart';
-import '../../../ui/app_colors.dart';
-import '../presentation/login_styles.dart';
-import '../widgets/auth_notice_dialog.dart';
-import '../widgets/login_form.dart';
-import '../widgets/login_header.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,303 +9,325 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _doctorNameController = TextEditingController();
-  String _selectedIdentity = 'Patient';
-  bool _loading = false;
-  String? _error;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  bool _checkingSession = true;
+  bool _submitting = false;
+  String? _errorText;
 
   @override
   void initState() {
     super.initState();
-    SharedPreferences.getInstance().then((prefs) {
-      final savedHost = prefs.getString('custom_backend_host');
-      if (savedHost != null && savedHost.isNotEmpty) {
-        ApiConfig.setBackendHost(savedHost);
-      }
-      final savedDocName = prefs.getString('doctor_custom_name_v1');
-      if (savedDocName != null && savedDocName.isNotEmpty && mounted) {
-        _doctorNameController.text = savedDocName;
-      }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _checkPrivacyConsent();
-      if (mounted) await _checkMedicalDisclaimer();
-      if (mounted) _checkAlreadyLoggedIn();
-      if (mounted) _checkAppUpdate();
-    });
+    _checkExistingSession();
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _doctorNameController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  Future<void> _checkPrivacyConsent() async {
+  Future<void> _checkExistingSession() async {
     final prefs = await SharedPreferences.getInstance();
-    final consented = prefs.getBool('local_ai_privacy_consent') ?? false;
-    if (consented || !mounted) return;
+    final savedName = (prefs.getString('doctor_custom_name_v1') ?? '').trim();
+    final savedPhone = (prefs.getString('doctor_whatsapp_phone_v1') ?? '').trim();
+    final isLoggedIn = prefs.getBool('whatsapp_logged_in_v1') ?? false;
+    final legacyVerified = prefs.getBool('doctor_whatsapp_verified_v1') ?? false;
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AuthNoticeDialog(
-        icon: Icons.privacy_tip_outlined,
-        iconColor: AppColors.primaryAccent,
-        iconBackground: AppColors.tealSoft,
-        title: ctx.l10n.privacyNoticeTitle,
-        body: ctx.l10n.privacyNoticeBody,
-        actionLabel: ctx.l10n.privacyAgreeButton,
-        actionColor: AppColors.primaryAccent,
-        onAccepted: () async {
-          await prefs.setBool('local_ai_privacy_consent', true);
-          if (ctx.mounted) Navigator.of(ctx).pop();
-        },
-      ),
-    );
-  }
-
-  Future<void> _checkMedicalDisclaimer() async {
-    final prefs = await SharedPreferences.getInstance();
-    final seen = prefs.getBool('medical_disclaimer_seen') ?? false;
-    if (seen || !mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AuthNoticeDialog(
-        icon: Icons.warning_amber_rounded,
-        iconColor: AppColors.amberDark,
-        iconBackground: AppColors.amberSoft,
-        title: ctx.l10n.medicalDisclaimerTitle,
-        body: ctx.l10n.medicalDisclaimerBody,
-        actionLabel: ctx.l10n.medicalDisclaimerConfirmButton,
-        actionColor: AppColors.amber,
-        onAccepted: () async {
-          await prefs.setBool('medical_disclaimer_seen', true);
-          if (ctx.mounted) Navigator.of(ctx).pop();
-        },
-      ),
-    );
-  }
-
-  Future<void> _checkAlreadyLoggedIn() async {
-    final id = await EHospitalAuthService.getLoggedInPatientId();
-    if (id != null && mounted) {
-      Navigator.pushReplacementNamed(context, "/dashboard");
+    if (savedName.isNotEmpty) {
+      _nameController.text = savedName;
     }
-  }
+    if (savedPhone.isNotEmpty) {
+      _phoneController.text = savedPhone.startsWith('+') ? savedPhone : '+$savedPhone';
+    }
 
-  Future<void> _checkAppUpdate() async {
-    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
-    if (isTest || kIsWeb) return;
-    try {
-      final updateService = AppUpdateService();
-      if (!updateService.isAndroidNative) return;
-      final check = await updateService.checkForUpdate();
-      if (check.isUpdateAvailable && mounted) {
-        await showAppUpdateDialog(
-          context,
-          updateService: updateService,
-          checkResult: check,
-        );
+    // Auto-enter chats if already logged in (preserves existing history seamlessly on update)
+    final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if ((isLoggedIn || (legacyVerified && savedPhone.isNotEmpty)) && !isRunningInTest) {
+      await prefs.setBool('whatsapp_logged_in_v1', true);
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/chats');
+        return;
       }
-    } catch (_) {}
+    }
+
+    if (mounted) {
+      setState(() => _checkingSession = false);
+    }
   }
 
-  Future<void> _handleLogin() async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    final email = _emailController.text.trim().toLowerCase();
-    final password = _passwordController.text;
-    if (email.isEmpty) {
-      setState(() => _error = context.l10n.emailRequiredError);
-      return;
-    }
-    if (password.isEmpty) {
-      setState(() => _error = context.l10n.passwordRequiredError);
-      return;
-    }
+  String _normalizePhone(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10) return '1$digits';
+    return digits;
+  }
 
-    if (email.contains("doctor") || email.contains("sugan")) {
-      _selectedIdentity = "Doctor";
+  Future<void> _submitWhatsAppLogin() async {
+    final rawName = _nameController.text.trim();
+    final normalizedPhone = _normalizePhone(_phoneController.text.trim());
+
+    if (rawName.isEmpty) {
+      setState(() => _errorText = 'Please enter your name.');
+      return;
+    }
+    if (normalizedPhone.length < 10) {
+      setState(() => _errorText = 'Please enter a valid WhatsApp phone number with country code.');
+      return;
     }
 
     setState(() {
-      _loading = true;
-      _error = null;
+      _submitting = true;
+      _errorText = null;
     });
 
-    AuthLoginResult result;
     try {
-      result = await EHospitalAuthService.loginWithEmail(
-        email,
-        password,
-        selectedOption: _selectedIdentity,
-      );
-    } on ApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = error.message;
-      });
-      return;
-    }
-    if (!mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      final prevPhone = _normalizePhone(prefs.getString('doctor_whatsapp_phone_v1') ?? '');
+      final existingOwnerId = (prefs.getString('maxassist_device_owner_id_v1') ?? '').trim();
 
-    if (result.authenticated && result.hasPatientSession) {
-      if (_selectedIdentity == 'Doctor') {
-        final rawDoc = _doctorNameController.text.trim();
-        if (rawDoc.isNotEmpty) {
-          final normalized = (rawDoc.startsWith('Dr.') || rawDoc.startsWith('Dr '))
-              ? rawDoc
-              : 'Dr. $rawDoc';
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('doctor_custom_name_v1', normalized);
-          await prefs.setString('patient_username', normalized);
-        }
-      }
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, "/dashboard");
-    } else if (result.authenticated) {
-      setState(() {
-        _loading = false;
-        _error = context.l10n.unsupportedIdentityError;
-      });
-    } else {
-      setState(() {
-        _loading = false;
-        _error = context.l10n.invalidCredentialsError;
-      });
-    }
-  }
+      // Register user ID as phone number while preserving existing history if same user
+      await prefs.setString('user_id', normalizedPhone);
+      await prefs.setString('patient_id', normalizedPhone);
+      await prefs.setString('patient_phone', normalizedPhone);
+      await prefs.setString('doctor_whatsapp_phone_v1', normalizedPhone);
+      await prefs.setBool('doctor_whatsapp_verified_v1', true);
+      await prefs.setBool('whatsapp_logged_in_v1', true);
+      await prefs.setString('patient_identity', 'Doctor');
+      await prefs.setString('doctor_custom_name_v1', rawName);
+      await prefs.setString('patient_username', rawName);
 
-  Future<void> _handleDemoLogin([String? role]) async {
-    final targetRole = role ?? _selectedIdentity;
-    if (targetRole == 'Doctor') {
-      final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
-      if (!isTest && mounted) {
-        final tempCtrl = TextEditingController(text: _doctorNameController.text.trim());
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: const Text(
-              "Doctor Login",
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Enter your name so MaxAssist signs messages and schedules tasks under your name:",
-                  style: TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: tempCtrl,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    labelText: "Doctor Name",
-                    hintText: "e.g. Dr. Abbas",
-                    prefixIcon: const Icon(Icons.medical_services_outlined, size: 18),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text("Cancel"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text("Continue"),
-              ),
-            ],
-          ),
-        );
-        if (confirmed != true) return;
-        if (tempCtrl.text.trim().isNotEmpty) {
-          _doctorNameController.text = tempCtrl.text.trim();
-        }
+      // Keep existing owner_id when re-logging into the same phone so all AWS & local history stays intact
+      if (existingOwnerId.isEmpty || (prevPhone.isNotEmpty && prevPhone != normalizedPhone)) {
+        await prefs.setString('maxassist_device_owner_id_v1', 'phone_$normalizedPhone');
       }
-      _emailController.text = "doctor@demo.com";
-      _passwordController.text = "123456";
-      setState(() => _selectedIdentity = "Doctor");
-    } else {
-      _emailController.text = "normal@demo.com";
-      _passwordController.text = "123456";
-      setState(() => _selectedIdentity = "Patient");
+
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/chats');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _errorText = 'Unable to sign in: $e';
+        });
+      }
     }
-    await _handleLogin();
   }
 
   @override
   Widget build(BuildContext context) {
-    return DualWaveHorizonBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              physics: const BouncingScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      decoration: LoginStyles.cardDecoration,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const LoginHeader(),
-                          LoginForm(
-                            emailController: _emailController,
-                            passwordController: _passwordController,
-                            doctorNameController: _doctorNameController,
-                            selectedIdentity: _selectedIdentity,
-                            identityOptions:
-                                EHospitalAuthService.supportedIdentities,
-                            onIdentityChanged: (value) =>
-                                setState(() => _selectedIdentity = value),
-                            error: _error,
-                            loading: _loading,
-                            onSubmit: _handleLogin,
-                            onDemoLogin: _handleDemoLogin,
+    if (_checkingSession) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF075E54)),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Brand Icon + Title
+                  Center(
+                    child: Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF075E54),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF075E54).withValues(alpha: 0.25),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      "Protected clinical health workspace",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textMuted,
+                      child: const Icon(
+                        Icons.chat_rounded,
+                        color: Colors.white,
+                        size: 38,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'MaxAssist',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF075E54),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'WhatsApp AI Messaging & Voice Assistant',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // WhatsApp Login Card
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Sign in with WhatsApp',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Your WhatsApp phone number is registered as your User ID to sync your contacts and chat history.',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Color(0xFF64748B),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        TextField(
+                          key: const Key('whatsapp_name_field'),
+                          controller: _nameController,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'Your Name',
+                            hintText: 'e.g. Dr. Sugan',
+                            prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF075E54)),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFF075E54), width: 1.8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        TextField(
+                          key: const Key('whatsapp_phone_field'),
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _submitWhatsAppLogin(),
+                          decoration: InputDecoration(
+                            labelText: 'WhatsApp Phone Number',
+                            hintText: 'e.g. +1 613-404-5586',
+                            prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF075E54)),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: Color(0xFF075E54), width: 1.8),
+                            ),
+                          ),
+                        ),
+
+                        if (_errorText != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            _errorText!,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFFDC2626),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          height: 50,
+                          child: ElevatedButton.icon(
+                            key: const Key('whatsapp_login_button'),
+                            onPressed: _submitting ? null : _submitWhatsAppLogin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00A884),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: _submitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.arrow_forward_rounded, size: 20),
+                            label: Text(
+                              _submitting ? 'Signing in...' : 'Continue with WhatsApp',
+                              style: const TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

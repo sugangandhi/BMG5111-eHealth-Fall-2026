@@ -169,46 +169,35 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   Future<void> _loadPatientAndHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    final identity = prefs.getString("patient_identity") ?? "Patient";
-    final email = prefs.getString("patient_email") ?? "";
-    final isDoctor = identity.toLowerCase() == "doctor" ||
-        email.toLowerCase().contains("doctor") ||
-        email.toLowerCase().contains("sugan");
+    // Standalone WhatsApp-only MaxAssist mode: always active for every signed-in phone number
+    const isDoctor = true;
 
-    final pid = prefs.getInt("patient_id") ?? prefs.getString("patient_id");
+    final pid = prefs.get("patient_id")?.toString();
     final verified = prefs.getBool("is_whatsapp_verified") ?? false;
     final savedPhone = prefs.getString("patient_phone") ?? "";
 
     var doctorName = prefs.getString("doctor_custom_name_v1") ??
         prefs.getString("patient_username") ??
-        "Dr. Sugan";
-    if (doctorName.toLowerCase().contains("ava") ||
-        doctorName.toLowerCase() == "patient" ||
-        doctorName.trim().isEmpty) {
-      doctorName = "Dr. Sugan";
-    }
-    if (!doctorName.startsWith("Dr.") && !doctorName.startsWith("Dr ")) {
-      doctorName = "Dr. $doctorName";
+        "MaxAssist User";
+    if (doctorName.trim().isEmpty || doctorName.toLowerCase() == "patient") {
+      doctorName = "MaxAssist User";
     }
 
-    // Stable account-based owner ID (survives APK reinstalls & restores AWS cloud history per user)
-    final cleanEmail = email.trim().toLowerCase();
-    final savedDoctorPhone = (prefs.getString("doctor_whatsapp_phone_v1") ?? "")
+    // Preserve existing owner_id on this device so updating the APK keeps 100% of existing history!
+    // On a fresh install, key stably by WhatsApp phone number (registered User ID).
+    final savedDoctorPhone = (prefs.getString("doctor_whatsapp_phone_v1") ?? savedPhone)
         .replaceAll(RegExp(r'\D'), '');
-    String deviceOwnerId;
-    if (cleanEmail.isNotEmpty) {
-      deviceOwnerId = "acct_$cleanEmail";
-    } else if (savedDoctorPhone.length >= 10) {
-      deviceOwnerId = "phone_$savedDoctorPhone";
-    } else {
-      deviceOwnerId = prefs.getString("maxassist_device_owner_id_v1") ?? "";
-      if (deviceOwnerId.isEmpty) {
+    var deviceOwnerId = (prefs.getString("maxassist_device_owner_id_v1") ?? "").trim();
+    if (deviceOwnerId.isEmpty) {
+      if (savedDoctorPhone.length >= 10) {
+        deviceOwnerId = "phone_$savedDoctorPhone";
+      } else {
         final nowMs = DateTime.now().microsecondsSinceEpoch;
-        final hash = (nowMs ^ identity.hashCode ^ doctorName.hashCode).abs().toRadixString(36);
+        final hash = (nowMs ^ doctorName.hashCode).abs().toRadixString(36);
         deviceOwnerId = "dev_${nowMs.toRadixString(36)}_$hash";
       }
+      await prefs.setString("maxassist_device_owner_id_v1", deviceOwnerId);
     }
-    await prefs.setString("maxassist_device_owner_id_v1", deviceOwnerId);
     _deviceOwnerId = deviceOwnerId;
 
     // Always load persisted contacts from THIS device's local cache
@@ -297,32 +286,24 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         _selectedPatientId = selected["patient_id"] ?? "";
         _selectedPatientName = selected["name"] ?? "Select Patient";
         _selectedPatientPhone = selected["phone"] ?? "";
-        if (isDoctor) {
-          _patientId = _selectedPatientPhone.isNotEmpty ? _selectedPatientPhone : _selectedPatientId;
-        } else if (pid != null) {
-          _patientId = pid.toString();
-        }
+        _patientId = _selectedPatientPhone.isNotEmpty
+            ? _selectedPatientPhone
+            : (_selectedPatientId.isNotEmpty ? _selectedPatientId : (pid ?? ''));
         _isWhatsAppVerified = verified;
         _doctorWhatsAppVerified = doctorWaVerified;
         _doctorClinicWhatsApp = doctorWaPhone.isNotEmpty ? doctorWaPhone : "16134045586";
-        _userPhone = isDoctor
-            ? (doctorWaPhone.isNotEmpty ? doctorWaPhone : (savedPhone.isNotEmpty ? savedPhone : "16134045586"))
-            : savedPhone;
+        _userPhone = doctorWaPhone.isNotEmpty
+            ? doctorWaPhone
+            : (savedPhone.isNotEmpty ? savedPhone : "16134045586");
       });
     }
 
     // Prompt one-time WhatsApp verification on first launch per device
     final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
-    if (isDoctor && !doctorWaVerified && !isRunningInTest) {
+    if (!doctorWaVerified && !isRunningInTest) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_doctorWhatsAppVerified) {
           _showDoctorWhatsAppOnboardingModal(allowCancel: false);
-        }
-      });
-    } else if (!isDoctor && !verified && !isRunningInTest) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_isWhatsAppVerified) {
-          _showWhatsAppVerificationModal();
         }
       });
     }
@@ -3416,11 +3397,17 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF334155)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    onSelected: (value) {
+                    onSelected: (value) async {
                       if (value == 'whatsapp_line') {
                         _showDoctorWhatsAppOnboardingModal(allowCancel: true);
                       } else if (value == 'contacts') {
                         _showManageContactsModal();
+                      } else if (value == 'logout') {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('whatsapp_logged_in_v1', false);
+                        if (mounted) {
+                          Navigator.of(context).pushReplacementNamed('/');
+                        }
                       } else if (value == 'back' && widget.onBack != null) {
                         widget.onBack!();
                       }
@@ -3447,6 +3434,19 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                             Icon(Icons.contacts_rounded, size: 18, color: Color(0xFF475569)),
                             SizedBox(width: 10),
                             Text("Manage Contacts"),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'logout',
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout_rounded, size: 18, color: Color(0xFFDC2626)),
+                            SizedBox(width: 10),
+                            Text(
+                              "Log Out",
+                              style: TextStyle(color: Color(0xFFDC2626)),
+                            ),
                           ],
                         ),
                       ),
