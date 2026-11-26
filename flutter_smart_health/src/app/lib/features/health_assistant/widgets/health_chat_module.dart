@@ -3054,7 +3054,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         final msg = _messages[index];
         final isUser = msg.role == 'user';
         final isDoctor = msg.role == 'doctor';
-        final isOutgoing = _isDoctor ? isDoctor : isUser;
+        final isOutgoing = _isDoctor ? (isDoctor || msg.role == 'assistant') : isUser;
         final displayText = _displayTranslated(_cleanDisplayBubbleText(msg.text));
 
         return Align(
