@@ -369,15 +369,28 @@ def get_patient_messages(
         # Merge saved AWS history only when requested (skipped during fast 3s live polling so polling never lags!)
         if include_aws:
             try:
-                from src.backend.services.aws_chat_store import fetch_contact_messages_from_aws
+                from src.backend.services.aws_chat_store import (
+                    _same_msg_id,
+                    fetch_contact_messages_from_aws,
+                )
                 aws_msgs = fetch_contact_messages_from_aws(clean_p, owner_id=clean_owner)
                 for am in aws_msgs:
-                    am_mid = str(am.get("message_id") or "")
-                    if am_mid and am_mid in seen_msg_ids:
+                    am_mid = str(am.get("message_id") or "").strip()
+                    matched_existing = False
+                    if am_mid:
+                        for existing in messages:
+                            ex_mid = str(existing.get("message_id") or "").strip()
+                            if _same_msg_id(am_mid, ex_mid):
+                                # Already present in SQLite (e.g., playable voice-note bubble) -> mark saved without adding duplicate text bubble!
+                                existing["savedToAws"] = True
+                                matched_existing = True
+                                break
+                    if matched_existing:
                         continue
                     if am_mid:
                         seen_msg_ids.add(am_mid)
                     am["patient_phone"] = clean_p
+                    am["savedToAws"] = True
                     messages.append(am)
                 messages.sort(key=lambda m: str(m.get("created_at") or ""))
             except Exception as exc:

@@ -43,6 +43,19 @@ def _now_utc_iso() -> str:
     return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
+def _same_msg_id(a: str, b: str) -> bool:
+    """Matches full WhatsApp wamids cleanly, including legacy rows whose m= tag was truncated to 48 chars."""
+    sa = (a or "").strip()
+    sb = (b or "").strip()
+    if not sa or not sb:
+        return False
+    if sa == sb:
+        return True
+    if len(sa) >= 30 and len(sb) >= 30 and (sa.startswith(sb) or sb.startswith(sa)):
+        return True
+    return False
+
+
 def _encode_meta(
     owner_id: str,
     phone: str,
@@ -50,10 +63,10 @@ def _encode_meta(
     is_voice: bool = False,
     msg_id: str = "",
 ) -> str:
-    safe_owner = urllib.parse.quote((owner_id or "").strip()[:64], safe="@._-")
+    safe_owner = urllib.parse.quote((owner_id or "").strip()[:48], safe="@._-")
     safe_phone = _clean_phone(phone)[:20]
-    safe_name = urllib.parse.quote((name or "").strip()[:40], safe=" ")
-    safe_mid = urllib.parse.quote((msg_id or "").strip()[:48], safe="_-.")
+    safe_name = urllib.parse.quote((name or "").strip()[:32], safe=" ")
+    safe_mid = urllib.parse.quote((msg_id or "").strip()[:120], safe="_-.=")
     v = "1" if is_voice else "0"
     tag = f"{TAG_PREFIX}o={safe_owner}|p={safe_phone}|n={safe_name}|v={v}|m={safe_mid}"
     return tag[:250]
@@ -199,7 +212,7 @@ def save_message_to_aws(
             continue
         er_mid = (em.get("m") or "").strip()
         er_norm = re.sub(r"[\s\*\_]+", " ", str(er.get("message") or "")).strip().lower()
-        if (msg_id and er_mid == msg_id) or (norm_new and er_norm == norm_new):
+        if _same_msg_id(msg_id, er_mid) or (norm_new and er_norm == norm_new):
             return True
 
     payload = {
@@ -489,7 +502,7 @@ def delete_message_from_aws(
             continue
         row_mid = (meta.get("m") or "").strip()
         row_text = str(r.get("message") or "").strip()
-        if (msg_id and row_mid == msg_id) or row_text == clean_text:
+        if _same_msg_id(msg_id, row_mid) or (clean_text and row_text == clean_text):
             rid = r.get("message_id")
             if rid is not None:
                 try:
