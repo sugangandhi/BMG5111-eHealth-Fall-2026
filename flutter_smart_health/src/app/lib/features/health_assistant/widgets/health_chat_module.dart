@@ -113,12 +113,16 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   bool _loadingTasks = false;
   final Map<String, String> _lastPreviewByPhone = {};
   final Map<String, String> _lastTimeByPhone = {};
+  final Map<String, DateTime> _lastMessageAtByPhone = {};
+  final Map<String, DateTime> _lastReadAtByPhone = {};
+  final Map<String, int> _unreadCountByPhone = {};
   final Map<String, bool> _lastOutgoingByPhone = {};
   final Map<String, String> _lastStatusByPhone = {};
   final Map<String, String> _translatedTextCache = {};
   bool _isTranslatingHistory = false;
   Timer? _liveSyncTimer;
   bool _isLiveSyncing = false;
+  bool _isSummarySyncing = false;
 
   String _sanitizeName(String text) {
     return text
@@ -467,7 +471,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     // Start 2-way real-time WhatsApp sync timer for doctors
     if (isDoctor && !isRunningInTest) {
+      await _loadChatListMetadataFromPrefs();
       await _loadAiChatHistory();
+      _syncChatListSummariesSilently();
       await _refreshContactPreviews();
       _loadScheduledTasks();
       _translateVisibleHistoryIfNeeded();
@@ -644,13 +650,166 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     }
   }
 
+  Future<void> _loadChatListMetadataFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawRead = prefs.getString("doctor_chat_last_read_v1");
+      if (rawRead != null && rawRead.isNotEmpty) {
+        final decoded = jsonDecode(rawRead);
+        if (decoded is Map) {
+          decoded.forEach((k, v) {
+            final dt = DateTime.tryParse(v.toString());
+            if (dt != null) {
+              _lastReadAtByPhone[k.toString()] = dt.toUtc();
+            }
+          });
+        }
+      }
+      // Seed previews & timestamps from each contact's locally cached chat history so sorting is immediate
+      for (final c in _doctorPatients) {
+        final phone = (c["phone"] ?? c["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+        if (phone.isEmpty) continue;
+        final cached = prefs.getString(_historyKeyFor(phone));
+        if (cached != null && cached.isNotEmpty) {
+          try {
+            final List<dynamic> list = jsonDecode(cached);
+            if (list.isNotEmpty) {
+              final last = _HealthChatMessage.fromJson(Map<String, dynamic>.from(list.last as Map));
+              _lastPreviewByPhone[phone] = _cleanDisplayBubbleText(last.text);
+              _lastTimeByPhone[phone] = _formatBubbleTime(last.timestamp);
+              _lastMessageAtByPhone[phone] = last.timestamp;
+              _lastOutgoingByPhone[phone] = last.role == 'doctor' || last.role == 'assistant';
+              _lastStatusByPhone[phone] = last.status;
+            }
+          } catch (_) {}
+        }
+      }
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _markPhoneAsRead(String rawPhone) async {
+    final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
+    if (phone.isEmpty) return;
+    final nowUtc = DateTime.now().toUtc();
+    _lastReadAtByPhone[phone] = nowUtc;
+    if ((_unreadCountByPhone[phone] ?? 0) != 0) {
+      if (mounted) {
+        setState(() => _unreadCountByPhone[phone] = 0);
+      } else {
+        _unreadCountByPhone[phone] = 0;
+      }
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serialized = _lastReadAtByPhone.map((k, v) => MapEntry(k, v.toIso8601String()));
+      await prefs.setString("doctor_chat_last_read_v1", jsonEncode(serialized));
+    } catch (_) {}
+  }
+
+  Future<void> _syncChatListSummariesSilently() async {
+    if (_isSummarySyncing || !_isDoctor) return;
+    _isSummarySyncing = true;
+    try {
+      final url = Uri.parse(
+        "${ApiConfig.backendBaseUrl}/api/doctor/chat-summaries?owner_id=${Uri.encodeComponent(_deviceOwnerId)}",
+      );
+      final resp = await http.get(url).timeout(const Duration(seconds: 6));
+      if (resp.statusCode != 200 || !mounted) return;
+      final decoded = jsonDecode(resp.body);
+      if (decoded is! Map || decoded['summaries'] is! Map) return;
+      final Map<String, dynamic> summaries = Map<String, dynamic>.from(decoded['summaries'] as Map);
+
+      bool changed = false;
+      final openPhone = _doctorActiveView == 'patient'
+          ? _selectedPatientPhone.replaceAll(RegExp(r'\D'), '')
+          : '';
+
+      for (final c in _doctorPatients) {
+        final phone = (c["phone"] ?? c["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+        if (phone.isEmpty) continue;
+        Map<String, dynamic>? s;
+        if (summaries[phone] is Map) {
+          s = Map<String, dynamic>.from(summaries[phone] as Map);
+        } else if (phone.length == 10 && summaries['1$phone'] is Map) {
+          s = Map<String, dynamic>.from(summaries['1$phone'] as Map);
+        } else if (phone.length == 11 && phone.startsWith('1') && summaries[phone.substring(1)] is Map) {
+          s = Map<String, dynamic>.from(summaries[phone.substring(1)] as Map);
+        }
+        if (s == null) continue;
+
+        final lastText = _sanitizeName((s['last_text'] ?? '').toString().trim());
+        final lastRole = (s['last_role'] ?? 'patient').toString().toLowerCase();
+        final lastStatus = (s['last_status'] ?? 'sent').toString();
+        final lastDt = _HealthChatMessage._parseToLocal(s['last_created_at']);
+        final prevDt = _lastMessageAtByPhone[phone];
+
+        if (lastDt != null && (prevDt == null || !lastDt.isBefore(prevDt))) {
+          final cleanPrev = _cleanDisplayBubbleText(lastText);
+          if (_lastPreviewByPhone[phone] != cleanPrev) {
+            _lastPreviewByPhone[phone] = cleanPrev;
+            changed = true;
+          }
+          final formattedTime = _formatBubbleTime(lastDt);
+          if (_lastTimeByPhone[phone] != formattedTime) {
+            _lastTimeByPhone[phone] = formattedTime;
+            changed = true;
+          }
+          if (prevDt == null || lastDt.isAfter(prevDt)) {
+            _lastMessageAtByPhone[phone] = lastDt;
+            changed = true;
+          }
+          final isOut = lastRole == 'doctor' || lastRole == 'assistant' || lastRole == 'bot';
+          if (_lastOutgoingByPhone[phone] != isOut || _lastStatusByPhone[phone] != lastStatus) {
+            _lastOutgoingByPhone[phone] = isOut;
+            _lastStatusByPhone[phone] = lastStatus;
+            changed = true;
+          }
+        }
+
+        // Compute unread count from inbound timestamps newer than lastReadAt
+        if (openPhone.isNotEmpty && openPhone == phone) {
+          if ((_unreadCountByPhone[phone] ?? 0) != 0) {
+            _unreadCountByPhone[phone] = 0;
+            changed = true;
+          }
+        } else if (s['inbound_timestamps'] is List) {
+          final lastReadUtc = _lastReadAtByPhone[phone];
+          int unread = 0;
+          for (final rawTs in (s['inbound_timestamps'] as List)) {
+            final parsed = DateTime.tryParse(rawTs.toString())?.toUtc();
+            if (parsed == null) continue;
+            if (lastReadUtc == null || parsed.isAfter(lastReadUtc)) {
+              unread++;
+            }
+          }
+          if ((_unreadCountByPhone[phone] ?? 0) != unread) {
+            _unreadCountByPhone[phone] = unread;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed && mounted) {
+        setState(() {});
+      }
+    } catch (_) {
+    } finally {
+      _isSummarySyncing = false;
+    }
+  }
+
   void _startLiveSyncTimer() {
     final bool isRunningInTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
     if (isRunningInTest) return;
     _liveSyncTimer?.cancel();
     _liveSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && _isDoctor && _doctorSendViaWhatsApp && !_isLoading) {
-        _syncWhatsAppThreadSilently();
+        if (_doctorActiveView == 'patient') {
+          _syncWhatsAppThreadSilently();
+        } else if (_doctorActiveView == 'list') {
+          _syncChatListSummariesSilently();
+        }
       }
     });
   }
@@ -801,9 +960,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
           setState(() {
             _lastPreviewByPhone[cleanPhone] = _cleanDisplayBubbleText(last.text);
             _lastTimeByPhone[cleanPhone] = _formatBubbleTime(last.timestamp);
-            _lastOutgoingByPhone[cleanPhone] = last.role == 'doctor';
+            _lastMessageAtByPhone[cleanPhone] = last.timestamp;
+            _lastOutgoingByPhone[cleanPhone] = last.role == 'doctor' || last.role == 'assistant';
             _lastStatusByPhone[cleanPhone] = last.status;
           });
+          if (_doctorActiveView == 'patient') {
+            _markPhoneAsRead(cleanPhone);
+          }
         }
       }
     } catch (e) {
@@ -1148,6 +1311,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString("doctor_selected_patient_id", _selectedPatientId);
+    await _markPhoneAsRead(matchedPhone);
 
     // 2. Load conversation history for newly selected patient
     await _loadMessagesForCurrentPatient();
@@ -4452,13 +4616,23 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   Widget _buildWhatsAppChatListView() {
     final s = AppStrings.of(context);
     final q = _searchQuery.trim().toLowerCase();
-    final filteredContacts = q.isEmpty
-        ? _doctorPatients
-        : _doctorPatients.where((p) {
-            final name = (p["name"] ?? "").toLowerCase();
-            final phone = (p["phone"] ?? "").toLowerCase();
-            return name.contains(q) || phone.contains(q);
-          }).toList();
+    final filteredContacts = (q.isEmpty
+            ? List<Map<String, String>>.from(_doctorPatients)
+            : _doctorPatients.where((p) {
+                final name = (p["name"] ?? "").toLowerCase();
+                final phone = (p["phone"] ?? "").toLowerCase();
+                return name.contains(q) || phone.contains(q);
+              }).toList())
+      ..sort((a, b) {
+        final pa = (a["phone"] ?? a["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+        final pb = (b["phone"] ?? b["patient_id"] ?? "").replaceAll(RegExp(r'\D'), '');
+        final ta = _lastMessageAtByPhone[pa];
+        final tb = _lastMessageAtByPhone[pb];
+        if (ta == null && tb == null) return 0;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return tb.compareTo(ta); // Most recent message at the top (same as WhatsApp)
+      });
 
     final lastAiMsg = _aiMessages.isNotEmpty ? _aiMessages.last : null;
     final aiSubtitle = lastAiMsg != null
@@ -4768,6 +4942,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                       final preview = _displayTranslated(_lastPreviewByPhone[phone] ?? "+$phone");
                       final timeStr = _lastTimeByPhone[phone] ?? "";
                       final isOut = _lastOutgoingByPhone[phone] == true;
+                      final unreadCount = _unreadCountByPhone[phone] ?? 0;
 
                       return Column(
                         children: [
@@ -4807,9 +4982,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                             if (timeStr.isNotEmpty)
                                               Text(
                                                 timeStr,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                   fontSize: 12,
-                                                  color: Color(0xFF667781),
+                                                  fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                                                  color: unreadCount > 0
+                                                      ? const Color(0xFF00A884)
+                                                      : const Color(0xFF667781),
                                                 ),
                                               ),
                                           ],
@@ -4832,6 +5010,26 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                                                 ),
                                               ),
                                             ),
+                                            if (unreadCount > 0) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                constraints: const BoxConstraints(minWidth: 21, minHeight: 21),
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF00A884),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                alignment: Alignment.center,
+                                                child: Text(
+                                                  unreadCount > 99 ? '99+' : '$unreadCount',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 11.5,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ],

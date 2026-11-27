@@ -254,6 +254,17 @@ def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str
     from src.backend.services.clinical_reasoning_engine import evaluate_clinical_case
     return evaluate_clinical_case(patient_id, message, vitals, patient_name=patient_name, patient_phone=patient_phone)
 
+@router.get('/api/doctor/chat-summaries')
+async def get_doctor_chat_summaries(owner_id: Optional[str] = None):
+    """Fast SQLite-only endpoint returning latest message preview, timestamp, and inbound timestamps per contact."""
+    try:
+        from src.backend.services.clinical_database import get_chat_summaries
+        return {"summaries": get_chat_summaries(owner_id=owner_id)}
+    except Exception as exc:
+        print(f"[Chat Summaries Error]: {exc}")
+        return {"summaries": {}}
+
+
 @router.get('/api/doctor/chat-history/{phone}')
 @router.get('/api/whatsapp/threads')
 @router.get('/api/whatsapp/threads/{phone}')

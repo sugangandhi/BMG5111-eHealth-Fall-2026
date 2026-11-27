@@ -398,6 +398,68 @@ def get_patient_messages(
 
         return messages
 
+
+def get_chat_summaries(owner_id: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """Fast SQLite-only summary per patient_phone: latest message preview, timestamp, status, and recent inbound timestamps."""
+    init_db()
+    clean_owner = (owner_id or "").strip()
+    with get_db() as conn:
+        if clean_owner:
+            rows = conn.execute(
+                """
+                SELECT patient_phone, sender_role, text, status, is_voice, created_at
+                FROM patient_chat_messages
+                WHERE (owner_id = ? OR owner_id = '' OR owner_id IS NULL)
+                ORDER BY id ASC;
+                """,
+                (clean_owner,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT patient_phone, sender_role, text, status, is_voice, created_at
+                FROM patient_chat_messages
+                ORDER BY id ASC;
+                """
+            ).fetchall()
+
+    summaries: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        phone = clean_phone_number(row["patient_phone"] or "")
+        if not phone:
+            continue
+        role = str(row["sender_role"] or "patient").lower()
+        text = str(row["text"] or "").strip()
+        status = str(row["status"] or "sent").strip()
+        is_voice = bool(row["is_voice"])
+        created_at = str(row["created_at"] or "").strip()
+
+        entry = summaries.get(phone)
+        if entry is None:
+            entry = {
+                "phone": phone,
+                "last_text": text,
+                "last_role": role,
+                "last_status": status,
+                "last_is_voice": is_voice,
+                "last_created_at": created_at,
+                "inbound_timestamps": [],
+            }
+            summaries[phone] = entry
+        else:
+            entry["last_text"] = text
+            entry["last_role"] = role
+            entry["last_status"] = status
+            entry["last_is_voice"] = is_voice
+            entry["last_created_at"] = created_at
+
+        if role in ("patient", "user") and created_at:
+            entry["inbound_timestamps"].append(created_at)
+            if len(entry["inbound_timestamps"]) > 50:
+                entry["inbound_timestamps"] = entry["inbound_timestamps"][-50:]
+
+    return summaries
+
 def add_chat_message(
     patient_phone: str,
     sender_role: str,
