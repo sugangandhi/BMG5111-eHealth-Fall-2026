@@ -676,9 +676,13 @@ async def doctor_send_recorded_voice_note(req: DoctorVoiceNoteRequest):
     if not sent_ok:
         transcript = transcribe_audio_whisper(audio_bytes, filename=safe_filename)
         if transcript:
-            tts_ok, tts_mode = send_whatsapp_voice_note(clean_phone, transcript)
+            tts_ok, tts_mode, tts_audio_url, tts_wamid = send_whatsapp_voice_note(clean_phone, transcript)
             sent_ok = tts_ok
             mode = tts_mode
+            if tts_audio_url:
+                audio_url = tts_audio_url
+            if tts_wamid:
+                wamid = tts_wamid
 
     display_text = "🎙️ Voice message"
 
@@ -716,8 +720,9 @@ async def doctor_send_recorded_voice_note(req: DoctorVoiceNoteRequest):
         "status": "sent",
     }
 
-def send_whatsapp_voice_note(to_phone: str, text_to_speak: str) -> tuple[bool, str]:
-    """Synthesizes an AI voice note (OGG/Opus), uploads to Meta, and sends as a real WhatsApp voice message."""
+def send_whatsapp_voice_note(to_phone: str, text_to_speak: str) -> tuple[bool, str, str, Optional[str]]:
+    """Synthesizes an AI voice note (OGG/Opus), stores it for in-app playback, uploads to Meta,
+    and sends as a real WhatsApp voice message. Returns (ok, mode, audio_url, wamid)."""
     token = os.getenv("WHATSAPP_TOKEN")
     phone_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
     clean_to = re.sub(r'\D', '', to_phone or '')
@@ -725,8 +730,14 @@ def send_whatsapp_voice_note(to_phone: str, text_to_speak: str) -> tuple[bool, s
         clean_to = '1' + clean_to
 
     audio_bytes = generate_tts_voice_ogg(text_to_speak)
+    saved_audio_url = ""
     if audio_bytes and token and phone_id:
         media_id = upload_meta_whatsapp_media(audio_bytes, mime_type="audio/ogg")
+        saved_audio_url = _save_voice_note_file(
+            audio_bytes,
+            ".ogg",
+            meta_media_id=str(media_id or ""),
+        )
         if media_id:
             try:
                 url = f"https://graph.facebook.com/v20.0/{phone_id}/messages"
@@ -745,15 +756,20 @@ def send_whatsapp_voice_note(to_phone: str, text_to_speak: str) -> tuple[bool, s
                     verify=False,
                 )
                 if resp.status_code in (200, 201):
-                    print(f"[WhatsApp Voice Note] Delivered AI voice message to +{clean_to}")
-                    return True, "voice_sent"
+                    data = resp.json()
+                    wamid = None
+                    msgs = data.get("messages")
+                    if isinstance(msgs, list) and msgs:
+                        wamid = msgs[0].get("id")
+                    print(f"[WhatsApp Voice Note] Delivered AI voice message to +{clean_to}, wamid={wamid}")
+                    return True, "voice_sent", saved_audio_url, wamid
                 print(f"[WhatsApp Voice Note Error] {resp.status_code}: {resp.text[:200]}")
             except Exception as exc:
                 print(f"[WhatsApp Voice Note Exception]: {exc}")
 
     # Graceful fallback to text if TTS or Meta audio fails
     fallback_ok = send_whatsapp_reply(clean_to, text_to_speak)
-    return fallback_ok, "text_fallback"
+    return fallback_ok, "text_fallback", "", None
 
 def _match_contact_in_instruction(instruction: str, patients: List[Dict[str, Any]]) -> tuple[str, str]:
     """Finds a matching contact (phone, name) from the doctor's saved contacts or explicit phone number."""
@@ -1145,14 +1161,20 @@ async def _execute_doctor_ai_agent_command(req: DoctorAiAgentRequest):
             )
             spoken_text = str(plan.get("message_text") or "").strip().strip('"\'')
             if target_phone and spoken_text:
-                sent_ok, mode = send_whatsapp_voice_note(target_phone, spoken_text)
+                sent_ok, mode, audio_url, wamid = send_whatsapp_voice_note(target_phone, spoken_text)
+                try:
+                    activate_doctor_silence(target_phone)
+                except Exception:
+                    pass
                 add_chat_message(
                     patient_phone=target_phone,
                     sender_role="doctor",
                     sender_name=doctor_name,
                     text=f"🎙️ {spoken_text}",
                     is_voice=True,
-                    status="delivered" if sent_ok else "sent",
+                    audio_url=audio_url,
+                    status="sent",
+                    custom_msg_id=wamid,
                     owner_id=owner_id,
                 )
                 label = "AI voice message" if mode == "voice_sent" else "message"
@@ -1275,14 +1297,20 @@ async def _execute_doctor_ai_agent_command(req: DoctorAiAgentRequest):
                 "reply": f"Who should I send the AI voice message to? Mention their name or phone number.{hint}",
             }
         spoken_text = _extract_outbound_body(instruction, target_name)
-        sent_ok, mode = send_whatsapp_voice_note(target_phone, spoken_text)
+        sent_ok, mode, audio_url, wamid = send_whatsapp_voice_note(target_phone, spoken_text)
+        try:
+            activate_doctor_silence(target_phone)
+        except Exception:
+            pass
         add_chat_message(
             patient_phone=target_phone,
             sender_role="doctor",
             sender_name=doctor_name,
             text=f"🎙️ {spoken_text}",
             is_voice=True,
-            status="delivered" if sent_ok else "sent",
+            audio_url=audio_url,
+            status="sent",
+            custom_msg_id=wamid,
             owner_id=owner_id,
         )
         label = "AI voice message" if mode == "voice_sent" else "message"
