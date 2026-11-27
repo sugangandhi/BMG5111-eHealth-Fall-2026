@@ -257,13 +257,19 @@ def clinical_triage_engine(patient_id: int | str, message: str, vitals: Dict[str
 @router.get('/api/doctor/chat-history/{phone}')
 @router.get('/api/whatsapp/threads')
 @router.get('/api/whatsapp/threads/{phone}')
-async def get_whatsapp_thread(phone: str = "6132616383", owner_id: Optional[str] = None):
-    clean_p = re.sub(r'\D', '', phone) or "6132616383"
+async def get_whatsapp_thread(
+    phone: str = "",
+    owner_id: Optional[str] = None,
+    fast: int = 0,
+):
+    clean_p = re.sub(r'\D', '', phone or '')
+    if not clean_p:
+        return {"phone": "", "messages": []}
     try:
         from src.backend.services.clinical_database import get_patient_messages
-        db_msgs = get_patient_messages(clean_p, owner_id=owner_id)
+        db_msgs = get_patient_messages(clean_p, owner_id=owner_id, include_aws=(fast == 0))
         if owner_id and owner_id.strip():
-            # Strictly isolated per device/owner: never leak global fallback threads
+            # Strictly isolated per device/owner and exact phone: never leak global fallback threads
             return {"phone": clean_p, "messages": db_msgs}
         if db_msgs:
             return {"phone": clean_p, "messages": db_msgs}
@@ -569,14 +575,18 @@ def send_whatsapp_recorded_audio(
 _VOICE_NOTES_DIR = Path(__file__).resolve().parents[1] / "data" / "voice_notes"
 
 
-def _save_voice_note_file(audio_bytes: bytes, ext: str = ".m4a") -> str:
+def _save_voice_note_file(audio_bytes: bytes, ext: str = ".m4a", meta_media_id: str = "") -> str:
     """Persists raw voice note audio bytes on disk and returns its relative /api/voice-notes/ URL."""
     import uuid
     _VOICE_NOTES_DIR.mkdir(parents=True, exist_ok=True)
     clean_ext = ext if ext.startswith(".") else f".{ext}"
     if clean_ext not in AUDIO_MIME_TYPES:
         clean_ext = ".m4a"
-    fname = f"vn_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}{clean_ext}"
+    safe_mid = re.sub(r'[^A-Za-z0-9_-]', '', meta_media_id or '')
+    if safe_mid:
+        fname = f"vn_meta_{safe_mid}{clean_ext}"
+    else:
+        fname = f"vn_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}{clean_ext}"
     fpath = _VOICE_NOTES_DIR / fname
     with open(fpath, "wb") as f:
         f.write(audio_bytes)
@@ -597,10 +607,22 @@ def _resolve_voice_note_path(audio_url: str) -> Optional[Path]:
 
 @router.get('/api/voice-notes/{filename}')
 async def serve_voice_note(filename: str):
-    """Streams a stored voice note audio file for in-app playback."""
+    """Streams a stored voice note audio file for in-app playback.
+    If Render restarted and wiped disk for a Meta media voice note, auto-recovers it from Meta Cloud API."""
     from fastapi.responses import FileResponse
     safe_name = os.path.basename(filename or "")
     fpath = _resolve_voice_note_path(safe_name)
+    if not fpath and safe_name.startswith("vn_meta_"):
+        stem, ext = os.path.splitext(safe_name)
+        meta_id = stem[len("vn_meta_"):]
+        if meta_id:
+            audio_bytes, _ = download_meta_whatsapp_media(meta_id)
+            if audio_bytes:
+                _VOICE_NOTES_DIR.mkdir(parents=True, exist_ok=True)
+                recovered = _VOICE_NOTES_DIR / safe_name
+                with open(recovered, "wb") as f:
+                    f.write(audio_bytes)
+                fpath = recovered
     if not fpath:
         raise HTTPException(status_code=404, detail="Voice note not found")
     ext = fpath.suffix.lower()
@@ -2851,7 +2873,11 @@ async def receive_message(request: Request):
                                         }
                                         base_mime = (mime or "audio/ogg").split(";")[0].strip().lower()
                                         saved_ext = ext_map.get(base_mime, ".ogg")
-                                        inbound_audio_url = _save_voice_note_file(audio_bytes, saved_ext)
+                                        inbound_audio_url = _save_voice_note_file(
+                                            audio_bytes,
+                                            saved_ext,
+                                            meta_media_id=str(media_id),
+                                        )
                                         print(f"[WhatsApp Inbound] Saved playable voice note at {inbound_audio_url}")
                             elif m_type == 'interactive':
                                 interactive = msg.get('interactive', {})

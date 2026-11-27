@@ -300,7 +300,11 @@ def _exact_phone_variants(phone: str) -> List[str]:
     return list(dict.fromkeys(variants))
 
 
-def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_patient_messages(
+    phone: str,
+    owner_id: Optional[str] = None,
+    include_aws: bool = True,
+) -> List[Dict[str, Any]]:
     """Retrieves chat messages for one exact patient phone number, deduplicated and isolated by owner_id."""
     init_db()
     clean_p = clean_phone_number(phone)
@@ -349,6 +353,7 @@ def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dic
             messages.append({
                 "id": row["id"],
                 "message_id": row["message_id"] or str(row["id"]),
+                "patient_phone": row["patient_phone"],
                 "role": row["sender_role"],
                 "sender_name": row["sender_name"],
                 "channel": row["channel"],
@@ -361,20 +366,22 @@ def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dic
                 "created_at": row["created_at"],
             })
 
-        # Merge saved AWS history (deduplicated strictly by message_id so repeat texts like "Hi"/"Ok" are never dropped)
-        try:
-            from src.backend.services.aws_chat_store import fetch_contact_messages_from_aws
-            aws_msgs = fetch_contact_messages_from_aws(clean_p, owner_id=clean_owner)
-            for am in aws_msgs:
-                am_mid = str(am.get("message_id") or "")
-                if am_mid and am_mid in seen_msg_ids:
-                    continue
-                if am_mid:
-                    seen_msg_ids.add(am_mid)
-                messages.append(am)
-            messages.sort(key=lambda m: str(m.get("created_at") or ""))
-        except Exception as exc:
-            print(f"[Clinical DB] AWS message merge note: {exc}")
+        # Merge saved AWS history only when requested (skipped during fast 3s live polling so polling never lags!)
+        if include_aws:
+            try:
+                from src.backend.services.aws_chat_store import fetch_contact_messages_from_aws
+                aws_msgs = fetch_contact_messages_from_aws(clean_p, owner_id=clean_owner)
+                for am in aws_msgs:
+                    am_mid = str(am.get("message_id") or "")
+                    if am_mid and am_mid in seen_msg_ids:
+                        continue
+                    if am_mid:
+                        seen_msg_ids.add(am_mid)
+                    am["patient_phone"] = clean_p
+                    messages.append(am)
+                messages.sort(key=lambda m: str(m.get("created_at") or ""))
+            except Exception as exc:
+                print(f"[Clinical DB] AWS message merge note: {exc}")
 
         return messages
 

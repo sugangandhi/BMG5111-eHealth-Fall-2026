@@ -37,4 +37,6 @@ class VoiceScribeService {
   }
 
   static void stopAudio() {}
+
+  static void cacheAudioBase64(String url, String base64Audio) {}
 }

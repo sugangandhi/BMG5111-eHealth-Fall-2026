@@ -99,8 +99,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   bool _isDoctor = true;
   String _doctorName = "Dr. Sugan";
   String _selectedPatientName = "Sugan";
-  String _selectedPatientId = "6132616383";
-  String _selectedPatientPhone = "6132616383";
+  String _selectedPatientId = "";
+  String _selectedPatientPhone = "";
   bool _doctorSendViaWhatsApp = true;
   String _doctorActiveView = 'list'; // 'list' | 'ai' | 'patient'
   int _homeTabIndex = 0; // 0: Chats, 1: Calendar, 2: Contacts, 3: Settings
@@ -664,9 +664,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       if (cleanPhone.isEmpty) return;
 
       final url = Uri.parse(
-        "${ApiConfig.backendBaseUrl}/api/whatsapp/threads/$cleanPhone?owner_id=${Uri.encodeComponent(_deviceOwnerId)}",
+        "${ApiConfig.backendBaseUrl}/api/whatsapp/threads/$cleanPhone?owner_id=${Uri.encodeComponent(_deviceOwnerId)}&fast=1",
       );
-      final resp = await http.get(url).timeout(const Duration(seconds: 4));
+      final resp = await http.get(url).timeout(const Duration(seconds: 8));
       // Guard against race condition: if user switched chats while polling, discard stale response!
       if (!mounted ||
           switchToken != _chatSwitchToken ||
@@ -675,6 +675,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       }
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
+        final respPhone = (data is Map ? (data['phone'] ?? '').toString().replaceAll(RegExp(r'\D'), '') : '');
+        if (respPhone.isNotEmpty && respPhone != cleanPhone && respPhone != '1$cleanPhone' && cleanPhone != '1$respPhone') {
+          return;
+        }
         if (data is Map && data['messages'] is List) {
           final List<dynamic> serverMsgs = data['messages'];
           bool hasNew = false;
@@ -1115,17 +1119,29 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     _chatSwitchToken++;
     VoiceScribeService.stopAudio();
 
-    final match = _doctorPatients.firstWhere(
-      (p) => p["patient_id"] == newPatientId || p["phone"] == newPatientId,
-      orElse: () => _doctorPatients.first,
-    );
+    final targetDigits = newPatientId.replaceAll(RegExp(r'\D'), '');
+    Map<String, String>? match;
+    for (final p in _doctorPatients) {
+      final pid = (p["patient_id"] ?? "").trim();
+      final ph = (p["phone"] ?? "").trim();
+      final phDigits = ph.replaceAll(RegExp(r'\D'), '');
+      if (pid == newPatientId ||
+          ph == newPatientId ||
+          (targetDigits.isNotEmpty && phDigits.isNotEmpty && phDigits == targetDigits)) {
+        match = p;
+        break;
+      }
+    }
+    if (match == null) return;
+    final matchedPhone = (match["phone"] ?? "").trim();
+    if (matchedPhone.isEmpty) return;
 
     setState(() {
       _playingAudioKey = null;
       _messages.clear();
-      _selectedPatientId = match["patient_id"] ?? newPatientId;
+      _selectedPatientId = match!["patient_id"] ?? matchedPhone;
       _selectedPatientName = match["name"] ?? "Patient";
-      _selectedPatientPhone = match["phone"] ?? "6132616383";
+      _selectedPatientPhone = matchedPhone;
       _patientId = _selectedPatientPhone; // Keep ID as phone number itself
       _doctorActiveView = 'patient';
     });
@@ -1555,6 +1571,11 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       final finalStatus = (res['status']?.toString().isNotEmpty == true)
           ? res['status'].toString()
           : 'sent';
+
+      if (ok && audioUrl.isNotEmpty) {
+        // Cache outgoing voice audio permanently on device so it always plays instantly
+        VoiceScribeService.cacheAudioBase64(_resolveFullAudioUrl(audioUrl), base64Audio);
+      }
 
       if (mounted) {
         setState(() {

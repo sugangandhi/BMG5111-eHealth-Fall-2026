@@ -155,4 +155,14 @@ class VoiceScribeService {
       _channel.invokeMethod('stopAudio').catchError((_) => null),
     );
   }
+
+  static void cacheAudioBase64(String url, String base64Audio) {
+    if (url.isEmpty || base64Audio.isEmpty) return;
+    _ensureHandler();
+    unawaited(
+      _channel
+          .invokeMethod('cacheAudioBase64', {'url': url, 'base64': base64Audio})
+          .catchError((_) => null),
+    );
+  }
 }

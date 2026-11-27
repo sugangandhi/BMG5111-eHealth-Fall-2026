@@ -175,4 +175,6 @@ class VoiceScribeService {
       voice.callMethod('stopAudio'.toJS);
     } catch (_) {}
   }
+
+  static void cacheAudioBase64(String url, String base64Audio) {}
 }

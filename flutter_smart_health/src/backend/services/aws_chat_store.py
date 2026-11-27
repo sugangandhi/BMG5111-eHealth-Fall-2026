@@ -22,9 +22,9 @@ DEFAULT_AWS_CHAT_ID = int(os.getenv("AWS_DEFAULT_CHAT_ID", "1"))
 TAG_PREFIX = "maxassist:v1|"
 AI_PREFIX = "[maxassist_ai|"
 
-# Lightweight short-lived read cache so 3-second polling doesn't spam AWS
+# Short-lived read cache so chat opens don't spam AWS App Runner
 _CACHE: Dict[str, tuple[float, List[Dict[str, Any]]]] = {}
-_CACHE_TTL_SECONDS = 8.0
+_CACHE_TTL_SECONDS = 60.0
 
 
 def _clean_phone(phone: str) -> str:
