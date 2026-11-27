@@ -33,6 +33,7 @@ class VoiceScribeService {
   static void startListening({
     required SpeechResultCallback onResult,
     required SpeechStatusCallback onStatus,
+    AudioCapturedCallback? onAudioCaptured,
   }) {
     final voice = _clinicalVoiceObject();
     if (voice == null) {
@@ -52,10 +53,21 @@ class VoiceScribeService {
       final audioCb = ((JSAny? base64Audio, JSAny? filename) {
         final rawAudio = _jsToString(base64Audio);
         final rawName = _jsToString(filename);
+        final safeName = rawName.isNotEmpty ? rawName : 'recording.webm';
+        if (onAudioCaptured != null) {
+          unawaited(
+            onAudioCaptured(rawAudio, safeName).then((_) {
+              onStatus('stopped', '');
+            }).catchError((Object e) {
+              onStatus('error', 'Failed to send voice note: $e');
+            }),
+          );
+          return;
+        }
         unawaited(
           _transcribeWebAudio(
             rawAudio,
-            rawName.isNotEmpty ? rawName : 'recording.webm',
+            safeName,
             onResult,
             onStatus,
           ),

@@ -33,6 +33,28 @@ class BackendApiService {
     return {'success': false};
   }
 
+  static Future<Map<String, dynamic>> sendDoctorVoiceNote({
+    required String patientPhone,
+    required String audioBase64,
+    String filename = 'voice_note.m4a',
+    String? patientName,
+    String doctorName = 'Dr. Sugan',
+    String ownerId = '',
+  }) async {
+    final res = await _apiClient.postJson('/api/doctor/send-voice-note', {
+      'patient_phone': patientPhone,
+      'audio_base64': audioBase64,
+      'filename': filename,
+      'patient_name': patientName ?? 'Patient',
+      'doctor_name': doctorName,
+      'owner_id': ownerId,
+    });
+    if (res is Map) {
+      return Map<String, dynamic>.from(res);
+    }
+    return {'success': false};
+  }
+
   static Future<Map<String, dynamic>> initializeWhatsAppChannel({
     required String patientPhone,
     String? patientName,

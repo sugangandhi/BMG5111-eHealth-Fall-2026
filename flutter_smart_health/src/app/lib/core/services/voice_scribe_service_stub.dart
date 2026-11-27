@@ -8,6 +8,7 @@ class VoiceScribeService {
   static void startListening({
     required SpeechResultCallback onResult,
     required SpeechStatusCallback onStatus,
+    AudioCapturedCallback? onAudioCaptured,
   }) {
     onStatus(
       'unsupported',

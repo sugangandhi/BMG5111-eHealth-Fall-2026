@@ -4,3 +4,7 @@ typedef SpeechResultCallback = void Function(
 );
 typedef SpeechStatusCallback = void Function(String status, String message);
 typedef AudioRecordingDoneCallback = void Function(String base64Audio);
+typedef AudioCapturedCallback = Future<void> Function(
+  String base64Audio,
+  String filename,
+);

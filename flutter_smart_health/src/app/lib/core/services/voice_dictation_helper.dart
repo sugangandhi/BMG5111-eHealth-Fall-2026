@@ -11,6 +11,7 @@ class VoiceDictationController {
     required this.onListeningChanged,
     required this.onStatusMessage,
     this.onTranscribingChanged,
+    this.resolveAudioHandler,
   });
 
   final TextEditingController textController;
@@ -18,6 +19,7 @@ class VoiceDictationController {
   final ValueChanged<bool> onListeningChanged;
   final ValueChanged<String> onStatusMessage;
   final ValueChanged<bool>? onTranscribingChanged;
+  final AudioCapturedCallback? Function()? resolveAudioHandler;
 
   bool _listening = false;
   bool _transcribing = false;
@@ -41,7 +43,10 @@ class VoiceDictationController {
     _setTranscribing(false);
     _setListening(true);
 
+    final audioHandler = resolveAudioHandler?.call();
+
     VoiceScribeService.startListening(
+      onAudioCaptured: audioHandler,
       onResult: (finalResult, interimResult) {
         if (!isMounted() || sessionId != _sessionId) return;
         final recognized = _combineSegments(finalResult, interimResult);

@@ -170,6 +170,14 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       onTranscribingChanged: (transcribing) =>
           setState(() => _isTranscribing = transcribing),
       onStatusMessage: _showVoiceStatus,
+      resolveAudioHandler: () {
+        if (_isDoctor &&
+            _doctorActiveView != 'ai' &&
+            _selectedPatientPhone.trim().isNotEmpty) {
+          return _sendRecordedVoiceNoteToPatient;
+        }
+        return null;
+      },
     );
     _loadPatientAndHistory();
     AppLanguageController.instance.addListener(_onAppLanguageChanged);
@@ -1470,6 +1478,81 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
   void _toggleListening() {
     _voiceController.toggle();
+  }
+
+  Future<void> _sendRecordedVoiceNoteToPatient(
+    String base64Audio,
+    String filename,
+  ) async {
+    if (base64Audio.trim().isEmpty || _selectedPatientPhone.trim().isEmpty) {
+      return;
+    }
+    final tempId = "voice_local_${DateTime.now().microsecondsSinceEpoch}";
+    final optimisticMsg = _HealthChatMessage(
+      id: tempId,
+      role: 'doctor',
+      text: '🎙️ Sending voice message...',
+      status: 'sending',
+    );
+    if (mounted) {
+      setState(() {
+        _messages.add(optimisticMsg);
+      });
+      _scrollToBottom();
+    }
+
+    try {
+      final res = await BackendApiService.sendDoctorVoiceNote(
+        patientPhone: _selectedPatientPhone,
+        audioBase64: base64Audio,
+        filename: filename,
+        patientName: _selectedPatientName,
+        doctorName: _doctorName,
+        ownerId: _deviceOwnerId,
+      );
+
+      final ok = res['success'] == true;
+      final metaMsgId = (res['message_id'] ?? '').toString().trim();
+      final displayText = (res['display_text'] ?? '').toString().trim();
+      final finalStatus = (res['status']?.toString().isNotEmpty == true)
+          ? res['status'].toString()
+          : 'sent';
+
+      if (mounted) {
+        setState(() {
+          final idx = _messages.indexWhere((m) => m.id == tempId);
+          if (idx != -1) {
+            if (ok) {
+              _messages[idx] = _HealthChatMessage(
+                id: metaMsgId.isNotEmpty ? metaMsgId : tempId,
+                role: 'doctor',
+                text: displayText.isNotEmpty ? displayText : '🎙️ Voice message',
+                status: finalStatus,
+                savedToAws: _messages[idx].savedToAws,
+                timestamp: optimisticMsg.timestamp,
+              );
+            } else {
+              _messages.removeAt(idx);
+            }
+          }
+        });
+        if (ok) {
+          await _persistMessagesLocally();
+          _scrollToBottom();
+          _syncWhatsAppThreadSilently();
+        } else {
+          final err = (res['error'] ?? 'Could not send voice message').toString();
+          _showVoiceStatus(err);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.removeWhere((m) => m.id == tempId);
+        });
+        _showVoiceStatus('Voice message error: $e');
+      }
+    }
   }
 
   Future<void> _sendDoctorWhatsAppMessage(String text) async {

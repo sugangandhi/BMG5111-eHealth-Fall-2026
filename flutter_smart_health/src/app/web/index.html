@@ -103,11 +103,11 @@
 
             var options = {};
             var mimeCandidates = [
-              'audio/webm;codecs=opus',
-              'audio/webm',
-              'audio/mp4',
               'audio/ogg;codecs=opus',
-              'audio/ogg'
+              'audio/mp4',
+              'audio/ogg',
+              'audio/webm;codecs=opus',
+              'audio/webm'
             ];
             if (typeof MediaRecorder.isTypeSupported === 'function') {
               for (var i = 0; i < mimeCandidates.length; i++) {

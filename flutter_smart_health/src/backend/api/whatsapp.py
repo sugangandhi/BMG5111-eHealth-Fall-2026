@@ -148,6 +148,14 @@ class DoctorDispatchMessageRequest(BaseModel):
     message: str
     action_type: Optional[str] = "clinical_followup"
 
+class DoctorVoiceNoteRequest(BaseModel):
+    doctor_name: Optional[str] = "Dr. Sugan"
+    owner_id: Optional[str] = ""
+    patient_name: Optional[str] = "Patient"
+    patient_phone: str
+    audio_base64: str
+    filename: Optional[str] = "voice_note.m4a"
+
 class InitializeChannelRequest(BaseModel):
     patient_phone: str = "6132616383"
     patient_name: Optional[str] = "Patient"
@@ -421,7 +429,11 @@ def generate_tts_voice_ogg(text: str) -> Optional[bytes]:
         print(f"[MaxAssist TTS Error]: {exc}")
     return None
 
-def upload_meta_whatsapp_media(audio_bytes: bytes, mime_type: str = "audio/ogg") -> Optional[str]:
+def upload_meta_whatsapp_media(
+    audio_bytes: bytes,
+    mime_type: str = "audio/ogg",
+    filename: str = "voice_note.ogg",
+) -> Optional[str]:
     """Uploads audio bytes to Meta WhatsApp Cloud Media API and returns media_id."""
     token = os.getenv("WHATSAPP_TOKEN")
     phone_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
@@ -433,18 +445,201 @@ def upload_meta_whatsapp_media(audio_bytes: bytes, mime_type: str = "audio/ogg")
             url,
             headers={"Authorization": f"Bearer {token}"},
             data={"messaging_product": "whatsapp", "type": mime_type},
-            files={"file": ("voice_note.ogg", audio_bytes, mime_type)},
-            timeout=20,
+            files={"file": (filename, audio_bytes, mime_type)},
+            timeout=25,
             verify=False,
         )
         if resp.status_code in (200, 201):
             media_id = resp.json().get("id")
-            print(f"[WhatsApp Media Upload] Uploaded voice note media_id={media_id}")
+            print(f"[WhatsApp Media Upload] Uploaded voice note ({mime_type}) media_id={media_id}")
             return media_id
-        print(f"[WhatsApp Media Upload Error] {resp.status_code}: {resp.text[:200]}")
+        print(f"[WhatsApp Media Upload Error] {resp.status_code}: {resp.text[:250]}")
     except Exception as exc:
         print(f"[WhatsApp Media Upload Exception]: {exc}")
     return None
+
+def _convert_webm_to_ogg_if_possible(audio_bytes: bytes) -> Optional[bytes]:
+    """Converts browser WebM audio to Meta-supported OGG/Opus if ffmpeg is available."""
+    import shutil
+    import subprocess
+    import tempfile
+
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        return None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as f_in:
+            f_in.write(audio_bytes)
+            in_path = f_in.name
+        out_path = in_path.replace(".webm", ".ogg")
+        proc = subprocess.run(
+            [ffmpeg_bin, "-y", "-i", in_path, "-c:a", "libopus", "-b:a", "32k", out_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+        )
+        ogg_bytes = None
+        if proc.returncode == 0 and os.path.exists(out_path):
+            with open(out_path, "rb") as f_out:
+                ogg_bytes = f_out.read()
+        for p in (in_path, out_path):
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+        return ogg_bytes if ogg_bytes and len(ogg_bytes) > 200 else None
+    except Exception as exc:
+        print(f"[WebM->OGG Conversion Error]: {exc}")
+        return None
+
+def send_whatsapp_recorded_audio(
+    to_phone: str,
+    audio_bytes: bytes,
+    filename: str = "voice_note.m4a",
+) -> tuple[bool, Optional[str], str]:
+    """Uploads the user's actual recorded voice audio to Meta and sends it as a real WhatsApp voice message."""
+    token = os.getenv("WHATSAPP_TOKEN")
+    phone_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    clean_to = re.sub(r'\D', '', to_phone or '')
+    if len(clean_to) == 10:
+        clean_to = '1' + clean_to
+
+    if not token or not phone_id or not audio_bytes:
+        return False, None, "missing_credentials"
+
+    ext = os.path.splitext((filename or "voice_note.m4a").strip().lower())[1]
+    meta_mime_map = {
+        ".m4a": ("audio/mp4", "voice_note.m4a"),
+        ".mp4": ("audio/mp4", "voice_note.mp4"),
+        ".ogg": ("audio/ogg", "voice_note.ogg"),
+        ".oga": ("audio/ogg", "voice_note.ogg"),
+        ".mp3": ("audio/mpeg", "voice_note.mp3"),
+        ".aac": ("audio/aac", "voice_note.aac"),
+        ".amr": ("audio/amr", "voice_note.amr"),
+    }
+
+    upload_bytes = audio_bytes
+    if ext in meta_mime_map:
+        mime_type, upload_name = meta_mime_map[ext]
+    elif ext == ".webm":
+        converted = _convert_webm_to_ogg_if_possible(audio_bytes)
+        if converted:
+            upload_bytes = converted
+            mime_type, upload_name = ("audio/ogg", "voice_note.ogg")
+        else:
+            # Meta does not accept audio/webm directly; let caller fall back cleanly
+            return False, None, "unsupported_webm_no_ffmpeg"
+    else:
+        mime_type, upload_name = ("audio/mp4", "voice_note.m4a")
+
+    media_id = upload_meta_whatsapp_media(upload_bytes, mime_type=mime_type, filename=upload_name)
+    if not media_id:
+        return False, None, "media_upload_failed"
+
+    try:
+        url = f"https://graph.facebook.com/v20.0/{phone_id}/messages"
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": clean_to,
+            "type": "audio",
+            "audio": {"id": media_id},
+        }
+        resp = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=15,
+            verify=False,
+        )
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            wamid = None
+            msgs = data.get("messages")
+            if isinstance(msgs, list) and msgs:
+                wamid = msgs[0].get("id")
+            print(f"[WhatsApp Recorded Voice] Delivered real audio ({mime_type}) to +{clean_to}, wamid={wamid}")
+            return True, wamid, "voice_sent"
+        print(f"[WhatsApp Recorded Voice Error] {resp.status_code}: {resp.text[:250]}")
+    except Exception as exc:
+        print(f"[WhatsApp Recorded Voice Exception]: {exc}")
+    return False, None, "meta_send_failed"
+
+@router.post('/api/doctor/send-voice-note')
+async def doctor_send_recorded_voice_note(req: DoctorVoiceNoteRequest):
+    """Sends the user's actual recorded voice message to WhatsApp as audio and stores its Whisper transcript as text."""
+    from src.backend.services.clinical_database import add_chat_message, upsert_patient
+
+    clean_phone = re.sub(r'\D', '', req.patient_phone or '')
+    if len(clean_phone) == 10:
+        clean_phone = '1' + clean_phone
+    if len(clean_phone) < 10 or not (req.audio_base64 or "").strip():
+        return {"success": False, "error": "Invalid phone number or empty audio."}
+
+    try:
+        audio_bytes = base64.b64decode(req.audio_base64)
+    except Exception as exc:
+        return {"success": False, "error": f"Invalid audio payload: {exc}"}
+
+    if len(audio_bytes) < 250:
+        return {"success": False, "error": "Voice recording was too short."}
+
+    raw_name = (req.filename or "voice_note.m4a").strip().lower()
+    ext = os.path.splitext(raw_name)[1]
+    safe_ext = ext if ext in AUDIO_MIME_TYPES else ".m4a"
+    safe_filename = f"voice_note{safe_ext}"
+    doctor_name = (req.doctor_name or "Dr. Sugan").strip()
+    owner_id = (req.owner_id or "").strip()
+
+    # 1. Transcribe in the speaker's original language (auto-detected by Whisper) so we can store as text
+    transcript = transcribe_audio_whisper(audio_bytes, filename=safe_filename)
+
+    # 2. Send the ACTUAL recorded voice audio to WhatsApp
+    sent_ok, wamid, mode = send_whatsapp_recorded_audio(
+        to_phone=clean_phone,
+        audio_bytes=audio_bytes,
+        filename=safe_filename,
+    )
+
+    # Graceful fallback: if browser sent WebM without ffmpeg on server, synthesize TTS in original language or send text
+    if not sent_ok and transcript:
+        tts_ok, tts_mode = send_whatsapp_voice_note(clean_phone, transcript)
+        sent_ok = tts_ok
+        mode = tts_mode
+
+    display_text = f"🎙️ {transcript}" if transcript else "🎙️ Voice message"
+
+    try:
+        upsert_patient(
+            clean_phone,
+            name=(req.patient_name or "").strip() or f"Patient {clean_phone[-4:]}",
+            doctor_id=doctor_name,
+            owner_id=owner_id,
+        )
+    except Exception:
+        pass
+
+    saved_msg = add_chat_message(
+        patient_phone=clean_phone,
+        sender_role="doctor",
+        sender_name=doctor_name,
+        text=display_text,
+        is_voice=True,
+        status="sent",
+        message_id=wamid,
+        owner_id=owner_id,
+    )
+
+    return {
+        "success": True,
+        "delivered_as_audio": mode == "voice_sent",
+        "mode": mode,
+        "transcript": transcript,
+        "display_text": display_text,
+        "message_id": (saved_msg or {}).get("id") or wamid or "",
+        "status": "sent",
+    }
 
 def send_whatsapp_voice_note(to_phone: str, text_to_speak: str) -> tuple[bool, str]:
     """Synthesizes an AI voice note (OGG/Opus), uploads to Meta, and sends as a real WhatsApp voice message."""
@@ -568,9 +763,9 @@ def _plan_doctor_ai_agent_action(
     ]
 
     lang_instruction = (
-        "Respond in French (Français) for the 'reply' field."
+        "Default UI language is French (Français), but ALWAYS match the exact language the user spoke or typed."
         if language == "fr"
-        else ("Respond in Arabic (العربية) for the 'reply' field." if language == "ar" else "Respond in English for the 'reply' field.")
+        else ("Default UI language is Arabic (العربية), but ALWAYS match the exact language the user spoke or typed." if language == "ar" else "Default UI language is English, but ALWAYS match the exact language the user spoke or typed.")
     )
     system_prompt = (
         f"You are MaxAssist AI, the intelligent WhatsApp & clinical assistant for {doctor_name}.\n"
@@ -582,19 +777,20 @@ def _plan_doctor_ai_agent_action(
         '  "action": "send_text" | "send_voice" | "schedule_text" | "list_tasks" | "chat",\n'
         '  "target_name": "Exact contact name from saved contacts (or empty string)",\n'
         '  "target_phone": "Digits-only phone number from saved contacts or user text (or empty string)",\n'
-        '  "message_text": "Clean, natural, warm 2nd-person message addressed directly TO the recipient (NO surrounding quotes, NEVER 3rd-person like \'Ask her how is she\' — write \'Hi Sree, how are you doing?\' instead)",\n'
+        '  "message_text": "Clean, natural, warm 2nd-person message addressed directly TO the recipient IN THE EXACT SAME LANGUAGE THE USER SPOKE/TYPED (NO surrounding quotes, NEVER translate unless explicitly asked)",\n'
         '  "scheduled_for_local": "YYYY-MM-DD HH:MM in 24h Ontario local time (only for schedule_text, else empty string)",\n'
         '  "scheduled_display": "Short readable Ontario time like \'Nov 25, 10:00 AM\' (only for schedule_text, else empty string)",\n'
-        '  "reply": "Short friendly reply to the doctor (only used when action is chat)"\n'
+        '  "reply": "Short friendly reply to the doctor IN THE SAME LANGUAGE THE USER USED (only used when action is chat)"\n'
         "}\n\n"
         "CRITICAL RULES:\n"
         "1. CONVERSATION MEMORY & PRONOUNS: Always read prior messages in the conversation! Resolve 'him', 'her', 'them', or short follow-up replies (e.g., user says 'sree' after you asked who to send a voice note to, or 'to sugan and paracetamol' after you asked which medicine) by combining with the prior turn and executing the intended action immediately.\n"
-        "2. NICKNAME MATCHING: Match nicknames and partial names to saved contacts (e.g. 'sahi' or 'sree' -> 'Sree Sahithya', 'sug' -> 'Sugan').\n"
+        "2. NICKNAME MATCHING: Match nicknames and partial names to saved contacts (e.g. 'sahi' or 'sree' -> 'Sree Sahithya', 'sug' -> 'Sugan'). Also match transliterated contact names in Arabic/other scripts (e.g. 'سوجان' -> 'Sugan').\n"
         "3. NATURAL MESSAGE REWRITING: When the doctor says 'ask her how is she', 'tell him to take paracetamol', 'ask if she is feeling better', write a natural direct WhatsApp message TO that person (e.g. 'Hi Sree, how are you doing?', 'Hi Sugan, please remember to take your paracetamol today.'). Never echo 'Ask her...' or 'Tell him...' literally. If the doctor gives an exact greeting like 'hi' or 'hello', send 'Hi' or 'Hello' cleanly without extra quotes.\n"
-        "4. VOICE VS TEXT: If the user asks for a voice message / voice note / audio message / voice msg (in this turn or the immediately preceding turn being clarified), use action='send_voice'. Otherwise for immediate sending ('send', 'text', 'msg', 'ask him/her', 'tell him/her'), use action='send_text'.\n"
+        "4. VOICE VS TEXT: If the user asks for a voice message / voice note / audio message / voice msg / رسالة صوتية / message vocal (in this turn or the immediately preceding turn being clarified), use action='send_voice'. Otherwise for immediate sending ('send', 'text', 'msg', 'ask him/her', 'tell him/her'), use action='send_text'.\n"
         "5. SCHEDULING: Only use action='schedule_text' if the user explicitly wants the message delivered LATER at a future time (e.g. 'remind Sugan tomorrow at 10 AM', 'schedule a message in 5 minutes'). If they say 'send a voice message to Sugan to check his vitals tomorrow', that means send the voice message NOW about checking vitals tomorrow -> action='send_voice'.\n"
         "6. NEVER PRETEND TO SEND: Never say 'I'll send a message' with action='chat'. Always use action='send_text', 'send_voice', or 'schedule_text' when a recipient is known.\n"
-        "7. If recipient is genuinely unknown/ambiguous, use action='chat' and ask a single short question listing the saved contact names."
+        "7. If recipient is genuinely unknown/ambiguous, use action='chat' and ask a single short question listing the saved contact names.\n"
+        "8. STRICT LANGUAGE PRESERVATION: No matter what the app UI language is, ALWAYS keep 'message_text' and 'reply' in the EXACT language the user spoke or wrote (e.g., if the user speaks/writes in Arabic, French, Hindi, Spanish, etc., keep 'message_text' in that exact language — NEVER translate it to English!). Only translate if the user explicitly asks to translate (e.g., 'translate to English' or 'send in French')."
     )
 
     messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
@@ -2115,9 +2311,7 @@ def transcribe_audio_whisper(audio_bytes: bytes, filename: str = "recording.webm
         }
         data = {
             "model": "whisper-1",
-            "language": "en",
             "temperature": "0",
-            "prompt": "Clinical consultation, patient medical symptoms, blood pressure, heart rate, medications, vital signs."
         }
         r = requests.post(url, headers=headers, files=files, data=data, timeout=30, verify=False)
         if r.status_code == 200:

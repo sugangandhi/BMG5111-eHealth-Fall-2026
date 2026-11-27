@@ -18,6 +18,7 @@ class VoiceScribeService {
   static bool _handlerRegistered = false;
   static SpeechResultCallback? _onResult;
   static SpeechStatusCallback? _onStatus;
+  static AudioCapturedCallback? _onAudioCaptured;
   static VoiceTranscriptionClient _transcriber = VoiceTranscriptionClient();
 
   static bool get isSupported => Platform.isAndroid || Platform.isIOS;
@@ -56,6 +57,16 @@ class VoiceScribeService {
     String base64Audio,
     String filename,
   ) async {
+    final customHandler = _onAudioCaptured;
+    if (customHandler != null) {
+      try {
+        await customHandler(base64Audio, filename);
+        _onStatus?.call('stopped', '');
+      } catch (e) {
+        _onStatus?.call('error', 'Failed to send voice note: $e');
+      }
+      return;
+    }
     try {
       final text = await _transcriber.transcribeBase64Audio(
         base64Audio: base64Audio,
@@ -78,10 +89,12 @@ class VoiceScribeService {
   static void startListening({
     required SpeechResultCallback onResult,
     required SpeechStatusCallback onStatus,
+    AudioCapturedCallback? onAudioCaptured,
   }) {
     _ensureHandler();
     _onResult = onResult;
     _onStatus = onStatus;
+    _onAudioCaptured = onAudioCaptured;
     unawaited(_invokeStartListening(onStatus));
   }
 
