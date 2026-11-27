@@ -627,7 +627,7 @@ async def doctor_send_recorded_voice_note(req: DoctorVoiceNoteRequest):
         text=display_text,
         is_voice=True,
         status="sent",
-        message_id=wamid,
+        custom_msg_id=wamid,
         owner_id=owner_id,
     )
 
