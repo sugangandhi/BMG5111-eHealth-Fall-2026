@@ -8,3 +8,4 @@ typedef AudioCapturedCallback = Future<void> Function(
   String base64Audio,
   String filename,
 );
+typedef AudioPlaybackStateCallback = void Function(String state);

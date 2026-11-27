@@ -148,4 +148,31 @@ class VoiceScribeService {
       onDone('');
     }
   }
+
+  static void playAudioUrl(
+    String url, {
+    required AudioPlaybackStateCallback onState,
+  }) {
+    final voice = _clinicalVoiceObject();
+    if (voice == null) {
+      onState('error');
+      return;
+    }
+    try {
+      final stateCb = ((JSAny? state) {
+        onState(_jsToString(state));
+      }).toJS;
+      voice.callMethodVarArgs('playAudioUrl'.toJS, [url.toJS, stateCb]);
+    } catch (_) {
+      onState('error');
+    }
+  }
+
+  static void stopAudio() {
+    final voice = _clinicalVoiceObject();
+    if (voice == null) return;
+    try {
+      voice.callMethod('stopAudio'.toJS);
+    } catch (_) {}
+  }
 }

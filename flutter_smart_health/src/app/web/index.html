@@ -362,6 +362,41 @@
           self._releaseStream();
           if (onDoneCallback) onDoneCallback('');
         }
+      },
+
+      activeAudioEl: null,
+      playAudioUrl: function(url, onStateCallback) {
+        this.stopAudio();
+        if (!url) {
+          if (onStateCallback) onStateCallback('completed');
+          return;
+        }
+        try {
+          var audio = new Audio(url);
+          this.activeAudioEl = audio;
+          audio.onended = function() {
+            if (onStateCallback) onStateCallback('completed');
+          };
+          audio.onerror = function() {
+            if (onStateCallback) onStateCallback('error');
+          };
+          audio.play().then(function() {
+            if (onStateCallback) onStateCallback('playing');
+          }).catch(function() {
+            if (onStateCallback) onStateCallback('error');
+          });
+        } catch (e) {
+          if (onStateCallback) onStateCallback('error');
+        }
+      },
+      stopAudio: function() {
+        if (this.activeAudioEl) {
+          try {
+            this.activeAudioEl.pause();
+            this.activeAudioEl.currentTime = 0;
+          } catch (e) {}
+          this.activeAudioEl = null;
+        }
       }
     };
   </script>

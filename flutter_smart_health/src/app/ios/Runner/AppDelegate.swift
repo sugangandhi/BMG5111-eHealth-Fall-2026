@@ -15,6 +15,7 @@ import UserNotifications
   private var whatsappLauncherChannel: FlutterMethodChannel?
   private var pendingContactPickerResult: FlutterResult?
   private var audioRecorder: AVAudioRecorder?
+  private var audioPlayer: AVPlayer?
   private var voiceRecordingUrl: URL?
   private var healthAlertBridgeRegistrationAttempts = 0
   private var emittedBloodPressureEventKeys = Set<String>()
@@ -772,9 +773,59 @@ import UserNotifications
         self.startVoiceRecording(result: result)
       case "stopListening":
         self.stopVoiceRecording(result: result)
+      case "playAudioUrl":
+        let args = call.arguments as? [String: Any]
+        let urlStr = (args?["url"] as? String) ?? ""
+        self.playRemoteAudioUrl(urlStr)
+        result(true)
+      case "stopAudio":
+        self.stopRemoteAudioPlayback()
+        result(true)
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  private func playRemoteAudioUrl(_ urlStr: String) {
+    stopRemoteAudioPlayback()
+    guard let url = URL(string: urlStr), !urlStr.isEmpty else {
+      emitAudioPlaybackState("completed")
+      return
+    }
+    do {
+      let session = AVAudioSession.sharedInstance()
+      try session.setCategory(.playback, mode: .default)
+      try session.setActive(true)
+      let item = AVPlayerItem(url: url)
+      NotificationCenter.default.addObserver(
+        forName: .AVPlayerItemDidPlayToEndTime,
+        object: item,
+        queue: .main
+      ) { [weak self] _ in
+        self?.stopRemoteAudioPlayback()
+        self?.emitAudioPlaybackState("completed")
+      }
+      let player = AVPlayer(playerItem: item)
+      audioPlayer = player
+      player.play()
+      emitAudioPlaybackState("playing")
+    } catch {
+      stopRemoteAudioPlayback()
+      emitAudioPlaybackState("error")
+    }
+  }
+
+  private func stopRemoteAudioPlayback() {
+    audioPlayer?.pause()
+    audioPlayer = nil
+  }
+
+  private func emitAudioPlaybackState(_ state: String) {
+    DispatchQueue.main.async { [weak self] in
+      self?.voiceScribeChannel?.invokeMethod("onAudioPlaybackState", arguments: [
+        "state": state,
+      ])
     }
   }
 

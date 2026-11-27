@@ -3,6 +3,8 @@ package com.example.smart_health_app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
@@ -67,6 +69,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var voiceScribeChannel: MethodChannel? = null
     private var speechRecognizer: SpeechRecognizer? = null
     private var mediaRecorder: MediaRecorder? = null
+    private var mediaPlayer: MediaPlayer? = null
     private var recordedAudioFile: File? = null
     private var isVoiceRecordingFallback = false
     private var latestPartialTranscript = ""
@@ -175,6 +178,15 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 "stopListening" -> {
                     stopVoiceDictation()
+                    result.success(true)
+                }
+                "playAudioUrl" -> {
+                    val url = call.argument<String>("url") ?: ""
+                    playRemoteAudioUrl(url)
+                    result.success(true)
+                }
+                "stopAudio" -> {
+                    stopRemoteAudioPlayback()
                     result.success(true)
                 }
                 else -> result.notImplemented()
@@ -1281,6 +1293,58 @@ class MainActivity : FlutterFragmentActivity() {
             } catch (_: Exception) {
                 emitVoiceStatus("stopped", "")
             }
+        }
+    }
+
+    private fun playRemoteAudioUrl(url: String) {
+        stopRemoteAudioPlayback()
+        if (url.isBlank()) {
+            emitAudioPlaybackState("completed")
+            return
+        }
+        try {
+            val mp = MediaPlayer()
+            mp.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+            )
+            mp.setDataSource(url)
+            mp.setOnPreparedListener { player ->
+                player.start()
+                emitAudioPlaybackState("playing")
+            }
+            mp.setOnCompletionListener {
+                stopRemoteAudioPlayback()
+                emitAudioPlaybackState("completed")
+            }
+            mp.setOnErrorListener { _, _, _ ->
+                stopRemoteAudioPlayback()
+                emitAudioPlaybackState("error")
+                true
+            }
+            mediaPlayer = mp
+            mp.prepareAsync()
+        } catch (_: Exception) {
+            stopRemoteAudioPlayback()
+            emitAudioPlaybackState("error")
+        }
+    }
+
+    private fun stopRemoteAudioPlayback() {
+        try {
+            mediaPlayer?.stop()
+        } catch (_: Exception) {}
+        try {
+            mediaPlayer?.release()
+        } catch (_: Exception) {}
+        mediaPlayer = null
+    }
+
+    private fun emitAudioPlaybackState(state: String) {
+        mainHandler.post {
+            voiceScribeChannel?.invokeMethod("onAudioPlaybackState", mapOf("state" to state))
         }
     }
 

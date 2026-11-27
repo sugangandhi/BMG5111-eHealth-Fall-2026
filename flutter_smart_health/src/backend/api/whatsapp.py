@@ -566,9 +566,51 @@ def send_whatsapp_recorded_audio(
         print(f"[WhatsApp Recorded Voice Exception]: {exc}")
     return False, None, "meta_send_failed"
 
+_VOICE_NOTES_DIR = Path(__file__).resolve().parents[1] / "data" / "voice_notes"
+
+
+def _save_voice_note_file(audio_bytes: bytes, ext: str = ".m4a") -> str:
+    """Persists raw voice note audio bytes on disk and returns its relative /api/voice-notes/ URL."""
+    import uuid
+    _VOICE_NOTES_DIR.mkdir(parents=True, exist_ok=True)
+    clean_ext = ext if ext.startswith(".") else f".{ext}"
+    if clean_ext not in AUDIO_MIME_TYPES:
+        clean_ext = ".m4a"
+    fname = f"vn_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}{clean_ext}"
+    fpath = _VOICE_NOTES_DIR / fname
+    with open(fpath, "wb") as f:
+        f.write(audio_bytes)
+    return f"/api/voice-notes/{fname}"
+
+
+def _resolve_voice_note_path(audio_url: str) -> Optional[Path]:
+    """Safely resolves a /api/voice-notes/<filename> URL to its on-disk Path."""
+    raw = (audio_url or "").strip()
+    if not raw:
+        return None
+    fname = os.path.basename(raw.split("?")[0])
+    if not fname or "/" in fname or "\\" in fname or ".." in fname:
+        return None
+    candidate = _VOICE_NOTES_DIR / fname
+    return candidate if candidate.exists() and candidate.is_file() else None
+
+
+@router.get('/api/voice-notes/{filename}')
+async def serve_voice_note(filename: str):
+    """Streams a stored voice note audio file for in-app playback."""
+    from fastapi.responses import FileResponse
+    safe_name = os.path.basename(filename or "")
+    fpath = _resolve_voice_note_path(safe_name)
+    if not fpath:
+        raise HTTPException(status_code=404, detail="Voice note not found")
+    ext = fpath.suffix.lower()
+    mime = AUDIO_MIME_TYPES.get(ext, "audio/mp4")
+    return FileResponse(str(fpath), media_type=mime, filename=safe_name)
+
+
 @router.post('/api/doctor/send-voice-note')
 async def doctor_send_recorded_voice_note(req: DoctorVoiceNoteRequest):
-    """Sends the user's actual recorded voice message to WhatsApp as audio and stores its Whisper transcript as text."""
+    """Sends the user's actual recorded voice message to WhatsApp and keeps the playable audio in normal chat."""
     from src.backend.services.clinical_database import add_chat_message, upsert_patient
 
     clean_phone = re.sub(r'\D', '', req.patient_phone or '')
@@ -592,23 +634,31 @@ async def doctor_send_recorded_voice_note(req: DoctorVoiceNoteRequest):
     doctor_name = (req.doctor_name or "Dr. Sugan").strip()
     owner_id = (req.owner_id or "").strip()
 
-    # 1. Transcribe in the speaker's original language (auto-detected by Whisper) so we can store as text
-    transcript = transcribe_audio_whisper(audio_bytes, filename=safe_filename)
+    # 1. Save the actual recorded audio file so normal chat plays the real voice (no wrong translation)
+    audio_url = _save_voice_note_file(audio_bytes, safe_ext)
 
-    # 2. Send the ACTUAL recorded voice audio to WhatsApp
+    # 2. Activate doctor takeover silence so automated clinic AI doesn't interrupt 1-on-1 voice chat
+    try:
+        activate_doctor_silence(clean_phone)
+    except Exception:
+        pass
+
+    # 3. Send the ACTUAL recorded voice audio to WhatsApp
     sent_ok, wamid, mode = send_whatsapp_recorded_audio(
         to_phone=clean_phone,
         audio_bytes=audio_bytes,
         filename=safe_filename,
     )
 
-    # Graceful fallback: if browser sent WebM without ffmpeg on server, synthesize TTS in original language or send text
-    if not sent_ok and transcript:
-        tts_ok, tts_mode = send_whatsapp_voice_note(clean_phone, transcript)
-        sent_ok = tts_ok
-        mode = tts_mode
+    # Graceful fallback only if browser sent WebM without ffmpeg on server
+    if not sent_ok:
+        transcript = transcribe_audio_whisper(audio_bytes, filename=safe_filename)
+        if transcript:
+            tts_ok, tts_mode = send_whatsapp_voice_note(clean_phone, transcript)
+            sent_ok = tts_ok
+            mode = tts_mode
 
-    display_text = f"🎙️ {transcript}" if transcript else "🎙️ Voice message"
+    display_text = "🎙️ Voice message"
 
     try:
         upsert_patient(
@@ -626,18 +676,21 @@ async def doctor_send_recorded_voice_note(req: DoctorVoiceNoteRequest):
         sender_name=doctor_name,
         text=display_text,
         is_voice=True,
+        audio_url=audio_url,
         status="sent",
         custom_msg_id=wamid,
         owner_id=owner_id,
     )
 
+    stable_msg_id = str((saved_msg or {}).get("message_id") or wamid or "")
+
     return {
         "success": True,
         "delivered_as_audio": mode == "voice_sent",
         "mode": mode,
-        "transcript": transcript,
+        "audio_url": audio_url,
         "display_text": display_text,
-        "message_id": (saved_msg or {}).get("id") or wamid or "",
+        "message_id": stable_msg_id,
         "status": "sent",
     }
 
@@ -906,13 +959,15 @@ class SaveMessageToAwsRequest(BaseModel):
     role: Optional[str] = "doctor"
     text: str
     is_voice: Optional[bool] = False
+    audio_url: Optional[str] = ""
     msg_id: Optional[str] = ""
     sent_at_iso: Optional[str] = ""
     is_ai_chat: Optional[bool] = False
 
 @router.post('/api/doctor/save-message-to-aws')
 async def save_selected_message_to_aws(req: SaveMessageToAwsRequest):
-    """Explicitly persists a single user-selected message to the AWS eHospital database."""
+    """Explicitly persists a single user-selected message to the AWS eHospital database.
+    If the message is a voice note with stored audio, transcribes it to text before saving to AWS."""
     try:
         from src.backend.services.aws_chat_store import (
             save_ai_chat_turn_to_aws,
@@ -920,6 +975,19 @@ async def save_selected_message_to_aws(req: SaveMessageToAwsRequest):
         )
         owner = (req.owner_id or "").strip()
         text = (req.text or "").strip()
+
+        # If saving a voice note to AWS, transcribe the stored audio file to text on-demand
+        if req.audio_url and (not text or text in ("🎙️ Voice message", "Voice message")):
+            fpath = _resolve_voice_note_path(req.audio_url)
+            if fpath:
+                try:
+                    raw_bytes = fpath.read_bytes()
+                    spoken = transcribe_audio_whisper(raw_bytes, filename=fpath.name)
+                    if spoken:
+                        text = f"🎙️ {spoken}"
+                except Exception as ex_tr:
+                    print(f"[Save Voice Note Transcribe Error]: {ex_tr}")
+
         if not text:
             return {"success": False, "error": "Empty message."}
         if req.is_ai_chat:
@@ -929,19 +997,19 @@ async def save_selected_message_to_aws(req: SaveMessageToAwsRequest):
                 ai_reply=text if req.role != "doctor" else "",
                 timestamp_iso=(req.sent_at_iso or None),
             )
-            return {"success": ok}
+            return {"success": ok, "saved_text": text}
         ok = save_message_to_aws(
             sender_role=req.role or "doctor",
             patient_phone=req.patient_phone or "",
             text=text,
             owner_id=owner,
             patient_name=req.patient_name or "",
-            is_voice=bool(req.is_voice),
+            is_voice=bool(req.is_voice or req.audio_url),
             status="saved",
             msg_id=req.msg_id or "",
             sent_at_iso=(req.sent_at_iso or None),
         )
-        return {"success": ok}
+        return {"success": ok, "saved_text": text}
     except Exception as exc:
         print(f"[Save Message to AWS Error]: {exc}")
         return {"success": False, "error": str(exc)}
@@ -2763,25 +2831,28 @@ async def receive_message(request: Request):
 
                             sender_phone = msg.get('from')
                             m_type = msg.get('type')
+                            inbound_audio_url = ""
                             if m_type == 'text':
                                 text_body = msg.get('text', {}).get('body', '')
                             elif m_type in ['audio', 'voice']:
                                 audio_obj = msg.get(m_type, {}) or {}
                                 media_id = audio_obj.get('id')
                                 print(f"[WhatsApp Inbound] Audio/Voice Note received with Media ID: {media_id}")
+                                text_body = "🎙️ Voice message"
                                 if media_id:
                                     audio_bytes, mime = download_meta_whatsapp_media(media_id)
                                     if audio_bytes:
-                                        spoken = transcribe_audio_whisper(audio_bytes, filename="voice.ogg")
-                                        if spoken:
-                                            text_body = f"🎙️ [Voice Note]: \"{spoken}\""
-                                            print(f"[WhatsApp Whisper Transcribed]: {spoken}")
-                                        else:
-                                            text_body = "🎙️ [Voice Note received - transcription unavailable]"
-                                    else:
-                                        text_body = "🎙️ [Voice Note received]"
-                                else:
-                                    text_body = "🎙️ [Voice Note received]"
+                                        ext_map = {
+                                            "audio/ogg": ".ogg",
+                                            "audio/mp4": ".m4a",
+                                            "audio/mpeg": ".mp3",
+                                            "audio/aac": ".aac",
+                                            "audio/amr": ".amr",
+                                        }
+                                        base_mime = (mime or "audio/ogg").split(";")[0].strip().lower()
+                                        saved_ext = ext_map.get(base_mime, ".ogg")
+                                        inbound_audio_url = _save_voice_note_file(audio_bytes, saved_ext)
+                                        print(f"[WhatsApp Inbound] Saved playable voice note at {inbound_audio_url}")
                             elif m_type == 'interactive':
                                 interactive = msg.get('interactive', {})
                                 text_body = interactive.get('button_reply', {}).get('title') or interactive.get('list_reply', {}).get('title') or ''
@@ -2825,12 +2896,13 @@ async def receive_message(request: Request):
         emergency_keywords = ["chest pain", "cannot breathe", "can't breathe", "911", "severe bleeding", "unconscious", "stroke", "heart attack"]
         is_emergency = any(kw in text_body.lower() for kw in emergency_keywords)
 
-        if silence_active and not is_emergency:
-            print(f"[WhatsApp Coexistence] Doctor Takeover Active for {clean_p} ({remaining_secs}s remaining). Telemetry saved to EHR; AI bot silenced so Doctor can reply directly.")
+        if (silence_active or bool(locals().get("inbound_audio_url"))) and not is_emergency:
+            print(f"[WhatsApp Coexistence] Direct 1-on-1 message/voice note for {clean_p}. Stored without automated AI bot reply.")
             # Record patient message into clinical DB and thread without triggering automated AI reply
             try:
                 from src.backend.services.clinical_database import add_chat_message, upsert_patient
-                is_voice = "🎙️ [Voice Note]" in (text_body or "")
+                _in_audio = locals().get("inbound_audio_url", "") or ""
+                is_voice = bool(_in_audio) or ("🎙️" in (text_body or ""))
                 upsert_patient(clean_p, name=sender_name, doctor_id="Dr. Sugan")
                 add_chat_message(
                     patient_phone=clean_p,
@@ -2839,6 +2911,7 @@ async def receive_message(request: Request):
                     text=text_body,
                     vitals=vitals,
                     is_voice=is_voice,
+                    audio_url=_in_audio,
                     status="delivered",
                     custom_msg_id=msg_id,
                 )

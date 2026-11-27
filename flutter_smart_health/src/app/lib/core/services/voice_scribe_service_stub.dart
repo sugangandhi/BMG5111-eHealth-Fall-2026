@@ -28,4 +28,13 @@ class VoiceScribeService {
   static void stopRecordingAudio({required AudioRecordingDoneCallback onDone}) {
     onDone('');
   }
+
+  static void playAudioUrl(
+    String url, {
+    required AudioPlaybackStateCallback onState,
+  }) {
+    onState('completed');
+  }
+
+  static void stopAudio() {}
 }

@@ -19,6 +19,7 @@ class VoiceScribeService {
   static SpeechResultCallback? _onResult;
   static SpeechStatusCallback? _onStatus;
   static AudioCapturedCallback? _onAudioCaptured;
+  static AudioPlaybackStateCallback? _onPlaybackState;
   static VoiceTranscriptionClient _transcriber = VoiceTranscriptionClient();
 
   static bool get isSupported => Platform.isAndroid || Platform.isIOS;
@@ -48,6 +49,10 @@ class VoiceScribeService {
           final base64Audio = map['base64']?.toString() ?? '';
           final filename = map['filename']?.toString() ?? 'voice_note.m4a';
           await _handleCapturedAudio(base64Audio, filename);
+          break;
+        case 'onAudioPlaybackState':
+          final state = map['state']?.toString() ?? 'completed';
+          _onPlaybackState?.call(state);
           break;
       }
     });
@@ -129,5 +134,25 @@ class VoiceScribeService {
 
   static void stopRecordingAudio({required AudioRecordingDoneCallback onDone}) {
     onDone('');
+  }
+
+  static void playAudioUrl(
+    String url, {
+    required AudioPlaybackStateCallback onState,
+  }) {
+    _ensureHandler();
+    _onPlaybackState = onState;
+    unawaited(
+      _channel
+          .invokeMethod('playAudioUrl', {'url': url})
+          .catchError((_) => onState('error')),
+    );
+  }
+
+  static void stopAudio() {
+    _ensureHandler();
+    unawaited(
+      _channel.invokeMethod('stopAudio').catchError((_) => null),
+    );
   }
 }

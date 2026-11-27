@@ -9,6 +9,7 @@ import '../../../config/api_config.dart';
 import '../../../core/services/app_language_controller.dart';
 import '../../../core/services/maxassist_notification_service.dart';
 import '../../../core/services/voice_dictation_helper.dart';
+import '../../../core/services/voice_scribe_service.dart';
 import '../../../data/models/assistant_models.dart';
 import '../../../services/app_update_service.dart';
 import '../../../services/backend_api_service.dart';
@@ -29,6 +30,7 @@ class _HealthChatMessage {
   final String role; // 'user' | 'assistant' | 'doctor'
   final String text;
   final bool isVoice;
+  final String audioUrl;
   final String status; // 'sending' | 'sent' | 'delivered' | 'read'
   final bool savedToAws;
   final DateTime timestamp;
@@ -38,6 +40,7 @@ class _HealthChatMessage {
     required this.role,
     required this.text,
     this.isVoice = false,
+    this.audioUrl = '',
     this.status = 'sent',
     this.savedToAws = false,
     DateTime? timestamp,
@@ -48,6 +51,7 @@ class _HealthChatMessage {
         'role': role,
         'text': text,
         'isVoice': isVoice,
+        'audioUrl': audioUrl,
         'status': status,
         'savedToAws': savedToAws,
         'timestamp': timestamp.toUtc().toIso8601String(),
@@ -68,6 +72,7 @@ class _HealthChatMessage {
         role: json['role'] as String? ?? 'user',
         text: json['text'] as String? ?? '',
         isVoice: json['isVoice'] == true,
+        audioUrl: (json['audioUrl'] ?? json['audio_url'] ?? '').toString().trim(),
         status: json['status']?.toString() ?? 'sent',
         savedToAws: json['savedToAws'] == true,
         timestamp: _parseToLocal(json['timestamp']),
@@ -82,6 +87,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   bool _isLoading = false;
   bool _isListening = false;
   bool _isTranscribing = false;
+  String? _playingAudioKey;
   late final VoiceDictationController _voiceController;
   String _patientId = "1";
   bool _isWhatsAppVerified = false;
@@ -503,6 +509,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
               role: raw.role,
               text: _sanitizeName(raw.text),
               isVoice: raw.isVoice,
+              audioUrl: raw.audioUrl,
               status: raw.status,
               savedToAws: raw.savedToAws,
               timestamp: raw.timestamp,
@@ -558,11 +565,13 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             if (text.startsWith("🎙️ [Voice Note]")) {
               formattedText = "🎙️ ${text.replaceFirst(RegExp(r'^🎙️\s*\[Voice Note\]:?\s*'), '').trim()}";
             }
+            final itemAudioUrl = (item['audio_url'] ?? '').toString().trim();
             loaded.add(_HealthChatMessage(
               id: rawMsgId.isNotEmpty ? rawMsgId : null,
               role: mappedRole,
               text: formattedText,
-              isVoice: isVoice,
+              isVoice: isVoice || itemAudioUrl.isNotEmpty,
+              audioUrl: itemAudioUrl,
               status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'sent',
               savedToAws: item['status']?.toString() == 'saved',
               timestamp: _HealthChatMessage._parseToLocal(item['created_at']),
@@ -588,12 +597,15 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 final cur = merged[existingIdx];
                 final curR = statusRank[cur.status.toLowerCase()] ?? 1;
                 final newR = statusRank[sm.status.toLowerCase()] ?? 1;
-                if (newR > curR || (sm.savedToAws && !cur.savedToAws)) {
+                if (newR > curR ||
+                    (sm.savedToAws && !cur.savedToAws) ||
+                    (sm.audioUrl.isNotEmpty && cur.audioUrl.isEmpty)) {
                   merged[existingIdx] = _HealthChatMessage(
                     id: (sm.id != null && sm.id!.isNotEmpty) ? sm.id : cur.id,
                     role: cur.role,
                     text: cur.text,
-                    isVoice: cur.isVoice,
+                    isVoice: cur.isVoice || sm.isVoice,
+                    audioUrl: cur.audioUrl.isNotEmpty ? cur.audioUrl : sm.audioUrl,
                     status: newR > curR ? sm.status : cur.status,
                     savedToAws: cur.savedToAws || sm.savedToAws,
                     timestamp: cur.timestamp,
@@ -681,17 +693,19 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
               if (existingIdx != -1) {
                 final incomingStatus = (item['status']?.toString() ?? '').toLowerCase();
+                final incomingAudioUrl = (item['audio_url'] ?? '').toString().trim();
                 const rank = {'sending': 0, 'sent': 1, 'delivered': 2, 'read': 3};
                 final curMsg = _messages[existingIdx];
                 final curRank = rank[curMsg.status.toLowerCase()] ?? 1;
                 final newRank = rank[incomingStatus] ?? -1;
-                if (newRank > curRank) {
+                if (newRank > curRank || (incomingAudioUrl.isNotEmpty && curMsg.audioUrl.isEmpty)) {
                   _messages[existingIdx] = _HealthChatMessage(
                     id: rawMsgId.isNotEmpty ? rawMsgId : curMsg.id,
                     role: curMsg.role,
                     text: curMsg.text,
-                    isVoice: curMsg.isVoice,
-                    status: incomingStatus,
+                    isVoice: curMsg.isVoice || incomingAudioUrl.isNotEmpty,
+                    audioUrl: curMsg.audioUrl.isNotEmpty ? curMsg.audioUrl : incomingAudioUrl,
+                    status: newRank > curRank ? incomingStatus : curMsg.status,
                     savedToAws: curMsg.savedToAws,
                     timestamp: curMsg.timestamp,
                   );
@@ -699,6 +713,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 }
               } else {
                 hasNew = true;
+                final incomingAudioUrl = (item['audio_url'] ?? '').toString().trim();
                 String formattedText = text;
                 if (text.startsWith("🎙️ [Voice Note]")) {
                   formattedText = "🎙️ ${text.replaceFirst(RegExp(r'^🎙️\s*\[Voice Note\]:?\s*'), '').trim()}";
@@ -708,7 +723,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                   id: rawMsgId.isNotEmpty ? rawMsgId : null,
                   role: mappedRole,
                   text: formattedText,
-                  isVoice: text.startsWith("🎙️ [Voice Note]") || item['isVoice'] == true,
+                  isVoice: text.startsWith("🎙️ [Voice Note]") || item['isVoice'] == true || incomingAudioUrl.isNotEmpty,
+                  audioUrl: incomingAudioUrl,
                   status: (item['status']?.toString().isNotEmpty == true) ? item['status'].toString() : 'sent',
                   savedToAws: (item['status']?.toString() == 'saved'),
                   timestamp: _HealthChatMessage._parseToLocal(item['created_at']),
@@ -1111,6 +1127,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     AppLanguageController.instance.removeListener(_onAppLanguageChanged);
     _liveSyncTimer?.cancel();
     _voiceController.dispose();
+    VoiceScribeService.stopAudio();
     _controller.dispose();
     _searchController.dispose();
     _contactsSearchController.dispose();
@@ -1514,6 +1531,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
       final ok = res['success'] == true;
       final metaMsgId = (res['message_id'] ?? '').toString().trim();
       final displayText = (res['display_text'] ?? '').toString().trim();
+      final audioUrl = (res['audio_url'] ?? '').toString().trim();
       final finalStatus = (res['status']?.toString().isNotEmpty == true)
           ? res['status'].toString()
           : 'sent';
@@ -1527,6 +1545,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 id: metaMsgId.isNotEmpty ? metaMsgId : tempId,
                 role: 'doctor',
                 text: displayText.isNotEmpty ? displayText : '🎙️ Voice message',
+                isVoice: true,
+                audioUrl: audioUrl,
                 status: finalStatus,
                 savedToAws: _messages[idx].savedToAws,
                 timestamp: optimisticMsg.timestamp,
@@ -3057,6 +3077,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         role: msg.role,
         text: msg.text,
         isVoice: msg.isVoice,
+        audioUrl: msg.audioUrl,
         status: msg.status,
         savedToAws: targetSaved,
         timestamp: msg.timestamp,
@@ -3076,7 +3097,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             patientName: isAiChat ? 'MaxAssist AI' : _selectedPatientName,
             role: msg.role,
             text: cleanText,
-            isVoice: msg.isVoice,
+            isVoice: msg.isVoice || msg.audioUrl.isNotEmpty,
+            audioUrl: msg.audioUrl,
             msgId: msg.id ?? '',
             sentAtIso: msg.timestamp.toUtc().toIso8601String(),
             isAiChat: isAiChat,
@@ -3099,6 +3121,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
             role: msg.role,
             text: msg.text,
             isVoice: msg.isVoice,
+            audioUrl: msg.audioUrl,
             status: msg.status,
             savedToAws: !targetSaved,
             timestamp: msg.timestamp,
@@ -3128,6 +3151,103 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     );
   }
 
+  String _resolveFullAudioUrl(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final base = ApiConfig.backendBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final path = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '$base$path';
+  }
+
+  void _togglePlayVoiceNote(String audioKey, String rawAudioUrl) {
+    if (_playingAudioKey == audioKey) {
+      VoiceScribeService.stopAudio();
+      setState(() => _playingAudioKey = null);
+      return;
+    }
+    final fullUrl = _resolveFullAudioUrl(rawAudioUrl);
+    if (fullUrl.isEmpty) return;
+    setState(() => _playingAudioKey = audioKey);
+    VoiceScribeService.playAudioUrl(
+      fullUrl,
+      onState: (state) {
+        if (!mounted) return;
+        if (state == 'completed' || state == 'error') {
+          if (_playingAudioKey == audioKey) {
+            setState(() => _playingAudioKey = null);
+          }
+        }
+      },
+    );
+  }
+
+  Widget _buildVoiceNoteBubbleContent(_HealthChatMessage msg, bool isOutgoing) {
+    final audioKey = msg.id?.isNotEmpty == true ? msg.id! : msg.audioUrl;
+    final isPlaying = _playingAudioKey == audioKey;
+    final accentColor = isOutgoing ? const Color(0xFF075E54) : const Color(0xFF00A884);
+    const barHeights = <double>[8, 15, 11, 20, 14, 22, 10, 18, 13, 19, 12, 16, 9, 15, 11];
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () => _togglePlayVoiceNote(audioKey, msg.audioUrl),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: accentColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                for (var i = 0; i < barHeights.length; i++)
+                  Container(
+                    width: 2.6,
+                    height: barHeights[i],
+                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                    decoration: BoxDecoration(
+                      color: isPlaying
+                          ? accentColor
+                          : accentColor.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              isPlaying ? 'Playing voice note...' : 'Voice message',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF54656F),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 6),
+      ],
+    );
+  }
+
   Widget _buildMessageList() {
     return ListView.builder(
       controller: _scrollController,
@@ -3138,6 +3258,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         final isUser = msg.role == 'user';
         final isDoctor = msg.role == 'doctor';
         final isOutgoing = _isDoctor ? (isDoctor || msg.role == 'assistant') : isUser;
+        final hasPlayableAudio = msg.audioUrl.trim().isNotEmpty;
         final displayText = _displayTranslated(_cleanDisplayBubbleText(msg.text));
 
         return Align(
@@ -3169,12 +3290,14 @@ class _HealthChatModuleState extends State<HealthChatModule> {
                 Align(
                   alignment: Alignment.centerLeft,
                   widthFactor: 1.0,
-                  child: MarkdownBody(
-                    data: displayText,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                      p: const TextStyle(fontSize: 15, height: 1.35, color: Color(0xFF111B21)),
-                    ),
-                  ),
+                  child: hasPlayableAudio
+                      ? _buildVoiceNoteBubbleContent(msg, isOutgoing)
+                      : MarkdownBody(
+                          data: displayText,
+                          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                            p: const TextStyle(fontSize: 15, height: 1.35, color: Color(0xFF111B21)),
+                          ),
+                        ),
                 ),
                 const SizedBox(height: 2),
                 Row(
