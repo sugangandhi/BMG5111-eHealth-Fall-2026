@@ -88,6 +88,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   bool _isListening = false;
   bool _isTranscribing = false;
   String? _playingAudioKey;
+  int _chatSwitchToken = 0;
   late final VoiceDictationController _voiceController;
   String _patientId = "1";
   bool _isWhatsAppVerified = false;
@@ -537,11 +538,19 @@ class _HealthChatModuleState extends State<HealthChatModule> {
 
     // Also pull from persistent Central Database if doctor
     if (_isDoctor && _selectedPatientPhone.isNotEmpty) {
+      final int switchToken = _chatSwitchToken;
+      final String requestedPhone = _selectedPatientPhone.replaceAll(RegExp(r'\D'), '');
       try {
         final serverMsgs = await BackendApiService.getDoctorChatHistory(
           _selectedPatientPhone,
           ownerId: _deviceOwnerId,
         );
+        // Guard against race condition if user switched contacts while request was in flight
+        if (!mounted ||
+            switchToken != _chatSwitchToken ||
+            _selectedPatientPhone.replaceAll(RegExp(r'\D'), '') != requestedPhone) {
+          return;
+        }
         if (serverMsgs.isNotEmpty && mounted) {
           final List<_HealthChatMessage> loaded = [];
           final Set<String> seenServerIds = {};
@@ -650,6 +659,7 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     if (_isLiveSyncing) return;
     _isLiveSyncing = true;
     try {
+      final int switchToken = _chatSwitchToken;
       final cleanPhone = _selectedPatientPhone.replaceAll(RegExp(r'\D'), '');
       if (cleanPhone.isEmpty) return;
 
@@ -657,6 +667,12 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         "${ApiConfig.backendBaseUrl}/api/whatsapp/threads/$cleanPhone?owner_id=${Uri.encodeComponent(_deviceOwnerId)}",
       );
       final resp = await http.get(url).timeout(const Duration(seconds: 4));
+      // Guard against race condition: if user switched chats while polling, discard stale response!
+      if (!mounted ||
+          switchToken != _chatSwitchToken ||
+          _selectedPatientPhone.replaceAll(RegExp(r'\D'), '') != cleanPhone) {
+        return;
+      }
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
         if (data is Map && data['messages'] is List) {
@@ -1094,8 +1110,10 @@ class _HealthChatModuleState extends State<HealthChatModule> {
   }
 
   Future<void> _onDoctorPatientChanged(String newPatientId) async {
-    // 1. Persist current messages for previous patient
+    // 1. Persist current messages for previous patient and invalidate in-flight syncs
     await _persistMessagesLocally();
+    _chatSwitchToken++;
+    VoiceScribeService.stopAudio();
 
     final match = _doctorPatients.firstWhere(
       (p) => p["patient_id"] == newPatientId || p["phone"] == newPatientId,
@@ -1103,6 +1121,8 @@ class _HealthChatModuleState extends State<HealthChatModule> {
     );
 
     setState(() {
+      _playingAudioKey = null;
+      _messages.clear();
       _selectedPatientId = match["patient_id"] ?? newPatientId;
       _selectedPatientName = match["name"] ?? "Patient";
       _selectedPatientPhone = match["phone"] ?? "6132616383";
@@ -3178,6 +3198,9 @@ class _HealthChatModuleState extends State<HealthChatModule> {
         if (state == 'completed' || state == 'error') {
           if (_playingAudioKey == audioKey) {
             setState(() => _playingAudioKey = null);
+          }
+          if (state == 'error') {
+            _showVoiceStatus('Could not play voice note.');
           }
         }
       },

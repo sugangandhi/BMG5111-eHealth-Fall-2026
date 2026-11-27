@@ -35,8 +35,8 @@ def _clean_phone(phone: str) -> str:
 
 
 def _phone_key10(phone: str) -> str:
-    digits = re.sub(r"\D", "", phone or "").strip()
-    return digits[-10:] if len(digits) >= 10 else digits
+    """Returns full normalized international phone digits so numbers with different country codes never collide."""
+    return _clean_phone(phone)
 
 
 def _now_utc_iso() -> str:

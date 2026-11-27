@@ -287,35 +287,49 @@ def is_message_processed(msg_id: str) -> bool:
         cursor = conn.execute("SELECT 1 FROM patient_chat_messages WHERE message_id = ? LIMIT 1;", (str(msg_id),))
         return cursor.fetchone() is not None
 
+def _exact_phone_variants(phone: str) -> List[str]:
+    """Returns strict E.164/North-American variants for one exact phone number (never matching across country codes)."""
+    clean_p = clean_phone_number(phone)
+    if not clean_p:
+        return []
+    variants = [clean_p]
+    if len(clean_p) == 10:
+        variants.append("1" + clean_p)
+    elif len(clean_p) == 11 and clean_p.startswith("1"):
+        variants.append(clean_p[1:])
+    return list(dict.fromkeys(variants))
+
+
 def get_patient_messages(phone: str, owner_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Retrieves chat messages for a patient phone number, deduplicated and isolated by owner_id when provided."""
+    """Retrieves chat messages for one exact patient phone number, deduplicated and isolated by owner_id."""
     init_db()
     clean_p = clean_phone_number(phone)
     if not clean_p:
         return []
 
-    phone_10 = clean_p[-10:] if len(clean_p) >= 10 else clean_p
+    variants = _exact_phone_variants(clean_p)
+    placeholders = ",".join("?" for _ in variants)
     clean_owner = (owner_id or "").strip()
     with get_db() as conn:
         if clean_owner:
             # Always include this user's own messages PLUS live inbound WhatsApp replies (owner_id = '')
-            # and unclaimed doctor rows so Render restarts never block live 2-way sync or read receipts.
-            cursor = conn.execute("""
+            # strictly for this exact phone number.
+            cursor = conn.execute(f"""
                 SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
                        timestamp, status, vitals_json, is_voice, audio_url, created_at
                 FROM patient_chat_messages
-                WHERE (patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?)
+                WHERE patient_phone IN ({placeholders})
                   AND (owner_id = ? OR owner_id = '' OR owner_id IS NULL)
                 ORDER BY id ASC;
-            """, (clean_p, phone_10, f"%{phone_10}", clean_owner))
+            """, (*variants, clean_owner))
         else:
-            cursor = conn.execute("""
+            cursor = conn.execute(f"""
                 SELECT id, message_id, patient_phone, sender_role, sender_name, channel, text,
                        timestamp, status, vitals_json, is_voice, audio_url, created_at
                 FROM patient_chat_messages
-                WHERE patient_phone = ? OR patient_phone = ? OR patient_phone LIKE ?
+                WHERE patient_phone IN ({placeholders})
                 ORDER BY id ASC;
-            """, (clean_p, phone_10, f"%{phone_10}"))
+            """, tuple(variants))
         rows = cursor.fetchall()
         messages = []
         seen_msg_ids = set()

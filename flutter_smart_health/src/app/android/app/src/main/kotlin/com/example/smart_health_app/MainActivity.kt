@@ -1302,33 +1302,66 @@ class MainActivity : FlutterFragmentActivity() {
             emitAudioPlaybackState("completed")
             return
         }
-        try {
-            val mp = MediaPlayer()
-            mp.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .build()
-            )
-            mp.setDataSource(url)
-            mp.setOnPreparedListener { player ->
-                player.start()
-                emitAudioPlaybackState("playing")
-            }
-            mp.setOnCompletionListener {
-                stopRemoteAudioPlayback()
-                emitAudioPlaybackState("completed")
-            }
-            mp.setOnErrorListener { _, _, _ ->
-                stopRemoteAudioPlayback()
+        ioScope.launch {
+            try {
+                val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                    instanceFollowRedirects = true
+                    connectTimeout = 15000
+                    readTimeout = 20000
+                    requestMethod = "GET"
+                }
+                if (conn.responseCode !in 200..299) {
+                    conn.disconnect()
+                    emitAudioPlaybackState("error")
+                    return@launch
+                }
+                val ext = url.substringBefore("?").substringAfterLast(".", "m4a")
+                    .lowercase()
+                    .takeIf { it in setOf("m4a", "mp4", "ogg", "mp3", "aac", "amr", "webm") }
+                    ?: "m4a"
+                val tmpFile = File(cacheDir, "maxassist_play_${System.currentTimeMillis()}.$ext")
+                conn.inputStream.use { input ->
+                    tmpFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                conn.disconnect()
+
+                mainHandler.post {
+                    try {
+                        stopRemoteAudioPlayback()
+                        val mp = MediaPlayer()
+                        mp.setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .build()
+                        )
+                        mp.setDataSource(tmpFile.absolutePath)
+                        mp.setOnCompletionListener {
+                            stopRemoteAudioPlayback()
+                            try { tmpFile.delete() } catch (_: Exception) {}
+                            emitAudioPlaybackState("completed")
+                        }
+                        mp.setOnErrorListener { _, _, _ ->
+                            stopRemoteAudioPlayback()
+                            try { tmpFile.delete() } catch (_: Exception) {}
+                            emitAudioPlaybackState("error")
+                            true
+                        }
+                        mp.prepare()
+                        mediaPlayer = mp
+                        mp.start()
+                        emitAudioPlaybackState("playing")
+                    } catch (_: Exception) {
+                        stopRemoteAudioPlayback()
+                        try { tmpFile.delete() } catch (_: Exception) {}
+                        emitAudioPlaybackState("error")
+                    }
+                }
+            } catch (_: Exception) {
                 emitAudioPlaybackState("error")
-                true
             }
-            mediaPlayer = mp
-            mp.prepareAsync()
-        } catch (_: Exception) {
-            stopRemoteAudioPlayback()
-            emitAudioPlaybackState("error")
         }
     }
 
