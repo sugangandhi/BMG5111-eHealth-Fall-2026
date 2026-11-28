@@ -68,6 +68,69 @@ jobs:
           echo "$APPSTORE_PRIVATE_KEY" > ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
           chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8 ~/private_keys/AuthKey_${APPSTORE_KEY_ID}.p8
 
+      - name: Auto-clean excess CI signing certificates in App Store Connect
+        env:
+          APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID || secrets.KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID || secrets.ISSUER_ID }}
+          IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 }}
+        run: |
+          if [ -n "$IOS_DIST_CERT_BASE64" ]; then
+            echo "Using reusable .p12 certificate; skipping certificate cleanup."
+            exit 0
+          fi
+          python3 -m pip install --quiet pyjwt cryptography requests
+          python3 - << 'PY'
+          import os, time, jwt, requests
+
+          key_id = os.environ["APPSTORE_KEY_ID"].strip()
+          issuer_id = os.environ["APPSTORE_ISSUER_ID"].strip()
+          key_path = os.path.expanduser(f"~/.appstoreconnect/private_keys/AuthKey_{key_id}.p8")
+          with open(key_path, "r", encoding="utf-8") as f:
+              private_key = f.read()
+
+          now = int(time.time())
+          token = jwt.encode(
+              {"iss": issuer_id, "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"},
+              private_key,
+              algorithm="ES256",
+              headers={"kid": key_id, "typ": "JWT"},
+          )
+          headers = {"Authorization": f"Bearer {token}"}
+          resp = requests.get(
+              "https://api.appstoreconnect.apple.com/v1/certificates?limit=100",
+              headers=headers,
+              timeout=20,
+          )
+          if resp.status_code != 200:
+              print(f"Could not list certificates ({resp.status_code}): {resp.text[:200]}")
+              raise SystemExit(0)
+
+          certs = resp.json().get("data", [])
+          print(f"Found {len(certs)} active certificates on Apple Developer account.")
+          # Revoke excess DEVELOPMENT / IOS_DEVELOPMENT / DISTRIBUTION / IOS_DISTRIBUTION certs
+          # created by ephemeral CI runners so xcodebuild always has a free slot.
+          for ctype, max_keep in [
+              ("DEVELOPMENT", 0),
+              ("IOS_DEVELOPMENT", 0),
+              ("DISTRIBUTION", 1),
+              ("IOS_DISTRIBUTION", 1),
+          ]:
+              matching = [c for c in certs if c.get("attributes", {}).get("certificateType") == ctype]
+              if len(matching) > max_keep:
+                  # Sort oldest first so we revoke oldest excess certs
+                  matching.sort(key=lambda c: c.get("attributes", {}).get("expirationDate", ""))
+                  to_delete = matching[: len(matching) - max_keep]
+                  for c in to_delete:
+                      cid = c["id"]
+                      cname = c.get("attributes", {}).get("displayName", cid)
+                      dr = requests.delete(
+                          f"https://api.appstoreconnect.apple.com/v1/certificates/{cid}",
+                          headers=headers,
+                          timeout=20,
+                      )
+                      print(f"Revoked {ctype} cert {cid} ({cname}) -> HTTP {dr.status_code}")
+          PY
+
       - name: Build Flutter iOS artifacts
         working-directory: flutter_smart_health/src/app
         run: |
