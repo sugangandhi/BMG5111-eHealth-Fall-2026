@@ -2961,8 +2961,9 @@ async def receive_message(request: Request):
         emergency_keywords = ["chest pain", "cannot breathe", "can't breathe", "911", "severe bleeding", "unconscious", "stroke", "heart attack"]
         is_emergency = any(kw in text_body.lower() for kw in emergency_keywords)
 
-        if (silence_active or bool(locals().get("inbound_audio_url"))) and not is_emergency:
-            print(f"[WhatsApp Coexistence] Direct 1-on-1 message/voice note for {clean_p}. Stored without automated AI bot reply.")
+        auto_reply_enabled = os.getenv("ENABLE_WHATSAPP_AUTO_REPLY", "false").strip().lower() in ("1", "true", "yes")
+        if (not auto_reply_enabled) or ((silence_active or bool(locals().get("inbound_audio_url"))) and not is_emergency):
+            print(f"[WhatsApp Inbound] Direct 1-on-1 message/voice note for {clean_p}. Stored cleanly without automated AI bot reply.")
             # Record patient message into clinical DB and thread without triggering automated AI reply
             try:
                 from src.backend.services.clinical_database import add_chat_message, upsert_patient
