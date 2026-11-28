@@ -1,13 +1,8 @@
 name: Build & Deploy iOS to TestFlight
 
 on:
-  push:
-    branches:
-      - main
-      - flutter-whatsapp-ai-integration
-    paths:
-      - 'flutter_smart_health/src/app/**'
-      - '.github/workflows/ios-testflight.yml'
+  # Trigger manually from GitHub Actions ("Run workflow") so rapid git pushes
+  # do not exhaust Apple's active signing certificate limit.
   workflow_dispatch:
 
 permissions:
@@ -35,6 +30,28 @@ jobs:
           cd ios
           pod install --repo-update
           cd ..
+
+      - name: Import reusable .p12 Distribution Certificate (if configured)
+        env:
+          IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 }}
+          IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+        run: |
+          if [ -n "$IOS_DIST_CERT_BASE64" ] && [ -n "$IOS_DIST_CERT_PASSWORD" ]; then
+            echo "Importing reusable iOS Distribution certificate into temporary Keychain..."
+            KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+            KEYCHAIN_PASS="temp-ci-keychain-pass"
+            CERT_PATH="$RUNNER_TEMP/dist_cert.p12"
+            echo -n "$IOS_DIST_CERT_BASE64" | base64 --decode -o "$CERT_PATH"
+            security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+            security import "$CERT_PATH" -P "$IOS_DIST_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+            security list-keychain -d user -s "$KEYCHAIN_PATH"
+            echo "Reusable .p12 certificate imported successfully."
+          else
+            echo "No IOS_DIST_CERT_BASE64 secret configured; using App Store Connect Cloud Signing."
+          fi
 
       - name: Setup App Store Connect API Key
         env:
