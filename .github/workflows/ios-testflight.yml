@@ -78,8 +78,9 @@ jobs:
             echo "Using reusable .p12 certificate; skipping certificate cleanup."
             exit 0
           fi
-          python3 -m pip install --quiet pyjwt cryptography requests
-          python3 - << 'PY'
+          python3 -m venv /tmp/asc_venv
+          /tmp/asc_venv/bin/pip install --quiet pyjwt cryptography requests
+          /tmp/asc_venv/bin/python - << 'PY'
           import os, time, jwt, requests
 
           key_id = os.environ["APPSTORE_KEY_ID"].strip()
@@ -112,8 +113,8 @@ jobs:
           for ctype, max_keep in [
               ("DEVELOPMENT", 0),
               ("IOS_DEVELOPMENT", 0),
-              ("DISTRIBUTION", 1),
-              ("IOS_DISTRIBUTION", 1),
+              ("DISTRIBUTION", 0),
+              ("IOS_DISTRIBUTION", 0),
           ]:
               matching = [c for c in certs if c.get("attributes", {}).get("certificateType") == ctype]
               if len(matching) > max_keep:
